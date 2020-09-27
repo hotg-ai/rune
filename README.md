@@ -44,7 +44,3 @@ that are tagged and available.
 *Run the containers locally simulated*
 
 `rune exec ${CONTAINER-ID}`
-
-
-
-

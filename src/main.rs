@@ -2,16 +2,25 @@
 
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-
-struct Cli {
-    command: String,
+#[derive(Debug,StructOpt)]
+enum Rune {
+    Build {
+        #[structopt(parse(from_os_str))]
+        file: std::path::PathBuf
+    },
+    Exec {
+        #[structopt()]
+        container: String,
+    },
+    Containers {
+        #[structopt()]
+        subcommand: String
+    },
 }
 
 fn main() {
 
 
-    let args = Cli::from_args();
+    let args = Rune::from_args();
     println!("{:?}", args);
-    
 }
