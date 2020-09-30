@@ -53,3 +53,17 @@ that are tagged and available.
 - Build the project with `cargo build`
 - This should create Rune executable in `./target/debug/rune`
 - Run the project with `cargo run`
+
+
+## Cargo Build 
+
+Add the below to your `.ssh/config` 
+```
+Host github.com
+   UseKeychain yes
+   AddKeysToAgent yes
+   IdentityFile ~/.ssh/id_rsa
+```
+
+and run:
+`ssh-add -K ~/.ssh/id_rsa` 
