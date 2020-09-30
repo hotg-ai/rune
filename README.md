@@ -55,7 +55,10 @@ that are tagged and available.
 - Run the project with `cargo run`
 
 
-## Cargo Build 
+## Private Git Repos
+
+To get deps from our private git repos we need to
+use `ssh agent`. 
 
 Add the below to your `.ssh/config` 
 ```
