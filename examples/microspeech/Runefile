@@ -1,0 +1,12 @@
+
+FROM runicos/base # get code from some where
+
+CAPABILITY AUDIO audio --hz 16000 --samples 150 --sample-size-ms 1500  # set up libraries and interfaces 
+
+PROC_BLOCK runicos/proc-block/fft fft
+
+MODEL ./example.tflite model --input [150,1] --output 1
+
+RUN audio fft model 
+
+OUT serial

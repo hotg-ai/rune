@@ -14,14 +14,15 @@ A simplistic example of this is would be:
 ```
 FROM runicos/base
 
-CAPABILITY AUDIO audio
+CAPABILITY AUDIO audio --hz 16000 --samples 150 --sample-size 1500 
 
 PROC_BLOCK runicos/fft fft
 
-MODEL ./example.tflite model
+MODEL ./example.tflite model --input [150,1] --output 1
 
-RUN audio fft model
+RUN audio fft model 
 
+OUT serial
 ```
 
 In this example a audio with fft (fast fourier transformation) block can be run with the model. 
@@ -44,3 +45,28 @@ that are tagged and available.
 *Run the containers locally simulated*
 
 `rune exec ${CONTAINER-ID}`
+
+
+## Building and Running this project
+
+- Install Rust from [https://www.rust-lang.org/learn/get-started](https://www.rust-lang.org/learn/get-started)
+- Build the project with `cargo build`
+- This should create Rune executable in `./target/debug/rune`
+- Run the project with `cargo run`
+
+
+## Private Git Repos
+
+To get deps from our private git repos we need to
+use `ssh agent`. 
+
+Add the below to your `.ssh/config` 
+```
+Host github.com
+   UseKeychain yes
+   AddKeysToAgent yes
+   IdentityFile ~/.ssh/id_rsa
+```
+
+and run:
+`ssh-add -K ~/.ssh/id_rsa` 
