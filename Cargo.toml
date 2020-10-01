@@ -9,3 +9,5 @@ edition = "2018"
 
 [dependencies]
 structopt = { version = "0.3", default-features = false }
+pest = "2.0"
+pest_derive = "2.0"
