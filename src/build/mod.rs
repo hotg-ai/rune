@@ -10,7 +10,7 @@ pub fn build(opts: crate::cli::BuildOpts) {
     println!("{:?}", opts);
 
  
-    
+    // TODO don't use unwrap for prod
     let fileloc = opts.file.to_str().unwrap();
     
     let contents = fs::read_to_string(fileloc)
