@@ -29,19 +29,19 @@ pub enum Rune {
 
 #[derive(StructOpt, Debug)]
 pub  struct BuildOpts {
-    #[structopt(parse(from_os_str))]
-    file: std::path::PathBuf
+    #[structopt(parse(from_os_str), default_value="Runefile")]
+    pub file: std::path::PathBuf
 }
 
 #[derive(StructOpt, Debug)]
 pub  struct RunOpts {
     #[structopt(parse(from_os_str))]
-    file: std::path::PathBuf
+    pub file: std::path::PathBuf
 }
 
 #[derive(StructOpt, Debug)]
 pub struct ContainerOpts {
     #[structopt(parse(from_os_str))]
-    file: std::path::PathBuf
+    pub  file: std::path::PathBuf
 }
 

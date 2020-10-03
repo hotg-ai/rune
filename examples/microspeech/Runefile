@@ -1,5 +1,6 @@
 
-FROM runicos/base # get code from some where
+FROM runicos/base 
+# get code from some where
 
 CAPABILITY AUDIO audio --hz 16000 --samples 150 --sample-size-ms 1500  # set up libraries and interfaces 
 

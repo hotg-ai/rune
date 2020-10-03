@@ -1,43 +1,40 @@
 
 
-use structopt::StructOpt;
 
+use structopt::StructOpt;
 mod rune;
 
-// This is needed for the parse trait from pest
 // We should move this to the lib `runefile_parser`
-use pest::Parser;
-use runefile_parser::parser::*;
 
-// Describe the commands for the CLI tool
-//  Build,
-//  Exec, 
-//  Containers 
-#[derive(Debug,StructOpt)]
-enum Rune {
-    Build {
-        #[structopt(parse(from_os_str))]
-        file: std::path::PathBuf
-    },
-    Run {
-        #[structopt()]
-        container: String,
-    },
-    Containers {
-        #[structopt()]
-        subcommand: String
-    },
-}
+
+
+mod cli;
+mod build;
 
 fn main() {
 
-
-    let args = Rune::from_args();
-    println!("{:?}", args);
-    rune::hello();
+    // Process the cli command
+    let opt = cli::Opts::from_args();
+    handle_subcommand(opt);
     
-    let successful_parse = RunefileParser::parse(Rule::runefile, "FROM x")
-        .expect("unsuccessful parse")
-            .next().unwrap();
-    println!("{:?}", successful_parse);
+}
+
+
+fn handle_subcommand(opt: cli::Opts){
+  
+    if let Some(subcommand) = opt.commands{
+        match subcommand {
+            cli::Rune::Build(cfg) => {
+
+                build::build(cfg);
+            },
+            cli::Rune::Containers(cfg) => {
+                println!("Containers {:?}", cfg);
+            },
+            cli::Rune::Run(cfg) => {
+                println!("Run {:?}", cfg);
+            },
+
+        }
+    }
 }
