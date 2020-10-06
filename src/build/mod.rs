@@ -18,5 +18,10 @@ pub fn build(opts: crate::cli::BuildOpts) {
         .expect("unsuccessful parse")
         .next()
         .unwrap();
-    println!("{:?}", successful_parse);
+   
+    execute();
+}
+
+fn execute() {
+    println!("HI");
 }
