@@ -8,6 +8,6 @@ PROC_BLOCK runicos/proc-block/fft fft
 
 MODEL ./example.tflite model --input [150,1] --output 1
 
-RUN audio fft model 
+RUN audio fft model
 
 OUT serial

@@ -13,7 +13,7 @@ pub fn build(opts: crate::cli::BuildOpts) {
     
     let contents = fs::read_to_string(fileloc)
         .expect("Failed to load file");
-    runefile_parser::parser::parse(contents);
+    runefile_parser::parser::generate(contents);
     execute();
 }
 
