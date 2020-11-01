@@ -1,0 +1,12 @@
+
+FROM runicos/base 
+
+CAPABILITY RAND -n 1 rand
+
+PROC_BLOCK hotg-ai/pb-mod --modulo 360 mod360
+
+MODEL ./sinemodel.tflite  --input [1,1] --output [1,1] sine
+
+RUN rand mod360 sine
+
+OUT serial

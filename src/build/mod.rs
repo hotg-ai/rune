@@ -1,18 +1,22 @@
-use pest::Parser;
-use runefile_parser::parser::*;
-use std::fmt;
+
+use log;
 use std::fs;
-use std::path::Path;
 
-use crate::cli;
 
-pub fn build(opts: crate::cli::BuildOpts) {
 
-    // TODO don't use unwrap for prod
-    let fileloc = opts.file.to_str().unwrap();
+pub fn build(fileloc: &str) {
+
     
-    let contents = fs::read_to_string(fileloc)
-        .expect("Failed to load file");
+    let contents = fs::read_to_string(fileloc);
+
+    let contents = match contents {
+        Ok(c) => c,
+        Err(_err) => {
+            log::error!("Failed to load file '{}'", fileloc);
+            return 
+        }
+    };
+
     runefile_parser::parser::generate(contents);
     execute();
 }
