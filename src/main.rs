@@ -7,14 +7,16 @@ mod run;
 use log;
 use env_logger;
 
+use env_logger::Env;
+
 
 use clap::{App, Arg, SubCommand};
 
 const VERSION: &str = "v0.0.1";
 
 fn main() {
-    env_logger::init();
-    
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    log::info!("Rune {}", VERSION);
     // Process the cli command
     let matches = App::new("rune")
     .version(VERSION)
@@ -38,6 +40,12 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("build") {
         match matches.value_of("runefile")  {
             Some(x) => build::build(x),
+            _ => log::info!("No runefile provided")
+
+        }
+    } else if let Some(matches) = matches.subcommand_matches("run") {
+        match matches.value_of("rune")  {
+            Some(x) => run::run(x),
             _ => log::info!("No runefile provided")
 
         }
