@@ -18,9 +18,6 @@ pub fn build(fileloc: &str) {
     };
 
     runefile_parser::parser::generate(contents);
-    execute();
+
 }
 
-fn execute() {
-    println!("HI");
-}
