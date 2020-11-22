@@ -14,13 +14,14 @@ pub fn build(fileloc: &str) {
 
     let homedir = runefile_parser::parser::generate(contents);
 
-    let config = match cargo::Config::default() {
+    let mut config = match cargo::Config::default() {
         Ok(c) => c,
         Err(err) => {
             log::error!("Couldn't make workspace config {:?}", err);
             return;
         }
     };
+    config.shell().set_verbosity( cargo::core::shell::Verbosity::Quiet);
     
 
     let mut manifest_path = homedir.clone(); 
@@ -80,7 +81,7 @@ pub fn build(fileloc: &str) {
         }
     }
 
-    log::info!("RUNE MADE AT {:?}", rune_file);
+    log::info!("Create Rune:{:?}", rune_file);
 
     // 
     

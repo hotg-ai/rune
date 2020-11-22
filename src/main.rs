@@ -7,15 +7,16 @@ mod run;
 use log;
 use env_logger;
 
-use env_logger::Env;
-
 
 use clap::{App, Arg, SubCommand};
 
-const VERSION: &str = "v0.0.1";
+const VERSION: &str = "v0.0.2";
 
 fn main() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    let mut builder = env_logger::Builder::new();
+    builder.filter_module("rune", log::LevelFilter::Info);
+    builder.filter_module("rune::*", log::LevelFilter::Info);
+    builder.init();
     log::info!("Rune {}", VERSION);
     // Process the cli command
     let matches = App::new("rune")
