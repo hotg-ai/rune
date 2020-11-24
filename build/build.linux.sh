@@ -1,0 +1,1 @@
+docker run -it -v $HOME/.ssh:/root/.ssh -v `pwd`:/app rust:1.43 /app/build/build.sh

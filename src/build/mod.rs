@@ -14,7 +14,7 @@ pub fn build(fileloc: &str) {
 
     let homedir = runefile_parser::parser::generate(contents);
 
-    let mut config = match cargo::Config::default() {
+    let config = match cargo::Config::default() {
         Ok(c) => c,
         Err(err) => {
             log::error!("Couldn't make workspace config {:?}", err);

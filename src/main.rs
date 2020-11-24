@@ -16,6 +16,7 @@ fn main() {
     let mut builder = env_logger::Builder::new();
     builder.filter_module("rune", log::LevelFilter::Info);
     builder.filter_module("rune::*", log::LevelFilter::Info);
+    builder.filter_module("runic_os::rune", log::LevelFilter::Info);
     builder.init();
     log::info!("Rune {}", VERSION);
     // Process the cli command
