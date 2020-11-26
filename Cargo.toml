@@ -8,13 +8,14 @@ keywords = ["tinyml", "container", "pest"]
 
 
 [dependencies]
-runefile-parser = { git = "ssh://git@github.com/hotg-ai/runefile-parser" }
-#runefile-parser = { path = "../runefile-parser" }
-runic-os = { git = "ssh://git@github.com/hotg-ai/runic-os" }
+#runefile-parser = { git = "ssh://git@github.com/hotg-ai/runefile-parser" }
+runefile-parser = { path = "../runefile-parser" }
+#runic-os = { git = "ssh://git@github.com/hotg-ai/runic-os" }
+runic-os = { path = "../runic-os" }
 runic-types = { git = "ssh://git@github.com/hotg-ai/runic-types" }
 pest = "2.1"
 pest_derive = "2.1"
-cargo = "0.48.0"
+cargo = "0.47.0"
 clap = "2.33.3"
 env_logger = "0.8.1"
 log = "0.4.11"

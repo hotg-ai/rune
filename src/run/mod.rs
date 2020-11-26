@@ -1,12 +1,9 @@
-
-
 use log;
 use runic_os::rune;
 use runic_types::capability::*;
 use runic_types::provider::*;
 
-pub fn run(container: &str) {
-
+pub fn run(container: &str, number_of_runs: i32) {
     log::info!("Running rune: {}", container);
 
     //TODO get container with uuid or tag
@@ -28,7 +25,9 @@ pub fn run(container: &str) {
 
     let r = rune::Rune::init(container, cli_provider);
 
-    for _ in 0..10 {
+    //Start benchmark
+    log::info!("Executing Rune executions:{} ", number_of_runs);
+    for _ in 0..number_of_runs {
         r.call();
     }
 }
