@@ -8,7 +8,7 @@ pub fn run(container: &str, number_of_runs: i32) {
 
     //TODO get container with uuid or tag
 
-    let rand_capability = Capability::init(CAPABILITY::RAND, |_: &CapabilityRequest| -> Vec<u8> {
+    let rand_capability = Capability::init(CAPABILITY::Rand, |_: &CapabilityRequest| -> Vec<u8> {
         use rand::prelude::*;
         let x: f32 = random();
 
