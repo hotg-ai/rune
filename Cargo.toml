@@ -5,3 +5,7 @@ members = [
     "runefile-parser",
     "runic-types"
 ]
+
+exclude = [
+    "examples/sine/rune-rs"
+]
