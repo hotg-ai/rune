@@ -11,3 +11,4 @@ Cargo.lock
 examples/.DS_Store
 .DS_Store
 
+.vscode/
