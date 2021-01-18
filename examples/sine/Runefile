@@ -1,7 +1,7 @@
 
 FROM runicos/base 
 
-CAPABILITY<_,_> RAND rand --n 1 
+CAPABILITY<_,I32> RAND rand --n 1 
 
 PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100 
 

@@ -68,6 +68,7 @@ pub fn generate(contents: String) -> PathBuf {
     //Cargo
 
     //set up config
+    /// Here we are setting up the config for the cargo project
     let config = match cargo::util::Config::default() {
         Ok(con) => con,
         Err(err) => {
@@ -101,7 +102,7 @@ pub fn generate(contents: String) -> PathBuf {
             std::process::exit(1);
         }
     };
-
+    /// cargo init
     match cargo::ops::init(&opts, &config) {
         Ok(_) => log::debug!("Cargo project created"),
         Err(err) => {
