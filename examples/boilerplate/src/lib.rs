@@ -53,7 +53,7 @@ static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] =
 
 static mut PRINT_BUF: [u8;512] = [0 as u8; 512];
 
-mod sine_model;
+mod model;
 
 extern "C" {
 
@@ -174,5 +174,9 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
             // //let provider_response = runic_types::runic_types::ProviderResponse::decode(buf).unwrap();
             // }
             return response_size as i32;
+        }
+
+        return 0 as i32;
+
     }
 }
