@@ -122,6 +122,19 @@ pub fn generate(contents: String) -> PathBuf {
     ]
     .concat();
 
+    cargo_toml = [
+        format!("\n[profile.dev]\npanic = \"abort\"\n"),
+        String::from(cargo_toml),
+    ]
+    .concat();
+
+    cargo_toml = [
+        format!("\n[profile.release]\nopt-level = \"s\"\ncodegen-units = 1\nlto = true\n"),
+        String::from(cargo_toml),
+    ]
+    .concat();
+    
+
     for key in dependencies.keys() {
         cargo_toml = [
             format!("{} = {}\n", key, dependencies[key]),
@@ -129,6 +142,7 @@ pub fn generate(contents: String) -> PathBuf {
         ]
         .concat();
     }
+
     write_to_file(
         format!(
             "{}/Cargo.toml",
