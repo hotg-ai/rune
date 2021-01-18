@@ -1,21 +1,9 @@
 
 use std::collections::HashMap;
 
+use runic_types::*;
 use crate::capability::*;
-use bincode;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum OUTPUT {
-    SERIAL,
-    BLE
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ProviderResponse {
-    pub inputs: Vec<CapabilityResponse>,
-    pub err: Option<String>
-}
 
 impl ProviderResponse {
     pub fn to_bytes(&self) -> Vec<u8> {

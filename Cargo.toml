@@ -2,5 +2,6 @@
 
 members = [
     "rune",
-    "runefile-parser"
+    "runefile-parser",
+    "runic-types"
 ]

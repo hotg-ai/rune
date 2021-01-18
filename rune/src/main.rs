@@ -1,4 +1,4 @@
-#![crate_name = "doc"]
+
 mod build;
 mod run;
 
