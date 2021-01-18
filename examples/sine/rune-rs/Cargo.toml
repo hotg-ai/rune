@@ -8,8 +8,7 @@ edition = "2018"
 
 [dependencies]
 no-std-compat = "0.4.1"
-runic-pb-mod = { path = "../runic-pb-mod" }
-runic-types = { path = "../../" }
+runic-pb-mod = { git = "ssh://git@github.com/hotg-ai/runic-pb-mod" }
 wee_alloc = "0.4.5"
 
 [lib]
