@@ -54,6 +54,7 @@ fn main() {
         ])
         .get_matches();
 
+    // If the subcommand matches `build`
     if let Some(matches) = matches.subcommand_matches("build") {
         match matches.value_of("runefile") {
             Some(x) => build::build(x),

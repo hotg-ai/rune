@@ -1,11 +1,11 @@
 
 FROM runicos/base 
 
-CAPABILITY RAND rand --n 1 
+CAPABILITY<_,_> RAND rand --n 1 
 
-PROC_BLOCK hotg-ai/pb-mod mod360 --modulo 100 
+PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100 
 
-MODEL ./sinemodel.tflite sine --input [1,1] --output [1,1] 
+MODEL<_,_> ./sinemodel.tflite sine --input [1,1] --output [1,1] 
 
 RUN rand mod360 sine
 
