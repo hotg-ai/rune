@@ -1,0 +1,9 @@
+[package]
+name = "runic-types"
+version = "0.1.0"
+authors = ["Kartik Thakore <kartik@thakore.ai>"]
+description = "Runic Types Protobuf"
+edition = "2018"
+
+
+
