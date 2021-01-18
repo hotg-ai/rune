@@ -7,5 +7,6 @@ members = [
 ]
 
 exclude = [
-    "examples/sine/rune-rs"
+    "examples/sine/rune-rs",
+    "examples/boilerplate"
 ]
