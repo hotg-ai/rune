@@ -127,6 +127,7 @@ pub fn generate(contents: String) -> PathBuf {
         String::from(cargo_toml),
     ]
     .concat();
+    
 
     cargo_toml = [
         format!("\n[profile.release]\nopt-level = \"s\"\ncodegen-units = 1\nlto = true\n"),
