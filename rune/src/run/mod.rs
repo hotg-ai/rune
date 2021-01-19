@@ -3,6 +3,8 @@ pub mod vm;
 use vm::*;
 
 
+
+
 pub fn run(container: &str, number_of_runs: i32) {
     log::info!("Running rune: {}", container);
 
