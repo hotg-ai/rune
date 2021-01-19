@@ -95,18 +95,19 @@ pub fn tfm_model_invoke(
     return 0;
 }
 
-pub fn _debug(ctx: &mut Ctx, ptr: u32) -> u32 {
+pub fn _debug(ctx: &mut Ctx, ptr:  WasmPtr<u8, Array>, len: u32) -> u32 {
     let memory = ctx.memory(0);
+ // let memory = ctx.memory(0);
 
-    // // Get a subslice that corresponds to the memory used by the string.
-    // let str_vec: Vec<_> = memory.view()[ptr as usize..(ptr + len) as usize]
-    //     .iter()
-    //     .map(|cell| cell.get())
-    //     .collect();
+    let str_bytes = match ptr.deref(memory, 0, len) {
+        Some(m) => m,
+        _ => panic!("Couldn't get model  bytes"),
+    };
+    let str_vec: Vec<std::cell::Cell<u8>> = str_bytes.iter().cloned().collect();
 
-    // // Convert the subslice to a `&str`.
-    // let string = str::from_utf8(&str_vec).unwrap();
-    log::info!("RUNE::DEBUG");
+    let str_vec: Vec<u8> = str_vec.iter().map(|x| x.get()).collect();
+    let string = std::str::from_utf8(&str_vec).unwrap();
+    log::info!("RUNE::DEBUG {}", string);
     return 0;
 }
 

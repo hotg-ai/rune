@@ -69,7 +69,7 @@ extern "C" {
         outputs: u32
     ) -> u32;
 
-    fn _debug(str_ptr: *const u8) -> u32;
+    fn _debug(str_ptr: *const u8, str_len: u32) -> u32;
 
     fn request_capability(ct: u32) -> u32;
 
@@ -86,7 +86,7 @@ extern "C" {
 }
 
 fn debug(s: &[u8]) -> u32 {
-    unsafe { return _debug(s.as_ptr()) }
+    unsafe { return _debug(s.as_ptr(), s.len() as u32) }
 }
 
 //Should be created during runefile-parser
