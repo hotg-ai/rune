@@ -5,7 +5,7 @@ extern crate alloc;
 pub mod marshall;
 pub mod proc_block;
 
-
+#[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY
 {
     RAND = 1,
@@ -15,6 +15,20 @@ pub enum CAPABILITY
     RAW = 5
 }
 
+impl CAPABILITY {
+    pub fn from_u32(value: u32) -> CAPABILITY {
+        match value {
+            1 => CAPABILITY::RAND,
+            2 => CAPABILITY::SOUND,
+            3 => CAPABILITY::ACCEL,
+            4 => CAPABILITY::IMAGE,
+            5 => CAPABILITY::RAW,
+            _ => CAPABILITY::RAW
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum PARAM_TYPE {
     INT = 1,
     FLOAT = 2,
@@ -22,6 +36,20 @@ pub enum PARAM_TYPE {
     BINARY = 4,
 }
 
+impl PARAM_TYPE {
+    pub fn from_u32(value: u32) -> PARAM_TYPE {
+        match value {
+            1 => PARAM_TYPE::INT,
+            2 => PARAM_TYPE::FLOAT,
+            3 => PARAM_TYPE::UTF8,
+            4 => PARAM_TYPE::BINARY,
+            _ => PARAM_TYPE::BINARY
+        }
+    }
+}
+
+
+#[derive(Copy, Clone, Debug)]
 pub enum OUTPUT {
     SERIAL = 1,
     BLE = 2,

@@ -2,6 +2,7 @@
 use log;
 use wasmer_runtime::{func, imports, Array, Ctx, WasmPtr};
 
+use crate::run::vm::VM;
 
 fn get_mem_str(ctx: &Ctx, ptr: WasmPtr<u8, Array>, data_len: u32) -> std::string::String {
     let str_vec = get_mem_array(ctx, ptr, data_len);
@@ -13,16 +14,17 @@ fn get_mem_array(ctx: &Ctx, ptr: WasmPtr<u8, Array>, data_len: u32) -> Vec<u8> {
     let memory = ctx.memory(0);
     // let memory = ctx.memory(0);
    
-       let str_bytes = match ptr.deref(memory, 0, data_len) {
-           Some(m) => m,
-           _ => panic!("Couldn't get model  bytes"),
-       };
+    let str_bytes = match ptr.deref(memory, 0, data_len) {
+        Some(m) => m,
+        _ => panic!("Couldn't get model  bytes"),
+    };
     let str_vec: Vec<std::cell::Cell<u8>> = str_bytes.iter().cloned().collect();
 
     let str_vec: Vec<u8> = str_vec.iter().map(|x| x.get()).collect();
 
     return str_vec;
 }
+
 
 pub fn tfm_preload_model(
     ctx: &mut Ctx,
@@ -164,8 +166,9 @@ pub fn request_provider_response(
     return 0;
 }
 
-pub fn get_imports() -> wasmer_runtime::ImportObject {
 
+pub fn get_imports(vm: &VM) -> wasmer_runtime::ImportObject {
+    
     let ims = imports! {
         "env" => {
             "tfm_model_invoke" => func!(tfm_model_invoke),
