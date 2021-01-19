@@ -1,7 +1,9 @@
 use log;
 use runic_types::*;
+mod imports;
+use imports::get_imports;
 
-use wasmer_runtime::{func, imports, Array, Ctx, Instance, WasmPtr};
+use wasmer_runtime::{instantiate, Func};
 
 use tflite::ops::builtin::BuiltinOpResolver;
 use tflite::{FlatBufferModel, InterpreterBuilder};
@@ -25,6 +27,12 @@ impl VM {
                 std::process::exit(1);
             }
         };
+        let imports = imports::get_imports();
+        let instance = instantiate(&rune_bytes[..], &imports).expect("failed to instantiate Rune");
+
+        let manifest: Func<(), u32> = instance.exports.get("_manifest").unwrap();
+
+        let manifest_size: u32 = manifest.call().expect("failed to call manifest");
 
         return VM{};
     }
