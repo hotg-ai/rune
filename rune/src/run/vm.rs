@@ -114,14 +114,9 @@ pub fn tfm_preload_model(
     inputs: u32,
     outputs: u32
 ) -> u32 {
-    log::info!("Calling tfm_preload_model");
-
-
+    let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
     let model_bytes = get_mem_array(ctx, model_idx, model_len);
-
-    log::info!("BYTES = {:?}", model_bytes);
- 
-    return 0;
+    return provider.add_model(model_bytes, inputs, outputs);
 }
 
 pub fn tfm_model_invoke(
@@ -208,7 +203,7 @@ pub fn tfm_model_invoke(
 
 pub fn _debug(ctx: &mut Ctx, ptr:  WasmPtr<u8, Array>, len: u32) -> u32 {
 
-    log::info!("RUNE::DEBUG {}", get_mem_str(ctx, ptr, len));
+    log::info!("[Rune::Debug]{}", get_mem_str(ctx, ptr, len));
     return 0;
 }
 
