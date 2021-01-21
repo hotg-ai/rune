@@ -69,13 +69,13 @@ impl VM {
     pub fn call(&self, input: Vec<u8>) -> Vec<u8> {
         let instance = &self.instance;
        
-       
+        log::info!("CALLING");
         let call_fn: Func<(i32, i32, i32), i32> = instance.exports.get("_call").unwrap();
     
-        let feature_buff_size = call_fn.call(input.len() as i32, 0i32, 0i32).expect("failed to _call");
+        let feature_buff_size = call_fn.call(runic_types::CAPABILITY::RAND as i32, runic_types::PARAM_TYPE::INT as i32, 0).expect("failed to _call");
         log::debug!("Guest::_call() returned {}", feature_buff_size);
     
-        let feature_data_buf: Vec<u8> = vec![];
+        let feature_data_buf: Vec<u8> = vec![0,2,1,2];
     
         return feature_data_buf;
     }
@@ -126,7 +126,11 @@ pub fn tfm_model_invoke(
 ) -> u32 {
 
     log::info!("Calling tfm_model_invoke");
+    let feature_bytes = get_mem_array(ctx, feature_idx, feature_len);
+    log::info!("{:?}", feature_bytes);
+    let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
 
+    provider.predict_model::<f32>(0, feature_bytes.to_owned().to_vec(), runic_types::PARAM_TYPE::FLOAT);
     // let memory = ctx.memory(0);
 
     // let model_bytes = match model_ptr.deref(memory, 0, model_len) {
@@ -242,8 +246,27 @@ pub fn request_provider_response(
     max_allowed_provider_response: u32,
     capability_idx: u32
 ) -> u32 {
+
+    let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
     log::info!("Requesting provider response");
 
-    return 0;
+    // Get Capaability and get input 
+    let input: Vec<u8> = f32::to_be_bytes(0.2).to_vec();
+    
+    let wasm_instance_memory = ctx.memory(0);
+    log::debug!("Trying to write provider response");
+    
+    let len = input.len() as u32;
+    let memory_writer = provider_response_idx.deref(wasm_instance_memory, 0, len).unwrap();
+
+    //Refactor THIS
+    let mut idx = 0;
+    for b in input.into_iter() {
+        memory_writer[idx].set(b);
+        idx = idx + 1;
+    }
+
+
+    return len;
 }
 
