@@ -68,7 +68,7 @@ pub fn generate(contents: String) -> PathBuf {
     //Cargo
 
     //set up config
-    /// Here we are setting up the config for the cargo project
+    // Here we are setting up the config for the cargo project
     let config = match cargo::util::Config::default() {
         Ok(con) => con,
         Err(err) => {
@@ -102,7 +102,7 @@ pub fn generate(contents: String) -> PathBuf {
             std::process::exit(1);
         }
     };
-    /// cargo init
+    // cargo init
     match cargo::ops::init(&opts, &config) {
         Ok(_) => log::debug!("Cargo project created"),
         Err(err) => {
@@ -111,7 +111,10 @@ pub fn generate(contents: String) -> PathBuf {
         }
     }
 
-    //Cargo.toml
+    // config file
+    let mut cargo_config = String::from("");
+
+    // Cargo.toml
     let mut cargo_toml = String::from("");
 
     // We need to use toml editor here
@@ -144,6 +147,23 @@ pub fn generate(contents: String) -> PathBuf {
         .concat();
     }
 
+    // Concatenating to cargo_config
+    cargo_config = [
+        format!("\n[target.wasm32-unknown-unknown]\nrustflags = [\"-C\", \"link-arg=-zstack-size=4096\", \"-C\", \"link-arg=-s\"]"),
+        String::from(cargo_config),
+    ]
+    .concat();
+
+    //writing to src/config
+    write_to_file(
+        format!(
+            "{}/src/config",
+            runedir.clone().as_path().display().to_string()
+        ),
+        cargo_config,
+    );
+
+    // Writing Cargo.toml
     write_to_file(
         format!(
             "{}/Cargo.toml",
