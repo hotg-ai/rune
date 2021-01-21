@@ -11,6 +11,7 @@ use core::panic::PanicInfo;
 use core::alloc::Layout;
 
 
+use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
 
 
 #[panic_handler]

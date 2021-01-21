@@ -72,7 +72,7 @@ impl VM {
         log::info!("CALLING");
         let call_fn: Func<(i32, i32, i32), i32> = instance.exports.get("_call").unwrap();
     
-        let feature_buff_size = call_fn.call(runic_types::CAPABILITY::RAND as i32, runic_types::PARAM_TYPE::INT as i32, 0).expect("failed to _call");
+        let feature_buff_size = call_fn.call(runic_types::CAPABILITY::RAND as i32, runic_types::PARAM_TYPE::FLOAT as i32, 0).expect("failed to _call");
         log::debug!("Guest::_call() returned {}", feature_buff_size);
     
         let feature_data_buf: Vec<u8> = vec![0,2,1,2];
@@ -131,76 +131,6 @@ pub fn tfm_model_invoke(
     let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
 
     provider.predict_model::<f32>(0, feature_bytes.to_owned().to_vec(), runic_types::PARAM_TYPE::FLOAT);
-    // let memory = ctx.memory(0);
-
-    // let model_bytes = match model_ptr.deref(memory, 0, model_len) {
-    //     Some(m) => m,
-    //     _ => panic!("Couldn't get model  bytes"),
-    // };
-
-    // let mut model_buf: Vec<u8> = vec![];
-    // for m in model_bytes {
-    //     model_buf.push(m.get())
-    // }
-
-    // let feature_bytes = match feature_ptr.deref(memory, 0, model_len) {
-    //     Some(m) => m,
-    //     _ => panic!("Couldn't get feature bytes"),
-    // };
-
-    // let mut feature_buf: Vec<u8> = vec![];
-    // for m in feature_bytes {
-    //     feature_buf.push(m.get())
-    // }
-
-    // // HARDCODED FOR 1 MODEL
-    // // Read the model tensor input types and properly extract ...
-    // //
-    // let feature: f32 = f32::from_be_bytes([
-    //     feature_buf[0],
-    //     feature_buf[1],
-    //     feature_buf[2],
-    //     feature_buf[3],
-    // ]);
-
-    // log::info!("Feature Recv: {}", feature);
-
-    // let model = FlatBufferModel::build_from_buffer(model_buf);
-
-    // let model = match model {
-    //     Ok(m) => m,
-    //     Err(_err) => panic!("cannot init model"),
-    // };
-
-    // let resolver = BuiltinOpResolver::default();
-
-    // let builder = InterpreterBuilder::new(model, &resolver).unwrap();
-    // let mut interpreter = builder.build().unwrap();
-
-    // interpreter.allocate_tensors().unwrap();
-
-    // let inputs = interpreter.inputs().to_vec();
-
-    // let outputs = interpreter.outputs().to_vec();
-
-    // let input_index = inputs[0];
-
-    // let input_tensor = interpreter.tensor_info(input_index).unwrap();
-
-    // let output_index = outputs[0];
-    // let output_tensor = interpreter.tensor_info(output_index).unwrap();
-    // log::info!("Model loaded with input tensor: {:?}", input_tensor);
-    // log::info!("Model loaded with output tensor: {:?}", output_tensor);
-
-    // let input_tensors: &mut [f32] = interpreter.tensor_data_mut(input_index).unwrap();
-
-    // input_tensors[0] = feature;
-
-    // interpreter.invoke().unwrap();
-
-    // let output: &[f32] = interpreter.tensor_data(output_index).unwrap();
-
-    // log::debug!("Output: {:?}", output);
 
     return 0;
 }
@@ -252,7 +182,7 @@ pub fn request_provider_response(
 
     // Get Capaability and get input 
     let input: Vec<u8> = f32::to_be_bytes(0.2).to_vec();
-    
+
     let wasm_instance_memory = ctx.memory(0);
     log::debug!("Trying to write provider response");
     

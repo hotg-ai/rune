@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 no-std-compat = "0.4.1"
 wee_alloc = "0.4.5"
+runic-types = { path = "../../runic-types" } #change to github on deployment
 
 [lib]
 crate-type = ["cdylib"]
