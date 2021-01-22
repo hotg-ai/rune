@@ -3,6 +3,11 @@ use log;
 use std::collections::HashMap;
 use runic_types::*;
 
+pub trait Capability {
+    fn get_type() -> CAPABILITY;
+    fn request(&self, params: std::collections::HashMap<String, CapabilityParam>) -> Vec<u8>;
+}
+
 
 #[derive(Debug, Clone)]
 pub struct CapabilityParam {
