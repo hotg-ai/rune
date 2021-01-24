@@ -8,3 +8,6 @@ edition = "2018"
 
 [dependencies]
 runic-types = { path = "../runic-types" }
+
+[dev-dependencies]
+rand = "0.8.2"
