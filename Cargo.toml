@@ -3,7 +3,8 @@
 members = [
     "rune",
     "runefile-parser",
-    "runic-types"
+    "runic-types",
+    "runic-transform"
 ]
 
 exclude = [

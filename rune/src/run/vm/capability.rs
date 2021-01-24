@@ -3,9 +3,11 @@ use log;
 use std::collections::HashMap;
 use runic_types::*;
 
+mod rand;
+
 pub trait Capability {
     fn get_type() -> CAPABILITY;
-    fn request(&self, params: std::collections::HashMap<String, CapabilityParam>) -> Vec<u8>;
+    fn request(params: std::collections::HashMap<String, CapabilityParam>) -> Vec<u8>;
 }
 
 
