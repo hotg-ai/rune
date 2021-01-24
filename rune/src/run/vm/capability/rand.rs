@@ -18,12 +18,13 @@ impl Capability for RandCapability {
 
         let number_of_samples: u32 = match params.get(&String::from("n")) {
             Some(number_of_samples) => {
-                let int_value = transform::<u32>( (*number_of_samples.value).to_vec(), number_of_samples.value_type);
-                if int_value.len() > 0usize {
-                    int_value[0]
-                } else {
-                    1
-                }
+                // let int_value = transform::<u32>( (*number_of_samples.value).to_vec(), number_of_samples.value_type);
+                // if int_value.len() > 0usize {
+                //     int_value[0]
+                // } else {
+                //     1
+                // }
+                1
             },
             _ => 1
         };
