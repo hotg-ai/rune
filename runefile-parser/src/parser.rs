@@ -64,7 +64,18 @@ pub fn generate(contents: String) -> PathBuf {
         Ok(()) => (),
         _ => {}
     }
+    let mut parent_dir: String = runedir.to_owned();
+    let cargo_dir: &str = "/.cargo";
+    
+    parent_dir.push_str(cargo_dir);
+    // println!("{}", owned_string);
+    
+    match fs::create_dir_all(parent_dir) {
+        Ok(()) => (),
+        Err(_e) => {()}
+    }
 
+    
     //Cargo
 
     //set up config
@@ -157,7 +168,7 @@ pub fn generate(contents: String) -> PathBuf {
     //writing to src/config
     write_to_file(
         format!(
-            "{}/src/config",
+            "{}/.cargo/config",
             runedir.clone().as_path().display().to_string()
         ),
         cargo_config,
