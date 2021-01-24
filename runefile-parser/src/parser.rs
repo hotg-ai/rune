@@ -64,18 +64,8 @@ pub fn generate(contents: String) -> PathBuf {
         Ok(()) => (),
         _ => {}
     }
-    let mut parent_dir: String = runedir.to_owned();
-    let cargo_dir: &str = "/.cargo";
-    
-    parent_dir.push_str(cargo_dir);
-    // println!("{}", owned_string);
-    
-    match fs::create_dir_all(parent_dir) {
-        Ok(()) => (),
-        Err(_e) => {()}
-    }
 
-    
+
     //Cargo
 
     //set up config
@@ -97,7 +87,27 @@ pub fn generate(contents: String) -> PathBuf {
         Some(p) => p,
         None => panic!("Cannot own rune_dir string"),
     };
-    //make cargo dir
+
+
+    //TODO: Work here on making cargo dir
+
+
+    let mut parent_dir = runedir.to_owned();
+
+    let cargo_dir: &str = ".cargo";
+    
+    parent_dir.push(cargo_dir);
+    
+    log::info!("Writing .cargo folder to {:?}", parent_dir);
+    
+    match fs::create_dir_all(parent_dir) {
+        Ok(()) => {
+            log::info!("Created `.cargo`");
+        },
+        Err(_e) => {()}
+    }
+
+
     let opts = match cargo::ops::NewOptions::new(
         Some(VersionControl::Git),
         false,
@@ -192,6 +202,9 @@ pub fn generate(contents: String) -> PathBuf {
         runegen::sine_model(),
     );
 
+    // TODO: Read through and understand how lib_code is generated
+    // TODO: Update the dependencies that are being added to Cargo.toml
+    // See how it is in the boilerplate
     //generate lib.rs
     let lib_code: String = [
         runegen::generate_code(runegen::CodeChunk::Attributes, None),
@@ -215,7 +228,7 @@ pub fn generate(contents: String) -> PathBuf {
         ),
         lib_code,
     );
-    log::info!("Succesfully generated rune container in {:?}", runedir);
+    log::info!("Successfully generated rune container in {:?}", runedir);
     return PathBuf::from(runedir_out);
 }
 
