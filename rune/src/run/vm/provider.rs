@@ -1,9 +1,10 @@
 use log;
-use std::collections::HashMap;
 
 use crate::run::vm::capability::*;
 use runic_types::*;
 use std::cell::RefCell;
+
+use runic_transform::{Transform, Transformable};
 
 use tflite::ops::builtin::BuiltinOpResolver;
 use tflite::{FlatBufferModel, InterpreterBuilder};
@@ -74,9 +75,10 @@ impl Provider {
         let builder = InterpreterBuilder::new(fb, resolver).unwrap();
         let mut interpreter: tflite::Interpreter<tflite::ops::builtin::BuiltinOpResolver> =
             builder.build().unwrap();
-        let input = f32::from_be_bytes([input[0], input[1], input[2], input[3]]);
+        
+        let input = Transform::<f32, f32>::from_buffer(&input).unwrap();
         log::info!("{:?}", interpreter.inputs().to_vec());
-        log::info!("INPUT<{}>", input);
+        log::info!("INPUT<{:?}>", input);
 
         interpreter.allocate_tensors().unwrap();
 
@@ -93,7 +95,7 @@ impl Provider {
         log::info!("Model loaded with output tensor: {:?}", output_tensor);
         let input_tensors: &mut [f32] = interpreter.tensor_data_mut(input_index).unwrap();
 
-        input_tensors[0] = input;
+        input_tensors[0] = input[0];
     
         interpreter.invoke().unwrap();
     
