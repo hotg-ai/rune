@@ -1,7 +1,7 @@
 #!/bin/sh
 #echo "Install wasm tools from: https://github.com/WebAssembly/binaryen/releases/tag/version_98"
 echo "Deploying Rune: rune-rs:latest"
-cargo +nightly build --target wasm32-unknown-unknown --release 
+cargo +nightly build --target wasm32-unknown-unknown --release &> /dev/null
 
 
 echo "Optimizing Rune: rune-rs:latest"

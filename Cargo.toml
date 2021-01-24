@@ -10,5 +10,5 @@ members = [
 exclude = [
     "examples/sine/rune-rs",
     "examples/boilerplate",
-    "example/gesture"
+    "examples/gesture"
 ]

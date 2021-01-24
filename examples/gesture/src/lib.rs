@@ -91,51 +91,25 @@ fn debug(s: &[u8]) -> u32 {
 
 }
 
-//Should be created during runefile-parser
-
-
-enum CAPABILITY
-{
-    RAND = 1,
-    SOUND = 2,
-    ACCEL = 3,
-    IMAGE = 4,
-    RAW = 5
-}
-
-enum PARAM_TYPE {
-    INT = 1,
-    FLOAT = 2,
-    UTF8  = 3,
-    BINARY = 4,
-}
-
-enum OUTPUT {
-    SERIAL = 1,
-    BLE = 2,
-    PIN = 3,
-    WIFI = 4
-}
-
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-      //  tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  1, 1);
+      tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  128*3, 128);
  
+        /// Sets the  `CAPABILITY ACCEL gesture_input -n 128`  
+        // SET ACCEL CAPABILITY
+        debug(b"Requesting ACCEL Capability");
 
-        // /// SET RAND CAPABILITY
-        // debug(b"Requesting Rand Capability\r\n");
-
-        // let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);
+        let accel_capability_idx = request_capability(CAPABILITY::ACCEL as u32);
         
-        // /// SET RAND CAPABILITY PARMS
-        // let key = b"n";        
-        // let value: &[u8; 1]= &[1u8]; 
-        // request_capability_set_param(rand_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
+        // /// SET ACCEL CAPABILITY PARAMS
+        let key = b"n";       
+        let value: &[u8; 4] = &u32::to_be_bytes(128u32); 
+        request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
 
         // //Call output
-        // request_manifest_output(OUTPUT::SERIAL as u32);
+        request_manifest_output(OUTPUT::SERIAL as u32);
         
     }
     return 1;
