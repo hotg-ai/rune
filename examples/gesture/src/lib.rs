@@ -10,7 +10,7 @@ use core::fmt::Write;
 use core::panic::PanicInfo;
 use core::alloc::Layout;
 
-
+use rand::Rng;
 use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
 
 
@@ -115,11 +115,31 @@ pub extern "C" fn _manifest() -> u32 {
     return 1;
 }
 
+/*
+
+[ [1f32 = 4 * u8s, 2, 3], ....] => [12 * u8] * 128 => [x1,y1,z1,x2,...]
+1f32
+*/
+
 
 #[no_mangle]
 #[warn(unused_must_use)]
 pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32) -> i32 {
     
+    // let mut response_samples: alloc::vec::Vec<u8> = ;  
+
+    // for n in 0..127 {
+
+    //     for axis in 0..2 {
+    //         let sample:f32 = rand::Rng::gen();
+    //         response_samples[n*axis] = sample;
+    //     }
+    // }
+
+    // let response_samples = response_samples.map
+
+    
+
     unsafe {
         let response_size = request_provider_response(
             PROVIDER_RESPONSE_BUFFER.as_ptr(),
