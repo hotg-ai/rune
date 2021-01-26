@@ -202,25 +202,33 @@ pub fn generate(contents: String) -> PathBuf {
         runegen::sine_model(),
     );
 
-    // TODO: Read through and understand how lib_code is generated
+    // [x]TODO: Read through and understand how lib_code is generated
     // TODO: Update the dependencies that are being added to Cargo.toml
     // See how it is in the boilerplate
-    //generate lib.rs
+
+    //generates lib.rs. Calls enums (Attributes, Header, etc...) from runegen.rs where code is setup using codegen:
     let lib_code: String = [
+        // Attrributes enum is blank, but `#[cfg(test)]...` is generated from cargo new:
         runegen::generate_code(runegen::CodeChunk::Attributes, None),
+        // Imports dependencies:
         runegen::generate_code(runegen::CodeChunk::Header, None),
         //how about this ugly temp fix
         String::from("mod sine_model;\n\n"),
+        // tflite model function
         runegen::generate_code(runegen::CodeChunk::TfmModelInvoke, None),
+        // memory allocation function
         runegen::generate_code(runegen::CodeChunk::Malloc, None),
+        // Buffer memory pointer
         runegen::generate_code(runegen::CodeChunk::RuneBufferPtr, None),
         runegen::generate_code(runegen::CodeChunk::ProviderResponsePtr, None),
         runegen::generate_code(runegen::CodeChunk::ManifestFn, None),
         runegen::generate_manifest_function(capability_manifest, models_manifest, outtype_manifest),
+        // TODO: Uses runic-pb-mod as dependency. Need to update runegen.rs similar to examples/sine/rune-rs:
         runegen::generate_code(runegen::CodeChunk::Call, Some(proc_options)),
     ]
     .concat();
 
+    // Appends generated code from runegen.rs (which is called to lib_code) to lib.rs in rune
     write_to_file(
         format!(
             "{}/src/lib.rs",

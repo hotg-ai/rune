@@ -23,6 +23,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .vis("pub extern \"C\"")
                 .arg("size", "usize")
                 .ret("u32")
+                // sets memory buffer
                 .line("let buf: &[u8] = unsafe { &PROVIDER_RESPONSE_BUFFER[..size] };")
                 .line("let provider_response = ProviderResponse::from_slice(buf);")
                 .line("")
