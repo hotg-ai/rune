@@ -9,10 +9,10 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 use core::alloc::Layout;
+use alloc::vec::Vec;
 
-use rand::Rng;
 use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
-
+use runic_transform::{Transform, Transformable}; 
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -149,6 +149,17 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
 
         
         if response_size > 0 {
+            if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
+                let accel_sample: Vec<f32> = runic_transform::Transform::<f32,f32>::from_buffer(&Vec::from(PROVIDER_RESPONSE_BUFFER)).unwrap();
+                debug(b"GOT SAMPLE DATA");
+                // Processing 
+                //  tfm_model_invoke(
+                //                 proc_block_output.as_ptr() as *const u8,
+                //                 proc_block_output.len() as u32,
+                //             );
+                //             return proc_block_output.len() as i32;
+
+            }
             //debug(b"Have a response\r\n");
             // let response_size = response_size as usize;
             // let buf: &[u8] = &PROVIDER_RESPONSE_BUFFER[..response_size ];
