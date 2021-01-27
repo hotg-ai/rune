@@ -9,10 +9,10 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 use core::alloc::Layout;
-
+use alloc::vec::Vec;
 
 use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
-
+use runic_transform::{Transform, Transformable}; 
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -91,31 +91,6 @@ fn debug(s: &[u8]) -> u32 {
 
 }
 
-//Should be created during runefile-parser
-
-
-enum CAPABILITY
-{
-    RAND = 1,
-    SOUND = 2,
-    ACCEL = 3,
-    IMAGE = 4,
-    RAW = 5
-}
-
-enum PARAM_TYPE {
-    INT = 1,
-    FLOAT = 2,
-    UTF8  = 3,
-    BINARY = 4,
-}
-
-enum OUTPUT {
-    SERIAL = 1,
-    BLE = 2,
-    PIN = 3,
-    WIFI = 4
-}
 
 
 #[no_mangle]
