@@ -1,4 +1,3 @@
-#![feature(start, libc, lang_items)]
 #![no_std]
 
 #[macro_use]

@@ -95,7 +95,7 @@ fn debug(s: &[u8]) -> u32 {
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-      tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  127*3, 127);
+      tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  64*3, 64);
  
         /// Sets the  `CAPABILITY ACCEL gesture_input -n 128`  
         // SET ACCEL CAPABILITY
@@ -105,7 +105,7 @@ pub extern "C" fn _manifest() -> u32 {
         
         // /// SET ACCEL CAPABILITY PARAMS
         let key = b"n";       
-        let value: &[u8; 4] = &u32::to_be_bytes(127u32); 
+        let value: &[u8; 4] = &u32::to_be_bytes(64u32); 
         request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
 
         // //Call output
