@@ -79,7 +79,6 @@ impl Provider {
         let input = Transform::<f32, f32>::from_buffer(&input).unwrap();
         log::info!("{:?}", interpreter.inputs().to_vec());
         log::info!("INPUT<{:?}>", input);
-
         interpreter.allocate_tensors().unwrap();
 
         let inputs = interpreter.inputs().to_vec();
@@ -88,7 +87,7 @@ impl Provider {
         let input_index = inputs[0];
 
         let input_tensor = interpreter.tensor_info(input_index).unwrap();
-
+        log::info!("DIMS = {:?}", input_tensor.dims);
         let output_index = outputs[0];
         let output_tensor = interpreter.tensor_info(output_index).unwrap();
         log::info!("Model loaded with input tensor: {:?}", input_tensor);
