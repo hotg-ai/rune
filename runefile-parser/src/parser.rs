@@ -229,7 +229,7 @@ pub fn generate(contents: String) -> PathBuf {
     .concat();
 
     // Appends generated code from runegen.rs (which is called to lib_code) to lib.rs in rune
-    write_to_file(
+    overwrite_to_file(
         format!(
             "{}/src/lib.rs",
             runedir.clone().as_path().display().to_string()
@@ -253,11 +253,24 @@ fn write_to_file(file: String, content: String) {
     }
 }
 
+fn overwrite_to_file(file: String, content: String) {
+    let mut file_ref = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(false)
+        .open(format!("{}", file))
+        .unwrap();
+    if let Err(e) = writeln!(file_ref, "{}\n", content) {
+        log::error!("Couldn't overwrite to file: {}", e);
+        std::process::exit(1);
+    }
+}
+
 pub fn parse(contents: String) -> HashMap<String, Instruction> {
-    /// Rule::runefile is the top level rule defined in the `runefile.pest` 
-    ///
-    ///  
-    /// 
+    // Rule::runefile is the top level rule defined in the `runefile.pest` 
+    //
+    //  
+    // 
 
 
 
