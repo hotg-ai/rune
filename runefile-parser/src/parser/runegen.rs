@@ -4,10 +4,14 @@ use std::collections::HashMap;
 pub enum CodeChunk {
     Attributes,
     Header,
+    PanicHandler,
+    AllocErrorHandler,
+    Debug,
+    Enum,
     ManifestFn,
     ProviderResponsePtr,
-    RuneBufferPtr,
-    Malloc,
+    // RuneBufferPtr,
+    // Malloc,
     TfmModelInvoke,
     Call,
 }
@@ -17,90 +21,85 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
     let parameters = params.unwrap_or_else(|| HashMap::new());
     match code {
         CodeChunk::Call => {
-            let function = scope
+            scope
                 .new_fn("_call")
                 .attr("no_mangle")
+                .attr("warn(unused_must_use)")
                 .vis("pub extern \"C\"")
-                .arg("size", "usize")
-                .ret("u32")
+                .arg("capability_type", "i32")
+                .arg("input_type", "i32")
+                .arg("capability_idx", "i32")
+                .ret("i32")
                 // sets memory buffer
-                .line("let buf: &[u8] = unsafe { &PROVIDER_RESPONSE_BUFFER[..size] };")
-                .line("let provider_response = ProviderResponse::from_slice(buf);")
+                .line("unsafe {")
+                .line("    let response_size = request_provider_response(")
+                .line("        PROVIDER_RESPONSE_BUFFER.as_ptr(),")
+                .line("        PROVIDER_RESPONSE_BUFFER_SIZE as u32,")
+                .line("        capability_idx as u32")
+                .line("    );")
                 .line("")
-                .line("for capability_response in provider_response.inputs.iter() {")
-                .line("     if capability_response.name == CAPABILITY::RAND {")
-                .line("         let pb_mod = runic_pb_mod::Processor{};")
-                .line("         let mut pb_mod_params: HashMap<String, String> = HashMap::new();");
-            //insert params for procs
-            //TODO : need to be proc specific
-            for parameter in parameters.keys() {
-                match parameters.get(parameter) {
-                    Some(value) => function.line(&format!("         pb_mod_params.insert(String::from(\"{}\"), String::from(\"{}\"));",parameter.to_string(),value.to_string())),
-                    None => function.line("")
-                };
-            }
-            function.line("         let proc_block_output =  pb_mod.process(TYPE::F32, capability_response.input.to_vec(),  pb_mod_params, TYPE::F32);")
-                .line("         let proc_block_output = &proc_block_output[..];")
                 .line("")
-                .line("         //invoke block")
-                .line("         unsafe { ")
-                .line("             let model = sine_model::model();")
-                .line("             let model_len = model.len();")
-                .line("             let model = &model[..];")
-                .line("             tfm_model_invoke(model.as_ptr() as *const u8, model_len as u32, proc_block_output.as_ptr() as *const u8, proc_block_output.len() as u32) ;")
-                .line("             return proc_block_output.len() as u32")
-                .line("         }")
-                .line("     }")
-                .line("}")
-                .line("return 0;");
-            scope.raw("");
-            scope.raw("");
+                .line("    if response_size > 0 {")
+                .line("")
+                .line("")
+                .line("        return response_size as i32;")
+                .line("    }")
+                .line("")
+                .line("    return 0 as i32;")
+                .line("")
+                .line("}");
+            scope
+                .raw("")
+                .raw("");
         }
         CodeChunk::TfmModelInvoke => {
-            scope.raw("extern \"C\" {");
-            scope.raw("     fn tfm_model_invoke(model_idx: *const u8, model_len: u32, feature_idx: *const u8, feature_len: u32, ) -> u32;");
-            scope.raw("}");
-            scope.raw("");
-            scope.raw("");
+            scope.raw("extern \"C\" {")
+            .raw("    fn tfm_model_invoke(\n        feature_idx: *const u8,\n        feature_len: u32,\n    ) -> u32;")
+            .raw("    fn tfm_preload_model(\n        model_idx: *const u8,\n        model_len: u32,\n        inputs: u32,\n        outputs: u32\n    ) -> u32;")
+            .raw("    fn _debug(str_ptr: *const u8) -> u32;")
+            .raw("    fn request_capability(ct: u32) -> u32;")
+            .raw("    fn request_capability_set_param(idx:u32, key_str_ptr:*const u8, key_str_len:u32, value_ptr:*const u8, value_len:u32, value_type:u32) -> u32;")
+            .raw("    fn request_manifest_output(t:u32) -> u32;")
+            .raw("    fn request_provider_response(\n        provider_response_idx: *const u8,\n        max_allowed_provider_response: u32,\n        capability_idx: u32\n    ) -> u32;")
+            .raw("}")
+            .raw("")
+            .raw("");
         }
-        CodeChunk::Malloc => {
-            scope
-                .new_fn("malloc")
-                .attr("no_mangle")
-                .vis("pub extern \"C\"")
-                .arg("size", "u32")
-                .ret("i32")
-                .line("let vec: Vec<u8> = Vec::with_capacity(size as usize);")
-                .line("let return_value = vec.as_ptr() as usize as i32;")
-                .line("std::mem::forget(vec);")
-                .line("")
-                .line("return return_value;");
-            scope.raw("");
-            scope.raw("");
-        }
-        CodeChunk::RuneBufferPtr => {
-            scope.raw("const RUNE_MEMORY_BUFFER_SIZE: usize = 2048;");
-            scope.raw("static mut RUNE_MEMORY_BUFFER: [u8; RUNE_MEMORY_BUFFER_SIZE] = [0; RUNE_MEMORY_BUFFER_SIZE];");
-            scope
-                .new_fn("rune_buffer_ptr")
-                .attr("no_mangle")
-                .vis("pub")
-                .ret("*const u8")
-                .line("unsafe { RUNE_MEMORY_BUFFER.as_ptr() }");
-            scope.raw("");
-            scope.raw("");
-        }
+        // CodeChunk::Malloc => {
+        //     scope
+        //         .new_fn("malloc")
+        //         .attr("no_mangle")
+        //         .vis("pub extern \"C\"")
+        //         .arg("size", "u32")
+        //         .ret("i32")
+        //         .line("let vec: Vec<u8> = Vec::with_capacity(size as usize);")
+        //         .line("let return_value = vec.as_ptr() as usize as i32;")
+        //         .line("std::mem::forget(vec);")
+        //         .line("")
+        //         .line("return return_value;");
+        //     scope.raw("");
+        //     scope.raw("");
+        // }
+        // CodeChunk::RuneBufferPtr => {
+        //     scope.raw("const RUNE_MEMORY_BUFFER_SIZE: usize = 2048;");
+        //     scope.raw("static mut RUNE_MEMORY_BUFFER: [u8; RUNE_MEMORY_BUFFER_SIZE] = [0; RUNE_MEMORY_BUFFER_SIZE];");
+        //     scope
+        //         .new_fn("rune_buffer_ptr")
+        //         .attr("no_mangle")
+        //         .vis("pub")
+        //         .ret("*const u8")
+        //         .line("unsafe { RUNE_MEMORY_BUFFER.as_ptr() }");
+        //     scope.raw("");
+        //     scope.raw("");
+        // }
         CodeChunk::ProviderResponsePtr => {
-            scope.raw("const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;");
-            scope.raw("static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] = [0; PROVIDER_RESPONSE_BUFFER_SIZE];");
             scope
-                .new_fn("provider_response_ptr")
-                .attr("no_mangle")
-                .vis("pub")
-                .ret("*const u8")
-                .line("unsafe { PROVIDER_RESPONSE_BUFFER.as_ptr() }");
-            scope.raw("");
-            scope.raw("");
+            .raw("mod wrapper;\nuse wrapper::Wrapper;\n")
+            .raw("const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;")
+            .raw("static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] = [0; PROVIDER_RESPONSE_BUFFER_SIZE];")
+            .raw("static mut PRINT_BUF: [u8;512] = [0 as u8; 512];")
+            .raw("mod model;")
+            .raw("");
         }
         CodeChunk::ManifestFn => {
             scope
@@ -108,33 +107,89 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .attr("no_mangle")
                 .vis("pub extern \"C\"")
                 .ret("u32")
-                .line("let manifest = gen_manifest().to_bytes();")
-                .line("")
                 .line("unsafe {")
-                .line("    copy(")
-                .line("        manifest.as_ptr(),")
-                .line("        RUNE_MEMORY_BUFFER.as_ptr() as *mut u8,")
-                .line("        manifest.len() as usize,")
-                .line("    );")
-                .line("}")
                 .line("")
-                .line("return manifest.len() as u32;");
-            scope.raw("");
-            scope.raw("");
+                .line("")
+                .line("")
+                .line("}")
+                .line("return 1;");
+            scope
+                .raw("")
+                .raw("");
         }
         CodeChunk::Attributes => {
-            //scope.raw("#![no_main]\n");
+            scope.raw("#![no_std]\n#![feature(alloc, core_intrinsics, lang_items, alloc_error_handler)]\nextern crate alloc;\nextern crate wee_alloc;\n");
+            // scope.raw("#![feature(alloc, core_intrinsics, lang_items, alloc_error_handler)]");
+            // scope.raw("extern crate alloc;");
+            // scope.raw("extern crate wee_alloc;");
+            scope.raw("");
         }
         CodeChunk::Header => {
-            scope.import("std::ptr", "copy");
-            scope.import("std::collections::hash_map", "HashMap");
-            scope.import("runic_types::capability", "*");
-            scope.import("runic_types::manifest", "*");
-            scope.import("runic_types", "ml");
-            scope.import("runic_types::provider", "*");
-            scope.import("runic_types::proc_block", "*");
-            scope.raw("");
-            scope.raw("");
+            scope.raw("// Use `wee_alloc` as the global allocator.\n#[global_allocator]\nstatic ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;\nuse core::fmt::Write;\nuse core::panic::PanicInfo;\nuse core::alloc::Layout;");
+            // scope.raw("use core::fmt::Write;\nuse core::panic::PanicInfo;\nuse core::alloc::Layout;\n");
+            // scope.raw("use core::panic::PanicInfo;");
+            // scope.raw("use core::alloc::Layout;");
+            // scope.raw("#[global_allocator]");
+            // scope.raw("static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;");
+            // scope.import("core::fmt", "Write");
+            // scope.import("core::panic", "PanicInfo");
+            // scope.import("core::alloc", "Layout");
+            scope
+                .raw("")
+                .raw("");
+        }
+        CodeChunk::PanicHandler => {
+            scope
+                .new_fn("panic")
+                .attr("panic_handler")
+                .ret("!")
+                .line("unsafe {")
+                .line("    let s = match info.payload().downcast_ref::<&str>() {")
+                .line("        Some(s) => s,")
+                .line("        _ => \"\"")
+                .line("    };")
+                .line("")
+                .line("    write!(Wrapper::new(&mut PRINT_BUF), \"Panic {}\\r\\n\", s).expect(\"Can't write\");")
+                .line("    debug(&PRINT_BUF);")
+                .line("    }")
+                .line("loop {}");
+            scope
+                .raw("")
+                .raw("");
+        }
+        CodeChunk::AllocErrorHandler => {
+            scope
+                .new_fn("alloc_error_handler")
+                .attr("alloc_error_handler")
+                .arg("info", "Layout")
+                .ret("!")
+                .line("unsafe {")
+                .line("    write!(Wrapper::new(&mut PRINT_BUF), \"{:?} \\r\\n\", info).expect(\"Can't write\");")
+                .line("    debug(&PRINT_BUF);")
+                .line("}")
+                .line("loop {}");
+            scope
+                .raw("")
+                .raw("");
+        }
+        CodeChunk::Debug => {
+            scope.raw("fn debug(s: &[u8]) -> u32 {\n    unsafe { return _debug(s.as_ptr()) }\n}")
+            .raw("//Should be created during runefile-parser")
+            .raw("");
+        }
+        CodeChunk::Enum => {
+            scope
+                .new_enum("CAPABILITY")
+                .new_variant("RAND = 1,\nSOUND = 2,\nACCEL = 3,\nIMAGE = 4,\nRAW = 5");
+            scope
+                .new_enum("PARAM_TYPE")
+                .new_variant("INT = 1,\nFLOAT = 2,\nUTF8  = 3,\nBINARY = 4");
+            scope
+                .new_enum("OUTPUT")
+                .new_variant("SERIAL = 1,\nBLE = 2,\nPIN = 3,\nWIFI = 4");
+            scope
+                .raw("")
+                .raw("");
         }
     }
     return scope.to_string();

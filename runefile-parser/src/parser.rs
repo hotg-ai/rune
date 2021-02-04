@@ -202,9 +202,6 @@ pub fn generate(contents: String) -> PathBuf {
         runegen::sine_model(),
     );
 
-    // [x]TODO: Read through and understand how lib_code is generated
-    // TODO: Update the dependencies that are being added to Cargo.toml
-    // See how it is in the boilerplate
 
     //generates lib.rs. Calls enums (Attributes, Header, etc...) from runegen.rs where code is setup using codegen:
     let lib_code: String = [
@@ -212,18 +209,18 @@ pub fn generate(contents: String) -> PathBuf {
         runegen::generate_code(runegen::CodeChunk::Attributes, None),
         // Imports dependencies:
         runegen::generate_code(runegen::CodeChunk::Header, None),
+        runegen::generate_code(runegen::CodeChunk::PanicHandler, None),
+        runegen::generate_code(runegen::CodeChunk::AllocErrorHandler, None),
         //how about this ugly temp fix
-        String::from("mod sine_model;\n\n"),
-        // tflite model function
-        runegen::generate_code(runegen::CodeChunk::TfmModelInvoke, None),
-        // memory allocation function
-        runegen::generate_code(runegen::CodeChunk::Malloc, None),
-        // Buffer memory pointer
-        runegen::generate_code(runegen::CodeChunk::RuneBufferPtr, None),
+        // String::from("mod wrapper;\nuse wrapper::Wrapper;\n\n"),
         runegen::generate_code(runegen::CodeChunk::ProviderResponsePtr, None),
+        runegen::generate_code(runegen::CodeChunk::TfmModelInvoke, None),
+        runegen::generate_code(runegen::CodeChunk::Debug, None),
+        runegen::generate_code(runegen::CodeChunk::Enum, None),
+        // runegen::generate_code(runegen::CodeChunk::Malloc, None),
+        // runegen::generate_code(runegen::CodeChunk::RuneBufferPtr, None),
         runegen::generate_code(runegen::CodeChunk::ManifestFn, None),
-        runegen::generate_manifest_function(capability_manifest, models_manifest, outtype_manifest),
-        // TODO: Uses runic-pb-mod as dependency. Need to update runegen.rs similar to examples/sine/rune-rs:
+        // runegen::generate_manifest_function(capability_manifest, models_manifest, outtype_manifest),
         runegen::generate_code(runegen::CodeChunk::Call, Some(proc_options)),
     ]
     .concat();
