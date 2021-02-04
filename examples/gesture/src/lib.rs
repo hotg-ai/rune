@@ -92,35 +92,54 @@ fn debug(s: &[u8]) -> u32 {
 }
 
 
-
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-      //  tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  1, 1);
+      tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  64*3, 64);
  
+        /// Sets the  `CAPABILITY ACCEL gesture_input -n 128`  
+        // SET ACCEL CAPABILITY
+        debug(b"Requesting ACCEL Capability");
 
-        // /// SET RAND CAPABILITY
-        // debug(b"Requesting Rand Capability\r\n");
-
-        // let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);
+        let accel_capability_idx = request_capability(CAPABILITY::ACCEL as u32);
         
-        // /// SET RAND CAPABILITY PARMS
-        // let key = b"n";        
-        // let value: &[u8; 1]= &[1u8]; 
-        // request_capability_set_param(rand_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
+        // /// SET ACCEL CAPABILITY PARAMS
+        let key = b"n";       
+        let value: &[u8; 4] = &u32::to_be_bytes(64u32); 
+        request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
 
         // //Call output
-        // request_manifest_output(OUTPUT::SERIAL as u32);
+        request_manifest_output(OUTPUT::SERIAL as u32);
         
     }
     return 1;
 }
+
+/*
+
+[ [1f32 = 4 * u8s, 2, 3], ....] => [12 * u8] * 128 => [x1,y1,z1,x2,...]
+1f32
+*/
 
 
 #[no_mangle]
 #[warn(unused_must_use)]
 pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32) -> i32 {
     
+    // let mut response_samples: alloc::vec::Vec<u8> = ;  
+
+    // for n in 0..127 {
+
+    //     for axis in 0..2 {
+    //         let sample:f32 = rand::Rng::gen();
+    //         response_samples[n*axis] = sample;
+    //     }
+    // }
+
+    // let response_samples = response_samples.map
+
+    
+
     unsafe {
         let response_size = request_provider_response(
             PROVIDER_RESPONSE_BUFFER.as_ptr(),
@@ -130,6 +149,17 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
 
         
         if response_size > 0 {
+            if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
+                let accel_sample: Vec<f32> = runic_transform::Transform::<f32,f32>::from_buffer(&Vec::from(PROVIDER_RESPONSE_BUFFER)).unwrap();
+                debug(b"GOT SAMPLE DATA");
+                // Processing 
+                //  tfm_model_invoke(
+                //                 proc_block_output.as_ptr() as *const u8,
+                //                 proc_block_output.len() as u32,
+                //             );
+                //             return proc_block_output.len() as i32;
+
+            }
             //debug(b"Have a response\r\n");
             // let response_size = response_size as usize;
             // let buf: &[u8] = &PROVIDER_RESPONSE_BUFFER[..response_size ];

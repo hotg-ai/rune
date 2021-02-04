@@ -2,6 +2,12 @@
 
 Rune is a containerization technology for deploying TinyML applications to extremely constraint devices. 
 
+# Deps
+
+1. rustup install nightly 
+2. brew install binaryen
+2. rustup target add wasm32-unknown-unknown
+
 
 ## Runefile 
 

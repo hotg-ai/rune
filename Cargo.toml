@@ -3,10 +3,12 @@
 members = [
     "rune",
     "runefile-parser",
-    "runic-types"
+    "runic-types",
+    "runic-transform"
 ]
 
 exclude = [
     "examples/sine/rune-rs",
-    "examples/boilerplate"
+    "examples/boilerplate",
+    "examples/gesture"
 ]
