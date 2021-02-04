@@ -125,7 +125,20 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
             scope.raw("");
         }
         CodeChunk::Header => {
-            scope.raw("// Use `wee_alloc` as the global allocator.\n#[global_allocator]\nstatic ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;\nuse core::fmt::Write;\nuse core::panic::PanicInfo;\nuse core::alloc::Layout;");
+//             scope.raw("// Use `wee_alloc` as the global allocator.\n#[global_allocator]\nstatic ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;\nuse core::fmt::Write;\nuse core::panic::PanicInfo;\nuse core::alloc::Layout;")
+//             .raw("use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
+// use runic_transform::{Transform, Transformable}; ");
+
+            scope.raw(
+                concat!("// Use `wee_alloc` as the global allocator.\n",
+                        "#[global_allocator]\n",
+                        "static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;\n",
+                        "use core::fmt::Write;\n",
+                        "use core::panic::PanicInfo;\n",
+                        "use core::alloc::Layout;"))
+            .raw(
+                concat!("use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};\n",
+                        "use runic_transform::{Transform, Transformable}; "));
             // scope.raw("use core::fmt::Write;\nuse core::panic::PanicInfo;\nuse core::alloc::Layout;\n");
             // scope.raw("use core::panic::PanicInfo;");
             // scope.raw("use core::alloc::Layout;");
