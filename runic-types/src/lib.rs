@@ -26,6 +26,17 @@ impl CAPABILITY {
             _ => CAPABILITY::RAW
         }
     }
+
+    pub fn from_str(value: &str) -> Option<CAPABILITY> {
+        match value {
+            "RAND" => Some(CAPABILITY::RAND),
+            "SOUND" => Some(CAPABILITY::SOUND),
+            "ACCEL" => Some(CAPABILITY::ACCEL),
+            "IMAGE" => Some(CAPABILITY::IMAGE),
+            "RAW" => Some(CAPABILITY::RAW),
+            _ => None
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -208,6 +208,36 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
     return scope.to_string();
 }
 
+//TODO: In Runefile add 2 capabilities and should see their variables:
+/*
+    ```
+        CAPABILITY<_,I32> RAND randasas --n 1 
+    ```
+
+     Step 1 Check that `RAND` is part of runic_types::CAPABILITY ENUM
+     if None from runic_types::CAPABILITY::from_str("asdasd") => log::fatal!("INVALID....")
+     Step 2 Check that `randasas` is a variable name that is not already used in capabilities before
+     Step 3 For each variable `--n 1` Write out the 
+
+        /// SET RAND CAPABILITY
+        debug(b"Requesting Rand Capability\r\n");
+
+        let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);
+        /// SET RAND CAPABILITY PARAMS
+        /// FOR LATER when we know all the parameters for the variables then we will enforce type for the value. 
+        /// For now just assume u32
+        let key = b"n"; <-- should remove the `--` from `--n` 
+        let value: &[u8; 4] = &u32::to_be_bytes(1u32); <-- can change from --n 1 to --n 111
+
+        request_capability_set_param(
+            rand_capability_idx,
+            key.as_ptr(),
+            key.len() as u32,
+            value.as_ptr(),
+            value.len() as u32,
+            PARAM_TYPE::INT as u32, <-- this part needs to change in the future 
+        );
+*/
 pub fn generate_manifest_function(
     capability_manifest: HashMap<String, String>,
     models_manifest: HashMap<String, String>,
