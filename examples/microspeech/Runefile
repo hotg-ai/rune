@@ -6,7 +6,7 @@ CAPABILITY AUDIO audio --hz 16000 --samples 150 --sample-size-ms 1500  # set up 
 
 PROC_BLOCK runicos/proc-block/fft fft
 
-MODEL ./example.tflite model --input [150,1] --output 1
+MODEL<F32[150],F32> ./example.tflite model --input [150,1] --output 1
 
 RUN audio fft model
 

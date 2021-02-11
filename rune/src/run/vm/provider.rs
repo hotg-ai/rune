@@ -1,65 +1,42 @@
+
 use log;
 
 use crate::run::vm::capability::*;
 use runic_types::*;
 use std::cell::RefCell;
+use std::boxed::Box;
 
 use runic_transform::{Transform, Transformable};
 
 use tflite::ops::builtin::BuiltinOpResolver;
 use tflite::{FlatBufferModel, InterpreterBuilder};
-
-#[derive(Clone)]
-pub struct Model {
-    model_weights: RefCell<&'static [u8]>,
-    inputs: u32,
-    outputs: u32,
-}
-
-impl Model {
-    pub fn predict<T, F>(mut self, input: Vec<T>) -> Vec<F> {
-        return vec![];
-
-        //    let fb = match FlatBufferModel::build_from_buffer(self.model_weights) {
-        //     Ok(fb) => {
-        //         log::info!("Successfully Loaded model as FlatbufferModel");
-        //         fb
-        //     },
-        //     Err(err) => {
-        //         log::error!("Invalid model provided {:?}", err);
-        //         panic!("Invalid model");
-        //     }
-        //};
-
-        // let resolver = BuiltinOpResolver::default();
-
-        // let builder = InterpreterBuilder::new(fb, resolver).unwrap();
-        // let interpreter: tflite::Interpreter<tflite::ops::builtin::BuiltinOpResolver>  = builder.build().unwrap();
-
-        //    let inputs = interpreter.inputs().to_vec();
-
-        //    let outputs = interpreter.outputs().to_vec();
-
-        //    return vec![];
-        // }
-    }
-}
-
+ 
 pub struct Provider {
-    requests: RefCell<Vec<RefCell<CapabilityRequest>>>,
-    model: RefCell<Vec<u8>>,
+    requests: Vec<CapabilityRequest>,
+    models: Vec<Vec<u8>>,
 }
 
 impl Provider {
     pub fn init() -> Provider {
         return Provider {
-            requests: RefCell::new(Vec::new()),
-            model: RefCell::new(vec![]),
+            requests: Vec::new(),
+            models: Vec::new(),
         };
     }
 
     pub fn predict_model<T>(&mut self, idx: u32, input: Vec<u8>, value_t: PARAM_TYPE) -> Vec<T> {
-        let fb = match FlatBufferModel::build_from_buffer(self.model.borrow_mut().to_vec()) {
+        log::info!("HAS {} MODELS", self.models.len());
+       let model = match self.models.get(idx as usize) {
+        Some(model) => model,
+        None => {
+            log::warn!("Model[{}] not found at idx ", idx);
+            return vec![]
+        }
+       };
+
+       log::info!("Found model {}", model.len());
+
+        let fb = match FlatBufferModel::build_from_buffer(model.to_vec()) {
             Ok(fb) => {
                 log::info!("Successfully Loaded model as FlatbufferModel");
                 fb
@@ -105,22 +82,23 @@ impl Provider {
     }
 
     pub fn add_model(&mut self, model_weights: Vec<u8>, inputs: u32, outputs: u32) -> u32 {
-        let idx = 0;
+        let idx = self.models.len();
 
-        //let mut model_weights = &model_weights.clone()[..];
-        for i in model_weights.iter() {
-            self.model.borrow_mut().push(*i);
-        }
+        //let mut model_weights = &model_wei
+        let s = &model_weights[..];
+        let mut v: Vec<u8> = vec![];
+        v.extend_from_slice(s);
 
-        log::info!("Setting Model<{},{}>({})", inputs, outputs, idx);
-        return idx;
+        self.models.push(v);
+        log::info!("Setting Model<{},{}>({})[{}]", inputs, outputs, idx, self.models[0].len());
+        return idx as u32;
     }
 
     pub fn request_capability(&mut self, requested: u32) -> u32 {
-        let idx = self.requests.borrow().len() as u32;
-        let mut cr = CapabilityRequest::init(runic_types::CAPABILITY::from_u32(requested));
+        let idx = self.requests.len() as u32;
+        let cr = CapabilityRequest::init(runic_types::CAPABILITY::from_u32(requested));
 
-        self.requests.borrow_mut().push(RefCell::new(cr));
+        self.requests.push(cr);
         log::info!(
             "Setting capability({}) {:?}",
             idx,
@@ -136,9 +114,9 @@ impl Provider {
         value: Vec<u8>,
         value_t: runic_types::PARAM_TYPE,
     ) {
-        let capability_request = match self.requests.borrow_mut().get(request_idx as usize) {
+        let capability_request = match self.requests.get_mut(request_idx as usize) {
             Some(cr) => {
-                cr.borrow_mut().set_param(key, value, value_t);
+                cr.set_param(key, value, value_t);
                 log::info!("Setting params for capability({})", request_idx);
             }
             _ => {

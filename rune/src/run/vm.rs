@@ -69,7 +69,7 @@ impl VM {
     pub fn call(&self, input: Vec<u8>) -> Vec<u8> {
         let instance = &self.instance;
        
-        log::info!("CALLING");
+        log::info!("CALLING ");
         let call_fn: Func<(i32, i32, i32), i32> = instance.exports.get("_call").unwrap();
     
         let feature_buff_size = call_fn.call(runic_types::CAPABILITY::RAND as i32, runic_types::PARAM_TYPE::FLOAT as i32, 0).expect("failed to _call");
@@ -116,6 +116,8 @@ pub fn tfm_preload_model(
 ) -> u32 {
     let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
     let model_bytes = get_mem_array(ctx, model_idx, model_len);
+    
+
     return provider.add_model(model_bytes, inputs, outputs);
 }
 
