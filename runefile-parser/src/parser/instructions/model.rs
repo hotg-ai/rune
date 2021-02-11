@@ -72,8 +72,8 @@ impl ModelInstruction {
         dependencies_map.insert(
             "runic-types".to_string(),
             // "{ path = \"../../runic-types\" }".to_string()
-            // "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" }".to_string()
-            "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" , branch = \"feature/generics_integration_lang\" }".to_string()
+            "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" }".to_string()
+            // "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" , branch = \"feature/generics_integration_lang\" }".to_string()
         );
         //generate some code
 
