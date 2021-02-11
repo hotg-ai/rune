@@ -94,11 +94,11 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
         // }
         CodeChunk::ProviderResponsePtr => {
             scope
-            .raw("mod wrapper;\nuse wrapper::Wrapper;\n")
+            // .raw("mod wrapper;\nuse wrapper::Wrapper;\n")
             .raw("const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;")
             .raw("static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] = [0; PROVIDER_RESPONSE_BUFFER_SIZE];")
             .raw("static mut PRINT_BUF: [u8;512] = [0 as u8; 512];")
-            .raw("mod model;")
+            .raw("mod sine_model;")
             .raw("");
         }
         CodeChunk::ManifestFn => {

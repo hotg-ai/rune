@@ -139,9 +139,10 @@ pub fn generate(contents: String) -> PathBuf {
     let mut cargo_toml = String::from("");
 
     // We need to use toml editor here
+    // Code which is appended below is displayed in reverse order in Cargo.toml 
 
     cargo_toml = [
-        format!("\n[lib]\ncrate-type = [\"cdylib\"]\n"),
+        format!("\n[profile.release]\nopt-level = \"s\"\ncodegen-units = 1\nlto = true\n"),
         String::from(cargo_toml),
     ]
     .concat();
@@ -152,13 +153,11 @@ pub fn generate(contents: String) -> PathBuf {
     ]
     .concat();
     
-
     cargo_toml = [
-        format!("\n[profile.release]\nopt-level = \"s\"\ncodegen-units = 1\nlto = true\n"),
+        format!("\n[lib]\ncrate-type = [\"cdylib\"]\n"),
         String::from(cargo_toml),
     ]
     .concat();
-    
 
     for key in dependencies.keys() {
         cargo_toml = [
@@ -205,27 +204,22 @@ pub fn generate(contents: String) -> PathBuf {
 
     //generates lib.rs. Calls enums (Attributes, Header, etc...) from runegen.rs where code is setup using codegen:
     let lib_code: String = [
-        // Attrributes enum is blank, but `#[cfg(test)]...` is generated from cargo new:
+        // Attrributes enum is blank, but `#[cfg(test)]...` is generated from cargo new. This has been overwritten by the following in lib.rs.
         runegen::generate_code(runegen::CodeChunk::Attributes, None),
-        // Imports dependencies:
         runegen::generate_code(runegen::CodeChunk::Header, None),
         runegen::generate_code(runegen::CodeChunk::PanicHandler, None),
         runegen::generate_code(runegen::CodeChunk::AllocErrorHandler, None),
-        //how about this ugly temp fix
-        // String::from("mod wrapper;\nuse wrapper::Wrapper;\n\n"),
         runegen::generate_code(runegen::CodeChunk::ProviderResponsePtr, None),
         runegen::generate_code(runegen::CodeChunk::TfmModelInvoke, None),
         runegen::generate_code(runegen::CodeChunk::Debug, None),
         runegen::generate_code(runegen::CodeChunk::Enum, None),
-        // runegen::generate_code(runegen::CodeChunk::Malloc, None),
-        // runegen::generate_code(runegen::CodeChunk::RuneBufferPtr, None),
         runegen::generate_code(runegen::CodeChunk::ManifestFn, None),
         // runegen::generate_manifest_function(capability_manifest, models_manifest, outtype_manifest),
         runegen::generate_code(runegen::CodeChunk::Call, Some(proc_options)),
     ]
     .concat();
 
-    // Appends generated code from runegen.rs (which is called to lib_code) to lib.rs in rune
+    // Overwrites generated code from runegen.rs (which is called to lib_code) to lib.rs in rune
     overwrite_to_file(
         format!(
             "{}/src/lib.rs",
