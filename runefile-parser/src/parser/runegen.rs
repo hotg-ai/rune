@@ -7,11 +7,8 @@ pub enum CodeChunk {
     PanicHandler,
     AllocErrorHandler,
     Debug,
-    Enum,
     ManifestFn,
     ProviderResponsePtr,
-    // RuneBufferPtr,
-    // Malloc,
     TfmModelInvoke,
     Call,
 }
@@ -65,36 +62,8 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
             .raw("")
             .raw("");
         }
-        // CodeChunk::Malloc => {
-        //     scope
-        //         .new_fn("malloc")
-        //         .attr("no_mangle")
-        //         .vis("pub extern \"C\"")
-        //         .arg("size", "u32")
-        //         .ret("i32")
-        //         .line("let vec: Vec<u8> = Vec::with_capacity(size as usize);")
-        //         .line("let return_value = vec.as_ptr() as usize as i32;")
-        //         .line("std::mem::forget(vec);")
-        //         .line("")
-        //         .line("return return_value;");
-        //     scope.raw("");
-        //     scope.raw("");
-        // }
-        // CodeChunk::RuneBufferPtr => {
-        //     scope.raw("const RUNE_MEMORY_BUFFER_SIZE: usize = 2048;");
-        //     scope.raw("static mut RUNE_MEMORY_BUFFER: [u8; RUNE_MEMORY_BUFFER_SIZE] = [0; RUNE_MEMORY_BUFFER_SIZE];");
-        //     scope
-        //         .new_fn("rune_buffer_ptr")
-        //         .attr("no_mangle")
-        //         .vis("pub")
-        //         .ret("*const u8")
-        //         .line("unsafe { RUNE_MEMORY_BUFFER.as_ptr() }");
-        //     scope.raw("");
-        //     scope.raw("");
-        // }
         CodeChunk::ProviderResponsePtr => {
             scope
-            // .raw("mod wrapper;\nuse wrapper::Wrapper;\n")
             .raw("const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;")
             .raw("static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] = [0; PROVIDER_RESPONSE_BUFFER_SIZE];")
             .raw("static mut PRINT_BUF: [u8;512] = [0 as u8; 512];")
@@ -177,23 +146,11 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .raw("");
         }
         CodeChunk::Debug => {
-            scope.raw("fn debug(s: &[u8]) -> u32 {\n    unsafe { return _debug(s.as_ptr()) }\n}")
+            scope.raw(
+                concat!("fn debug(s: &[u8]) -> u32 {\n",
+                "    unsafe { return _debug(s.as_ptr()) }\n}"))
             .raw("//Should be created during runefile-parser")
             .raw("");
-        }
-        CodeChunk::Enum => {
-            scope
-                .new_enum("CAPABILITY")
-                .new_variant("RAND = 1,\nSOUND = 2,\nACCEL = 3,\nIMAGE = 4,\nRAW = 5");
-            scope
-                .new_enum("PARAM_TYPE")
-                .new_variant("INT = 1,\nFLOAT = 2,\nUTF8  = 3,\nBINARY = 4");
-            scope
-                .new_enum("OUTPUT")
-                .new_variant("SERIAL = 1,\nBLE = 2,\nPIN = 3,\nWIFI = 4");
-            scope
-                .raw("")
-                .raw("");
         }
     }
     return scope.to_string();
@@ -292,6 +249,55 @@ pub fn generate_manifest_function(
     manifest.line(&format!("\tmodels: vec![{}]\n}};", models_concat_string));
     manifest_scope.raw("");
     return manifest_scope.to_string();
+}
+
+
+
+
+pub fn wrapper() -> String {
+    let mut scope = Scope::new();
+    scope.raw("use alloc::fmt;");
+    scope.new_struct("Wrapper")
+        .vis("pub")
+        .generic("'a")
+        .field("buf", "&'a mut [u8]")
+        .field("offset", "usize");
+    scope.new_impl("Wrapper")
+        .generic("'a")
+        .target_generic("'a")
+        .new_fn("new")
+        .vis("pub")
+        .arg("buf", "&'a mut [u8]")
+        .ret("Self")
+        .line("Wrapper {")
+        .line("    buf: buf,")
+        .line("    offset: 0,")
+        .line("}");
+    scope.new_impl("Wrapper")
+        .impl_trait("fmt::Write")
+        .generic("'a")
+        .target_generic("'a")
+        .new_fn("write_str")
+        .arg_mut_self()
+        .arg("s", "&str")
+        .ret("fmt::Result")
+        .line("    let bytes = s.as_bytes();")
+        .line("")
+        .line("    // Skip over already-copied data")
+        .line("    let remainder = &mut self.buf[self.offset..];")
+        .line("    // Check if there is space remaining (return error instead of panicking)")
+        .line("    if remainder.len() < bytes.len() { return Err(core::fmt::Error); }")
+        .line("    // Make the two slices the same length")
+        .line("    let remainder = &mut remainder[..bytes.len()];")
+        .line("    // Copy")
+        .line("    remainder.copy_from_slice(bytes);")
+        .line("")
+        .line("    // Update offset to avoid overwriting")
+        .line("    self.offset += bytes.len();")
+        .line("")
+        .line("    Ok(())");
+
+    return scope.to_string();
 }
 
 //temp hack

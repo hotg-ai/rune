@@ -192,7 +192,7 @@ pub fn generate(contents: String) -> PathBuf {
         cargo_config,
     );
 
-    // Writing Cargo.toml
+    // Writing to Cargo.toml
     write_to_file(
         format!(
             "{}/Cargo.toml",
@@ -201,7 +201,16 @@ pub fn generate(contents: String) -> PathBuf {
         cargo_toml,
     );
 
-    // temp generate sine function
+    // Writing to wrapper.rs (from runegen.rs)
+    write_to_file(
+        format!(
+            "{}/src/wrapper.rs",
+            runedir.clone().as_path().display().to_string()
+        ),
+        runegen::wrapper(),
+    );
+
+    // temp generate sine function (from runegen.rs)
     write_to_file(
         format!(
             "{}/src/sine_model.rs",
@@ -221,7 +230,6 @@ pub fn generate(contents: String) -> PathBuf {
         runegen::generate_code(runegen::CodeChunk::ProviderResponsePtr, None),
         runegen::generate_code(runegen::CodeChunk::TfmModelInvoke, None),
         runegen::generate_code(runegen::CodeChunk::Debug, None),
-        // runegen::generate_code(runegen::CodeChunk::Enum, None),
         runegen::generate_code(runegen::CodeChunk::ManifestFn, None),
         // runegen::generate_manifest_function(capability_manifest, models_manifest, outtype_manifest),
         runegen::generate_code(runegen::CodeChunk::Call, Some(proc_options)),
