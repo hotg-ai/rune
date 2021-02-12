@@ -62,18 +62,20 @@ impl ModelInstruction {
         let code_string = format!("ml::Model {{ name: String::from(\"{}\"), input_dims: vec!{}, output_dims: vec!{}, framework: ml::FRAMEWORK::TFLITE }}",model_name_param,input_dims,output_dims);
         //add CARGO dependencies
         dependencies_map.insert(
+            "runic-types".to_string(),
+            "{ git = \"ssh://git@github.com/hotg-ai/rune\", path = \"runic-types\" }".to_string()
+        );
+        dependencies_map.insert(
+            "runic-transform".to_string(),
+            "{ git = \"ssh://git@github.com/hotg-ai/rune\", path = \"runic-transform\" }".to_string()
+        );
+        dependencies_map.insert(
             "no-std-compat".to_string(),
             "\"0.4.1\"".to_string()
         );
         dependencies_map.insert(
             "wee_alloc".to_string(),
             "\"0.4.5\"".to_string()
-        );
-        dependencies_map.insert(
-            "runic-types".to_string(),
-            // "{ path = \"../../runic-types\" }".to_string()
-            "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" }".to_string()
-            // "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" , branch = \"feature/generics_integration_lang\" }".to_string()
         );
         //generate some code
 

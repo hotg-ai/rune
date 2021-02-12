@@ -142,19 +142,27 @@ pub fn generate(contents: String) -> PathBuf {
     // Code which is appended below is displayed in reverse order in Cargo.toml 
 
     cargo_toml = [
-        format!("\n[profile.release]\nopt-level = \"s\"\ncodegen-units = 1\nlto = true\n"),
+        format!(
+            concat!("\n[profile.release]\n",
+                    "opt-level = \"s\"\n",
+                    "codegen-units = 1\n",
+                    "lto = true\n")),
         String::from(cargo_toml),
     ]
     .concat();
 
     cargo_toml = [
-        format!("\n[profile.dev]\npanic = \"abort\"\n"),
+        format!(
+            concat!("\n[profile.dev]\n",
+                    "panic = \"abort\"\n")),
         String::from(cargo_toml),
     ]
     .concat();
     
     cargo_toml = [
-        format!("\n[lib]\ncrate-type = [\"cdylib\"]\n"),
+        format!(
+            concat!("\n[lib]\n",
+                    "crate-type = [\"cdylib\"]\n")),
         String::from(cargo_toml),
     ]
     .concat();
@@ -167,14 +175,15 @@ pub fn generate(contents: String) -> PathBuf {
         .concat();
     }
 
-    // Concatenating to cargo_config
+    // Concatenating to .cargo/config
     cargo_config = [
-        format!("\n[target.wasm32-unknown-unknown]\nrustflags = [\"-C\", \"link-arg=-zstack-size=4096\", \"-C\", \"link-arg=-s\"]"),
+        format!(concat!("\n[target.wasm32-unknown-unknown]\n",
+                        "rustflags = [\"-C\", \"link-arg=-zstack-size=4096\", \"-C\", \"link-arg=-s\"]")),
         String::from(cargo_config),
     ]
     .concat();
 
-    //writing to src/config
+    //writing to .cargo/config
     write_to_file(
         format!(
             "{}/.cargo/config",
@@ -183,7 +192,7 @@ pub fn generate(contents: String) -> PathBuf {
         cargo_config,
     );
 
-    // Writing Cargo.toml
+    // Writing to Cargo.toml
     write_to_file(
         format!(
             "{}/Cargo.toml",
@@ -192,7 +201,16 @@ pub fn generate(contents: String) -> PathBuf {
         cargo_toml,
     );
 
-    // temp generate sine function
+    // Writing to wrapper.rs (from runegen.rs)
+    write_to_file(
+        format!(
+            "{}/src/wrapper.rs",
+            runedir.clone().as_path().display().to_string()
+        ),
+        runegen::wrapper(),
+    );
+
+    // temp generate sine function (from runegen.rs)
     write_to_file(
         format!(
             "{}/src/sine_model.rs",
@@ -212,7 +230,6 @@ pub fn generate(contents: String) -> PathBuf {
         runegen::generate_code(runegen::CodeChunk::ProviderResponsePtr, None),
         runegen::generate_code(runegen::CodeChunk::TfmModelInvoke, None),
         runegen::generate_code(runegen::CodeChunk::Debug, None),
-        runegen::generate_code(runegen::CodeChunk::Enum, None),
         runegen::generate_code(runegen::CodeChunk::ManifestFn, None),
         // runegen::generate_manifest_function(capability_manifest, models_manifest, outtype_manifest),
         runegen::generate_code(runegen::CodeChunk::Call, Some(proc_options)),
