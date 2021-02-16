@@ -72,7 +72,6 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
         }
         CodeChunk::ManifestFn => {
             let function = scope
-            scope
                 .new_fn("_manifest")
                 .attr("no_mangle")
                 .vis("pub extern \"C\"")
@@ -84,8 +83,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .line("    let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);")
                 .line("")
                 .line("");
-                function.line("")
-                .line("")
+            function.line("")
                 .line("    let key = b\"n\";")
                 .line("    let value: &[u8; 4] = &u32::to_be_bytes(1u32);")
                 .line("    request_capability_set_param(")
