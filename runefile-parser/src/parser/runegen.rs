@@ -71,6 +71,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
             .raw("");
         }
         CodeChunk::ManifestFn => {
+            let function = scope
             scope
                 .new_fn("_manifest")
                 .attr("no_mangle")
@@ -78,7 +79,23 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .ret("u32")
                 .line("unsafe {")
                 .line("")
+                .line("    debug(b\"Requesting Rand Capability\r\n\");")
                 .line("")
+                .line("    let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);")
+                .line("")
+                .line("");
+                function.line("")
+                .line("")
+                .line("    let key = b\"n\";")
+                .line("    let value: &[u8; 4] = &u32::to_be_bytes(1u32);")
+                .line("    request_capability_set_param(")
+                .line("        rand_capability_idx,")
+                .line("        key.as_ptr(),")
+                .line("        key.len() as u32,")
+                .line("        value.as_ptr(),")
+                .line("        value.len() as u32,")
+                .line("        PARAM_TYPE::INT as u32,")
+                .line("    request_manifest_output(OUTPUT::SERIAL as u32);")
                 .line("")
                 .line("}")
                 .line("return 1;");
