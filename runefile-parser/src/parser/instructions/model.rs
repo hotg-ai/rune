@@ -72,7 +72,7 @@ impl ModelInstruction {
         // add CARGO dependencies
         dependencies_map.insert(
             "runic-types".to_string(),
-            "{ git = \"ssh://git@github.com/hotg-ai/rune\", path = \"runic-types\" }".to_string()
+            "{ git = \"ssh://git@github.com/hotg-ai/rune\", path = \"runic-types\" }".to_string(),
         );
         dependencies_map.insert(
             "runic-transform".to_string(),

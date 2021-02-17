@@ -172,8 +172,10 @@ pub fn generate(contents: String) -> PathBuf {
 
     // Concatenating to .cargo/config
     cargo_config = [
-        format!(concat!("\n[target.wasm32-unknown-unknown]\n",
-                        "rustflags = [\"-C\", \"link-arg=-zstack-size=4096\", \"-C\", \"link-arg=-s\"]")),
+        format!(concat!(
+            "\n[target.wasm32-unknown-unknown]\n",
+            "rustflags = [\"-C\", \"link-arg=-zstack-size=4096\", \"-C\", \"link-arg=-s\"]"
+        )),
         String::from(cargo_config),
     ]
     .concat();

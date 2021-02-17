@@ -94,18 +94,20 @@ pub fn generate_code(
             .raw("");
         },
         CodeChunk::Header => {
-            scope.raw(
-                concat!("// Use `wee_alloc` as the global allocator.\n",
-                        "#[global_allocator]\n",
-                        "static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;\n",
-                        "use core::fmt::Write;\n",
-                        "use core::panic::PanicInfo;\n",
-                        "use core::alloc::Layout;\n",
-                        "mod wrapper;\n",
-                        "use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};\n",
-                        "use runic_transform::{Transform, Transformable};\n",
-                        "use crate::wrapper::Wrapper;\n",
-                        "use alloc::vec::*;"))
+            scope
+                .raw(concat!(
+                    "// Use `wee_alloc` as the global allocator.\n",
+                    "#[global_allocator]\n",
+                    "static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;\n",
+                    "use core::fmt::Write;\n",
+                    "use core::panic::PanicInfo;\n",
+                    "use core::alloc::Layout;\n",
+                    "mod wrapper;\n",
+                    "use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};\n",
+                    "use runic_transform::{Transform, Transformable};\n",
+                    "use crate::wrapper::Wrapper;\n",
+                    "use alloc::vec::*;"
+                ))
                 .raw("")
                 .raw("");
         },
@@ -274,7 +276,8 @@ pub fn wrapper() -> String {
         .line("    buf: buf,")
         .line("    offset: 0,")
         .line("}");
-    scope.new_impl("Wrapper")
+    scope
+        .new_impl("Wrapper")
         .impl_trait("fmt::Write")
         .generic("'a")
         .target_generic("'a")
