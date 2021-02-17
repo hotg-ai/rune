@@ -5,6 +5,7 @@ members = [
     "runefile-parser",
     "runic-types",
     "runic-transform",
+    "syntax",
     "xtask"
 ]
 
