@@ -54,9 +54,8 @@ pub struct FromInstruction {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ModelInstruction {
     pub model_name: Ident,
-    pub model_file: Ident,
+    pub model_file: String,
     pub model_parameters: HashMap<String, String>,
-    pub dependencies: HashMap<String, String>,
     pub span: Span,
 }
 
