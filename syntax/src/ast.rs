@@ -89,7 +89,7 @@ pub enum TypeKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct RunInstruction {
-    pub steps: Vec<String>,
+    pub steps: Vec<Ident>,
     pub span: Span,
 }
 
