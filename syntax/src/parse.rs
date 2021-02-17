@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::ast::{
     CapabilityInstruction, FromInstruction, Ident, Instruction,
-    ProcBlockInstruction, Runefile, Type,
+    ModelInstruction, ProcBlockInstruction, Runefile, Type,
 };
 use codespan::Span;
 use pest::{error::Error, iterators::Pair, Parser, RuleType};
@@ -30,6 +30,9 @@ pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
             },
             Rule::proc_line => {
                 instructions.push(parse_proc_block(pair).into());
+            },
+            Rule::model => {
+                instructions.push(parse_model(pair).into());
             },
             other => todo!("Haven't implemented {:?}\n\n{:?}", other, pair),
         }
@@ -188,7 +191,8 @@ fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
                 for arg in step_record.into_inner() {
                     match arg.as_rule() {
                         Rule::proc_step => {
-                            let mut last_param_name = "".to_string();
+                            let mut last_param_name = String::new();
+
                             for part in arg.into_inner() {
                                 match part.as_rule() {
                                     Rule::proc_arg_variable => {
@@ -199,7 +203,9 @@ fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
                                         let last_param_value =
                                             part.as_str().to_string();
                                         let last_param_name_cloned =
-                                            last_param_name.clone();
+                                            std::mem::take(
+                                                &mut last_param_name,
+                                            );
                                         parameters_param.insert(
                                             last_param_name_cloned,
                                             last_param_value,
@@ -222,6 +228,57 @@ fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
         name,
         params: parameters_param,
         dependencies: HashMap::new(),
+        span,
+    }
+}
+
+fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
+    let span = get_span(&pair);
+    let mut parameters_param = HashMap::new();
+    let mut model_name_param = null_ident();
+    let mut model_file_param = "".to_string();
+
+    for args in pair.into_inner() {
+        match args.as_rule() {
+            Rule::model_file => model_file_param = args.as_str().to_string(),
+            Rule::model_name => model_name_param = parse_ident(args),
+            Rule::model_args => {
+                for arg in args.into_inner() {
+                    match arg.as_rule() {
+                        Rule::model_step => {
+                            let mut last_param_name = "".to_string();
+                            for part in arg.into_inner() {
+                                match part.as_rule() {
+                                    Rule::model_arg_variable => {
+                                        last_param_name =
+                                            part.as_str().to_string();
+                                    },
+                                    Rule::model_arg_value => {
+                                        let last_param_value =
+                                            part.as_str().to_string();
+                                        let last_param_name_cloned =
+                                            last_param_name.clone();
+                                        parameters_param.insert(
+                                            last_param_name_cloned,
+                                            last_param_value,
+                                        );
+                                    },
+                                    _ => {},
+                                }
+                            }
+                        },
+                        _ => {},
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+
+    ModelInstruction {
+        model_name: model_name_param,
+        model_file: model_file_param,
+        model_parameters: parameters_param,
         span,
     }
 }
