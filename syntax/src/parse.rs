@@ -71,92 +71,45 @@ fn parse_ident(pair: Pair<Rule>) -> Ident {
 }
 
 fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
-    // FIXME: This was all copied from the previous implementation. Instead of
-    // creating temporary variables and expecting our loop to update them with
-    // the real thing, we should take a much more declarative/functional
-    // approach.
-    //
-    // It's more idiomatic and we are less likely to have undesireable results
-    // that way.
+    let span = get_span(&pair);
+    let mut pairs = pair.into_inner();
 
-    let mut capability_parameters_param: HashMap<String, String> =
-        HashMap::new();
-    let mut capability_name_param = null_ident();
-    let mut capability_description_param = "".to_string();
-    let mut input_type = Type {
-        kind: crate::ast::TypeKind::Inferred,
-        span: Span::new(0, 0),
-    };
-    let mut output_type = input_type.clone();
-    let dependencies_map: HashMap<String, String> = HashMap::new();
+    // Note: Guaranteed by the grammar to not panic
 
-    for args in pair.into_inner() {
-        match args.as_rule() {
-            Rule::INPUT_TYPES => {
-                for arg in args.into_inner() {
-                    match arg.as_rule() {
-                        Rule::input_type => {
-                            input_type = parse_type(arg);
-                        },
-                        Rule::output_type => {
-                            output_type = parse_type(arg);
-                        },
-                        other => {
-                            unreachable!(
-                                "Should never get a {:?} rule\n\n{:?}",
-                                other, arg
-                            );
-                        },
-                    }
-                }
-            },
-            Rule::capability_name => {
-                capability_name_param = parse_ident(args);
-            },
-            Rule::capability_description => {
-                capability_description_param = args.as_str().to_string()
-            },
-            Rule::capability_args => {
-                for arg in args.into_inner() {
-                    match arg.as_rule() {
-                        Rule::capability_step => {
-                            let mut last_param_name = "".to_string();
-                            for part in arg.into_inner() {
-                                match part.as_rule() {
-                                    Rule::capability_arg_variable => {
-                                        last_param_name =
-                                            part.as_str().to_string();
-                                    },
-                                    Rule::capability_arg_value => {
-                                        let last_param_value =
-                                            part.as_str().to_string();
-                                        let last_param_name_cloned =
-                                            last_param_name.clone();
-                                        capability_parameters_param.insert(
-                                            last_param_name_cloned,
-                                            last_param_value,
-                                        );
-                                    },
-                                    _ => {},
-                                }
-                            }
-                        },
-                        _ => {},
-                    }
-                }
-            },
-            _ => {},
-        }
+    let (input_type, output_type) = parse_input_types(pairs.next().unwrap());
+
+    let name = parse_ident(pairs.next().unwrap());
+    let description = pairs.next().unwrap().as_str().to_string();
+
+    let mut parameters = HashMap::new();
+
+    for step in pairs {
+        let mut pairs = step.into_inner().next().unwrap().into_inner();
+        let variable = pairs.next().unwrap();
+        let argument = pairs.next().unwrap();
+
+        parameters.insert(
+            variable.as_str().to_string(),
+            argument.as_str().to_string(),
+        );
     }
 
-    CapabilityInstruction {
-        capability_name: capability_name_param,
-        capability_description: capability_description_param,
-        capability_parameters: capability_parameters_param,
-        dependencies: dependencies_map,
+    return CapabilityInstruction {
+        name,
+        description,
         input_type,
         output_type,
-    }
+        parameters,
+        span,
+    };
+}
+
+fn parse_input_types(pair: Pair<Rule>) -> (Type, Type) {
+    let mut pairs = pair.into_inner();
+    let input_type = parse_type(pairs.next().unwrap());
+    let output_type = parse_type(pairs.next().unwrap());
+
+    (input_type, output_type)
 }
 
 fn parse_type(pair: Pair<Rule>) -> Type {
@@ -235,7 +188,6 @@ fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
         path,
         name,
         params: parameters_param,
-        dependencies: HashMap::new(),
         span,
     }
 }
@@ -284,9 +236,9 @@ fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
     }
 
     ModelInstruction {
-        model_name: model_name_param,
-        model_file: model_file_param,
-        model_parameters: parameters_param,
+        name: model_name_param,
+        file: model_file_param,
+        parameters: parameters_param,
         span,
     }
 }
@@ -294,7 +246,13 @@ fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
 fn parse_run(pair: Pair<Rule>) -> RunInstruction {
     let span = get_span(&pair);
 
-    let steps = pair.into_inner().map(parse_ident).collect();
+    let steps = pair
+        .into_inner()
+        .next()
+        .unwrap()
+        .into_inner()
+        .map(parse_ident)
+        .collect();
 
     RunInstruction { steps, span }
 }
@@ -335,15 +293,14 @@ mod tests {
     fn parse_a_capability() {
         let src = "CAPABILITY<_,I32> RAND rand --n 1";
         let should_be = CapabilityInstruction {
-            capability_name: Ident {
+            name: Ident {
                 value: String::from("RAND"),
                 span: Span::new(18, 22),
             },
-            capability_description: String::from("rand"),
-            capability_parameters: vec![(String::from("n"), String::from("1"))]
+            description: String::from("rand"),
+            parameters: vec![(String::from("n"), String::from("1"))]
                 .into_iter()
                 .collect(),
-            dependencies: Default::default(),
             input_type: Type {
                 kind: TypeKind::Inferred,
                 span: Span::new(11, 12),
@@ -355,6 +312,7 @@ mod tests {
                 }),
                 span: Span::new(13, 16),
             },
+            span: Span::new(0, 33),
         };
 
         let got = RunefileParser::parse(Rule::capability, src)
@@ -362,6 +320,108 @@ mod tests {
             .next()
             .unwrap();
         let got = parse_capability(got);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_a_model() {
+        let src =
+            "MODEL<_,_> ./sinemodel.tflite sine --input [1,1] --output [1,1]";
+        let should_be = ModelInstruction {
+            name: Ident {
+                value: String::from("sine"),
+                span: Span::new(30, 34),
+            },
+            file: String::from("./sinemodel.tflite"),
+            parameters: vec![
+                (String::from("input"), String::from("[1,1]")),
+                (String::from("output"), String::from("[1,1]")),
+            ]
+            .into_iter()
+            .collect(),
+            span: Span::new(0, 63),
+        };
+
+        let got = RunefileParser::parse(Rule::model, src)
+            .unwrap()
+            .next()
+            .unwrap();
+        let got = parse_model(got);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_a_run_instruction() {
+        let src = "RUN rand mod360 sine";
+        let should_be = RunInstruction {
+            steps: vec![
+                Ident {
+                    value: String::from("rand"),
+                    span: Span::new(4, 8),
+                },
+                Ident {
+                    value: String::from("mod360"),
+                    span: Span::new(9, 15),
+                },
+                Ident {
+                    value: String::from("sine"),
+                    span: Span::new(16, 20),
+                },
+            ],
+            span: Span::new(0, 20),
+        };
+
+        let got = RunefileParser::parse(Rule::run, src)
+            .unwrap()
+            .next()
+            .unwrap();
+        let got = parse_run(got);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_an_out_instruction() {
+        let src = "OUT serial";
+        let should_be = OutInstruction {
+            out_type: Ident {
+                value: String::from("serial"),
+                span: Span::new(4, 10),
+            },
+            span: Span::new(0, 10),
+        };
+
+        let got = RunefileParser::parse(Rule::out, src)
+            .unwrap()
+            .next()
+            .unwrap();
+        let got = parse_out(got);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_a_proc_block() {
+        let src = "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100";
+        let should_be = ProcBlockInstruction {
+            path: String::from("hotg-ai/pb-mod"),
+            name: Ident {
+                value: String::from("mod360"),
+                span: Span::new(31, 37),
+            },
+            params: vec![(String::from("modulo"), String::from("100"))]
+                .into_iter()
+                .collect(),
+            span: Span::new(0, 50),
+        };
+
+        let got = RunefileParser::parse(Rule::proc_line, src)
+            .unwrap()
+            .next()
+            .unwrap();
+        let got = parse_proc_block(got);
 
         assert_eq!(got, should_be);
     }
