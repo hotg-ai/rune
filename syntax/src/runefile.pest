@@ -9,10 +9,10 @@ output_type = { TYPE }
 INPUT_TYPES = { ("<" ~ input_type ~ "," ~ output_type ~ ">") | (ws* ~ "input_type=" ~ input_type ~ " output_type=" ~ output_type) }
 meta_step = _{ ws* ~ (step | comment)? ~ ws* }
 
-// TODO: Add additional grammar to support 
+// TODO: Add additional grammar to support
 // https://github.com/hotg-ai/rune/blob/47ad07fe911c2bb168a0d738c2cc331a9e57904d/examples/microspeech/Runefile_tf_micro_example
 
-step = {
+step = _{
     from       |
     capability |
 //  output     |
@@ -20,7 +20,7 @@ step = {
     model      |
     run        |
     out        |
-    misc 
+    misc
 }
 
 comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
@@ -43,7 +43,7 @@ arg_ws_maybe = _{ (ws | ("\\" ~ NEWLINE))* }
 // escape (\)
 any_breakable = _{
   (
-    !NEWLINE ~ 
+    !NEWLINE ~
     !("\\" ~ NEWLINE) ~
     ANY
   )* ~ ("\\" ~ NEWLINE ~ any_breakable)?
