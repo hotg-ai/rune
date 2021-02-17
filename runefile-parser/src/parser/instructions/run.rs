@@ -13,12 +13,13 @@ impl RunInstruction {
                 Rule::run_args => {
                     for step_record in args.into_inner() {
                         match step_record.as_rule() {
-                            Rule::run_step => steps_vector.push(step_record.as_str().to_string()),
-                            _ => {}
+                            Rule::run_step => steps_vector
+                                .push(step_record.as_str().to_string()),
+                            _ => {},
                         }
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             };
         }
 

@@ -12,8 +12,8 @@ impl OutInstruction {
             match field.as_rule() {
                 Rule::out_type => {
                     type_var = field.as_str().to_string();
-                }
-                _ => {}
+                },
+                _ => {},
             };
         }
         Self { out_type: type_var }

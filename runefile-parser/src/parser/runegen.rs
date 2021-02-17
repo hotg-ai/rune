@@ -13,7 +13,10 @@ pub enum CodeChunk {
     Call,
 }
 
-pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -> String {
+pub fn generate_code(
+    code: CodeChunk,
+    params: Option<HashMap<String, String>>,
+) -> String {
     let mut scope = Scope::new();
     let parameters = params.unwrap_or_else(|| HashMap::new());
     match code {
@@ -45,10 +48,8 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .line("    return 0 as i32;")
                 .line("")
                 .line("}");
-            scope
-                .raw("")
-                .raw("");
-        }
+            scope.raw("").raw("");
+        },
         CodeChunk::TfmModelInvoke => {
             scope.raw("extern \"C\" {")
             .raw("    fn tfm_model_invoke(\n        feature_idx: *const u8,\n        feature_len: u32,\n    ) -> u32;")
@@ -61,7 +62,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
             .raw("}")
             .raw("")
             .raw("");
-        }
+        },
         CodeChunk::ProviderResponsePtr => {
             scope
             .raw("const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;")
@@ -69,7 +70,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
             .raw("static mut PRINT_BUF: [u8;512] = [0 as u8; 512];")
             .raw("mod sine_model;")
             .raw("");
-        }
+        },
         CodeChunk::ManifestFn => {
             scope
                 .new_fn("_manifest")
@@ -82,10 +83,8 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .line("")
                 .line("}")
                 .line("return 1;");
-            scope
-                .raw("")
-                .raw("");
-        }
+            scope.raw("").raw("");
+        },
         CodeChunk::Attributes => {
             scope.raw(
                 concat!("#![no_std]\n",
@@ -93,7 +92,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                         "extern crate alloc;\n",
                         "extern crate wee_alloc;\n"))
             .raw("");
-        }
+        },
         CodeChunk::Header => {
             scope.raw(
                 concat!("// Use `wee_alloc` as the global allocator.\n",
@@ -109,7 +108,7 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                         "use alloc::vec::*;"))
                 .raw("")
                 .raw("");
-        }
+        },
         CodeChunk::PanicHandler => {
             scope
                 .new_fn("panic")
@@ -126,10 +125,8 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .line("    debug(&PRINT_BUF);")
                 .line("    }")
                 .line("loop {}");
-            scope
-                .raw("")
-                .raw("");
-        }
+            scope.raw("").raw("");
+        },
         CodeChunk::AllocErrorHandler => {
             scope
                 .new_fn("alloc_error_handler")
@@ -141,51 +138,51 @@ pub fn generate_code(code: CodeChunk, params: Option<HashMap<String, String>>) -
                 .line("    debug(&PRINT_BUF);")
                 .line("}")
                 .line("loop {}");
-            scope
-                .raw("")
-                .raw("");
-        }
+            scope.raw("").raw("");
+        },
         CodeChunk::Debug => {
-            scope.raw(
-                concat!("fn debug(s: &[u8]) -> u32 {\n",
-                "    unsafe { return _debug(s.as_ptr()) }\n}"))
-            .raw("//Should be created during runefile-parser")
-            .raw("");
-        }
+            scope
+                .raw(concat!(
+                    "fn debug(s: &[u8]) -> u32 {\n",
+                    "    unsafe { return _debug(s.as_ptr()) }\n}"
+                ))
+                .raw("//Should be created during runefile-parser")
+                .raw("");
+        },
     }
     return scope.to_string();
 }
 
-//TODO: In Runefile add 2 capabilities and should see their variables:
-/*
-    ```
-        CAPABILITY<_,I32> RAND randasas --n 1 
-    ```
-
-     Step 1 Check that `RAND` is part of runic_types::CAPABILITY ENUM
-     if None from runic_types::CAPABILITY::from_str("asdasd") => log::fatal!("INVALID....")
-     Step 2 Check that `randasas` is a variable name that is not already used in capabilities before
-     Step 3 For each variable `--n 1` Write out the 
-
-        /// SET RAND CAPABILITY
-        debug(b"Requesting Rand Capability\r\n");
-
-        let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);
-        /// SET RAND CAPABILITY PARAMS
-        /// FOR LATER when we know all the parameters for the variables then we will enforce type for the value. 
-        /// For now just assume u32
-        let key = b"n"; <-- should remove the `--` from `--n` 
-        let value: &[u8; 4] = &u32::to_be_bytes(1u32); <-- can change from --n 1 to --n 111
-
-        request_capability_set_param(
-            rand_capability_idx,
-            key.as_ptr(),
-            key.len() as u32,
-            value.as_ptr(),
-            value.len() as u32,
-            PARAM_TYPE::INT as u32, <-- this part needs to change in the future 
-        );
-*/
+// TODO: In Runefile add 2 capabilities and should see their variables:
+// ```
+// CAPABILITY<_,I32> RAND randasas --n 1
+// ```
+//
+// Step 1 Check that `RAND` is part of runic_types::CAPABILITY ENUM
+// if None from runic_types::CAPABILITY::from_str("asdasd") =>
+// log::fatal!("INVALID....") Step 2 Check that `randasas` is a variable name
+// that is not already used in capabilities before Step 3 For each variable `--n
+// 1` Write out the
+//
+// SET RAND CAPABILITY
+// debug(b"Requesting Rand Capability\r\n");
+//
+// let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);
+// SET RAND CAPABILITY PARAMS
+// FOR LATER when we know all the parameters for the variables then we will
+// enforce type for the value. For now just assume u32
+// let key = b"n"; <-- should remove the `--` from `--n`
+// let value: &[u8; 4] = &u32::to_be_bytes(1u32); <-- can change from --n 1 to
+// --n 111
+//
+// request_capability_set_param(
+// rand_capability_idx,
+// key.as_ptr(),
+// key.len() as u32,
+// value.as_ptr(),
+// value.len() as u32,
+// PARAM_TYPE::INT as u32, <-- this part needs to change in the future
+// );
 pub fn generate_manifest_function(
     capability_manifest: HashMap<String, String>,
     models_manifest: HashMap<String, String>,
@@ -211,12 +208,14 @@ pub fn generate_manifest_function(
                     );
                     capability_concat_string = String::from(new_cap_string);
                 } else {
-                    let new_cap_string =
-                        &format!("{}_capability_request", cap.to_lowercase().to_string());
+                    let new_cap_string = &format!(
+                        "{}_capability_request",
+                        cap.to_lowercase().to_string()
+                    );
                     capability_concat_string = String::from(new_cap_string);
                 }
-            }
-            None => {}
+            },
+            None => {},
         };
     }
 
@@ -235,15 +234,18 @@ pub fn generate_manifest_function(
         match models_manifest.get(model) {
             Some(value) => {
                 if models_concat_string.len() > 0 {
-                    let new_models_string =
-                        &format!("{}, {}", capability_concat_string, value.to_string());
+                    let new_models_string = &format!(
+                        "{}, {}",
+                        capability_concat_string,
+                        value.to_string()
+                    );
                     models_concat_string = String::from(new_models_string);
                 } else {
                     let new_models_string = &format!("{}", value.to_string());
                     models_concat_string = String::from(new_models_string);
                 }
-            }
-            None => {}
+            },
+            None => {},
         };
     }
     manifest.line(&format!("\tmodels: vec![{}]\n}};", models_concat_string));
@@ -251,18 +253,17 @@ pub fn generate_manifest_function(
     return manifest_scope.to_string();
 }
 
-
-
-
 pub fn wrapper() -> String {
     let mut scope = Scope::new();
     scope.raw("use alloc::fmt;");
-    scope.new_struct("Wrapper")
+    scope
+        .new_struct("Wrapper")
         .vis("pub")
         .generic("'a")
         .field("buf", "&'a mut [u8]")
         .field("offset", "usize");
-    scope.new_impl("Wrapper")
+    scope
+        .new_impl("Wrapper")
         .generic("'a")
         .target_generic("'a")
         .new_fn("new")
@@ -300,7 +301,7 @@ pub fn wrapper() -> String {
     return scope.to_string();
 }
 
-//temp hack
+// temp hack
 pub fn sine_model() -> String {
     let mut scope = Scope::new();
     scope.raw("use alloc::vec::*;")

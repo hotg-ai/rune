@@ -12,8 +12,8 @@ impl FromInstruction {
             match field.as_rule() {
                 Rule::from_image => {
                     image_var = field.as_str().to_string();
-                }
-                _ => {}
+                },
+                _ => {},
             };
         }
         Self { image: image_var }

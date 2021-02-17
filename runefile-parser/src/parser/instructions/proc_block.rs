@@ -18,8 +18,12 @@ impl ProcBlockInstruction {
         let mut dependencies_map: HashMap<String, String> = HashMap::new();
         for step_record in record.into_inner() {
             match step_record.as_rule() {
-                Rule::proc_path => path_string = step_record.as_str().to_string(),
-                Rule::proc_name => name_string = step_record.as_str().to_string(),
+                Rule::proc_path => {
+                    path_string = step_record.as_str().to_string()
+                },
+                Rule::proc_name => {
+                    name_string = step_record.as_str().to_string()
+                },
                 Rule::proc_args => {
                     for arg in step_record.into_inner() {
                         match arg.as_rule() {
@@ -28,38 +32,45 @@ impl ProcBlockInstruction {
                                 for part in arg.into_inner() {
                                     match part.as_rule() {
                                         Rule::proc_arg_variable => {
-                                            last_param_name = part.as_str().to_string();
-                                        }
+                                            last_param_name =
+                                                part.as_str().to_string();
+                                        },
                                         Rule::proc_arg_value => {
-                                            let last_param_value = part.as_str().to_string();
-                                            let last_param_name_cloned = last_param_name.clone();
-                                            parameters_param
-                                                .insert(last_param_name_cloned, last_param_value);
-                                        }
-                                        _ => {}
+                                            let last_param_value =
+                                                part.as_str().to_string();
+                                            let last_param_name_cloned =
+                                                last_param_name.clone();
+                                            parameters_param.insert(
+                                                last_param_name_cloned,
+                                                last_param_value,
+                                            );
+                                        },
+                                        _ => {},
                                     }
                                 }
-                            }
-                            _ => {}
+                            },
+                            _ => {},
                         }
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
 
         let mut scope = Scope::new();
         if path_string == "runicos/proc-block/fft" {
-            //add CARGO dependencies
+            // add CARGO dependencies
             dependencies_map.insert(
                 "runic-pb-fft".to_string(),
-                "{ git = \"ssh://git@github.com/hotg-ai/runic-pb-fft\" }".to_string(),
+                "{ git = \"ssh://git@github.com/hotg-ai/runic-pb-fft\" }"
+                    .to_string(),
             );
             dependencies_map.insert(
                 "runic-types".to_string(),
-                "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" }".to_string(),
+                "{ git = \"ssh://git@github.com/hotg-ai/runic-types\" }"
+                    .to_string(),
             );
-            //generate some code
+            // generate some code
             scope.import("std::collections", "HashMap");
             scope.import("runic_pb_fft", "Processor");
             scope.import("runic_types::proc_block", "ProcBlock");
