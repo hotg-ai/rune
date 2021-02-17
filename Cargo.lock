@@ -1684,6 +1684,7 @@ dependencies = [
 name = "rune"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "cargo",
  "clap",
  "env_logger 0.8.2",

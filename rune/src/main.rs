@@ -2,18 +2,18 @@
 mod build;
 mod run;
 
+use anyhow::{Context, Error};
+use clap::{App, Arg, SubCommand};
 use env_logger;
 use log;
-
-use clap::{App, Arg, SubCommand};
 
 const VERSION: &str = "v0.0.2";
 
 /// Rune CLI
 ///   Provides two CLI subcommands (run, build)
-fn main() {
-    /// Setting up environment logger that will only show logs
-    /// for rune crates. We can change this with env variables.
+fn main() -> Result<(), Error> {
+    // Setting up environment logger that will only show logs
+    // for rune crates. We can change this with env variables.
     let mut builder = env_logger::Builder::new();
     builder.filter_module("rune", log::LevelFilter::Info);
     builder.filter_module("rune::*", log::LevelFilter::Info);
@@ -56,7 +56,7 @@ fn main() {
     // If the subcommand matches `build`
     if let Some(matches) = matches.subcommand_matches("build") {
         match matches.value_of("runefile") {
-            Some(x) => build::build(x),
+            Some(x) => build::build(x)?,
             _ => log::info!("No runefile provided"),
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
@@ -80,4 +80,6 @@ fn main() {
 
         run::run(rune, number_of_runs);
     }
+
+    Ok(())
 }
