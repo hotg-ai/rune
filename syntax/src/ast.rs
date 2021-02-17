@@ -17,6 +17,19 @@ pub enum Instruction {
     Out(OutInstruction),
 }
 
+impl Instruction {
+    pub fn span(&self) -> Span {
+        match self {
+            Instruction::From(f) => f.span,
+            Instruction::Model(m) => m.span,
+            Instruction::Capability(c) => c.span,
+            Instruction::Run(r) => r.span,
+            Instruction::ProcBlock(p) => p.span,
+            Instruction::Out(o) => o.span,
+        }
+    }
+}
+
 impl From<FromInstruction> for Instruction {
     fn from(other: FromInstruction) -> Self { Instruction::From(other) }
 }
@@ -53,9 +66,9 @@ pub struct FromInstruction {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ModelInstruction {
-    pub model_name: Ident,
-    pub model_file: String,
-    pub model_parameters: HashMap<String, String>,
+    pub name: Ident,
+    pub file: String,
+    pub parameters: HashMap<String, String>,
     pub span: Span,
 }
 
@@ -67,12 +80,12 @@ pub struct Ident {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CapabilityInstruction {
-    pub capability_name: Ident,
-    pub capability_description: String,
-    pub capability_parameters: HashMap<String, String>,
-    pub dependencies: HashMap<String, String>,
+    pub name: Ident,
+    pub description: String,
+    pub parameters: HashMap<String, String>,
     pub input_type: Type,
     pub output_type: Type,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,7 +111,6 @@ pub struct ProcBlockInstruction {
     pub path: String,
     pub name: Ident,
     pub params: HashMap<String, String>,
-    pub dependencies: HashMap<String, String>,
     pub span: Span,
 }
 
