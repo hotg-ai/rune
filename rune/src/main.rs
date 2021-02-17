@@ -78,7 +78,7 @@ fn main() -> Result<(), Error> {
             },
         };
 
-        run::run(rune, number_of_runs);
+        run::run(rune, number_of_runs)?;
     }
 
     Ok(())
