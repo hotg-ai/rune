@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::ast::{
     CapabilityInstruction, FromInstruction, Ident, Instruction,
-    ModelInstruction, ProcBlockInstruction, Runefile, Type,
+    ModelInstruction, OutInstruction, ProcBlockInstruction, RunInstruction,
+    Runefile, Type,
 };
 use codespan::Span;
 use pest::{error::Error, iterators::Pair, Parser, RuleType};
@@ -34,6 +35,13 @@ pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
             Rule::model => {
                 instructions.push(parse_model(pair).into());
             },
+            Rule::run => {
+                instructions.push(parse_run(pair).into());
+            },
+            Rule::out => {
+                instructions.push(parse_out(pair).into());
+            },
+            Rule::EOI => {},
             other => todo!("Haven't implemented {:?}\n\n{:?}", other, pair),
         }
     }
@@ -281,6 +289,21 @@ fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
         model_parameters: parameters_param,
         span,
     }
+}
+
+fn parse_run(pair: Pair<Rule>) -> RunInstruction {
+    let span = get_span(&pair);
+
+    let steps = pair.into_inner().map(parse_ident).collect();
+
+    RunInstruction { steps, span }
+}
+
+fn parse_out(pair: Pair<Rule>) -> OutInstruction {
+    let span = get_span(&pair);
+    let out_type = parse_ident(pair.into_inner().next().unwrap());
+
+    OutInstruction { span, out_type }
 }
 
 #[cfg(test)]
