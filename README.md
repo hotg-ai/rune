@@ -1,17 +1,17 @@
 # Rune
 
-Rune is a containerization technology for deploying TinyML applications to extremely constraint devices. 
+Rune is a containerization technology for deploying TinyML applications to extremely constraint devices.
 
 # Deps
 
-1. rustup install nightly 
+1. rustup install nightly
 2. brew install binaryen
 2. rustup target add wasm32-unknown-unknown
 
 
-## Runefile 
+## Runefile
 
-A `Runefile` is similar to `Dockerfile` in that it is a text document that defines capabilities, processing blocks, feature transformation, models and model outputs to assemble the `Rune`. 
+A `Runefile` is similar to `Dockerfile` in that it is a text document that defines capabilities, processing blocks, feature transformation, models and model outputs to assemble the `Rune`.
 
 A simplistic example of this is would be:
 
@@ -20,24 +20,24 @@ A simplistic example of this is would be:
 ```
 FROM runicos/base
 
-CAPABILITY AUDIO audio --hz 16000 --samples 150 --sample-size 1500 
+CAPABILITY AUDIO audio --hz 16000 --samples 150 --sample-size 1500
 
 PROC_BLOCK runicos/fft fft
 
 MODEL ./example.tflite model --input [150,1] --output 1
 
-RUN audio fft model 
+RUN audio fft model
 
 OUT serial
 ```
 
-In this example a audio with fft (fast fourier transformation) block can be run with the model. 
+In this example a audio with fft (fast fourier transformation) block can be run with the model.
 
 ### Usage
 
 #### Build
 
-Using the `rune` cli you can build containers 
+Using the `rune` cli you can build containers
 that are tagged and available.
 
 *List available containers*
@@ -64,9 +64,9 @@ that are tagged and available.
 ## Private Git Repos
 
 To get deps from our private git repos we need to
-use `ssh agent`. 
+use `ssh agent`.
 
-Add the below to your `.ssh/config` 
+Add the below to your `.ssh/config`
 ```
 Host github.com
    UseKeychain yes
@@ -75,4 +75,13 @@ Host github.com
 ```
 
 and run:
-`ssh-add -K ~/.ssh/id_rsa` 
+`ssh-add -K ~/.ssh/id_rsa`
+
+## Developing
+
+We use [`cargo xtask`][xtask] to help with various things during development.
+
+You can use `cargo xtask install-pre-commit-hook` to install a pre-commit hook
+that will automatically run `rustfmt` whenever you make a commit.
+
+[xtask]: https://github.com/matklad/cargo-xtask
