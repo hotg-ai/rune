@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    CapabilityInstruction, FromInstruction, Ident, Instruction, Runefile, Type,
+    CapabilityInstruction, FromInstruction, Ident, Instruction,
+    ProcBlockInstruction, Runefile, Type,
 };
 use codespan::Span;
 use pest::{error::Error, iterators::Pair, Parser, RuleType};
@@ -26,6 +27,9 @@ pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
             },
             Rule::capability => {
                 instructions.push(parse_capability(pair).into());
+            },
+            Rule::proc_line => {
+                instructions.push(parse_proc_block(pair).into());
             },
             other => todo!("Haven't implemented {:?}\n\n{:?}", other, pair),
         }
@@ -66,10 +70,7 @@ fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
 
     let mut capability_parameters_param: HashMap<String, String> =
         HashMap::new();
-    let mut capability_name_param = Ident {
-        value: String::new(),
-        span: Span::new(0, 0),
-    };
+    let mut capability_name_param = null_ident();
     let mut capability_description_param = "".to_string();
     let mut input_type = Type {
         kind: crate::ast::TypeKind::Inferred,
@@ -166,11 +167,69 @@ fn parse_type(pair: Pair<Rule>) -> Type {
     }
 }
 
+fn null_ident() -> Ident {
+    Ident {
+        value: String::new(),
+        span: Span::new(0, 0),
+    }
+}
+
+fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
+    let span = get_span(&pair);
+    let mut parameters_param = HashMap::new();
+    let mut path = String::new();
+    let mut name = null_ident();
+
+    for step_record in pair.into_inner() {
+        match step_record.as_rule() {
+            Rule::proc_path => path = step_record.as_str().to_string(),
+            Rule::proc_name => name = parse_ident(step_record),
+            Rule::proc_args => {
+                for arg in step_record.into_inner() {
+                    match arg.as_rule() {
+                        Rule::proc_step => {
+                            let mut last_param_name = "".to_string();
+                            for part in arg.into_inner() {
+                                match part.as_rule() {
+                                    Rule::proc_arg_variable => {
+                                        last_param_name =
+                                            part.as_str().to_string();
+                                    },
+                                    Rule::proc_arg_value => {
+                                        let last_param_value =
+                                            part.as_str().to_string();
+                                        let last_param_name_cloned =
+                                            last_param_name.clone();
+                                        parameters_param.insert(
+                                            last_param_name_cloned,
+                                            last_param_value,
+                                        );
+                                    },
+                                    _ => {},
+                                }
+                            }
+                        },
+                        _ => {},
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+
+    ProcBlockInstruction {
+        path,
+        name,
+        params: parameters_param,
+        dependencies: HashMap::new(),
+        span,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::ast::{CapabilityInstruction, Type, TypeKind};
-
     use super::*;
+    use crate::ast::{CapabilityInstruction, Type, TypeKind};
 
     #[test]
     fn parse_a_from_instruction() {
