@@ -85,6 +85,7 @@ pub struct Type {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeKind {
     Inferred,
+    Named(Ident),
 }
 
 #[derive(Debug, PartialEq, Clone)]

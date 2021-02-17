@@ -1,4 +1,8 @@
-use crate::ast::{FromInstruction, Ident, Instruction, Runefile};
+use std::collections::HashMap;
+
+use crate::ast::{
+    CapabilityInstruction, FromInstruction, Ident, Instruction, Runefile, Type,
+};
 use codespan::Span;
 use pest::{error::Error, iterators::Pair, Parser, RuleType};
 
@@ -8,17 +12,22 @@ pub struct RunefileParser;
 
 /// Parse a [`Runefile`] from its textual representation.
 pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
-    let parsed = RunefileParser::parse(Rule::runefile, src)?;
-    let span = Span::new(0, src.len() as u32);
+    let top_level = RunefileParser::parse(Rule::runefile, src)?
+        .next()
+        .expect("There is always a runefile rule");
+    let span = get_span(&top_level);
 
     let mut instructions: Vec<Instruction> = Vec::new();
 
-    for pair in parsed {
+    for pair in top_level.into_inner() {
         match pair.as_rule() {
             Rule::from => {
                 instructions.push(parse_from(pair).into());
             },
-            _ => todo!(),
+            Rule::capability => {
+                instructions.push(parse_capability(pair).into());
+            },
+            other => todo!("Haven't implemented {:?}\n\n{:?}", other, pair),
         }
     }
 
@@ -46,8 +55,121 @@ fn parse_ident(pair: Pair<Rule>) -> Ident {
     }
 }
 
+fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
+    // FIXME: This was all copied from the previous implementation. Instead of
+    // creating temporary variables and expecting our loop to update them with
+    // the real thing, we should take a much more declarative/functional
+    // approach.
+    //
+    // It's more idiomatic and we are less likely to have undesireable results
+    // that way.
+
+    let mut capability_parameters_param: HashMap<String, String> =
+        HashMap::new();
+    let mut capability_name_param = Ident {
+        value: String::new(),
+        span: Span::new(0, 0),
+    };
+    let mut capability_description_param = "".to_string();
+    let mut input_type = Type {
+        kind: crate::ast::TypeKind::Inferred,
+        span: Span::new(0, 0),
+    };
+    let mut output_type = input_type.clone();
+    let dependencies_map: HashMap<String, String> = HashMap::new();
+
+    for args in pair.into_inner() {
+        match args.as_rule() {
+            Rule::INPUT_TYPES => {
+                for arg in args.into_inner() {
+                    match arg.as_rule() {
+                        Rule::input_type => {
+                            input_type = parse_type(arg);
+                        },
+                        Rule::output_type => {
+                            output_type = parse_type(arg);
+                        },
+                        other => {
+                            unreachable!(
+                                "Should never get a {:?} rule\n\n{:?}",
+                                other, arg
+                            );
+                        },
+                    }
+                }
+            },
+            Rule::capability_name => {
+                capability_name_param = parse_ident(args);
+            },
+            Rule::capability_description => {
+                capability_description_param = args.as_str().to_string()
+            },
+            Rule::capability_args => {
+                for arg in args.into_inner() {
+                    match arg.as_rule() {
+                        Rule::capability_step => {
+                            let mut last_param_name = "".to_string();
+                            for part in arg.into_inner() {
+                                match part.as_rule() {
+                                    Rule::capability_arg_variable => {
+                                        last_param_name =
+                                            part.as_str().to_string();
+                                    },
+                                    Rule::capability_arg_value => {
+                                        let last_param_value =
+                                            part.as_str().to_string();
+                                        let last_param_name_cloned =
+                                            last_param_name.clone();
+                                        capability_parameters_param.insert(
+                                            last_param_name_cloned,
+                                            last_param_value,
+                                        );
+                                    },
+                                    _ => {},
+                                }
+                            }
+                        },
+                        _ => {},
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+
+    CapabilityInstruction {
+        capability_name: capability_name_param,
+        capability_description: capability_description_param,
+        capability_parameters: capability_parameters_param,
+        dependencies: dependencies_map,
+        input_type,
+        output_type,
+    }
+}
+
+fn parse_type(pair: Pair<Rule>) -> Type {
+    let span = get_span(&pair);
+
+    if pair.as_str() == "_" {
+        Type {
+            kind: crate::ast::TypeKind::Inferred,
+            span,
+        }
+    } else if pair.as_str().chars().all(char::is_alphanumeric) {
+        let name = parse_ident(pair);
+        Type {
+            kind: crate::ast::TypeKind::Named(name),
+            span,
+        }
+    } else {
+        todo!("{:?}", pair)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::ast::{CapabilityInstruction, Type, TypeKind};
+
     use super::*;
 
     #[test]
@@ -66,6 +188,41 @@ mod tests {
             .next()
             .unwrap();
         let got = parse_from(got);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_a_capability() {
+        let src = "CAPABILITY<_,I32> RAND rand --n 1";
+        let should_be = CapabilityInstruction {
+            capability_name: Ident {
+                value: String::from("RAND"),
+                span: Span::new(18, 22),
+            },
+            capability_description: String::from("rand"),
+            capability_parameters: vec![(String::from("n"), String::from("1"))]
+                .into_iter()
+                .collect(),
+            dependencies: Default::default(),
+            input_type: Type {
+                kind: TypeKind::Inferred,
+                span: Span::new(11, 12),
+            },
+            output_type: Type {
+                kind: TypeKind::Named(Ident {
+                    value: String::from("I32"),
+                    span: Span::new(13, 16),
+                }),
+                span: Span::new(13, 16),
+            },
+        };
+
+        let got = RunefileParser::parse(Rule::capability, src)
+            .unwrap()
+            .next()
+            .unwrap();
+        let got = parse_capability(got);
 
         assert_eq!(got, should_be);
     }
