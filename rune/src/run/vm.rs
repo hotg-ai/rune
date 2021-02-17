@@ -35,10 +35,23 @@ impl VM {
 
         log::debug!("Loaded {} bytes from {} container", rune_bytes.len(), filename);
 
-        let mut provider = Provider::init();
         let imports = VM::get_imports();
-        let mut instance = instantiate(&rune_bytes[..], &imports).expect("failed to instantiate Rune");
-        instance.context_mut().data = &mut provider as *mut _ as *mut c_void;
+        let mut instance =
+            instantiate(&rune_bytes[..], &imports).expect("failed to instantiate Rune");
+
+        // Pass ownership of our Provider to the instance and tell it how to
+        // destroy the Provider afterwards.
+        let data = Box::new(Provider::init());
+        let ctx = instance.context_mut();
+        ctx.data = Box::into_raw(data) as *mut c_void;
+        ctx.data_finalizer = Some(|data| {
+            // SAFETY: We are the only ones to set instance data so we know
+            // what type it is.
+            unsafe {
+                let _ = Box::from_raw(data as *mut Provider);
+            }
+        });
+
         let manifest: Func<(), u32> = instance.exports.get("_manifest").unwrap();
 
         let manifest_size: u32 = manifest.call().expect("failed to call manifest");
