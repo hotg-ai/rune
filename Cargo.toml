@@ -13,3 +13,4 @@ exclude = [
     "examples/boilerplate",
     "examples/gesture"
 ]
+default-members = ["rune"]
