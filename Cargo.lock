@@ -1759,6 +1759,7 @@ name = "rune-syntax"
 version = "0.1.0"
 dependencies = [
  "codespan",
+ "codespan-reporting",
  "pest",
  "pest_derive",
  "pretty_assertions",
