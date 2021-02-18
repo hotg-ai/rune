@@ -1,8 +1,10 @@
+use alloc::{string::String, vec::Vec};
 
-use alloc::string::String;
-use alloc::vec::Vec;
-
-fn chunk_to_typed<T: Clone, F>(input: &Vec<u8>, chunk_size: usize, transform: F) -> Vec<T>
+fn chunk_to_typed<T: Clone, F>(
+    input: &Vec<u8>,
+    chunk_size: usize,
+    transform: F,
+) -> Vec<T>
 where
     F: for<'a> Fn(&[u8]) -> T,
 {
@@ -21,7 +23,8 @@ fn vi32_to_vi16(input: &Vec<u8>) -> Vec<i16> {
 
 fn vf32_to_vi16(input: &Vec<u8>) -> Vec<i16> {
     return chunk_to_typed(input, 4, |chunk| {
-        let f32_atom: f32 = f32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        let f32_atom: f32 =
+            f32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         return f32_atom as i16;
     });
 }
@@ -29,7 +32,8 @@ fn vf32_to_vi16(input: &Vec<u8>) -> Vec<i16> {
 fn vf64_to_vi16(input: &Vec<u8>) -> Vec<i16> {
     return chunk_to_typed(input, 8, |chunk| {
         let f64_atom: f64 = f64::from_be_bytes([
-            chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
+            chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5],
+            chunk[6], chunk[7],
         ]);
         return f64_atom as i16;
     });
@@ -58,22 +62,24 @@ impl crate::marshall::Transformable<f32> for TransformableType {
                 return chunk_to_typed(input, 4, |chunk| {
                     f32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])
                 })
-            }
+            },
             TYPE::F64 => {
                 return chunk_to_typed(input, 8, |chunk| {
                     let f64_atom = f64::from_be_bytes([
-                        chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6],
-                        chunk[7],
+                        chunk[0], chunk[1], chunk[2], chunk[3], chunk[4],
+                        chunk[5], chunk[6], chunk[7],
                     ]);
                     return f64_atom as f32;
                 });
-            }
+            },
             TYPE::I32 => {
                 return chunk_to_typed(input, 4, |chunk| {
-                    let i32_atom = i32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                    let i32_atom = i32::from_be_bytes([
+                        chunk[0], chunk[1], chunk[2], chunk[3],
+                    ]);
                     return i32_atom as f32;
                 });
-            }
+            },
             _ => vec![],
         };
     }

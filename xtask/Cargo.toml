@@ -1,0 +1,14 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+edition = "2018"
+publish = false
+description = "Utilities used during development."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.38"
+devx-pre-commit = "0.3.1"
+structopt = "0.3.21"

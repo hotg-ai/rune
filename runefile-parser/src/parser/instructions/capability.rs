@@ -10,15 +10,16 @@ pub struct CapabilityInstruction {
     pub code: String,
     pub dependencies: HashMap<String, String>,
     pub input_type: String,
-    pub output_type: String
+    pub output_type: String,
 }
 
 impl CapabilityInstruction {
     pub(crate) fn from_record(record: Pair) -> Self {
-        let mut capability_parameters_param: HashMap<String, String> = HashMap::new();
+        let mut capability_parameters_param: HashMap<String, String> =
+            HashMap::new();
         let mut capability_name_param = "".to_string();
         let mut capability_description_param = "".to_string();
-        let mut input_type  = "".to_string();
+        let mut input_type = "".to_string();
         let mut output_type = "".to_string();
         let dependencies_map: HashMap<String, String> = HashMap::new();
 
@@ -28,49 +29,53 @@ impl CapabilityInstruction {
                     for arg in args.into_inner() {
                         match arg.as_rule() {
                             Rule::input_type => {
-                                input_type   = arg.as_str().to_string();
-                            }
+                                input_type = arg.as_str().to_string();
+                            },
                             Rule::output_type => {
                                 output_type = arg.as_str().to_string();
-                            }
+                            },
                             _ => {
                                 log::info!("{:#?}", arg.as_str().to_string());
-                            }
+                            },
                         }
-                       
                     }
-                    
                 },
-                Rule::capability_name => capability_name_param = args.as_str().to_string(),
+                Rule::capability_name => {
+                    capability_name_param = args.as_str().to_string()
+                },
                 Rule::capability_description => {
                     capability_description_param = args.as_str().to_string()
-                }
+                },
                 Rule::capability_args => {
                     for arg in args.into_inner() {
                         match arg.as_rule() {
-                            
                             Rule::capability_step => {
                                 let mut last_param_name = "".to_string();
                                 for part in arg.into_inner() {
                                     match part.as_rule() {
                                         Rule::capability_arg_variable => {
-                                            last_param_name = part.as_str().to_string();
-                                        }
+                                            last_param_name =
+                                                part.as_str().to_string();
+                                        },
                                         Rule::capability_arg_value => {
-                                            let last_param_value = part.as_str().to_string();
-                                            let last_param_name_cloned = last_param_name.clone();
-                                            capability_parameters_param
-                                                .insert(last_param_name_cloned, last_param_value);
-                                        }
-                                        _ => {}
+                                            let last_param_value =
+                                                part.as_str().to_string();
+                                            let last_param_name_cloned =
+                                                last_param_name.clone();
+                                            capability_parameters_param.insert(
+                                                last_param_name_cloned,
+                                                last_param_value,
+                                            );
+                                        },
+                                        _ => {},
                                     }
                                 }
-                            }
-                            _ => {}
+                            },
+                            _ => {},
                         }
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
         let mut scope = Scope::new();
@@ -106,7 +111,7 @@ impl CapabilityInstruction {
             code: scope.to_string(),
             dependencies: dependencies_map,
             input_type,
-            output_type
+            output_type,
         }
     }
 }
@@ -116,7 +121,11 @@ impl std::fmt::Debug for CapabilityInstruction {
         write!(
             f,
             "[Capability]<{},{}>    name:{}\tdescription:{}\tparams:{:?}",
-            self.input_type, self.output_type, self.capability_name, self.capability_description, self.capability_parameters, 
+            self.input_type,
+            self.output_type,
+            self.capability_name,
+            self.capability_description,
+            self.capability_parameters,
         )
     }
 }

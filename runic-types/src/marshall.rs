@@ -1,6 +1,5 @@
-
-use alloc::vec::Vec;
 use crate::proc_block::TYPE;
+use alloc::vec::Vec;
 
 pub trait Transformable<A> {
     fn transform(input: &Vec<u8>, data_type: TYPE) -> Vec<A>;
@@ -19,7 +18,10 @@ impl<T: Transformable<T>> Transformed<T> {
     }
 }
 
-pub fn marshall<T: Transformable<T>>(data_type: TYPE, input: Vec<u8>) -> Transformed<T> {
+pub fn marshall<T: Transformable<T>>(
+    data_type: TYPE,
+    input: Vec<u8>,
+) -> Transformed<T> {
     return Transformed::<T> {
         data_type,
         input,

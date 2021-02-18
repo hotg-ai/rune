@@ -9,7 +9,7 @@ pub fn build(fileloc: &str) {
         Err(_err) => {
             log::error!("Failed to load file '{}'", fileloc);
             return;
-        }
+        },
     };
 
     let homedir = runefile_parser::parser::generate(contents);
@@ -19,7 +19,7 @@ pub fn build(fileloc: &str) {
         Err(err) => {
             log::error!("Couldn't make workspace config {:?}", err);
             return;
-        }
+        },
     };
     config
         .shell()
@@ -36,18 +36,23 @@ pub fn build(fileloc: &str) {
         Err(err) => {
             log::error!("Couldn't make workspace {:?}", err);
             return;
-        }
+        },
     };
 
     let mut compile_opts = match cargo::ops::CompileOptions::new(
-        &cargo::Config::new(cargo::core::Shell::default(), homedir.clone(), homedir),
-        cargo::core::compiler::CompileMode::Build, // we should also do a test before
+        &cargo::Config::new(
+            cargo::core::Shell::default(),
+            homedir.clone(),
+            homedir,
+        ),
+        cargo::core::compiler::CompileMode::Build, /* we should also do a
+                                                    * test before */
     ) {
         Ok(co) => co,
         Err(err) => {
             log::error!("Couldn't compile Rune '{:?}'", err);
             return;
-        }
+        },
     };
 
     compile_opts.build_config = cargo::core::compiler::BuildConfig::new(
@@ -63,12 +68,24 @@ pub fn build(fileloc: &str) {
         required_features_filterable: true,
     };
 
+    // 
     //  * MEGA HUNT DOWN IN THE CARGO CODE ... this is what I had to do
     //
-    //    cd /Users/kthakore/Documents/HOTG-ai/cargo; cargo build --quiet; cd /Users/kthakore/.rune/runes/b39f1b98-dbe4-4c2d-98b6-06f544647d4b; echo "BUILD CARGO"; cargo clean; /Users/kthakore/Documents/HOTG-ai/cargo/target/release/cargo build --target wasm32-unknown-unknown --release > DEV_LOG; cd /Users/kthakore/Documents/HOTG-ai/cargo;
-    //    cd /Users/kthakore/Documents/HOTG-ai/cargo; cargo build --release --quiet; cd /Users/kthakore/.rune/runes/b39f1b98-dbe4-4c2d-98b6-06f544647d4b; echo "BUILD CARGO"; cargo clean; /Users/kthakore/Documents/HOTG-ai/cargo/target/release/cargo build --target wasm32-unknown-unknown  > DEV_LOG; cd /Users/kthakore/Documents/HOTG-ai/cargo;
+    //    cd /Users/kthakore/Documents/HOTG-ai/cargo; cargo build --quiet; cd
+    // /Users/kthakore/.rune/runes/b39f1b98-dbe4-4c2d-98b6-06f544647d4b; echo
+    // "BUILD CARGO"; cargo clean;
+    // /Users/kthakore/Documents/HOTG-ai/cargo/target/release/cargo build
+    // --target wasm32-unknown-unknown --release > DEV_LOG; cd
+    // /Users/kthakore/Documents/HOTG-ai/cargo;    cd /Users/kthakore/
+    // Documents/HOTG-ai/cargo; cargo build --release --quiet; cd
+    // /Users/kthakore/.rune/runes/b39f1b98-dbe4-4c2d-98b6-06f544647d4b; echo
+    // "BUILD CARGO"; cargo clean;
+    // /Users/kthakore/Documents/HOTG-ai/cargo/target/release/cargo build
+    // --target wasm32-unknown-unknown  > DEV_LOG; cd
+    // /Users/kthakore/Documents/HOTG-ai/cargo;
 
-    //    Then I DIFFED that to find out that --release tag was going to profiles!!! No DOCS ANYWHERE!
+    //    Then I DIFFED that to find out that --release tag was going to
+    // profiles!!! No DOCS ANYWHERE!
 
     compile_opts.build_config.requested_profile =
         cargo::util::interning::InternedString::new("release");
@@ -78,7 +95,7 @@ pub fn build(fileloc: &str) {
         Err(err) => {
             log::error!("Couldn't compile Rune '{:?}'", err);
             return;
-        }
+        },
     }
 
     log::info!("Create Rune:{:?}", rune_file);

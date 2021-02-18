@@ -1,4 +1,3 @@
-
 #![feature(allocator_api)]
 mod build;
 mod run;
@@ -36,7 +35,6 @@ fn main() {
                     .takes_value(true),
             ),
             SubCommand::with_name("run")
-            
                 .arg(
                     Arg::with_name("rune")
                         .value_name("FILE")
@@ -67,7 +65,7 @@ fn main() {
             _ => {
                 log::warn!("No Rune provided");
                 std::process::exit(1);
-            }
+            },
         };
 
         let number_of_runs = matches.value_of("number_of_runs").unwrap_or("10");
@@ -77,7 +75,7 @@ fn main() {
             Err(_err) => {
                 log::warn!("Invalid number of runs: '{}'", number_of_runs);
                 -1
-            }
+            },
         };
 
         run::run(rune, number_of_runs);

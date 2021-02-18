@@ -7,7 +7,11 @@ extern crate alloc;
 // use runic_types::*;
 use alloc::vec::Vec;
 
-fn chunk_to_typed<T: Clone, F>(input: &Vec<u8>, chunk_size: usize, transform: F) -> Vec<T>
+fn chunk_to_typed<T: Clone, F>(
+    input: &Vec<u8>,
+    chunk_size: usize,
+    transform: F,
+) -> Vec<T>
 where
     F: for<'a> Fn(&[u8]) -> T,
 {
@@ -19,8 +23,11 @@ where
 }
 
 pub trait Transformable<InputBufferType, OutputBufferType> {
-    fn to_buffer(input: &Vec<InputBufferType>) -> Result<Vec<u8>, &'static str>;
-    fn from_buffer(input: &Vec<u8>) -> Result<Vec<OutputBufferType>, &'static str>;
+    fn to_buffer(input: &Vec<InputBufferType>)
+        -> Result<Vec<u8>, &'static str>;
+    fn from_buffer(
+        input: &Vec<u8>,
+    ) -> Result<Vec<OutputBufferType>, &'static str>;
 }
 
 pub struct Transform<InputType, OutputType> {
@@ -55,14 +62,13 @@ impl Transformable<f32, i32> for Transform<f32, i32> {
 
     fn from_buffer(_input: &Vec<u8>) -> Result<Vec<i32>, &'static str> {
         let out = chunk_to_typed(&_input, 4, |chunk| {
-            let f = i32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let f =
+                i32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             return f as i32;
         });
         return Ok(out);
     }
-
 }
-
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
 impl Transformable<i32, i32> for Transform<i32, i32> {
@@ -90,14 +96,13 @@ impl Transformable<i32, i32> for Transform<i32, i32> {
 
     fn from_buffer(_input: &Vec<u8>) -> Result<Vec<i32>, &'static str> {
         let out = chunk_to_typed(&_input, 4, |chunk| {
-            let f = i32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let f =
+                i32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             return f as i32;
         });
         return Ok(out);
     }
-
 }
-
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
 impl Transformable<i32, i16> for Transform<i32, i16> {
@@ -129,7 +134,6 @@ impl Transformable<i32, i16> for Transform<i32, i16> {
         });
         return Ok(out);
     }
-
 }
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
@@ -166,12 +170,12 @@ impl Transformable<f32, f32> for Transform<f32, f32> {
             return Err("Input length needs to be divisible by 4 ");
         }
         let out = chunk_to_typed(&_input, 4, |chunk| {
-            let f = f32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let f =
+                f32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             return f;
         });
         return Ok(out);
     }
-
 }
 
 #[cfg(test)]
@@ -183,10 +187,12 @@ mod tests {
     #[test]
     fn can_transform_same_types() {
         let mut rng = thread_rng();
-        let raw: Vec<f32> = Vec::from([rng.gen(), rng.gen(), rng.gen(), rng.gen()]);
+        let raw: Vec<f32> =
+            Vec::from([rng.gen(), rng.gen(), rng.gen(), rng.gen()]);
         let buffer: Vec<u8> = Transform::<f32, f32>::to_buffer(&raw).unwrap();
 
-        let transform: Vec<f32> = Transform::<f32, f32>::from_buffer(&buffer).unwrap();
+        let transform: Vec<f32> =
+            Transform::<f32, f32>::from_buffer(&buffer).unwrap();
 
         assert_eq!(raw, transform);
     }
@@ -194,12 +200,12 @@ mod tests {
     #[test]
     fn can_transform_f32_i32() {
         let raw: Vec<f32> = Vec::from([1.2, 12.2, 1231.2, -633.12, 78432.2]);
-        // Outputs Vec<u8> which has encode Vec<i32> 
+        // Outputs Vec<u8> which has encode Vec<i32>
         let buffer: Vec<u8> = Transform::<f32, i32>::to_buffer(&raw).unwrap();
 
-        let transform: Vec<i32> = Transform::<f32, i32>::from_buffer(&buffer).unwrap();
+        let transform: Vec<i32> =
+            Transform::<f32, i32>::from_buffer(&buffer).unwrap();
 
         assert_eq!(Vec::from([1, 12, 1231, -633, 78432]), transform);
     }
-
 }
