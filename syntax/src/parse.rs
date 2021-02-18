@@ -425,4 +425,36 @@ mod tests {
 
         assert_eq!(got, should_be);
     }
+
+    /// Assert that a set of strings parse successfully using the specified
+    /// [`Rule`].
+    macro_rules! assert_matches {
+        ($rule:ident, $($src:expr),* $(,)?) => {
+            #[test]
+            #[allow(non_snake_case)]
+            fn $rule() {
+                $(
+                    if let Err(e) = RunefileParser::parse(Rule::$rule, $src) {
+                        panic!("{}\n\n{:?}", e, e);
+                    }
+                )*
+            }
+        };
+    }
+
+    assert_matches!(
+        proc_step,
+        "--identifier asdf",
+        "--integer-literal 42",
+        "--buffer-type i32[1, 2]",
+        "--array [1, 2]"
+    );
+
+    assert_matches!(
+        INPUT_TYPES,
+        "<_,_>",
+        "<I32, _>",
+        "<_, F32[1,2]>",
+        "<U64[1][2], _>"
+    );
 }
