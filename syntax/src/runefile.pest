@@ -6,7 +6,7 @@ DIMENSIONS = { "[" ~ dim ~ ws* ~ ( ("," ~ ws* ~ dim) | "") ~ "]" }
 TYPE = _{ TYPE_ATOM ~ DIMENSIONS* }
 input_type = { TYPE }
 output_type = { TYPE }
-INPUT_TYPES = { ("<" ~ input_type ~ "," ~ output_type ~ ">") | (ws* ~ "input_type=" ~ input_type ~ " output_type=" ~ output_type) }
+INPUT_TYPES = { ("<" ~ input_type ~ ws* ~ "," ~ ws* ~ output_type ~ ">") | (ws* ~ "input_type=" ~ input_type ~ ws* ~ "output_type=" ~ output_type) }
 meta_step = _{ ws* ~ (step | comment)? ~ ws* }
 
 // TODO: Add additional grammar to support
