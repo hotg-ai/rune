@@ -125,15 +125,17 @@ impl<'diag> Analyser<'diag> {
         }
     }
 
-    fn load_model(&mut self, model: &ModelInstruction) { todo!() }
+    fn load_model(&mut self, _model: &ModelInstruction) { todo!() }
 
-    fn load_capability(&mut self, capability: &CapabilityInstruction) {
+    fn load_capability(&mut self, _capability: &CapabilityInstruction) {
         todo!()
     }
 
-    fn load_run(&mut self, run: &RunInstruction) { todo!() }
+    fn load_run(&mut self, _run: &RunInstruction) { todo!() }
 
-    fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) { todo!() }
+    fn load_proc_block(&mut self, _proc_block: &ProcBlockInstruction) {
+        todo!()
+    }
 
     fn load_out(&mut self, out: &OutInstruction) {
         match out.out_type.value.as_str() {
