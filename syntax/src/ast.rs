@@ -1,3 +1,5 @@
+//! The *Abstract Syntax Tree* for a Runefile.
+
 use codespan::Span;
 use std::collections::HashMap;
 
