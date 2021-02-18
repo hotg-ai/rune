@@ -4,7 +4,12 @@
 #[macro_use]
 extern crate pretty_assertions;
 
+mod analysis;
 pub mod ast;
+mod diagnostics;
+pub mod hir;
 pub mod parse;
 
+pub use analysis::analyse;
+pub use diagnostics::Diagnostics;
 pub use parse::parse;
