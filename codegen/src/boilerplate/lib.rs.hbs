@@ -1,0 +1,121 @@
+#![no_std]
+extern crate alloc;
+extern crate wee_alloc;
+
+use alloc::vec::Vec;
+use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
+use runic_types::{CAPABILITY, OUTPUT, PARAM_TYPE};
+use wee_alloc::WeeAlloc;
+
+#[global_allocator]
+static ALLOC: WeeAlloc = WeeAlloc::INIT;
+
+const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;
+static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] =
+    [0; PROVIDER_RESPONSE_BUFFER_SIZE];
+
+static mut PRINT_BUF: [u8; 512] = [0 as u8; 512];
+
+extern "C" {
+    fn tfm_model_invoke(feature_idx: *const u8, feature_len: u32) -> u32;
+
+    fn tfm_preload_model(
+        model_idx: *const u8,
+        model_len: u32,
+        inputs: u32,
+        outputs: u32,
+    ) -> u32;
+
+    fn _debug(str_ptr: *const u8, str_len: u32) -> u32;
+
+    fn request_capability(ct: u32) -> u32;
+
+    fn request_capability_set_param(
+        idx: u32,
+        key_str_ptr: *const u8,
+        key_str_len: u32,
+        value_ptr: *const u8,
+        value_len: u32,
+        value_type: u32,
+    ) -> u32;
+
+    fn request_manifest_output(t: u32) -> u32;
+
+    fn request_provider_response(
+        provider_response_idx: *const u8,
+        max_allowed_provider_response: u32,
+        capability_idx: u32,
+    ) -> u32;
+}
+
+static mut DEBUG_BUFFER: [u8; 1024] = [0; 1024];
+
+struct BufWriter<'buf> {
+    buffer: &'buf mut [u8],
+    bytes_written: usize,
+}
+
+impl<'buf> BufWriter<'buf> {
+    fn written(&self) -> &'buf [u8] { &self.buffer[..self.bytes_written] }
+
+    fn rest(&mut self) -> &mut [u8] { &mut self.buffer[self.bytes_written..] }
+
+    fn flush(&mut self) {
+        let msg = self.written();
+
+        unsafe {
+            _debug(msg.as_ptr(), msg.len());
+        }
+
+        self.bytes_written = 0;
+    }
+}
+
+impl<'buf> core::fmt::Write for DebugWriter<'buf> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let rest = self.rest();
+
+        if rest.len() < s.len() {
+            return Err(core::fmt::Error);
+        }
+
+        rest[..s.len()].copy_from_slice(s.as_bytes());
+
+        Ok(())
+    }
+}
+
+macro_rules! debug {
+    ($fmt:expr (, $arg:expr)*) => {
+        {
+            let mut buffer = DebugWriter { buffer: &mut DEBUG_BUFFER, bytes_written: 0 };
+
+            if write!($fmt, $($arg),*).is_ok() {
+                buffer.flush();
+            }
+        }
+    };
+}
+
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    unsafe {
+        write!(Wrapper::new(&mut PRINT_BUF), "Panic {}\r\n", info)
+            .expect("Can't write");
+        debug(&PRINT_BUF);
+
+        core::arch::wasm32::unreachable()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn _manifest() -> u32 { todo!() }
+
+#[no_mangle]
+pub extern "C" fn _call(
+    capability_type: i32,
+    input_type: i32,
+    capability_idx: i32,
+) -> i32 {
+    todo!()
+}
