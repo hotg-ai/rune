@@ -44,6 +44,7 @@ pub fn build(runefile: impl AsRef<Path>) {
     let dest = current_directory.join(name).with_extension("rune");
 
     let compilation = Compilation {
+        name: name.to_string_lossy().into_owned(),
         rune,
         current_directory,
         working_directory,
