@@ -2,10 +2,13 @@ use std::path::PathBuf;
 
 use crate::{
     ast::{
-        CapabilityInstruction, Instruction, ModelInstruction, OutInstruction,
-        ProcBlockInstruction, RunInstruction, Runefile,
+        CapabilityInstruction, Ident, Instruction, ModelInstruction,
+        OutInstruction, ProcBlockInstruction, RunInstruction, Runefile,
     },
-    hir::{HirId, Model, Rune, Sink, Source, SourceKind, Type},
+    hir::{
+        HirId, Model, Pipeline, PipelineNode, Rune, Sink, Source, SourceKind,
+        Type,
+    },
     Diagnostics,
 };
 use codespan::FileId;
@@ -145,10 +148,11 @@ impl<'diag> Analyser<'diag> {
 
     fn load_capability(&mut self, capability: &CapabilityInstruction) -> HirId {
         let kind = match capability.name.value.as_str() {
-            "rand" => {
+            "RAND" => {
                 // TODO: We should probably inspect the capability parameters
                 // and pull the relevant ones out into actual fields on the Rand
-                // variant.
+                // variant. That way we aren't relying on the loosely-typed
+                // parameter map.
                 SourceKind::Rand
             },
             other => {
@@ -167,20 +171,112 @@ impl<'diag> Analyser<'diag> {
         };
 
         let id = self.next_id();
+        let output_type = self.interpret_type(&capability.output_type);
         self.rune.sources.insert(
             id,
             Source {
                 kind,
-                output_type: self.unknown_type,
+                output_type,
                 parameters: capability.parameters.clone(),
             },
         );
         self.rune.names.register(&capability.description, id);
 
-        todo!()
+        id
     }
 
-    fn load_run(&mut self, _run: &RunInstruction) -> HirId { todo!() }
+    fn interpret_type(&mut self, ty: &crate::ast::Type) -> HirId {
+        match &ty.kind {
+            crate::ast::TypeKind::Inferred => self.unknown_type,
+            crate::ast::TypeKind::Named(name) => match name.value.as_str() {
+                "U32" => todo!(),
+                _ => {
+                    self.diags.push(
+                        Diagnostic::warning()
+                            .with_message("Unknown type")
+                            .with_labels(vec![Label::primary(
+                                self.file_id,
+                                name.span,
+                            )]),
+                    );
+
+                    self.unknown_type
+                },
+            },
+        }
+    }
+
+    fn get_named(&mut self, name: &Ident) -> HirId {
+        let id = match self.rune.names.get_id(&name.value) {
+            Some(id) => id,
+            None => {
+                self.diags.push(
+                    Diagnostic::error()
+                        .with_message("Unknown name")
+                        .with_labels(vec![Label::primary(
+                            self.file_id,
+                            name.span,
+                        )]),
+                );
+
+                return HirId::ERROR;
+            },
+        };
+
+        id
+    }
+
+    fn load_run(&mut self, run: &RunInstruction) -> HirId {
+        let (first, rest) = match run.steps.as_slice() {
+            [f, r @ ..] => (f, r),
+            _ => todo!(),
+        };
+
+        let source = self.get_named(first);
+
+        if !self.rune.sources.contains_key(&source) {
+            self.diags.push(
+                Diagnostic::error()
+                    .with_message(
+                        "RUN instructions must start with a CAPABILITY",
+                    )
+                    .with_labels(vec![Label::primary(
+                        self.file_id,
+                        first.span,
+                    )]),
+            );
+
+            return HirId::ERROR;
+        }
+
+        let mut pipeline_node = PipelineNode::Source(source);
+
+        for step in rest {
+            let id = self.get_named(step);
+            if id.is_error() {
+                // it's a dodgy name, we may as well bail.
+                return HirId::ERROR;
+            }
+
+            if self.rune.models.contains_key(&id) {
+                pipeline_node = PipelineNode::Model {
+                    model: id,
+                    previous: Box::new(pipeline_node),
+                };
+            } else {
+                todo!("Figure out what sort of PipelineNode this is");
+            }
+        }
+
+        let pipeline = Pipeline {
+            last_step: pipeline_node,
+            output_type: self.unknown_type,
+        };
+        let id = self.next_id();
+        self.rune.pipelines.insert(id, pipeline);
+
+        id
+    }
 
     fn load_proc_block(&mut self, _proc_block: &ProcBlockInstruction) -> HirId {
         todo!()
@@ -316,5 +412,35 @@ mod tests {
         assert!(!id.is_error());
         assert_eq!(analyser.rune.names.get_name(id), Some("sine"));
         assert!(analyser.rune.models.contains_key(&id));
+    }
+
+    #[test]
+    fn add_rand_capability_to_rune() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        // CAPABILITY<_,I32> RAND rand --n 1
+        let capability = CapabilityInstruction {
+            name: Ident::dangling("RAND"),
+            description: String::from("rand"),
+            parameters: vec![(String::from("n"), String::from("1"))]
+                .into_iter()
+                .collect(),
+            input_type: crate::ast::Type::inferred_dangling(),
+            output_type: crate::ast::Type::named_dangling("I32"),
+            span: Span::new(0, 0),
+        };
+
+        let id = analyser.load_capability(&capability);
+
+        assert!(!analyser.diags.has_errors());
+        assert!(!id.is_error());
+        assert_eq!(analyser.rune.names.get_name(id), Some("rand"));
+        let source = &analyser.rune.sources[&id];
+        let should_be = Source {
+            kind: SourceKind::Rand,
+            output_type: analyser.unknown_type,
+            parameters: capability.parameters.clone(),
+        };
+        assert_eq!(source, &should_be);
     }
 }
