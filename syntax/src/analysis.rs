@@ -1,20 +1,19 @@
-use std::path::PathBuf;
-
 use crate::{
     ast::{
         CapabilityInstruction, Ident, Instruction, ModelInstruction,
         OutInstruction, ProcBlockInstruction, RunInstruction, Runefile,
     },
     hir::{
-        HirId, Model, Pipeline, PipelineNode, Rune, Sink, Source, SourceKind,
-        Type,
+        HirId, Model, Pipeline, PipelineNode, ProcBlock, Rune, Sink, Source,
+        SourceKind, Type,
     },
     Diagnostics,
 };
-use codespan::FileId;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use std::path::PathBuf;
 
 type Diag = Diagnostic<FileId>;
+type FileId = usize;
 
 pub fn analyse(
     file_id: FileId,
@@ -189,7 +188,10 @@ impl<'diag> Analyser<'diag> {
         match &ty.kind {
             crate::ast::TypeKind::Inferred => self.unknown_type,
             crate::ast::TypeKind::Named(name) => match name.value.as_str() {
-                "U32" => todo!(),
+                "U32" | "I32" | "F32" | "U64" | "I64" | "F64" => {
+                    // TODO: Actually convert this to a known type
+                    self.unknown_type
+                },
                 _ => {
                     self.diags.push(
                         Diagnostic::warning()
@@ -263,6 +265,11 @@ impl<'diag> Analyser<'diag> {
                     model: id,
                     previous: Box::new(pipeline_node),
                 };
+            } else if self.rune.proc_blocks.contains_key(&id) {
+                pipeline_node = PipelineNode::ProcBlock {
+                    model: id,
+                    previous: Box::new(pipeline_node),
+                };
             } else {
                 todo!("Figure out what sort of PipelineNode this is");
             }
@@ -278,8 +285,20 @@ impl<'diag> Analyser<'diag> {
         id
     }
 
-    fn load_proc_block(&mut self, _proc_block: &ProcBlockInstruction) -> HirId {
-        todo!()
+    fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) -> HirId {
+        let id = self.next_id();
+        self.rune.proc_blocks.insert(
+            id,
+            ProcBlock {
+                input: self.unknown_type,
+                output: self.unknown_type,
+                path: proc_block.path.clone(),
+                params: proc_block.params.clone(),
+            },
+        );
+        self.rune.names.register(&proc_block.name.value, id);
+
+        id
     }
 
     fn load_out(&mut self, out: &OutInstruction) -> HirId {
@@ -310,20 +329,21 @@ impl<'diag> Analyser<'diag> {
 mod tests {
     use std::collections::HashMap;
 
-    use codespan::{Files, Span};
+    use codespan::Span;
+    use codespan_reporting::files::SimpleFiles;
 
     use crate::ast::Ident;
 
     use super::*;
 
     fn setup_analyser(diags: &mut Diagnostics) -> Analyser<'_> {
-        let mut files = Files::new();
+        let mut files = SimpleFiles::new();
         let id = files.add("", "");
         Analyser::new(id, diags)
     }
 
     fn setup(src: &str) -> (FileId, Runefile) {
-        let mut files = Files::new();
+        let mut files = SimpleFiles::new();
         let id = files.add("", src.to_string());
 
         let runefile = match crate::parse(src) {

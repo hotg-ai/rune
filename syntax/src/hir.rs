@@ -10,6 +10,7 @@ pub struct Rune {
     pub models: HashMap<HirId, Model>,
     pub types: HashMap<HirId, Type>,
     pub pipelines: HashMap<HirId, Pipeline>,
+    pub proc_blocks: HashMap<HirId, ProcBlock>,
     pub names: NameTable,
 }
 
@@ -119,4 +120,16 @@ pub enum PipelineNode {
         model: HirId,
         previous: Box<PipelineNode>,
     },
+    ProcBlock {
+        model: HirId,
+        previous: Box<PipelineNode>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcBlock {
+    pub input: HirId,
+    pub output: HirId,
+    pub path: String,
+    pub params: HashMap<String, String>,
 }
