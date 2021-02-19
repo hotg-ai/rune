@@ -2,6 +2,7 @@
 
 members = [
     "codegen",
+    "proc_blocks/*",
     "rune",
     "runefile-parser",
     "runic-types",

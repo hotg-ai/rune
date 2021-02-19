@@ -89,10 +89,14 @@ macro_rules! debug {
     ($fmt:literal $(, $arg:expr)*) => {
         {
             use core::fmt::Write as _;
-            let mut buffer = DebugWriter { buffer: &mut DEBUG_BUFFER, bytes_written: 0 };
+            // SAFETY: The WebAssembly will only ever be used by a single thread
+            // at a time.
+            unsafe {
+                let mut buffer = DebugWriter { buffer: &mut DEBUG_BUFFER, bytes_written: 0 };
 
-            if write!(buffer, $fmt, $($arg),*).is_ok() {
-                buffer.flush();
+                if write!(buffer, $fmt, $($arg),*).is_ok() {
+                    buffer.flush();
+                }
             }
         }
     };

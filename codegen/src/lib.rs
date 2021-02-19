@@ -30,7 +30,15 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
     generator.render()?;
     generator.compile()?;
 
-    todo!()
+    let wasm = generator
+        .dest
+        .join("target")
+        .join("wasm32-unknown-unknown")
+        .join("release")
+        .join("rune.wasm");
+
+    std::fs::read(&wasm)
+        .with_context(|| format!("Unable to read \"{}\"", wasm.display()))
 }
 
 struct Generator {
@@ -98,20 +106,21 @@ impl Generator {
     }
 
     fn render_cargo_toml(&self) -> Result<(), Error> {
-        let mut dependencies = vec![
+        let dependencies = vec![
             json!({ "name": "wee_alloc", "crates_io": "0.4.5" }),
             json!({ "name": "runic-types", "git": RUNE_GIT_REPO }),
         ];
 
-        for (&id, proc) in &self.rune.proc_blocks {
-            let name = self
-                .rune
-                .names
-                .get_name(id)
-                .context("Unable to get the PROC_BLOCK's name")?;
-
-            dependencies.push(dependency_info(name, proc));
-        }
+        // TODO: Make PROC_BLOCKs usable as git dependencies
+        // for (&id, proc) in &self.rune.proc_blocks {
+        //     let name = self
+        //         .rune
+        //         .names
+        //         .get_name(id)
+        //         .context("Unable to get the PROC_BLOCK's name")?;
+        //
+        //     dependencies.push(dependency_info(name, proc));
+        // }
 
         let ctx = json!({ "name": "rune", "dependencies": dependencies });
 
@@ -187,7 +196,7 @@ impl Generator {
     }
 }
 
-fn dependency_info(
+fn _dependency_info(
     name: &str,
     proc: &rune_syntax::hir::ProcBlock,
 ) -> serde_json::Value {
