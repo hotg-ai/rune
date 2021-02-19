@@ -9,6 +9,7 @@ pub struct Rune {
     pub sources: HashMap<HirId, Source>,
     pub models: HashMap<HirId, Model>,
     pub types: HashMap<HirId, Type>,
+    pub pipelines: HashMap<HirId, Pipeline>,
     pub names: NameTable,
 }
 
@@ -97,4 +98,25 @@ pub struct Source {
 pub enum SourceKind {
     Rand,
     Other(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pipeline {
+    /// A linked list representing a pipeline.
+    ///
+    /// Note: We use a linked list to make sure it is impossible to create an
+    /// illogical pipeline (e.g. with a sink in the middle) and so you can
+    /// later include some sort of "merge" node for joining two
+    /// sub-pipelines.
+    pub last_step: PipelineNode,
+    pub output_type: HirId,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PipelineNode {
+    Source(HirId),
+    Model {
+        model: HirId,
+        previous: Box<PipelineNode>,
+    },
 }
