@@ -1,9 +1,11 @@
+use std::path::PathBuf;
+
 use crate::{
     ast::{
         CapabilityInstruction, Instruction, ModelInstruction, OutInstruction,
         ProcBlockInstruction, RunInstruction, Runefile,
     },
-    hir::{HirId, Rune, Sink},
+    hir::{HirId, Model, Rune, Sink, Type},
     Diagnostics,
 };
 use codespan::FileId;
@@ -16,12 +18,7 @@ pub fn analyse(
     runefile: &Runefile,
     diags: &mut Diagnostics,
 ) -> Rune {
-    let mut analyser = Analyser {
-        diags,
-        file_id,
-        rune: Rune::default(),
-        last_hir_id: HirId::ERROR,
-    };
+    let mut analyser = Analyser::new(file_id, diags);
 
     analyser.load_runefile(runefile);
 
@@ -37,6 +34,15 @@ struct Analyser<'diag> {
 }
 
 impl<'diag> Analyser<'diag> {
+    fn new(file_id: FileId, diags: &'diag mut Diagnostics) -> Self {
+        Analyser {
+            diags,
+            file_id,
+            rune: Rune::default(),
+            last_hir_id: HirId::ERROR,
+        }
+    }
+
     fn next_id(&mut self) -> HirId {
         let id = self.last_hir_id.next();
         self.last_hir_id = id;
@@ -94,7 +100,7 @@ impl<'diag> Analyser<'diag> {
         }
     }
 
-    fn load_instruction(&mut self, instruction: &Instruction) {
+    fn load_instruction(&mut self, instruction: &Instruction) -> HirId {
         match instruction {
             Instruction::From(f) => {
                 let diag = Diag::error()
@@ -106,40 +112,50 @@ impl<'diag> Analyser<'diag> {
                         f.span,
                     )]);
                 self.diags.push(diag);
+                HirId::ERROR
             },
-            Instruction::Model(m) => {
-                self.load_model(m);
-            },
-            Instruction::Capability(c) => {
-                self.load_capability(c);
-            },
-            Instruction::Run(r) => {
-                self.load_run(r);
-            },
-            Instruction::ProcBlock(p) => {
-                self.load_proc_block(p);
-            },
-            Instruction::Out(out) => {
-                self.load_out(out);
-            },
+            Instruction::Model(m) => self.load_model(m),
+            Instruction::Capability(c) => self.load_capability(c),
+            Instruction::Run(r) => self.load_run(r),
+            Instruction::ProcBlock(p) => self.load_proc_block(p),
+            Instruction::Out(out) => self.load_out(out),
         }
     }
 
-    fn load_model(&mut self, _model: &ModelInstruction) { todo!() }
+    fn load_model(&mut self, model: &ModelInstruction) -> HirId {
+        let hir = Model {
+            input: Type::Unknown,
+            output: Type::Unknown,
+            model_file: PathBuf::from(&model.file),
+        };
+        let id = self.next_id();
+        self.rune.models.insert(id, hir);
+        self.rune.names.register(&model.name.value, id);
+        id
+    }
 
-    fn load_capability(&mut self, _capability: &CapabilityInstruction) {
+    fn load_capability(
+        &mut self,
+        _capability: &CapabilityInstruction,
+    ) -> HirId {
         todo!()
     }
 
-    fn load_run(&mut self, _run: &RunInstruction) { todo!() }
+    fn load_run(&mut self, _run: &RunInstruction) -> HirId { todo!() }
 
-    fn load_proc_block(&mut self, _proc_block: &ProcBlockInstruction) {
+    fn load_proc_block(&mut self, _proc_block: &ProcBlockInstruction) -> HirId {
         todo!()
     }
 
-    fn load_out(&mut self, out: &OutInstruction) {
+    fn load_out(&mut self, out: &OutInstruction) -> HirId {
         match out.out_type.value.as_str() {
-            "serial" => self.register_sink(Sink::Serial),
+            "serial" => {
+                let id = self.next_id();
+                self.rune.sinks.insert(id, Sink::Serial);
+                self.rune.names.register("serial", id);
+
+                id
+            },
             _ => {
                 let diag = Diagnostic::error()
                     .with_message("Unknown sink type")
@@ -148,21 +164,28 @@ impl<'diag> Analyser<'diag> {
                         out.out_type.span,
                     )]);
                 self.diags.push(diag);
+
+                HirId::ERROR
             },
         }
-    }
-
-    fn register_sink(&mut self, sink: Sink) {
-        let id = self.next_id();
-        self.rune.sinks.insert(id, sink);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use codespan::Files;
+    use std::collections::HashMap;
+
+    use codespan::{Files, Span};
+
+    use crate::ast::Ident;
 
     use super::*;
+
+    fn setup_analyser(diags: &mut Diagnostics) -> Analyser<'_> {
+        let mut files = Files::new();
+        let id = files.add("", "");
+        Analyser::new(id, diags)
+    }
 
     fn setup(src: &str) -> (FileId, Runefile) {
         let mut files = Files::new();
@@ -222,13 +245,37 @@ mod tests {
 
     #[test]
     fn output_serial() {
-        let (id, runefile) = setup("FROM runicos/base\nOUT serial");
         let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let out = OutInstruction {
+            out_type: Ident::dangling("serial"),
+            span: Span::new(0, 0),
+        };
 
-        let got = analyse(id, &runefile, &mut diags);
+        let id = analyser.load_out(&out);
 
-        assert!(!diags.has_errors());
-        assert_eq!(got.sinks.len(), 1);
-        assert_eq!(got.sinks.values().next().unwrap(), &Sink::Serial);
+        assert!(!analyser.diags.has_errors());
+        assert_eq!(analyser.rune.sinks.len(), 1);
+        assert_eq!(analyser.rune.sinks.get(&id), Some(&Sink::Serial));
+        assert_eq!(analyser.rune.names.get_name(id), Some("serial"));
+    }
+
+    #[test]
+    fn add_model_to_rune() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let model = ModelInstruction {
+            name: Ident::dangling("sine"),
+            file: String::from("./sine.tflite"),
+            parameters: HashMap::new(),
+            span: Span::new(0, 0),
+        };
+
+        let id = analyser.load_model(&model);
+
+        assert!(!analyser.diags.has_errors());
+        assert!(!id.is_error());
+        assert_eq!(analyser.rune.names.get_name(id), Some("sine"));
+        assert!(analyser.rune.models.contains_key(&id));
     }
 }

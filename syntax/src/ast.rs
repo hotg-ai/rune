@@ -80,6 +80,20 @@ pub struct Ident {
     pub span: Span,
 }
 
+impl Ident {
+    pub fn new(value: impl Into<String>, span: Span) -> Self {
+        Ident {
+            value: value.into(),
+            span,
+        }
+    }
+
+    /// Create an [`Ident`] with a placeholder span.
+    pub fn dangling(value: impl Into<String>) -> Self {
+        Ident::new(value, Span::new(0, 0))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct CapabilityInstruction {
     pub name: Ident,
