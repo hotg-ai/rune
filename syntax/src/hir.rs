@@ -42,7 +42,7 @@ impl NameTable {
         if self.name_to_id.contains_key(name)
             || self.id_to_name.contains_key(&id)
         {
-            todo!("How do we want to signal duplicate names?");
+            unimplemented!("How do we want to signal duplicate names?");
         }
 
         self.name_to_id.insert(name.to_string(), id);

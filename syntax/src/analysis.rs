@@ -23,6 +23,7 @@ pub fn analyse(
     let mut analyser = Analyser::new(file_id, diags);
 
     analyser.load_runefile(runefile);
+    analyser.infer_types();
 
     analyser.rune
 }
@@ -290,6 +291,13 @@ impl<'diag> Analyser<'diag> {
                 HirId::ERROR
             },
         }
+    }
+
+    fn infer_types(&mut self) {
+        // TODO: Go through each pipeline and try to figure out what the
+        // input/output type at each stage should be.
+        //
+        // This will be a bit like a fixed-point iteration
     }
 }
 
