@@ -10,10 +10,6 @@ use wee_alloc::WeeAlloc;
 #[global_allocator]
 static ALLOC: WeeAlloc = WeeAlloc::INIT;
 
-const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;
-static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] =
-    [0; PROVIDER_RESPONSE_BUFFER_SIZE];
-
 static mut PRINT_BUF: [u8; 512] = [0 as u8; 512];
 
 extern "C" {
@@ -115,7 +111,41 @@ fn on_alloc_error(layout: core::alloc::Layout) -> ! {
 }
 
 #[no_mangle]
-pub extern "C" fn _manifest() -> u32 { todo!() }
+pub extern "C" fn _manifest() -> u32 {
+    unsafe {
+        {{~#each models}}
+        let {{this}}_model = include_bytes!("{{this}}.tflite");
+        tfm_preload_model(
+            {{this}}_model.as_ptr(),
+            {{this}}_model.len() as u32,
+            1,
+            1,
+        );
+        {{~ /each}}
+
+        {{#each capabilities}}
+        let ix = request_capability(runic_types::CAPABILITY::{{kind}} as u32);
+        {{#each parameters}}
+        let key = "{{@key}}";
+        let value = u32::to_be_bytes({{this}});
+        request_capability_set_param(
+            ix,
+            key.as_ptr(),
+            key.len() as u32,
+            value.as_ptr(),
+            value.len() as u32,
+            runic_types::PARAM_TYPE::INT as u32,
+        );
+        {{~/each}}
+        {{~/each}}
+
+        {{~#each outputs}}
+        request_manifest_output(runic_types::OUTPUT::{{this}} as u32);
+        {{~/each}}
+    }
+
+    1
+}
 
 #[no_mangle]
 pub extern "C" fn _call(
@@ -123,5 +153,32 @@ pub extern "C" fn _call(
     input_type: i32,
     capability_idx: i32,
 ) -> i32 {
-    todo!()
+    static mut BUFFER: [u8; 512] = [0; 512];
+
+    unsafe {
+        let response_size = request_provider_response(
+            BUFFER.as_ptr(),
+            BUFFER.len() as u32,
+            capability_idx as u32,
+        );
+
+        if response_size > 0 {
+            //debug(b"Have a response\r\n");
+            let response_size = response_size as usize;
+            let buf: &[u8] = &BUFFER[..response_size];
+            let proc_block_output = buf;
+
+            if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
+                if capability_type == runic_types::CAPABILITY::RAND as i32 {
+                    tfm_model_invoke(
+                        proc_block_output.as_ptr() as *const u8,
+                        proc_block_output.len() as u32,
+                    );
+                    return proc_block_output.len() as i32;
+                }
+            }
+        }
+
+        response_size as i32
+    }
 }

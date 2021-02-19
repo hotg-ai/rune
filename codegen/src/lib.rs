@@ -1,8 +1,8 @@
 use anyhow::{Context, Error};
 use handlebars::Handlebars;
-use rune_syntax::hir::Rune;
+use rune_syntax::hir::{Rune, Sink, SourceKind};
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -136,10 +136,54 @@ impl Generator {
     }
 
     fn render_lib_rs(&self) -> Result<(), Error> {
-        let ctx = json!(null);
+        let ctx = json!({
+            "models": self.models(),
+            "capabilities": self.capabilities(),
+            "outputs": self.outputs(),
+        });
         self.render_to(self.dest.join("lib.rs"), "lib.rs", &ctx)?;
 
         Ok(())
+    }
+
+    fn models(&self) -> Vec<Value> {
+        self.rune
+            .models
+            .keys()
+            .filter_map(|&id| self.rune.names.get_name(id))
+            .map(Value::from)
+            .collect()
+    }
+
+    fn outputs(&self) -> Vec<Value> {
+        self.rune
+            .sinks
+            .values()
+            .map(|sink| match sink {
+                Sink::Serial => Value::from("SERIAL"),
+            })
+            .collect()
+    }
+
+    fn capabilities(&self) -> Vec<Value> {
+        let mut capabilities = Vec::new();
+
+        for (&id, source) in &self.rune.sources {
+            if let Some(name) = self.rune.names.get_name(id) {
+                let kind = match &source.kind {
+                    SourceKind::Rand => "RAND",
+                    SourceKind::Other(name) => name.as_str(),
+                };
+
+                capabilities.push(json!({
+                    "name": name,
+                    "kind": kind,
+                    "parameters": source.parameters,
+                }));
+            }
+        }
+
+        capabilities
     }
 
     fn render_to(
