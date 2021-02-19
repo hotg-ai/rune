@@ -9,10 +9,10 @@ use crate::{
     },
     Diagnostics,
 };
+use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::path::PathBuf;
 
-type Diag = Diagnostic<FileId>;
 type FileId = usize;
 
 pub fn analyse(
@@ -60,6 +60,22 @@ impl<'diag> Analyser<'diag> {
         id
     }
 
+    /// Report an error to the user.
+    fn error(&mut self, msg: impl Into<String>, span: Span) {
+        let diag = Diagnostic::error()
+            .with_message(msg)
+            .with_labels(vec![Label::primary(self.file_id, span)]);
+        self.diags.push(diag);
+    }
+
+    /// Report a warning to the user.
+    fn warn(&mut self, msg: impl Into<String>, span: Span) {
+        let diag = Diagnostic::warning()
+            .with_message(msg)
+            .with_labels(vec![Label::primary(self.file_id, span)]);
+        self.diags.push(diag);
+    }
+
     fn load_runefile(&mut self, runefile: &Runefile) {
         let mut instructions = runefile.instructions.iter();
 
@@ -72,15 +88,10 @@ impl<'diag> Analyser<'diag> {
                 }
             },
             None => {
-                let diag = Diagnostic::error()
-                    .with_message(
-                        "A Runefile must contain at least a FROM instruction",
-                    )
-                    .with_labels(vec![Label::primary(
-                        self.file_id,
-                        runefile.span,
-                    )]);
-                self.diags.push(diag);
+                self.error(
+                    "A Runefile must contain at least a FROM instruction",
+                    runefile.span,
+                );
             },
         }
 
@@ -96,15 +107,10 @@ impl<'diag> Analyser<'diag> {
                 Ok(())
             },
             other => {
-                let diag = Diag::error()
-                    .with_message(
-                        "Runefiles should start with a FROM instruction",
-                    )
-                    .with_labels(vec![Label::primary(
-                        self.file_id,
-                        other.span(),
-                    )]);
-                self.diags.push(diag);
+                self.error(
+                    "Runefiles should start with a FROM instruction",
+                    other.span(),
+                );
 
                 Err(())
             },
@@ -114,15 +120,10 @@ impl<'diag> Analyser<'diag> {
     fn load_instruction(&mut self, instruction: &Instruction) -> HirId {
         match instruction {
             Instruction::From(f) => {
-                let diag = Diag::error()
-                    .with_message(
-                        "A FROM instruction can only be at the top of a Runefile",
-                    )
-                    .with_labels(vec![Label::primary(
-                        self.file_id,
-                        f.span,
-                    )]);
-                self.diags.push(diag);
+                self.error(
+                    "A FROM instruction can only be at the top of a Runefile",
+                    f.span,
+                );
                 HirId::ERROR
             },
             Instruction::Model(m) => self.load_model(m),
@@ -155,15 +156,9 @@ impl<'diag> Analyser<'diag> {
                 SourceKind::Rand
             },
             other => {
-                self.diags.push(
-                    Diagnostic::warning()
-                        .with_message(
-                            "This isn't one of the builtin capabilities",
-                        )
-                        .with_labels(vec![Label::primary(
-                            self.file_id,
-                            capability.name.span,
-                        )]),
+                self.warn(
+                    "This isn't one of the builtin capabilities",
+                    capability.name.span,
                 );
                 SourceKind::Other(other.to_string())
             },
@@ -193,15 +188,7 @@ impl<'diag> Analyser<'diag> {
                     self.unknown_type
                 },
                 _ => {
-                    self.diags.push(
-                        Diagnostic::warning()
-                            .with_message("Unknown type")
-                            .with_labels(vec![Label::primary(
-                                self.file_id,
-                                name.span,
-                            )]),
-                    );
-
+                    self.warn("Unknown type", name.span);
                     self.unknown_type
                 },
             },
@@ -209,45 +196,31 @@ impl<'diag> Analyser<'diag> {
     }
 
     fn get_named(&mut self, name: &Ident) -> HirId {
-        let id = match self.rune.names.get_id(&name.value) {
+        match self.rune.names.get_id(&name.value) {
             Some(id) => id,
             None => {
-                self.diags.push(
-                    Diagnostic::error()
-                        .with_message("Unknown name")
-                        .with_labels(vec![Label::primary(
-                            self.file_id,
-                            name.span,
-                        )]),
-                );
-
-                return HirId::ERROR;
+                self.error("Unknown name", name.span);
+                HirId::ERROR
             },
-        };
-
-        id
+        }
     }
 
     fn load_run(&mut self, run: &RunInstruction) -> HirId {
         let (first, rest) = match run.steps.as_slice() {
             [f, r @ ..] => (f, r),
-            _ => todo!(),
+            [] => {
+                self.error("A RUN instruction can't be empty", run.span);
+                return HirId::ERROR;
+            },
         };
 
         let source = self.get_named(first);
 
         if !self.rune.sources.contains_key(&source) {
-            self.diags.push(
-                Diagnostic::error()
-                    .with_message(
-                        "RUN instructions must start with a CAPABILITY",
-                    )
-                    .with_labels(vec![Label::primary(
-                        self.file_id,
-                        first.span,
-                    )]),
+            self.error(
+                "RUN instructions must start with a CAPABILITY",
+                first.span,
             );
-
             return HirId::ERROR;
         }
 
@@ -271,7 +244,8 @@ impl<'diag> Analyser<'diag> {
                     previous: Box::new(pipeline_node),
                 };
             } else {
-                todo!("Figure out what sort of PipelineNode this is");
+                self.error("Unknown pipeline node type", step.span);
+                return HirId::ERROR;
             }
         }
 
@@ -311,13 +285,7 @@ impl<'diag> Analyser<'diag> {
                 id
             },
             _ => {
-                let diag = Diagnostic::error()
-                    .with_message("Unknown sink type")
-                    .with_labels(vec![Label::primary(
-                        self.file_id,
-                        out.out_type.span,
-                    )]);
-                self.diags.push(diag);
+                self.error("Unknown OUT type", out.out_type.span);
 
                 HirId::ERROR
             },
