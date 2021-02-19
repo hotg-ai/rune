@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "codegen",
     "rune",
     "runefile-parser",
     "runic-types",
