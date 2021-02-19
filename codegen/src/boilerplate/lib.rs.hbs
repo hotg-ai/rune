@@ -1,10 +1,10 @@
 #![no_std]
+#![feature(alloc_error_handler)]
+#![allow(warnings)]
+
 extern crate alloc;
 extern crate wee_alloc;
 
-use alloc::vec::Vec;
-use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use runic_types::{CAPABILITY, OUTPUT, PARAM_TYPE};
 use wee_alloc::WeeAlloc;
 
 #[global_allocator]
@@ -50,13 +50,13 @@ extern "C" {
 
 static mut DEBUG_BUFFER: [u8; 1024] = [0; 1024];
 
-struct BufWriter<'buf> {
+struct DebugWriter<'buf> {
     buffer: &'buf mut [u8],
     bytes_written: usize,
 }
 
-impl<'buf> BufWriter<'buf> {
-    fn written(&self) -> &'buf [u8] { &self.buffer[..self.bytes_written] }
+impl<'buf> DebugWriter<'buf> {
+    fn written(&self) -> &[u8] { &self.buffer[..self.bytes_written] }
 
     fn rest(&mut self) -> &mut [u8] { &mut self.buffer[self.bytes_written..] }
 
@@ -64,7 +64,7 @@ impl<'buf> BufWriter<'buf> {
         let msg = self.written();
 
         unsafe {
-            _debug(msg.as_ptr(), msg.len());
+            _debug(msg.as_ptr(), msg.len() as u32);
         }
 
         self.bytes_written = 0;
@@ -86,11 +86,12 @@ impl<'buf> core::fmt::Write for DebugWriter<'buf> {
 }
 
 macro_rules! debug {
-    ($fmt:expr (, $arg:expr)*) => {
+    ($fmt:literal $(, $arg:expr)*) => {
         {
+            use core::fmt::Write as _;
             let mut buffer = DebugWriter { buffer: &mut DEBUG_BUFFER, bytes_written: 0 };
 
-            if write!($fmt, $($arg),*).is_ok() {
+            if write!(buffer, $fmt, $($arg),*).is_ok() {
                 buffer.flush();
             }
         }
@@ -98,14 +99,15 @@ macro_rules! debug {
 }
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    unsafe {
-        write!(Wrapper::new(&mut PRINT_BUF), "Panic {}\r\n", info)
-            .expect("Can't write");
-        debug(&PRINT_BUF);
+fn on_panic(info: &core::panic::PanicInfo) -> ! {
+    debug!("Panic {}", info);
 
-        core::arch::wasm32::unreachable()
-    }
+    unsafe { core::arch::wasm32::unreachable() }
+}
+
+#[alloc_error_handler]
+fn on_alloc_error(layout: core::alloc::Layout) -> ! {
+    panic!("memory allocation of {} bytes failed", layout.size())
 }
 
 #[no_mangle]
