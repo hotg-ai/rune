@@ -44,7 +44,11 @@ pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
                 instructions.push(parse_out(pair).into());
             },
             Rule::EOI => {},
-            other => todo!("Haven't implemented {:?}\n\n{:?}", other, pair),
+            other => unimplemented!(
+                "Parsing isn't implemented for {:?}\n\n{:?}",
+                other,
+                pair
+            ),
         }
     }
 
@@ -129,7 +133,7 @@ fn parse_type(pair: Pair<Rule>) -> Type {
             span,
         }
     } else {
-        todo!("{:?}", pair)
+        unimplemented!("We can't parse this as a type, {:?}", pair)
     }
 }
 
