@@ -2,8 +2,6 @@
 
 [![Continuous Integration](https://github.com/hotg-ai/rune/workflows/Continuous%20Integration/badge.svg?branch=master)](https://github.com/hotg-ai/rune/actions)
 
-([API Docs](https://hotg-ai.github.io/rune))
-
 Rune is a containerization technology for deploying TinyML applications to extremely constraint devices.
 
 # Deps
