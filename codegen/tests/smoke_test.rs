@@ -16,12 +16,16 @@ fn we_can_compile_the_sine_example() {
     let temp = TempDir::new().unwrap();
     let sine_dir = project_root().join("examples").join("sine");
 
-    let _blob = rune_codegen::generate(Compilation {
+    let compilation = Compilation {
         rune,
         current_directory: sine_dir,
         working_directory: temp.path().to_path_buf(),
-    })
-    .unwrap();
+    };
+
+    if let Err(e) = rune_codegen::generate(compilation) {
+        let path = temp.into_path();
+        panic!("Unable to compile in \"{}\": {}", path.display(), e);
+    }
 }
 
 fn project_root() -> PathBuf {

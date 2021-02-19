@@ -9,6 +9,8 @@ use std::{
     process::Command,
 };
 
+const RUNE_GIT_REPO: &str = "ssh://git@github.com/hotg-ai/rune.git";
+
 #[derive(Debug)]
 pub struct Compilation {
     /// The [`Rune`] being compiled to WebAssembly.
@@ -90,6 +92,7 @@ impl Generator {
 
         self.render_cargo_toml()?;
         self.render_models()?;
+        self.render_lib_rs()?;
 
         Ok(())
     }
@@ -97,7 +100,7 @@ impl Generator {
     fn render_cargo_toml(&self) -> Result<(), Error> {
         let mut dependencies = vec![
             json!({ "name": "wee_alloc", "crates_io": "0.4.5" }),
-            json!({ "name": "runic_types", "git": "https://github.com/hotg-ai/rune.git" }),
+            json!({ "name": "runic-types", "git": RUNE_GIT_REPO }),
         ];
 
         for (&id, proc) in &self.rune.proc_blocks {
@@ -106,17 +109,20 @@ impl Generator {
                 .names
                 .get_name(id)
                 .context("Unable to get the PROC_BLOCK's name")?;
-            let git_repo = format!("https://github.com/{}.git", proc.path);
 
-            dependencies.push(json!({
-                "name": name,
-                "git": git_repo,
-            }));
+            dependencies.push(dependency_info(name, proc));
         }
 
         let ctx = json!({ "name": "rune", "dependencies": dependencies });
 
         self.render_to(self.dest.join("Cargo.toml"), "Cargo.toml", &ctx)?;
+
+        Ok(())
+    }
+
+    fn render_lib_rs(&self) -> Result<(), Error> {
+        let ctx = json!(null);
+        self.render_to(self.dest.join("lib.rs"), "lib.rs", &ctx)?;
 
         Ok(())
     }
@@ -179,6 +185,21 @@ impl Generator {
             Err(Error::msg("Compilation failed"))
         }
     }
+}
+
+fn dependency_info(
+    name: &str,
+    proc: &rune_syntax::hir::ProcBlock,
+) -> serde_json::Value {
+    let is_builtin = ["mod360"].contains(&name);
+
+    let git_repo = if is_builtin {
+        String::from(RUNE_GIT_REPO)
+    } else {
+        format!("https://github.com/{}.git", proc.path)
+    };
+
+    json!({ "name": name, "git": git_repo })
 }
 
 fn create_dir(path: impl AsRef<Path>) -> Result<(), Error> {
