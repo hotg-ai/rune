@@ -1,14 +1,14 @@
-use log;
-
-use std::ffi::c_void;
-
-use wasmer_runtime::{
-    func, imports, instantiate, Array, Ctx, Func, Instance, WasmPtr,
-};
-
 pub mod capability;
 pub mod provider;
-use crate::run::vm::provider::*;
+
+use crate::run::vm::provider::Provider;
+use anyhow::{Context, Error};
+use log;
+use std::{ffi::c_void, string::String};
+use wasmer_runtime::{
+    error::RuntimeError, func, imports, instantiate, Array, Ctx, Func,
+    Instance, WasmPtr,
+};
 
 /// Rune Executor
 ///  Executes the Rune and provides the appropriate interfaces
@@ -18,16 +18,11 @@ pub struct VM {
 
 ///
 impl VM {
-    pub fn init(filename: &str) -> VM {
+    pub fn init(filename: &str) -> Result<Self, Error> {
         log::info!("Initializing");
 
-        let rune_bytes = match std::fs::read(filename) {
-            Ok(res) => res,
-            Err(_err) => {
-                log::error!("Failed to load container {}", filename);
-                std::process::exit(1);
-            },
-        };
+        let rune_bytes = std::fs::read(filename)
+            .with_context(|| format!("Unable to read \"{}\"", filename))?;
 
         log::debug!(
             "Loaded {} bytes from {} container",
@@ -37,7 +32,8 @@ impl VM {
 
         let imports = VM::get_imports();
         let mut instance = instantiate(&rune_bytes[..], &imports)
-            .expect("failed to instantiate Rune");
+            .map_err(|e| Error::msg(e.to_string()))
+            .context("failed to instantiate Rune")?;
 
         // Pass ownership of our Provider to the instance and tell it how to
         // destroy the Provider afterwards.
@@ -52,17 +48,20 @@ impl VM {
             }
         });
 
-        let manifest: Func<(), u32> =
-            instance.exports.get("_manifest").unwrap();
+        let manifest: Func<(), u32> = instance
+            .exports
+            .get("_manifest")
+            .context("Unable to get the _manifest() function")?;
+        let _manifest_size: u32 = manifest
+            .call()
+            .map_err(|e| Error::msg(e.to_string()))
+            .context("failed to call manifest")?;
 
-        let manifest_size: u32 =
-            manifest.call().expect("failed to call manifest");
-
-        return VM { instance };
+        Ok(VM { instance })
     }
 
-    pub fn get_imports() -> wasmer_runtime::ImportObject {
-        let ims = imports! {
+    fn get_imports() -> wasmer_runtime::ImportObject {
+        imports! {
             "env" => {
                 "tfm_model_invoke" => func!(tfm_model_invoke),
                 "tfm_preload_model" => func!(tfm_preload_model),
@@ -72,17 +71,17 @@ impl VM {
                 "request_manifest_output" => func!(request_manifest_output),
                 "request_provider_response" => func!(request_provider_response)
             },
-        };
-
-        return ims;
+        }
     }
 
-    pub fn call(&self, input: Vec<u8>) -> Vec<u8> {
+    pub fn call(&self, _input: Vec<u8>) -> Result<Vec<u8>, Error> {
         let instance = &self.instance;
 
         log::info!("CALLING ");
-        let call_fn: Func<(i32, i32, i32), i32> =
-            instance.exports.get("_call").unwrap();
+        let call_fn: Func<(i32, i32, i32), i32> = instance
+            .exports
+            .get("_call")
+            .context("Unable to load the _call() function")?;
 
         let feature_buff_size = call_fn
             .call(
@@ -90,12 +89,29 @@ impl VM {
                 runic_types::PARAM_TYPE::FLOAT as i32,
                 0,
             )
-            .expect("failed to _call");
+            .map_err(inner_error)
+            .context("failed to _call")?;
         log::debug!("Guest::_call() returned {}", feature_buff_size);
 
-        let feature_data_buf: Vec<u8> = vec![0, 2, 1, 2];
+        Ok(vec![0, 2, 1, 2])
+    }
+}
 
-        return feature_data_buf;
+/// Tries to extract the [`anyhow::Error`] from a runtime error.
+fn inner_error(e: RuntimeError) -> Error {
+    match e {
+        RuntimeError::User(user_error) => {
+            match user_error.downcast::<Error>() {
+                // it was an anyhow::Error thrown by one of our host bindings,
+                // keep bubbling it up
+                Ok(error) => *error,
+                // some other sort of error
+                Err(other) => Error::msg(RuntimeError::User(other).to_string()),
+            }
+        },
+        // just fall back to the default error message (RuntimeError: !Sync so
+        // we can't just wrap it)
+        other => Error::msg(other.to_string()),
     }
 }
 
@@ -103,25 +119,26 @@ fn get_mem_str(
     ctx: &Ctx,
     ptr: WasmPtr<u8, Array>,
     data_len: u32,
-) -> std::string::String {
-    let str_vec = get_mem_array(ctx, ptr, data_len);
-    let string = std::str::from_utf8(&str_vec).unwrap();
-    return std::string::String::from(string);
+) -> Result<String, Error> {
+    let bytes = get_mem_array(ctx, ptr, data_len)?;
+    String::from_utf8(bytes).map_err(Error::from)
 }
 
-fn get_mem_array(ctx: &Ctx, ptr: WasmPtr<u8, Array>, data_len: u32) -> Vec<u8> {
+fn get_mem_array(
+    ctx: &Ctx,
+    ptr: WasmPtr<u8, Array>,
+    data_len: u32,
+) -> Result<Vec<u8>, Error> {
     let memory = ctx.memory(0);
-    // let memory = ctx.memory(0);
 
-    let str_bytes = match ptr.deref(memory, 0, data_len) {
-        Some(m) => m,
-        _ => panic!("Couldn't get model  bytes"),
-    };
-    let str_vec: Vec<std::cell::Cell<u8>> = str_bytes.iter().cloned().collect();
+    let bytes = ptr.deref(memory, 0, data_len).context("Invalid pointer")?;
+    let mut buffer = vec![0; bytes.len()];
 
-    let str_vec: Vec<u8> = str_vec.iter().map(|x| x.get()).collect();
+    for (src, dest) in bytes.iter().zip(&mut buffer) {
+        *dest = src.get();
+    }
 
-    return str_vec;
+    Ok(buffer)
 }
 
 pub fn tfm_preload_model(
@@ -130,42 +147,48 @@ pub fn tfm_preload_model(
     model_len: u32,
     inputs: u32,
     outputs: u32,
-) -> u32 {
+) -> Result<u32, RuntimeError> {
     let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
-    let model_bytes = get_mem_array(ctx, model_idx, model_len);
 
-    return provider.add_model(model_bytes, inputs, outputs);
+    let model = get_mem_array(ctx, model_idx, model_len)
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
+
+    Ok(provider.add_model(model, inputs, outputs))
 }
 
 pub fn tfm_model_invoke(
     ctx: &mut Ctx,
     feature_idx: WasmPtr<u8, Array>,
     feature_len: u32,
-) -> u32 {
+) -> Result<u32, RuntimeError> {
     log::info!("Calling tfm_model_invoke");
-    let feature_bytes = get_mem_array(ctx, feature_idx, feature_len);
+
+    let feature_bytes = get_mem_array(ctx, feature_idx, feature_len)
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
     log::info!("{:?}", feature_bytes);
+
     let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
 
-    provider.predict_model::<f32>(
-        0,
-        feature_bytes.to_owned().to_vec(),
-        runic_types::PARAM_TYPE::FLOAT,
-    );
+    provider
+        .predict_model::<f32>(0, feature_bytes, runic_types::PARAM_TYPE::FLOAT)
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
 
-    return 0;
+    Ok(0)
 }
 
 pub fn _debug(ctx: &mut Ctx, ptr: WasmPtr<u8, Array>, len: u32) -> u32 {
-    log::info!("[Rune::Debug]{}", get_mem_str(ctx, ptr, len));
-    return 0;
+    if let Ok(msg) = get_mem_str(ctx, ptr, len) {
+        log::info!("[Rune::Debug] {}", msg);
+    }
+
+    0
 }
 
 pub fn request_capability(ctx: &mut Ctx, ct: u32) -> u32 {
     let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
 
     log::info!("Requesting Capability");
-    return provider.request_capability(ct);
+    provider.request_capability(ct)
 }
 
 pub fn request_capability_set_param(
@@ -176,12 +199,15 @@ pub fn request_capability_set_param(
     value_ptr: WasmPtr<u8, Array>,
     value_len: u32,
     value_type: u32,
-) -> u32 {
+) -> Result<u32, RuntimeError> {
     let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
-    log::info!("Setting param");
-    let key_str = get_mem_str(ctx, key_str_ptr, key_str_len);
 
-    let value = get_mem_array(ctx, value_ptr, value_len);
+    log::info!("Setting param");
+    let key_str = get_mem_str(ctx, key_str_ptr, key_str_len)
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
+
+    let value = get_mem_array(ctx, value_ptr, value_len)
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
 
     provider.set_capability_request_param(
         idx,
@@ -190,10 +216,10 @@ pub fn request_capability_set_param(
         runic_types::PARAM_TYPE::from_u32(value_type),
     );
 
-    return 0;
+    Ok(0)
 }
 
-pub fn request_manifest_output(ctx: &mut Ctx, t: u32) -> u32 {
+pub fn request_manifest_output(_ctx: &mut Ctx, _t: u32) -> u32 {
     log::info!("Setting output");
     return 0;
 }
@@ -202,28 +228,31 @@ pub fn request_provider_response(
     ctx: &mut Ctx,
     provider_response_idx: WasmPtr<u8, Array>,
     max_allowed_provider_response: u32,
-    capability_idx: u32,
-) -> u32 {
-    let provider: &mut Provider = unsafe { &mut *(ctx.data as *mut Provider) };
+    _capability_idx: u32,
+) -> Result<u32, RuntimeError> {
     log::info!("Requesting provider response");
 
     // Get Capaability and get input
-    let input: Vec<u8> = f32::to_be_bytes(0.2).to_vec();
+    let input = f32::to_be_bytes(0.2);
 
     let wasm_instance_memory = ctx.memory(0);
     log::debug!("Trying to write provider response");
 
-    let len = input.len() as u32;
     let memory_writer = provider_response_idx
-        .deref(wasm_instance_memory, 0, len)
-        .unwrap();
+        .deref(wasm_instance_memory, 0, max_allowed_provider_response)
+        .context("Unable to get a reference to the input memory")
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
 
-    // Refactor THIS
-    let mut idx = 0;
-    for b in input.into_iter() {
-        memory_writer[idx].set(b);
-        idx = idx + 1;
+    if memory_writer.len() < input.len() {
+        // the caller hasn't given us enough space
+        return Err(RuntimeError::User(Box::new(Error::msg(
+            "Insufficient space",
+        ))));
     }
 
-    return len;
+    for (src, dest) in input.iter().copied().zip(memory_writer) {
+        dest.set(src);
+    }
+
+    Ok(input.len() as u32)
 }

@@ -1,3 +1,4 @@
+use anyhow::{Context, Error};
 use log;
 
 use crate::run::vm::capability::*;
@@ -7,7 +8,8 @@ use std::{boxed::Box, cell::RefCell};
 use runic_transform::{Transform, Transformable};
 
 use tflite::{
-    ops::builtin::BuiltinOpResolver, FlatBufferModel, InterpreterBuilder,
+    ops::builtin::BuiltinOpResolver, FlatBufferModel, Interpreter,
+    InterpreterBuilder,
 };
 
 pub struct Provider {
@@ -28,63 +30,70 @@ impl Provider {
         idx: u32,
         input: Vec<u8>,
         value_t: PARAM_TYPE,
-    ) -> Vec<T> {
+    ) -> Result<Vec<T>, Error> {
         log::info!("HAS {} MODELS", self.models.len());
-        let model = match self.models.get(idx as usize) {
-            Some(model) => model,
-            None => {
-                log::warn!("Model[{}] not found at idx ", idx);
-                return vec![];
-            },
-        };
+        let model = self
+            .models
+            .get(idx as usize)
+            .with_context(|| format!("Model {} not found", idx))?;
 
         log::info!("Found model {}", model.len());
 
-        let fb = match FlatBufferModel::build_from_buffer(model.to_vec()) {
-            Ok(fb) => {
-                log::info!("Successfully Loaded model as FlatbufferModel");
-                fb
-            },
-            Err(err) => {
-                log::error!("Invalid model provided {:?}", err);
-                panic!("Invalid model");
-            },
-        };
+        let fb = FlatBufferModel::build_from_buffer(model.to_vec())
+            .context("Invalid model provided")?;
+
+        log::info!("Successfully Loaded model as FlatbufferModel");
 
         let resolver = BuiltinOpResolver::default();
 
-        let builder = InterpreterBuilder::new(fb, resolver).unwrap();
-        let mut interpreter: tflite::Interpreter<
-            tflite::ops::builtin::BuiltinOpResolver,
-        > = builder.build().unwrap();
+        let builder = InterpreterBuilder::new(fb, resolver)
+            .context("Unable to create a model interpreter builder")?;
+        let mut interpreter: Interpreter<BuiltinOpResolver> =
+            builder
+                .build()
+                .context("Unable to initialize the model interpreter")?;
 
-        let input = Transform::<f32, f32>::from_buffer(&input).unwrap();
-        log::info!("{:?}", interpreter.inputs().to_vec());
+        let input =
+            Transform::<f32, f32>::from_buffer(&input).map_err(Error::msg)?;
+
+        log::info!("{:?}", interpreter.inputs());
         log::info!("INPUT<{:?}>", input);
-        interpreter.allocate_tensors().unwrap();
+        interpreter
+            .allocate_tensors()
+            .context("Unable to allocate tensors")?;
 
         let inputs = interpreter.inputs().to_vec();
 
         let outputs = interpreter.outputs().to_vec();
         let input_index = inputs[0];
 
-        let input_tensor = interpreter.tensor_info(input_index).unwrap();
+        let input_tensor = interpreter
+            .tensor_info(input_index)
+            .context("Unable to get the input tensor")?;
         log::info!("DIMS = {:?}", input_tensor.dims);
+
         let output_index = outputs[0];
-        let output_tensor = interpreter.tensor_info(output_index).unwrap();
+        let output_tensor = interpreter
+            .tensor_info(output_index)
+            .context("Unable to get the output tensor")?;
         log::info!("Model loaded with input tensor: {:?}", input_tensor);
         log::info!("Model loaded with output tensor: {:?}", output_tensor);
-        let input_tensors: &mut [f32] =
-            interpreter.tensor_data_mut(input_index).unwrap();
+
+        let input_tensors: &mut [f32] = interpreter
+            .tensor_data_mut(input_index)
+            .context("Unable to get the input tensor data")?;
 
         input_tensors[0] = input[0];
 
-        interpreter.invoke().unwrap();
+        interpreter.invoke().context("Model execution failed")?;
 
-        let output: &[f32] = interpreter.tensor_data(output_index).unwrap();
+        let output: &[f32] = interpreter
+            .tensor_data(output_index)
+            .context("Unable to read the output")?;
 
         log::info!("Output: {:?}", output);
-        return vec![];
+
+        Ok(Vec::new())
     }
 
     pub fn add_model(
@@ -95,12 +104,7 @@ impl Provider {
     ) -> u32 {
         let idx = self.models.len();
 
-        // let mut model_weights = &model_wei
-        let s = &model_weights[..];
-        let mut v: Vec<u8> = vec![];
-        v.extend_from_slice(s);
-
-        self.models.push(v);
+        self.models.push(model_weights);
         log::info!(
             "Setting Model<{},{}>({})[{}]",
             inputs,
@@ -108,7 +112,7 @@ impl Provider {
             idx,
             self.models[0].len()
         );
-        return idx as u32;
+        idx as u32
     }
 
     pub fn request_capability(&mut self, requested: u32) -> u32 {
