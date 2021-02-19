@@ -5,7 +5,7 @@ use crate::{
         CapabilityInstruction, Instruction, ModelInstruction, OutInstruction,
         ProcBlockInstruction, RunInstruction, Runefile,
     },
-    hir::{HirId, Model, Rune, Sink, Type},
+    hir::{HirId, Model, Rune, Sink, Source, SourceKind, Type},
     Diagnostics,
 };
 use codespan::FileId;
@@ -31,15 +31,24 @@ struct Analyser<'diag> {
     file_id: FileId,
     rune: Rune,
     last_hir_id: HirId,
+    unknown_type: HirId,
 }
 
 impl<'diag> Analyser<'diag> {
     fn new(file_id: FileId, diags: &'diag mut Diagnostics) -> Self {
+        let mut rune = Rune::default();
+
+        let first_id = HirId::ERROR;
+
+        let unknown_type = first_id.next();
+        rune.types.insert(unknown_type, Type::Unknown);
+
         Analyser {
             diags,
             file_id,
-            rune: Rune::default(),
-            last_hir_id: HirId::ERROR,
+            rune,
+            last_hir_id: unknown_type,
+            unknown_type,
         }
     }
 
@@ -124,8 +133,8 @@ impl<'diag> Analyser<'diag> {
 
     fn load_model(&mut self, model: &ModelInstruction) -> HirId {
         let hir = Model {
-            input: Type::Unknown,
-            output: Type::Unknown,
+            input: self.unknown_type,
+            output: self.unknown_type,
             model_file: PathBuf::from(&model.file),
         };
         let id = self.next_id();
@@ -134,10 +143,40 @@ impl<'diag> Analyser<'diag> {
         id
     }
 
-    fn load_capability(
-        &mut self,
-        _capability: &CapabilityInstruction,
-    ) -> HirId {
+    fn load_capability(&mut self, capability: &CapabilityInstruction) -> HirId {
+        let kind = match capability.name.value.as_str() {
+            "rand" => {
+                // TODO: We should probably inspect the capability parameters
+                // and pull the relevant ones out into actual fields on the Rand
+                // variant.
+                SourceKind::Rand
+            },
+            other => {
+                self.diags.push(
+                    Diagnostic::warning()
+                        .with_message(
+                            "This isn't one of the builtin capabilities",
+                        )
+                        .with_labels(vec![Label::primary(
+                            self.file_id,
+                            capability.name.span,
+                        )]),
+                );
+                SourceKind::Other(other.to_string())
+            },
+        };
+
+        let id = self.next_id();
+        self.rune.sources.insert(
+            id,
+            Source {
+                kind,
+                output_type: self.unknown_type,
+                parameters: capability.parameters.clone(),
+            },
+        );
+        self.rune.names.register(&capability.description, id);
+
         todo!()
     }
 
