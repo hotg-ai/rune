@@ -9,7 +9,6 @@ description = "Code generation for compiling a Runefile to WebAssembly."
 
 [dependencies]
 anyhow = "1.0.38"
-cargo = "0.51.0"
 handlebars = "3.5.2"
 log = "0.4.14"
 rune-syntax = { path = "../syntax" }
