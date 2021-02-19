@@ -13,6 +13,8 @@ const RUNE_GIT_REPO: &str = "ssh://git@github.com/hotg-ai/rune.git";
 
 #[derive(Debug)]
 pub struct Compilation {
+    /// The name of the [`Rune`] being compiled.
+    pub name: String,
     /// The [`Rune`] being compiled to WebAssembly.
     pub rune: Rune,
     /// A directory that can be used for any temporary artifacts.
@@ -22,7 +24,7 @@ pub struct Compilation {
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
-    log::info!("Generating");
+    log::info!("Generating {}", c.name);
 
     let generator = Generator::new(c);
 
@@ -35,13 +37,15 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
         .join("target")
         .join("wasm32-unknown-unknown")
         .join("release")
-        .join("rune.wasm");
+        .join(&generator.name)
+        .with_extension("wasm");
 
     std::fs::read(&wasm)
         .with_context(|| format!("Unable to read \"{}\"", wasm.display()))
 }
 
 struct Generator {
+    name: String,
     hbs: Handlebars<'static>,
     rune: Rune,
     dest: PathBuf,
@@ -71,12 +75,14 @@ impl Generator {
         .unwrap();
 
         let Compilation {
+            name,
             rune,
             working_directory,
             current_directory,
         } = compilation;
 
         Generator {
+            name,
             hbs,
             rune,
             current_directory,
@@ -122,7 +128,7 @@ impl Generator {
         //     dependencies.push(dependency_info(name, proc));
         // }
 
-        let ctx = json!({ "name": "rune", "dependencies": dependencies });
+        let ctx = json!({ "name": self.name, "dependencies": dependencies });
 
         self.render_to(self.dest.join("Cargo.toml"), "Cargo.toml", &ctx)?;
 
