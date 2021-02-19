@@ -6,7 +6,9 @@ use std::{collections::HashMap, path::PathBuf};
 pub struct Rune {
     pub base_image: Option<String>,
     pub sinks: HashMap<HirId, Sink>,
+    pub sources: HashMap<HirId, Source>,
     pub models: HashMap<HirId, Model>,
+    pub types: HashMap<HirId, Type>,
     pub names: NameTable,
 }
 
@@ -54,10 +56,10 @@ impl NameTable {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Model {
-    pub input: Type,
-    pub output: Type,
+    pub input: HirId,
+    pub output: HirId,
     pub model_file: PathBuf,
 }
 
@@ -82,4 +84,17 @@ pub enum Primitive {
     U64,
     I64,
     F64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Source {
+    pub kind: SourceKind,
+    pub output_type: HirId,
+    pub parameters: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SourceKind {
+    Rand,
+    Other(String),
 }
