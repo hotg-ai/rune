@@ -1,8 +1,12 @@
 #![no_std]
 #[macro_use]
 extern crate alloc;
+
 pub mod marshall;
+mod pipelines;
 pub mod proc_block;
+
+pub use pipelines::{PipelineContext, Sink, Source, Transform};
 
 #[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY {
