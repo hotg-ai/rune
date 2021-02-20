@@ -49,4 +49,17 @@ mod tests {
         //println!(" {:?}", output);
         assert_eq!(output.len(), 384);
     }
+
+    #[test]
+    fn handle_empty() {
+        let input: [f32; 384] = [0.0;384];
+       
+        let mut norm_pb: Normalize = Normalize{}; 
+        let mut pipeline = PipelineContext{};
+        let output = norm_pb.transform(input.to_vec(), &mut pipeline);
+      
+        
+        assert_eq!(output, input);
+        assert_eq!(output.len(), 384);
+    }
 }
