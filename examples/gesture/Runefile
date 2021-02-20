@@ -1,6 +1,6 @@
 FROM runicos/base
 
-CAPABILITY<_,f32[384]> accelerometer ACCEL 
+CAPABILITY<_,f32[384]> accelerometer ACCEL -n 128
 
 # Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/normalize" }
 PROC_BLOCK<f32[384],f32[384]> normalize hotg-ai/rune#proc_blocks/normalize
