@@ -2,13 +2,13 @@ FROM runicos/base
 
 CAPABILITY<_,f32[384]> accelerometer ACCEL 
 
-# Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_block/normalize" }
+# Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/normalize" }
 PROC_BLOCK<f32[384],f32[384]> normalize hotg-ai/rune#proc_block/normalize
 
 MODEL<f32[384],f32[4]> gesture ./gesture.tflite
 
 
-# Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_block/ohv_label" }
+# Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/ohv_label" }
 PROC_BLOCK<f32[4], UTF8[7]> label hotg-ai/rune#proc_block/ohv_label --labels=Wing,Ring,Slope,Unknown
 
 RUN accelerometer normalize gesture label
