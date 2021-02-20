@@ -1,9 +1,13 @@
 [package]
 name = "normalize"
 version = "0.1.0"
-authors = ["Kartik Thakore <kthakore@alumni.uwo.ca>"]
+authors = ["Kartik Thakore <kartik@thakore.ai>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+runic-types = { git="ssh://github.com/hotg-ai/rune.git", path="runic_types", branch="pipeline-traits"}
+
+[dev-dependencies]
+rand = "0.8.3"
