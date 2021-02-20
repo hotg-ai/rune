@@ -46,6 +46,7 @@ mod tests {
         let mut pipeline = PipelineContext{};
         let output = norm_pb.transform(input.to_vec(), &mut pipeline);
       
-        println!(" {:?}", output);
+        //println!(" {:?}", output);
+        assert_eq!(output.len(), 384);
     }
 }
