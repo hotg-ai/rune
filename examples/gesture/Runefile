@@ -9,7 +9,7 @@ MODEL<f32[384],f32[4]> gesture ./model.tflite
 
 
 # Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/ohv_label" }
-PROC_BLOCK<f32[4], UTF8[7]> label hotg-ai/rune#proc_blocks/ohv_label --labels=Wing,Ring,Slope,Unknown
+PROC_BLOCK<f32[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=Wing,Ring,Slope,Unknown
 
 RUN accelerometer normalize gesture label
 
