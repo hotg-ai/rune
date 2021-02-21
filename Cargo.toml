@@ -14,6 +14,8 @@ members = [
 exclude = [
     "examples/sine/rune-rs",
     "examples/boilerplate",
-    "examples/gesture"
+    "examples/gesture",
+    "proc_blocks/normalize",
+    "proc_blocks/ohv_label"
 ]
 default-members = ["rune"]
