@@ -22,6 +22,7 @@ impl<const N: usize> Transform<[f32; N]> for Normalize {
         }
       
         for element in &mut input {
+            
             *element = (*element - min_value) / denom;
         }
       
@@ -39,16 +40,16 @@ mod tests {
     use rand::{thread_rng, Rng};
     #[test]
     fn it_works() {
-        let mut input: [f32; 384] = [0.0; 384];
+        let mut input: [f32; 348] = [0.0;348];
         thread_rng().fill(&mut input[..]);
         let mut norm_pb: Normalize = Normalize{}; 
         let mut pipeline = PipelineContext{};
         let output = norm_pb.transform(input, &mut pipeline);
-        let min_value = input.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let min_value = output.iter().fold(f32::INFINITY, |a, &b| a.min(b));
         let max_value = output.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-        assert_eq!(min_value >= 0.0, true);
+        assert_eq!(min_value, 0.0);
         assert_eq!(max_value, 1.0);
-        assert_eq!(output.len(), 384);
+        assert_eq!(output.len(), 348);
     }
 
     #[test]
