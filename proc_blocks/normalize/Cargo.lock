@@ -80,7 +80,7 @@ dependencies = [
 [[package]]
 name = "runic-types"
 version = "0.1.0"
-source = "git+ssh://github.com/hotg-ai/rune.git?branch=pipeline-traits#9910344749c15b8464310ea309374023c6d1a62f"
+source = "git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture#922813514da06e4dfda1e248cc268ea43b24eb4d"
 
 [[package]]
 name = "wasi"

@@ -4,11 +4,11 @@ struct Normalize {
 
 }
 
-impl Transform<Vec<f32>> for Normalize {
-    type Output = Vec<f32>;
+impl<const N: usize> Transform<[f32; N]> for Normalize {
+    type Output = [f32; N];
 
     fn transform(&mut self,
-        input: Vec<f32>,
+        mut input: [f32; N],
         ctx: &mut PipelineContext) -> Self::Output {
 
         // let input_size = input.len();
@@ -21,12 +21,11 @@ impl Transform<Vec<f32>> for Normalize {
           return input;
         }
       
-        for i in 0..input.len() {
-            
-            output[i] = (input[i]-min_value)/denom as f32;
+        for element in &mut input {
+            *element = (*element - min_value) / denom;
         }
       
-        return output.to_vec();
+        return input
       }
     
 }
@@ -40,13 +39,15 @@ mod tests {
     use rand::{thread_rng, Rng};
     #[test]
     fn it_works() {
-        let mut input: [f32; 384] = [0.0;384];
+        let mut input: [f32; 384] = [0.0; 384];
         thread_rng().fill(&mut input[..]);
         let mut norm_pb: Normalize = Normalize{}; 
         let mut pipeline = PipelineContext{};
-        let output = norm_pb.transform(input.to_vec(), &mut pipeline);
-      
-        //println!(" {:?}", output);
+        let output = norm_pb.transform(input, &mut pipeline);
+        let min_value = input.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max_value = output.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        assert_eq!(min_value >= 0.0, true);
+        assert_eq!(max_value, 1.0);
         assert_eq!(output.len(), 384);
     }
 
@@ -56,7 +57,7 @@ mod tests {
        
         let mut norm_pb: Normalize = Normalize{}; 
         let mut pipeline = PipelineContext{};
-        let output = norm_pb.transform(input.to_vec(), &mut pipeline);
+        let output = norm_pb.transform(input, &mut pipeline);
       
         
         assert_eq!(output, input);
