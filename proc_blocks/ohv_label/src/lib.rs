@@ -1,7 +1,8 @@
 use runic_types::{Transform, PipelineContext};
 
 struct OhvLabel {
-    labels: Vec<&'static str>
+    labels: Vec<&'static str>,
+    unknown_label: &'static str
 }
 
 impl Transform<Vec<u8>> for OhvLabel {
@@ -13,22 +14,11 @@ impl Transform<Vec<u8>> for OhvLabel {
         input: Vec<u8>,
         _ctx: &mut PipelineContext) -> Self::Output {
 
-        let index: i8 = match input.iter().position(|&r| r == 1) {
-            Some(i) => i as i8,
-            None => -1
-        };
-
-        if index != -1 {
-           let label = match self.labels.get(index as usize) {
-               Some(l) => l,
-               None => "NO_LABEL_FOUND"
-           };
-
-           return label;
-        } else {
-            return "OHV_NULL";
-        }
-        
+            input.iter()
+            .position(|&r| r == 1)
+            .and_then(|index| self.labels.get(index))
+            .copied()
+            .unwrap_or(self.unknown_label)
       }
     
 }
@@ -52,7 +42,8 @@ mod tests {
         input[idx] = 1;
         
         let mut pb = OhvLabel{
-            labels: vec!["Wing", "Ring", "Slope", "Unknown"]
+            labels: vec!["Wing", "Ring", "Slope", "Unknown"],
+            unknown_label: "NO_LABEL_FOUND"
         };
 
         let out = pb.transform(input.to_vec(), &mut pipeline);
@@ -70,7 +61,8 @@ mod tests {
         input[idx] = 1;
         
         let mut pb = OhvLabel{
-            labels: vec![]
+            labels: vec![],
+            unknown_label: "NO_LABEL_FOUND"
         };
 
         let out = pb.transform(input.to_vec(), &mut pipeline);
@@ -81,17 +73,18 @@ mod tests {
 
     #[test]
     fn handles_null_ohv() {
-        let mut input: [u8; 4] = [0;4];
+        let input: [u8; 4] = [0;4];
 
         
         let mut pb = OhvLabel{
-            labels: vec!["a", "b", "c", "d"]
+            labels: vec!["a", "b", "c", "d"],
+            unknown_label: "NO_LABEL_FOUND"
         };
         let mut pipeline = PipelineContext{};
         
         let out = pb.transform(input.to_vec(), &mut pipeline);
         
-        assert_eq!(out, "OHV_NULL");
+        assert_eq!(out, "NO_LABEL_FOUND");
         println!("OhV={:?} | Label={}", input, out);
     }
 
