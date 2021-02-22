@@ -9,6 +9,7 @@ description = "Runefile parsing and analysis."
 
 [dependencies]
 codespan = "0.11.0"
+codespan-reporting = "0.11.0"
 pest = "2.1.3"
 pest_derive = "2.1.0"
 

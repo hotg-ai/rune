@@ -80,6 +80,21 @@ pub struct Ident {
     pub span: Span,
 }
 
+impl Ident {
+    pub fn new(value: impl Into<String>, span: Span) -> Self {
+        Ident {
+            value: value.into(),
+            span,
+        }
+    }
+
+    /// Create an [`Ident`] with a placeholder span.
+    #[cfg(test)]
+    pub(crate) fn dangling(value: impl Into<String>) -> Self {
+        Ident::new(value, Span::new(0, 0))
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct CapabilityInstruction {
     pub name: Ident,
@@ -94,6 +109,23 @@ pub struct CapabilityInstruction {
 pub struct Type {
     pub kind: TypeKind,
     pub span: Span,
+}
+
+#[cfg(test)]
+impl Type {
+    pub(crate) fn named_dangling(name: impl Into<String>) -> Self {
+        Type {
+            kind: TypeKind::Named(Ident::dangling(name)),
+            span: Span::new(0, 0),
+        }
+    }
+
+    pub(crate) fn inferred_dangling() -> Self {
+        Type {
+            kind: TypeKind::Inferred,
+            span: Span::new(0, 0),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
