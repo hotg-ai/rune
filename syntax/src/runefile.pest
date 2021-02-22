@@ -1,0 +1,117 @@
+runefile = { SOI ~ meta_step ~ (NEWLINE ~ meta_step)* ~ EOI }
+NO_TYPE = _{"_"}
+TYPE_ATOM = { "F" ~ ("32"|"64") | (("U"|"I") ~ ("8"|"16" | "32" | "64")) |  NO_TYPE  }
+dim = { NUMBER }
+DIMENSIONS = { "[" ~ dim ~ ws* ~ ( ("," ~ ws* ~ dim) | "") ~ "]" }
+TYPE = _{ TYPE_ATOM ~ DIMENSIONS* }
+input_type = { TYPE }
+output_type = { TYPE }
+INPUT_TYPES = { ("<" ~ input_type ~ ws* ~ "," ~ ws* ~ output_type ~ ">") | (ws* ~ "input_type=" ~ input_type ~ ws* ~ "output_type=" ~ output_type) }
+meta_step = _{ ws* ~ (step | comment)? ~ ws* }
+
+// TODO: Add additional grammar to support
+// https://github.com/hotg-ai/rune/blob/47ad07fe911c2bb168a0d738c2cc331a9e57904d/examples/microspeech/Runefile_tf_micro_example
+
+step = _{
+    from       |
+    capability |
+//  output     |
+    proc_line  |
+    model      |
+    run        |
+    out        |
+    misc
+}
+
+comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
+string  = @{ "\"" ~ inner ~ "\"" }
+inner   = @{ (!("\"" | "\\" | "\u{0000}" | "\u{001F}") ~ ANY)* ~ (escape ~ inner)? }
+escape  = @{ "\\" ~ ("b" | "t" | "n" | "f" | "r" | "\"" | "\\" | unicode | NEWLINE)? }
+unicode = @{ "u" ~ ASCII_HEX_DIGIT{4} | "U" ~ ASCII_HEX_DIGIT{8} }
+
+// insignificant whitespace, not repeated
+ws = _{ " "+ | "\t"+ }
+
+
+// whitespace that may appear between instruction arguments
+// this allows instructions to expand past a newline if escaped
+arg_ws = _{ (ws | ("\\" ~ NEWLINE))+ }
+
+arg_ws_maybe = _{ (ws | ("\\" ~ NEWLINE))* }
+
+// continues consuming input beyond a newline, if the newline is preceded by an
+// escape (\)
+any_breakable = _{
+  (
+    !NEWLINE ~
+    !("\\" ~ NEWLINE) ~
+    ANY
+  )* ~ ("\\" ~ NEWLINE ~ any_breakable)?
+}
+
+// consumes any character until the end of the line
+any_eol = _{ (!NEWLINE ~ ANY)* }
+
+// consumes all characters until the next whitespace
+any_whitespace = _{ (!(NEWLINE | EOI | arg_ws) ~ ANY)+ }
+
+// consumes identifier characters until the next whitespace
+identifier_whitespace = _{ (!ws ~ (ASCII_ALPHANUMERIC | "_" | "-"))+ }
+
+// consumes until whitespace or = (for key in key=value pairs)
+any_equals = _{ (!(NEWLINE | ws | "=") ~ ANY)+ }
+
+// parses ["foo", "bar", "baz"] with excessive escaping
+string_array = _{
+  (
+    "[" ~
+    arg_ws_maybe ~ string ~
+    (arg_ws_maybe ~ "," ~ arg_ws_maybe ~ string)* ~
+    ","? ~
+    arg_ws_maybe ~ "]"
+  ) | "[" ~ arg_ws_maybe ~ "]"
+}
+
+
+from_image = @{ (ASCII_ALPHANUMERIC | "_" | "-" | "." | ":" | "/" | "$" | "{" | "}")+ }
+from_alias = { identifier_whitespace }
+from_alias_outer = _{ arg_ws ~ ^"as" ~ arg_ws ~ from_alias }
+from = { ^"from" ~ arg_ws ~ from_image ~ from_alias_outer? ~ comment*  }
+
+
+misc_instruction = @{ ASCII_ALPHA+ }
+misc_arguments = @{ any_breakable }
+misc = { misc_instruction ~ misc_arguments }
+
+proc_path = { (ASCII_ALPHANUMERIC | "_" | "-" | "." | ":" | "/" | "$" | "{" | "}")+ }
+proc_name = { (ASCII_ALPHANUMERIC | "-" | "_")+ }
+proc_arg_variable = { (ASCII_ALPHANUMERIC | "." | "-" | "[" | "]" | "_" | ",")+ }
+proc_arg_value = { (ASCII_ALPHANUMERIC | "." | "-" | "[" | "]" | "_" | ",")+ }
+proc_step = { ^"--" ~ proc_arg_variable ~ ws ~ proc_arg_value }
+proc_args = { proc_step ~ (ws ~ proc_step)* }
+
+proc_line = { ^"PROC_BLOCK" ~ INPUT_TYPES ~ ws ~ proc_path ~ ws ~ proc_name ~ (ws ~ proc_args)? ~ any_breakable }
+
+capability_name = { (ASCII_ALPHANUMERIC | "." | "/" | "-" | "_")+ }
+capability_description = { (ASCII_ALPHANUMERIC | "." | "-" | "_")+ }
+capability_arg_variable = { (ASCII_ALPHANUMERIC | "." | "-" | "[" | "]" | "_" | ",")+ }
+capability_arg_value = { (ASCII_ALPHANUMERIC | "." | "-" | "[" | "]" | "_" | ",")+ }
+capability_step = { ^"--" ~ capability_arg_variable ~ ws ~ capability_arg_value }
+capability_args = { capability_step ~ (ws ~ capability_step)* }
+capability = { ^"capability" ~ INPUT_TYPES ~ ws ~ capability_name ~ ws ~ capability_description ~ ( ws ~ capability_args)? ~ any_breakable }
+
+run_step = { (ASCII_ALPHANUMERIC | "." | "-")+ }
+run_args = { run_step ~ (ws ~ run_step)* }
+run = { ^"run" ~ ws ~ run_args ~ any_eol }
+
+model_file = { (ASCII_ALPHANUMERIC | "." | "/" | "-" | "_")+ }
+model_name = { (ASCII_ALPHANUMERIC | "." | "-" | "_")+ }
+model_arg_variable = { (ASCII_ALPHANUMERIC | "." | "-" | "[" | "]" | "_" | ",")+ }
+model_arg_value = { (ASCII_ALPHANUMERIC | "." | "-" | "[" | "]" | "_" | ",")+ }
+model_step = { ^"--" ~ model_arg_variable ~ ws ~ model_arg_value }
+model_args = { model_step ~ (ws ~ model_step)* }
+model = { ^"model" ~ INPUT_TYPES ~ ws ~ model_file ~ ws ~ model_name ~ (ws ~ model_args)? ~ any_breakable }
+
+out_type = { (ASCII_ALPHANUMERIC | "." | "-")+ }
+out = { ^"out" ~ ws ~ out_type ~ any_eol }
+
