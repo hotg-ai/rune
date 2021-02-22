@@ -1801,15 +1801,15 @@ dependencies = [
 [[package]]
 name = "runic-types"
 version = "0.1.0"
-
-[[package]]
-name = "runic-types"
-version = "0.1.0"
 source = "git+ssh://git@github.com/hotg-ai/runic-types#4618f93715df0809fcc1a0765b7eecb5e6c4f9e3"
 dependencies = [
  "bincode",
  "serde",
 ]
+
+[[package]]
+name = "runic-types"
+version = "0.1.0"
 
 [[package]]
 name = "rustc-hash"

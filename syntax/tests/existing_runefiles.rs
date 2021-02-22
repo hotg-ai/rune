@@ -19,7 +19,10 @@ macro_rules! parse_and_analyse {
             let mut files = SimpleFiles::new();
             let id = files.add("Runefile", src);
 
-            let parsed = rune_syntax::parse(src).unwrap();
+            let parsed = match rune_syntax::parse(src) {
+                Ok(p) => p,
+                Err(e) => panic!("{}", e),
+            };
 
             assert!(parsed.instructions.len() > 1);
 
@@ -47,4 +50,4 @@ macro_rules! parse_and_analyse {
 }
 
 parse_and_analyse!(sine);
-// parse_runefile!(microspeech);
+parse_and_analyse!(gesture);
