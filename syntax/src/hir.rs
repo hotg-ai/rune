@@ -2,9 +2,11 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
+use crate::ast::{Argument, Path};
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Rune {
-    pub base_image: Option<String>,
+    pub base_image: Option<Path>,
     pub sinks: HashMap<HirId, Sink>,
     pub sources: HashMap<HirId, Source>,
     pub models: HashMap<HirId, Model>,
@@ -92,7 +94,7 @@ pub enum Primitive {
 pub struct Source {
     pub kind: SourceKind,
     pub output_type: HirId,
-    pub parameters: HashMap<String, String>,
+    pub parameters: Vec<Argument>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -130,6 +132,6 @@ pub enum PipelineNode {
 pub struct ProcBlock {
     pub input: HirId,
     pub output: HirId,
-    pub path: String,
-    pub params: HashMap<String, String>,
+    pub path: Path,
+    pub params: Vec<Argument>,
 }

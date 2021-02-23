@@ -1,58 +1,56 @@
-//! The parser.
-
-use std::collections::HashMap;
-
-use crate::ast::{
-    CapabilityInstruction, FromInstruction, Ident, Instruction,
-    ModelInstruction, OutInstruction, ProcBlockInstruction, RunInstruction,
-    Runefile, Type,
-};
 use codespan::Span;
 use pest::{error::Error, iterators::Pair, Parser, RuleType};
+
+use crate::ast::{
+    Argument, ArgumentValue, CapabilityInstruction, FromInstruction, Ident,
+    Literal, LiteralKind, ModelInstruction, OutInstruction, Path,
+    ProcBlockInstruction, RunInstruction, Runefile, Type, TypeKind,
+};
+
+/// Parse a [`Runefile`] from its textual representation.
+pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
+    let span = Span::new(0, src.len() as u32);
+    let parsed = RunefileParser::parse(Rule::runefile, src)?;
+
+    let mut instructions = Vec::new();
+
+    for statement in parsed.into_iter().next().unwrap().into_inner() {
+        if statement.as_rule() == Rule::EOI {
+            break;
+        }
+
+        debug_assert_eq!(statement.as_rule(), Rule::statement);
+        let instruction = statement.into_inner().next().unwrap();
+
+        match instruction.as_rule() {
+            Rule::from => instructions.push(parse_from(instruction).into()),
+            Rule::out => instructions.push(parse_out(instruction).into()),
+            Rule::model => instructions.push(parse_model(instruction).into()),
+            Rule::capability => {
+                instructions.push(parse_capability(instruction).into())
+            },
+            Rule::run => instructions.push(parse_run(instruction).into()),
+            Rule::proc_block => {
+                instructions.push(parse_proc_block(instruction).into())
+            },
+            _ => unreachable!("{:?}", instruction),
+        }
+    }
+
+    Ok(Runefile { instructions, span })
+}
 
 #[derive(pest_derive::Parser)]
 #[grammar = "runefile.pest"]
 pub struct RunefileParser;
 
-/// Parse a [`Runefile`] from its textual representation.
-pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
-    let top_level = RunefileParser::parse(Rule::runefile, src)?
-        .next()
-        .expect("There is always a runefile rule");
-    let span = get_span(&top_level);
+fn parse_ident(pair: Pair<Rule>) -> Ident {
+    debug_assert_eq!(pair.as_rule(), Rule::ident);
 
-    let mut instructions: Vec<Instruction> = Vec::new();
-
-    for pair in top_level.into_inner() {
-        match pair.as_rule() {
-            Rule::from => {
-                instructions.push(parse_from(pair).into());
-            },
-            Rule::capability => {
-                instructions.push(parse_capability(pair).into());
-            },
-            Rule::proc_line => {
-                instructions.push(parse_proc_block(pair).into());
-            },
-            Rule::model => {
-                instructions.push(parse_model(pair).into());
-            },
-            Rule::run => {
-                instructions.push(parse_run(pair).into());
-            },
-            Rule::out => {
-                instructions.push(parse_out(pair).into());
-            },
-            Rule::EOI => {},
-            other => unimplemented!(
-                "Parsing isn't implemented for {:?}\n\n{:?}",
-                other,
-                pair
-            ),
-        }
+    Ident {
+        value: pair.as_str().to_string(),
+        span: get_span(&pair),
     }
-
-    Ok(Runefile { instructions, span })
 }
 
 fn get_span<R: RuleType>(pair: &Pair<R>) -> Span {
@@ -60,191 +58,100 @@ fn get_span<R: RuleType>(pair: &Pair<R>) -> Span {
     Span::new(s.start() as u32, s.end() as u32)
 }
 
-fn parse_from(pair: Pair<Rule>) -> FromInstruction {
-    let span = get_span(&pair);
-
-    let image = pair.into_inner().next().unwrap();
-    let image = parse_ident(image);
-
-    FromInstruction { image, span }
-}
-
-fn parse_ident(pair: Pair<Rule>) -> Ident {
-    Ident {
-        value: pair.as_str().to_string(),
-        span: get_span(&pair),
-    }
-}
-
-fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
-    let span = get_span(&pair);
-    let mut pairs = pair.into_inner();
-
-    // Note: Guaranteed by the grammar to not panic
-
-    let (input_type, output_type) = parse_input_types(pairs.next().unwrap());
-
-    let name = parse_ident(pairs.next().unwrap());
-    let description = pairs.next().unwrap().as_str().to_string();
-
-    let mut parameters = HashMap::new();
-
-    for step in pairs {
-        let mut pairs = step.into_inner().next().unwrap().into_inner();
-        let variable = pairs.next().unwrap();
-        let argument = pairs.next().unwrap();
-
-        parameters.insert(
-            variable.as_str().to_string(),
-            argument.as_str().to_string(),
-        );
-    }
-
-    return CapabilityInstruction {
-        name,
-        description,
-        input_type,
-        output_type,
-        parameters,
-        span,
-    };
-}
-
-fn parse_input_types(pair: Pair<Rule>) -> (Type, Type) {
-    let mut pairs = pair.into_inner();
-    let input_type = parse_type(pairs.next().unwrap());
-    let output_type = parse_type(pairs.next().unwrap());
-
-    (input_type, output_type)
-}
-
 fn parse_type(pair: Pair<Rule>) -> Type {
     let span = get_span(&pair);
 
-    if pair.as_str() == "_" {
-        Type {
-            kind: crate::ast::TypeKind::Inferred,
-            span,
-        }
-    } else if pair.as_str().chars().all(char::is_alphanumeric) {
-        let name = parse_ident(pair);
-        Type {
-            kind: crate::ast::TypeKind::Named(name),
-            span,
-        }
-    } else {
-        unimplemented!("We can't parse this as a type, {:?}", pair)
-    }
+    debug_assert_eq!(pair.as_rule(), Rule::ty);
+    let pair = pair.into_inner().next().unwrap();
+
+    let kind = match pair.as_rule() {
+        Rule::inferred_type => TypeKind::Inferred,
+        Rule::type_with_dimensions => {
+            let mut parts = pair.into_inner();
+            let type_name = parse_ident(parts.next().unwrap());
+            match parts.next() {
+                Some(dimensions) => TypeKind::Buffer {
+                    type_name,
+                    dimensions: parse_dimensions(dimensions),
+                },
+                None => TypeKind::Named(type_name),
+            }
+        },
+        _ => unreachable!("{:?}", pair),
+    };
+
+    Type { kind, span }
 }
 
-fn null_ident() -> Ident {
-    Ident {
-        value: String::new(),
-        span: Span::new(0, 0),
-    }
+fn parse_dimensions(pair: Pair<Rule>) -> Vec<usize> {
+    debug_assert_eq!(pair.as_rule(), Rule::dimensions);
+
+    pair.into_inner()
+        .map(|p| p.as_str().parse::<usize>().unwrap())
+        .collect()
 }
 
-fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
+fn parse_literal(pair: Pair<Rule>) -> Literal {
     let span = get_span(&pair);
-    let mut parameters_param = HashMap::new();
-    let mut path = String::new();
-    let mut name = null_ident();
 
-    for step_record in pair.into_inner() {
-        match step_record.as_rule() {
-            Rule::proc_path => path = step_record.as_str().to_string(),
-            Rule::proc_name => name = parse_ident(step_record),
-            Rule::proc_args => {
-                for arg in step_record.into_inner() {
-                    match arg.as_rule() {
-                        Rule::proc_step => {
-                            let mut last_param_name = String::new();
+    let kind = match pair.as_rule() {
+        Rule::integer => LiteralKind::Integer(pair.as_str().parse().unwrap()),
+        Rule::float => LiteralKind::Float(pair.as_str().parse().unwrap()),
+        Rule::string => LiteralKind::String(pair.as_str().to_string()),
+        Rule::literal => {
+            return parse_literal(pair.into_inner().next().unwrap())
+        },
+        _ => unreachable!("{:?}", pair),
+    };
 
-                            for part in arg.into_inner() {
-                                match part.as_rule() {
-                                    Rule::proc_arg_variable => {
-                                        last_param_name =
-                                            part.as_str().to_string();
-                                    },
-                                    Rule::proc_arg_value => {
-                                        let last_param_value =
-                                            part.as_str().to_string();
-                                        let last_param_name_cloned =
-                                            std::mem::take(
-                                                &mut last_param_name,
-                                            );
-                                        parameters_param.insert(
-                                            last_param_name_cloned,
-                                            last_param_value,
-                                        );
-                                    },
-                                    _ => {},
-                                }
-                            }
-                        },
-                        _ => {},
-                    }
-                }
-            },
-            _ => {},
-        }
-    }
-
-    ProcBlockInstruction {
-        path,
-        name,
-        params: parameters_param,
-        span,
-    }
+    Literal { kind, span }
 }
 
-fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
+fn parse_argument(pair: Pair<Rule>) -> Argument {
     let span = get_span(&pair);
-    let mut parameters_param = HashMap::new();
-    let mut model_name_param = null_ident();
-    let mut model_file_param = "".to_string();
 
-    for args in pair.into_inner() {
-        match args.as_rule() {
-            Rule::model_file => model_file_param = args.as_str().to_string(),
-            Rule::model_name => model_name_param = parse_ident(args),
-            Rule::model_args => {
-                for arg in args.into_inner() {
-                    match arg.as_rule() {
-                        Rule::model_step => {
-                            let mut last_param_name = "".to_string();
-                            for part in arg.into_inner() {
-                                match part.as_rule() {
-                                    Rule::model_arg_variable => {
-                                        last_param_name =
-                                            part.as_str().to_string();
-                                    },
-                                    Rule::model_arg_value => {
-                                        let last_param_value =
-                                            part.as_str().to_string();
-                                        let last_param_name_cloned =
-                                            last_param_name.clone();
-                                        parameters_param.insert(
-                                            last_param_name_cloned,
-                                            last_param_value,
-                                        );
-                                    },
-                                    _ => {},
-                                }
-                            }
-                        },
-                        _ => {},
-                    }
-                }
-            },
-            _ => {},
-        }
-    }
+    debug_assert_eq!(pair.as_rule(), Rule::argument);
+    let mut pair = pair.into_inner();
 
-    ModelInstruction {
-        name: model_name_param,
-        file: model_file_param,
-        parameters: parameters_param,
+    let name = parse_argument_name(pair.next().unwrap());
+
+    let value = pair.next().unwrap();
+    let value = match value.as_rule() {
+        Rule::literal => ArgumentValue::Literal(parse_literal(value)),
+        Rule::arg_list => ArgumentValue::List(
+            value.into_inner().map(|p| p.as_str().to_string()).collect(),
+        ),
+        Rule::arg_list_item => ArgumentValue::Literal(Literal::new(
+            value.as_str(),
+            get_span(&value),
+        )),
+        _ => unreachable!("{:?}", value),
+    };
+
+    Argument { name, value, span }
+}
+
+fn parse_argument_name(pair: Pair<Rule>) -> Ident {
+    let span = get_span(&pair);
+    debug_assert_eq!(pair.as_rule(), Rule::arg_name);
+
+    let value = pair.into_inner().next().unwrap().as_str().to_string();
+
+    Ident { value, span }
+}
+
+fn parse_path(pair: Pair<Rule>) -> Path {
+    let span = get_span(&pair);
+
+    debug_assert_eq!(pair.as_rule(), Rule::path);
+    let mut pair = pair.into_inner();
+
+    let body = pair.next().unwrap().as_str().to_string();
+    let version = pair.next().map(|p| p.as_str().to_string());
+
+    Path {
+        body,
+        version,
         span,
     }
 }
@@ -252,38 +159,120 @@ fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
 fn parse_run(pair: Pair<Rule>) -> RunInstruction {
     let span = get_span(&pair);
 
-    let steps = pair
-        .into_inner()
-        .next()
-        .unwrap()
-        .into_inner()
-        .map(parse_ident)
-        .collect();
+    RunInstruction {
+        steps: pair.into_inner().map(parse_ident).collect(),
+        span,
+    }
+}
 
-    RunInstruction { steps, span }
+fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
+    let span = get_span(&pair);
+
+    debug_assert_eq!(pair.as_rule(), Rule::proc_block);
+    let mut pair = pair.into_inner();
+
+    let input_type = parse_type(pair.next().unwrap());
+    let output_type = parse_type(pair.next().unwrap());
+    let path = parse_path(pair.next().unwrap());
+    let name = parse_ident(pair.next().unwrap());
+    let args = parse_args(pair.next().unwrap());
+
+    ProcBlockInstruction {
+        name,
+        path,
+        input_type,
+        output_type,
+        params: args,
+        span,
+    }
+}
+
+fn parse_args(pair: Pair<Rule>) -> Vec<Argument> {
+    debug_assert_eq!(pair.as_rule(), Rule::arguments);
+
+    pair.into_inner().map(parse_argument).collect()
 }
 
 fn parse_out(pair: Pair<Rule>) -> OutInstruction {
     let span = get_span(&pair);
-    let out_type = parse_ident(pair.into_inner().next().unwrap());
+    debug_assert_eq!(pair.as_rule(), Rule::out);
 
-    OutInstruction { span, out_type }
+    let name = pair.into_inner().next().unwrap();
+
+    OutInstruction {
+        out_type: parse_ident(name),
+        span,
+    }
+}
+
+fn parse_from(pair: Pair<Rule>) -> FromInstruction {
+    let span = get_span(&pair);
+
+    debug_assert_eq!(pair.as_rule(), Rule::from);
+    let mut pair = pair.into_inner();
+
+    let image = parse_path(pair.next().unwrap());
+
+    FromInstruction { image, span }
+}
+
+fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
+    let span = get_span(&pair);
+
+    debug_assert_eq!(pair.as_rule(), Rule::capability);
+    let mut pair = pair.into_inner();
+
+    let output_type = parse_type(pair.next().unwrap());
+    let kind = parse_ident(pair.next().unwrap());
+    let name = parse_ident(pair.next().unwrap());
+    let parameters = parse_args(pair.next().unwrap());
+
+    CapabilityInstruction {
+        kind,
+        name,
+        output_type,
+        parameters,
+        span,
+    }
+}
+
+fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
+    let span = get_span(&pair);
+
+    debug_assert_eq!(pair.as_rule(), Rule::model);
+    let mut pair = pair.into_inner();
+
+    let input_type = parse_type(pair.next().unwrap());
+    let output_type = parse_type(pair.next().unwrap());
+    let file = pair.next().unwrap().as_str().to_string();
+    let name = parse_ident(pair.next().unwrap());
+    let parameters = parse_args(pair.next().unwrap());
+
+    ModelInstruction {
+        file,
+        input_type,
+        output_type,
+        name,
+        parameters,
+        span,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{CapabilityInstruction, Type, TypeKind};
+    use crate::ast::{
+        CapabilityInstruction, FromInstruction, ModelInstruction,
+        OutInstruction, Type, TypeKind,
+    };
+    use pest::Parser;
 
     #[test]
     fn parse_a_from_instruction() {
         let src = "FROM runicos/base";
         let should_be = FromInstruction {
-            image: Ident {
-                value: String::from("runicos/base"),
-                span: Span::new(5, src.len() as u32),
-            },
-            span: Span::new(0, src.len() as u32),
+            image: Path::new("runicos/base", None, Span::new(5, 17)),
+            span: Span::new(0, 17),
         };
 
         let got = RunefileParser::parse(Rule::from, src)
@@ -297,28 +286,29 @@ mod tests {
 
     #[test]
     fn parse_a_capability() {
-        let src = "CAPABILITY<_,I32> RAND rand --n 1";
+        let src = "CAPABILITY<I32> RAND rand --n 1";
         let should_be = CapabilityInstruction {
-            name: Ident {
+            kind: Ident {
                 value: String::from("RAND"),
-                span: Span::new(18, 22),
+                span: Span::new(16, 20),
             },
-            description: String::from("rand"),
-            parameters: vec![(String::from("n"), String::from("1"))]
-                .into_iter()
-                .collect(),
-            input_type: Type {
-                kind: TypeKind::Inferred,
-                span: Span::new(11, 12),
+            name: Ident {
+                value: String::from("rand"),
+                span: Span::new(21, 25),
             },
             output_type: Type {
                 kind: TypeKind::Named(Ident {
                     value: String::from("I32"),
-                    span: Span::new(13, 16),
+                    span: Span::new(11, 14),
                 }),
-                span: Span::new(13, 16),
+                span: Span::new(11, 14),
             },
-            span: Span::new(0, 33),
+            parameters: vec![Argument::literal(
+                Ident::new("n", Span::new(26, 29)),
+                Literal::new(1, Span::new(30, 31)),
+                Span::new(26, 31),
+            )],
+            span: Span::new(0, 31),
         };
 
         let got = RunefileParser::parse(Rule::capability, src)
@@ -332,21 +322,36 @@ mod tests {
 
     #[test]
     fn parse_a_model() {
-        let src =
-            "MODEL<_,_> ./sinemodel.tflite sine --input [1,1] --output [1,1]";
+        let src = "MODEL<_,_> ./sinemodel.tflite sine --input 1,1 --output 1,1";
         let should_be = ModelInstruction {
             name: Ident {
                 value: String::from("sine"),
                 span: Span::new(30, 34),
             },
             file: String::from("./sinemodel.tflite"),
+            input_type: Type {
+                kind: TypeKind::Inferred,
+                span: Span::new(6, 7),
+            },
+            output_type: Type {
+                kind: TypeKind::Inferred,
+                span: Span::new(8, 9),
+            },
             parameters: vec![
-                (String::from("input"), String::from("[1,1]")),
-                (String::from("output"), String::from("[1,1]")),
+                Argument::list(
+                    Ident::new("input", Span::new(35, 42)),
+                    vec!["1", "1"],
+                    Span::new(35, 46),
+                ),
+                Argument::list(
+                    Ident::new("output", Span::new(47, 55)),
+                    vec!["1", "1"],
+                    Span::new(47, 59),
+                ),
             ]
             .into_iter()
             .collect(),
-            span: Span::new(0, 63),
+            span: Span::new(0, 59),
         };
 
         let got = RunefileParser::parse(Rule::model, src)
@@ -412,18 +417,30 @@ mod tests {
     fn parse_a_proc_block() {
         let src = "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100";
         let should_be = ProcBlockInstruction {
-            path: String::from("hotg-ai/pb-mod"),
+            path: Path::new("hotg-ai/pb-mod", None, Span::new(16, 30)),
+            input_type: Type {
+                kind: TypeKind::Inferred,
+                span: Span::new(11, 12),
+            },
+            output_type: Type {
+                kind: TypeKind::Inferred,
+                span: Span::new(13, 14),
+            },
             name: Ident {
                 value: String::from("mod360"),
                 span: Span::new(31, 37),
             },
-            params: vec![(String::from("modulo"), String::from("100"))]
-                .into_iter()
-                .collect(),
+            params: vec![Argument::literal(
+                Ident::new("modulo", Span::new(38, 46)),
+                Literal::new(100, Span::new(47, 50)),
+                Span::new(38, 50),
+            )]
+            .into_iter()
+            .collect(),
             span: Span::new(0, 50),
         };
 
-        let got = RunefileParser::parse(Rule::proc_line, src)
+        let got = RunefileParser::parse(Rule::proc_block, src)
             .unwrap()
             .next()
             .unwrap();
@@ -435,32 +452,125 @@ mod tests {
     /// Assert that a set of strings parse successfully using the specified
     /// [`Rule`].
     macro_rules! assert_matches {
-        ($rule:ident, $($src:expr),* $(,)?) => {
-            #[test]
-            #[allow(non_snake_case)]
-            fn $rule() {
-                $(
-                    if let Err(e) = RunefileParser::parse(Rule::$rule, $src) {
-                        panic!("{}\n\n{:?}", e, e);
+            ($test_name:ident for $rule:ident $(with $parser:ident)?, $($src:expr),* $(,)?) => {
+                #[test]
+                #[allow(non_snake_case)]
+                fn $test_name() {
+                    let input = vec![ $($src),* ];
+
+                    for src in input {
+                        let got = match RunefileParser::parse(Rule::$rule, src) {
+                            Ok(got) => got,
+                            Err(e) => panic!("{}\n\n{:?}", e, e),
+                        };
+                        assert_eq!( got.as_str().len(),
+                            src.len(),
+                            "Only parsed \"{}\" out of \"{}\"",
+                            got.as_str(),
+                            src,
+                        );
+
+                        $( let _ = $parser(got.clone().next().unwrap()); )?
                     }
-                )*
-            }
-        };
-    }
+                }
+            };
+            ($rule:ident $(with $parser:ident)?, $($src:expr),* $(,)?) => {
+                assert_matches!($rule for $rule $(with $parser)?, $($src),*);
+            };
+        }
 
+    macro_rules! assert_doesnt_match {
+            ($test_name:ident for $rule:ident, $($src:expr),* $(,)?) => {
+                #[test]
+                #[allow(non_snake_case)]
+                fn $test_name() {
+                    $(
+                        match RunefileParser::parse(Rule::$rule, $src) {
+                            Ok(got) => assert_ne!(
+                                got.as_str().len(),
+                                $src.len(),
+                                "Expected parsing \"{}\" to fail but got {:?}",
+                                $src,
+                                got,
+                            ),
+                            _ => {},
+                        }
+                    )*
+                }
+            };
+        }
+
+    assert_matches!(ident with parse_ident, "f", "fff", "f32", "F_12");
+    assert_doesnt_match!(reject_invalid_idents for ident, "_", "a-b");
     assert_matches!(
-        proc_step,
-        "--identifier asdf",
-        "--integer-literal 42",
-        "--buffer-type i32[1, 2]",
-        "--array [1, 2]"
+        string with parse_literal,
+        r#""""#,
+        r#""asdf""#,
+        r#""\x0a""#,
+        r#""\uabcd""#,
+        r#""\n""#,
+        r#""\t""#,
+        r#""\\""#,
+        r#""\r""#,
     );
-
     assert_matches!(
-        INPUT_TYPES,
-        "<_,_>",
-        "<I32, _>",
-        "<_, F32[1,2]>",
-        "<U64[1][2], _>"
+        ty with parse_type,
+        "u32",
+        "uint32_t",
+        "f32[1]",
+        "f32[1, 150]",
+        "UTF8",
+        "_"
+    );
+    assert_doesnt_match!(invalid_types for ty, "f32[150][1]", "[f32; 5]", "u32[1 x 128]");
+    assert_matches!(integer with parse_literal, "1", "0", "42", "-123");
+    assert_matches!(float with parse_literal, "1.0", "1.", "-5.0", "1e2", "1e-2", "1.0e10");
+    assert_doesnt_match!(invalid_floats for float, "1", "-42", ".5", "1e");
+    assert_matches!(from, "FROM runicos/base", "FROM \\\n  runicos/base");
+    assert_matches!(
+        capability,
+        "CAPABILITY<f32> RAND rand",
+        "CAPABILITY<I32> RAND rand --n 1"
+    );
+    assert_matches!(arg_name, "-n", "--number", "--n", "--long-arg");
+    assert_matches!(arg_value, "4", "3.14", "-123", r#""Hello, World!""#);
+    assert_matches!(
+        argument with parse_argument,
+        "-n 42",
+        "--number 42",
+        "--number \\\n 42",
+        "--number=42",
+        "--float 3.14",
+        "--unquoted_string hello",
+        r#"--quoted_string "hello""#,
+        "--labels=Wing,Ring,Slope,Unknown"
+    );
+    assert_matches!(
+        path with parse_path,
+        "asdf",
+        "runicos/base",
+        "runicos/base@0.1.2",
+        "runicos/base@latest",
+        "https://github.com/hotg-ai/rune",
+        "https://github.com/hotg-ai/rune@2"
+    );
+    assert_doesnt_match!(invalid_paths for path,
+        "as df",
+        "runicos:latest",
+    );
+    assert_matches!(
+        proc_block with parse_proc_block,
+        "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360",
+        "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100"
+    );
+    assert_matches!(run with parse_run, "RUN rand mod360 sine");
+    assert_matches!(
+        model,
+        "MODEL<_,_> ./sinemodel.tflite sine",
+        "MODEL<_,_> ./sinemodel.tflite sine --input [1,1] --output [1,1]",
+    );
+    assert_matches!(
+        runefile,
+        "# This is a comment\nFROM asdf\n\n#comment\nFROM xcvb"
     );
 }

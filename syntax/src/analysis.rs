@@ -104,7 +104,7 @@ impl<'diag> Analyser<'diag> {
     fn load_from(&mut self, instruction: &Instruction) -> Result<(), ()> {
         match instruction {
             Instruction::From(f) => {
-                self.rune.base_image = Some(f.image.value.clone());
+                self.rune.base_image = Some(f.image.clone());
                 Ok(())
             },
             other => {
@@ -148,7 +148,7 @@ impl<'diag> Analyser<'diag> {
     }
 
     fn load_capability(&mut self, capability: &CapabilityInstruction) -> HirId {
-        let kind = match capability.name.value.as_str() {
+        let kind = match capability.kind.value.as_str() {
             "RAND" => {
                 // TODO: We should probably inspect the capability parameters
                 // and pull the relevant ones out into actual fields on the Rand
@@ -159,7 +159,7 @@ impl<'diag> Analyser<'diag> {
             other => {
                 self.warn(
                     "This isn't one of the builtin capabilities",
-                    capability.name.span,
+                    capability.kind.span,
                 );
                 SourceKind::Other(other.to_string())
             },
@@ -175,7 +175,7 @@ impl<'diag> Analyser<'diag> {
                 parameters: capability.parameters.clone(),
             },
         );
-        self.rune.names.register(&capability.description, id);
+        self.rune.names.register(&capability.name.value, id);
 
         id
     }
@@ -193,6 +193,7 @@ impl<'diag> Analyser<'diag> {
                     self.unknown_type
                 },
             },
+            crate::ast::TypeKind::Buffer { .. } => todo!(),
         }
     }
 
@@ -303,14 +304,10 @@ impl<'diag> Analyser<'diag> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
+    use super::*;
+    use crate::ast::{Argument, Ident, Literal, Path};
     use codespan::Span;
     use codespan_reporting::files::SimpleFiles;
-
-    use crate::ast::Ident;
-
-    use super::*;
 
     fn setup_analyser(diags: &mut Diagnostics) -> Analyser<'_> {
         let mut files = SimpleFiles::new();
@@ -354,13 +351,20 @@ mod tests {
 
     #[test]
     fn valid_base_image() {
-        let (id, runefile) = setup("FROM runicos/base");
+        let (id, runefile) = setup("FROM runicos/base@1.0");
         let mut diags = Diagnostics::new();
 
         let got = analyse(id, &runefile, &mut diags);
 
         assert!(!diags.has_errors());
-        assert_eq!(got.base_image, Some(String::from("runicos/base")));
+        assert_eq!(
+            got.base_image,
+            Some(Path::new(
+                "runicos/base",
+                "1.0".to_string(),
+                Span::new(5, 21)
+            ))
+        );
     }
 
     #[test]
@@ -398,7 +402,9 @@ mod tests {
         let model = ModelInstruction {
             name: Ident::dangling("sine"),
             file: String::from("./sine.tflite"),
-            parameters: HashMap::new(),
+            input_type: crate::ast::Type::inferred_dangling(),
+            output_type: crate::ast::Type::inferred_dangling(),
+            parameters: Vec::new(),
             span: Span::new(0, 0),
         };
 
@@ -416,12 +422,15 @@ mod tests {
         let mut analyser = setup_analyser(&mut diags);
         // CAPABILITY<_,I32> RAND rand --n 1
         let capability = CapabilityInstruction {
-            name: Ident::dangling("RAND"),
-            description: String::from("rand"),
-            parameters: vec![(String::from("n"), String::from("1"))]
-                .into_iter()
-                .collect(),
-            input_type: crate::ast::Type::inferred_dangling(),
+            kind: Ident::dangling("RAND"),
+            name: Ident::new("rand", Span::new(0, 0)),
+            parameters: vec![Argument::literal(
+                Ident::new("n", Span::new(0, 0)),
+                Literal::new(1, Span::new(0, 0)),
+                Span::new(0, 0),
+            )]
+            .into_iter()
+            .collect(),
             output_type: crate::ast::Type::named_dangling("I32"),
             span: Span::new(0, 0),
         };
