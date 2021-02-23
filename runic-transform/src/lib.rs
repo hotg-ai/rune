@@ -30,13 +30,13 @@ pub trait Transformable<InputBufferType, OutputBufferType> {
     ) -> Result<Vec<OutputBufferType>, &'static str>;
 }
 
-pub struct Transform<InputType, OutputType> {
+pub struct RTransform<InputType, OutputType> {
     _input: Option<InputType>,
     _output: Option<OutputType>,
 }
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
-impl Transformable<f32, i32> for Transform<f32, i32> {
+impl Transformable<f32, i32> for RTransform<f32, i32> {
     // Should return a Vec<i32> ??
     fn to_buffer(input: &Vec<f32>) -> Result<Vec<u8>, &'static str> {
         // Transformed to &[f32] then to &[u8]
@@ -71,7 +71,7 @@ impl Transformable<f32, i32> for Transform<f32, i32> {
 }
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
-impl Transformable<i32, i32> for Transform<i32, i32> {
+impl Transformable<i32, i32> for RTransform<i32, i32> {
     // Should return a Vec<i32> ??
     fn to_buffer(input: &Vec<i32>) -> Result<Vec<u8>, &'static str> {
         // Transformed to &[f32] then to &[u8]
@@ -105,7 +105,7 @@ impl Transformable<i32, i32> for Transform<i32, i32> {
 }
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
-impl Transformable<i32, i16> for Transform<i32, i16> {
+impl Transformable<i32, i16> for RTransform<i32, i16> {
     // Should return a Vec<i32> ??
     fn to_buffer(input: &Vec<i32>) -> Result<Vec<u8>, &'static str> {
         // Transformed to &[f32] then to &[u8]
@@ -137,7 +137,7 @@ impl Transformable<i32, i16> for Transform<i32, i16> {
 }
 
 // Transformable<InputBufferType, OutputBufferType> for &[Input Type]
-impl Transformable<f32, f32> for Transform<f32, f32> {
+impl Transformable<f32, f32> for RTransform<f32, f32> {
     // Should return a Vec<i32> ??
     fn to_buffer(input: &Vec<f32>) -> Result<Vec<u8>, &'static str> {
         // Transformed to &[f32] then to &[u8]
@@ -189,10 +189,10 @@ mod tests {
         let mut rng = thread_rng();
         let raw: Vec<f32> =
             Vec::from([rng.gen(), rng.gen(), rng.gen(), rng.gen()]);
-        let buffer: Vec<u8> = Transform::<f32, f32>::to_buffer(&raw).unwrap();
+        let buffer: Vec<u8> = RTransform::<f32, f32>::to_buffer(&raw).unwrap();
 
         let transform: Vec<f32> =
-            Transform::<f32, f32>::from_buffer(&buffer).unwrap();
+            RTransform::<f32, f32>::from_buffer(&buffer).unwrap();
 
         assert_eq!(raw, transform);
     }
@@ -201,10 +201,10 @@ mod tests {
     fn can_transform_f32_i32() {
         let raw: Vec<f32> = Vec::from([1.2, 12.2, 1231.2, -633.12, 78432.2]);
         // Outputs Vec<u8> which has encode Vec<i32>
-        let buffer: Vec<u8> = Transform::<f32, i32>::to_buffer(&raw).unwrap();
+        let buffer: Vec<u8> = RTransform::<f32, i32>::to_buffer(&raw).unwrap();
 
         let transform: Vec<i32> =
-            Transform::<f32, i32>::from_buffer(&buffer).unwrap();
+            RTransform::<f32, i32>::from_buffer(&buffer).unwrap();
 
         assert_eq!(Vec::from([1, 12, 1231, -633, 78432]), transform);
     }

@@ -1,4 +1,5 @@
-use runic_types::{Transform, PipelineContext};
+#![no_std]
+pub use runic_types::{Transform, PipelineContext};
 
 pub struct Normalize {
 
@@ -7,7 +8,7 @@ pub struct Normalize {
 impl<const N: usize> Transform<[f32; N]> for Normalize {
     type Output = [f32; N];
 
-    pub fn transform(&mut self,
+    fn transform(&mut self,
         mut input: [f32; N],
         ctx: &mut PipelineContext) -> Self::Output {
 

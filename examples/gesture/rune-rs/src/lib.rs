@@ -11,11 +11,22 @@ use core::panic::PanicInfo;
 use core::alloc::Layout;
 use alloc::vec::Vec;
 
-use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
-use runic_transform::{Transform, Transformable}; 
 
-use runic_types::{Transform, PipelineContext};
+use runic_types::{*};
+use runic_transform::{Transformable};
 use normalize::Normalize;
+
+struct f {
+    
+}
+impl<const N: usize> runic_types::Transform<[f32; N]> for f {
+    type Output = [f32; N];
+    fn transform(&mut self, 
+        mut input: [f32; N],
+        ctx: &mut PipelineContext) -> Self::Output {
+            return input
+    }
+}
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -155,12 +166,12 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
         if response_size > 50 {
             if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
                 let accel_sample: &[u8] = &PROVIDER_RESPONSE_BUFFER[0..response_size];
-                let accel_sample: Vec<f32> = runic_transform::Transform::<f32,f32>::from_buffer(&accel_sample.to_vec()).unwrap();
+                let accel_sample: Vec<f32> = runic_transform::RTransform::<f32,f32>::from_buffer(&accel_sample.to_vec()).unwrap();
                 debug(b"Trace::request_provider_response returned response");
                 let mut input: [f32; 348];
 
                 for (i, v) in accel_sample.as_slice().iter().enumerate() { input[i] = *v; }
-                
+                use runic_types::Transform;
                 let mut norm_pb: Normalize = Normalize{}; 
                 let mut pipeline = PipelineContext{};
                 let proc_block_output = norm_pb.transform(input, &mut pipeline);

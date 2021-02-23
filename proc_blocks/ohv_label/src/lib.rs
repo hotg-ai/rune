@@ -1,6 +1,7 @@
+#![no_std]
 use runic_types::{Transform, PipelineContext};
 
-struct OhvLabel {
+pub struct OhvLabel {
     labels: Vec<&'static str>,
     unknown_label: &'static str
 }
