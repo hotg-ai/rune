@@ -2,18 +2,16 @@
 #![feature(alloc_error_handler)]
 #![allow(warnings)]
 
-use runic_types::{debug, wasm32::intrinsics};
+use runic_types::{
+    debug,
+    wasm32::{intrinsics, Model},
+};
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-        let sine_model = include_bytes!("sine.tflite");
-        intrinsics::tfm_preload_model(
-            sine_model.as_ptr(),
-            sine_model.len() as u32,
-            1,
-            1,
-        );
+        let blob = include_bytes!("sine.tflite");
+        let sine_model: Model<[f32; 1], [f32; 1]> = Model::load(blob);
 
         let ix = intrinsics::request_capability(
             runic_types::CAPABILITY::RAND as u32,

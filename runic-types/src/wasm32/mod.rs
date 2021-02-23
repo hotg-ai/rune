@@ -1,11 +1,14 @@
-use core::{alloc::Layout, panic::PanicInfo};
-use wee_alloc::WeeAlloc;
-
 pub mod intrinsics;
+mod model;
 
 #[doc(hidden)] // only exposed so we can refer to the buffer and writer
 #[macro_use]
 pub mod debug;
+
+pub use model::Model;
+
+use core::{alloc::Layout, panic::PanicInfo};
+use wee_alloc::WeeAlloc;
 
 #[global_allocator]
 pub static ALLOC: WeeAlloc = WeeAlloc::INIT;
