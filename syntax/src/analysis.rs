@@ -203,10 +203,12 @@ impl<'diag> Analyser<'diag> {
 
     fn primitive_type(&mut self, ident: &Ident) -> HirId {
         match ident.value.as_str() {
-            "U32" | "I32" | "F32" | "U64" | "I64" | "F64" => {
-                // TODO: Actually convert this to a known type
-                self.builtins.unknown_type
-            },
+            "u32" | "U32" => self.builtins.u32,
+            "i32" | "I32" => self.builtins.i32,
+            "f32" | "F32" => self.builtins.f32,
+            "u64" | "U64" => self.builtins.u64,
+            "i64" | "I64" => self.builtins.i64,
+            "f64" | "F64" => self.builtins.f64,
             _ => {
                 self.warn("Unknown type", ident.span);
                 self.builtins.unknown_type
@@ -524,9 +526,93 @@ mod tests {
         let source = &analyser.rune.sources[&id];
         let should_be = Source {
             kind: SourceKind::Random,
-            output_type: analyser.builtins.unknown_type,
+            output_type: analyser.builtins.i32,
             parameters: capability.parameters.clone(),
         };
         assert_eq!(source, &should_be);
+    }
+
+    #[test]
+    fn load_primitive_type() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let ident = Ident::dangling("u32");
+
+        let id = analyser.primitive_type(&ident);
+
+        assert!(!id.is_error());
+        assert_eq!(id, analyser.builtins.u32);
+        assert!(analyser.rune.types.get(&id).is_some());
+    }
+
+    #[test]
+    fn load_buffer_type() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let ty = crate::ast::Type {
+            kind: crate::ast::TypeKind::Buffer {
+                type_name: Ident::dangling("U32"),
+                dimensions: vec![1, 2],
+            },
+            span: Span::new(0, 0),
+        };
+
+        let id = analyser.interpret_type(&ty);
+
+        assert!(!id.is_error());
+        let got_type = &analyser.rune.types[&id];
+        assert_eq!(
+            got_type,
+            &Type::Buffer {
+                underlying_type: analyser.builtins.u32,
+                dimensions: vec![1, 2],
+            }
+        );
+        assert!(analyser.rune.types.get(&id).is_some());
+    }
+
+    #[test]
+    fn all_types_are_memoised() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let ty = crate::ast::Type {
+            kind: crate::ast::TypeKind::Buffer {
+                type_name: Ident::dangling("U32"),
+                dimensions: vec![1, 2],
+            },
+            span: Span::new(0, 0),
+        };
+
+        let first = analyser.interpret_type(&ty);
+        let second = analyser.interpret_type(&ty);
+        let third = analyser.interpret_type(&ty);
+
+        assert_eq!(first, second);
+        assert_eq!(second, third);
+    }
+
+    #[test]
+    fn different_buffer_sizes_have_different_types() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let type_1 = crate::ast::Type {
+            kind: crate::ast::TypeKind::Buffer {
+                type_name: Ident::dangling("U32"),
+                dimensions: vec![1, 2],
+            },
+            span: Span::new(0, 0),
+        };
+        let type_2 = crate::ast::Type {
+            kind: crate::ast::TypeKind::Buffer {
+                type_name: Ident::dangling("U32"),
+                dimensions: vec![1],
+            },
+            span: Span::new(0, 0),
+        };
+
+        let first = analyser.interpret_type(&type_1);
+        let second = analyser.interpret_type(&type_2);
+
+        assert_ne!(first, second);
     }
 }
