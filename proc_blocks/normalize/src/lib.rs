@@ -1,3 +1,4 @@
+#![no_std]
 use runic_types::{PipelineContext, Transform};
 
 struct Normalize {}

@@ -5,5 +5,5 @@ authors = ["Kartik Thakore <kartik@thakore.ai>"]
 description = "Runic Types Protobuf"
 edition = "2018"
 
-
-
+[target.wasm32-unknown-unknown.dependencies]
+wee_alloc = "0.4.5"

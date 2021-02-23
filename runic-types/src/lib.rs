@@ -1,4 +1,9 @@
 #![no_std]
+// The WebAssembly bindings need to provide alloc error handling.
+#![cfg_attr(
+    target_arch = "wasm32",
+    feature(core_intrinsics, lang_items, alloc_error_handler)
+)]
 
 #[macro_use]
 extern crate alloc;
