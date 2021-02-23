@@ -1,19 +1,18 @@
 #![no_std]
+
 pub use runic_types::{Transform, PipelineContext};
 
 pub struct Normalize {
 
 }
 
-impl<const N: usize> Transform<[f32; N]> for Normalize {
+impl<const N: usize> runic_types::Transform<[f32; N]> for Normalize {
     type Output = [f32; N];
 
     fn transform(&mut self,
         mut input: [f32; N],
-        ctx: &mut PipelineContext) -> Self::Output {
+        _ctx: &mut PipelineContext) -> Self::Output {
 
-        // let input_size = input.len();
-        let mut output: [f32; 384]= [0.0; 384];
         
         let min_value = input.iter().fold(f32::INFINITY, |a, &b| a.min(b));
         let max_value = input.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
