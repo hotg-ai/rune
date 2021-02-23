@@ -1,10 +1,14 @@
 #![no_std]
+
 #[macro_use]
 extern crate alloc;
 
 pub mod marshall;
 mod pipelines;
 pub mod proc_block;
+
+#[cfg(target_arch = "wasm32")]
+pub mod wasm32;
 
 pub use pipelines::{PipelineContext, Sink, Source, Transform};
 
