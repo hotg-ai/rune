@@ -14,6 +14,9 @@ use alloc::vec::Vec;
 use runic_types::{CAPABILITY, PARAM_TYPE, OUTPUT};
 use runic_transform::{Transform, Transformable}; 
 
+use runic_types::{Transform, PipelineContext};
+use normalize::Normalize;
+
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     unsafe{
@@ -47,7 +50,7 @@ mod wrapper;
 use wrapper::Wrapper;
 
 
-const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 512;
+const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 4096*8;
 
 static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] =
     [0; PROVIDER_RESPONSE_BUFFER_SIZE];
@@ -137,7 +140,7 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
     // }
 
     // let response_samples = response_samples.map
-
+    debug(b"Checking for Data");
     
 
     unsafe {
@@ -145,14 +148,24 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
             PROVIDER_RESPONSE_BUFFER.as_ptr(),
             PROVIDER_RESPONSE_BUFFER_SIZE as u32,
             capability_idx as u32
-        );
+        ) as usize;
 
-        
-        if response_size > 0 {
+        debug(b"Trace::request_provider_response done");
+         
+        if response_size > 50 {
             if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
-                let accel_sample: Vec<f32> = runic_transform::Transform::<f32,f32>::from_buffer(&Vec::from(PROVIDER_RESPONSE_BUFFER)).unwrap();
-                debug(b"GOT SAMPLE DATA");
+                let accel_sample: &[u8] = &PROVIDER_RESPONSE_BUFFER[0..response_size];
+                let accel_sample: Vec<f32> = runic_transform::Transform::<f32,f32>::from_buffer(&accel_sample.to_vec()).unwrap();
+                debug(b"Trace::request_provider_response returned response");
+                let mut input: [f32; 348];
+
+                for (i, v) in accel_sample.as_slice().iter().enumerate() { input[i] = *v; }
+                
+                let mut norm_pb: Normalize = Normalize{}; 
+                let mut pipeline = PipelineContext{};
+                let proc_block_output = norm_pb.transform(input, &mut pipeline);
                 // Processing 
+                // let proc_block_output = 
                 //  tfm_model_invoke(
                 //                 proc_block_output.as_ptr() as *const u8,
                 //                 proc_block_output.len() as u32,

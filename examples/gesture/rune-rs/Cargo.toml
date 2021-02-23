@@ -7,8 +7,11 @@ edition = "2018"
 [dependencies]
 no-std-compat = "0.4.1"
 wee_alloc = "0.4.5"
-runic-types = { path = "../../runic-types" } #change to github on deployment
-runic-transform = { path = "../../runic-transform" }
+runic-types = { git="ssh://github.com/hotg-ai/rune.git", path="runic-types"}
+ #change to github on deployment
+runic-transform = { git="ssh://github.com/hotg-ai/rune.git", path="runic-transform"}
+normalize = { git="ssh://github.com/hotg-ai/rune.git", path="proc_blocks/normalize"}
+
 [lib]
 crate-type = ["cdylib"]
 
