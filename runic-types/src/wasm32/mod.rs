@@ -1,11 +1,13 @@
 pub mod intrinsics;
 mod model;
+mod random;
 
 #[doc(hidden)] // only exposed so we can refer to the buffer and writer
 #[macro_use]
 pub mod debug;
 
 pub use model::Model;
+pub use random::Random;
 
 use core::{alloc::Layout, panic::PanicInfo};
 use wee_alloc::WeeAlloc;
