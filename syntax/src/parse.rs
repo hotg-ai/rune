@@ -158,6 +158,7 @@ fn parse_path(pair: Pair<Rule>) -> Path {
 
 fn parse_run(pair: Pair<Rule>) -> RunInstruction {
     let span = get_span(&pair);
+    debug_assert_eq!(pair.as_rule(), Rule::run);
 
     RunInstruction {
         steps: pair.into_inner().map(parse_ident).collect(),
@@ -173,8 +174,8 @@ fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
 
     let input_type = parse_type(pair.next().unwrap());
     let output_type = parse_type(pair.next().unwrap());
-    let path = parse_path(pair.next().unwrap());
     let name = parse_ident(pair.next().unwrap());
+    let path = parse_path(pair.next().unwrap());
     let args = parse_args(pair.next().unwrap());
 
     ProcBlockInstruction {
@@ -223,8 +224,8 @@ fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
     let mut pair = pair.into_inner();
 
     let output_type = parse_type(pair.next().unwrap());
-    let kind = parse_ident(pair.next().unwrap());
     let name = parse_ident(pair.next().unwrap());
+    let kind = parse_ident(pair.next().unwrap());
     let parameters = parse_args(pair.next().unwrap());
 
     CapabilityInstruction {
@@ -244,8 +245,8 @@ fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
 
     let input_type = parse_type(pair.next().unwrap());
     let output_type = parse_type(pair.next().unwrap());
-    let file = pair.next().unwrap().as_str().to_string();
     let name = parse_ident(pair.next().unwrap());
+    let file = pair.next().unwrap().as_str().to_string();
     let parameters = parse_args(pair.next().unwrap());
 
     ModelInstruction {
@@ -286,14 +287,14 @@ mod tests {
 
     #[test]
     fn parse_a_capability() {
-        let src = "CAPABILITY<I32> RAND rand --n 1";
+        let src = "CAPABILITY<I32> rand RAND --n 1";
         let should_be = CapabilityInstruction {
-            kind: Ident {
-                value: String::from("RAND"),
-                span: Span::new(16, 20),
-            },
             name: Ident {
                 value: String::from("rand"),
+                span: Span::new(16, 20),
+            },
+            kind: Ident {
+                value: String::from("RAND"),
                 span: Span::new(21, 25),
             },
             output_type: Type {
@@ -322,11 +323,11 @@ mod tests {
 
     #[test]
     fn parse_a_model() {
-        let src = "MODEL<_,_> ./sinemodel.tflite sine --input 1,1 --output 1,1";
+        let src = "MODEL<_,_> sine ./sinemodel.tflite --input 1,1 --output 1,1";
         let should_be = ModelInstruction {
             name: Ident {
                 value: String::from("sine"),
-                span: Span::new(30, 34),
+                span: Span::new(11, 15),
             },
             file: String::from("./sinemodel.tflite"),
             input_type: Type {
@@ -415,9 +416,9 @@ mod tests {
 
     #[test]
     fn parse_a_proc_block() {
-        let src = "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100";
+        let src = "PROC_BLOCK<_,_> mod360 hotg-ai/pb-mod --modulo 100";
         let should_be = ProcBlockInstruction {
-            path: Path::new("hotg-ai/pb-mod", None, Span::new(16, 30)),
+            path: Path::new("hotg-ai/pb-mod", None, Span::new(23, 37)),
             input_type: Type {
                 kind: TypeKind::Inferred,
                 span: Span::new(11, 12),
@@ -428,7 +429,7 @@ mod tests {
             },
             name: Ident {
                 value: String::from("mod360"),
-                span: Span::new(31, 37),
+                span: Span::new(16, 22),
             },
             params: vec![Argument::literal(
                 Ident::new("modulo", Span::new(38, 46)),
@@ -529,8 +530,8 @@ mod tests {
     assert_matches!(from, "FROM runicos/base", "FROM \\\n  runicos/base");
     assert_matches!(
         capability,
-        "CAPABILITY<f32> RAND rand",
-        "CAPABILITY<I32> RAND rand --n 1"
+        "CAPABILITY<f32> rand RAND",
+        "CAPABILITY<I32> rand RAND --n 1"
     );
     assert_matches!(arg_name, "-n", "--number", "--n", "--long-arg");
     assert_matches!(arg_value, "4", "3.14", "-123", r#""Hello, World!""#);
@@ -560,14 +561,14 @@ mod tests {
     );
     assert_matches!(
         proc_block with parse_proc_block,
-        "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360",
-        "PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100"
+        "PROC_BLOCK<_,_> mod360 hotg-ai/pb-mod",
+        "PROC_BLOCK<_,_> mod360 hotg-ai/pb-mod --modulo 100"
     );
     assert_matches!(run with parse_run, "RUN rand mod360 sine");
     assert_matches!(
-        model,
-        "MODEL<_,_> ./sinemodel.tflite sine",
-        "MODEL<_,_> ./sinemodel.tflite sine --input [1,1] --output [1,1]",
+        model with parse_model,
+        "MODEL<_,_> sine ./sinemodel.tflite",
+        "MODEL<_,_> sine ./sinemodel.tflite --input 1,1 --output 1,1",
     );
     assert_matches!(
         runefile,

@@ -29,7 +29,7 @@ literal = { float | integer | string }
 
 // Paths to external resources
 
-path = ${ path_body ~ ("@" ~ path_version)? }
+path = ${ path_body ~ ("@" ~ path_version)? ~ ("#" ~ path_segment ~ ("/" ~ path_segment))? }
 path_body = @{ scheme? ~ path_segment ~ ("/" ~ path_segment)* }
 path_segment = @{ (ASCII_ALPHANUMERIC | "-" | "_" | "." | "%" | "&")+ }
 scheme = @{ ASCII_ALPHANUMERIC+ ~ "://" }
@@ -51,24 +51,24 @@ short_arg = { ASCII_ALPHA }
 long_arg = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "-" | "_")* }
 arg_value = _{ arg_list | literal | arg_list_item }
 arg_list = ${ arg_list_item ~ ("," ~ arg_list_item)+ }
-arg_list_item = { (!WHITESPACE ~ !"\"" ~ !"," ~ ANY)+ }
+arg_list_item = { (!WHITESPACE ~ !newline ~ !"\"" ~ !"," ~ ANY)+ }
 
 // FROM runicos/base
 from = { "FROM" ~ path }
 
-// CAPABILITY<I32> RAND rand --n 1
+// CAPABILITY<I32> rand RAND --n 1
 capability = {
   "CAPABILITY" ~ "<" ~ ty ~ ">" ~ capability_kind ~ capability_description ~ arguments
 }
 capability_kind = _{ ident }
 capability_description = _{ ident }
 
-// PROC_BLOCK<_,_> hotg-ai/pb-mod mod360 --modulo 100
-proc_block = { "PROC_BLOCK" ~ "<" ~ ty ~ "," ~ ty ~ ">" ~ path ~ ident ~ arguments }
+// PROC_BLOCK<_,_> mod360 hotg-ai/pb-mod --modulo 100
+proc_block = { "PROC_BLOCK" ~ "<" ~ ty ~ "," ~ ty ~ ">" ~ ident ~ path ~ arguments }
 
-// MODEL<_,_> ./sinemodel.tflite sine --input [1,1] --output [1,1]
+// MODEL<_,_> sine ./sinemodel.tflite --input 1,1 --output 1,1
 model = {
-  "MODEL" ~ "<" ~ ty ~ "," ~ ty ~ ">" ~ model_filename ~ ident ~ arguments
+  "MODEL" ~ "<" ~ ty ~ "," ~ ty ~ ">" ~ ident ~ model_filename ~ arguments
 }
 model_filename = @{ path_segment ~ ("/" ~ path_segment)* }
 

@@ -69,11 +69,12 @@ pub struct Model {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
+    Primitive(Primitive),
     /// The concrete type isn't yet known.
     Unknown,
     /// A multidimensional array of data.
     Buffer {
-        underlying_type: Primitive,
+        underlying_type: HirId,
         dimensions: Vec<usize>,
     },
     /// This can be *any* type.
@@ -99,7 +100,8 @@ pub struct Source {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceKind {
-    Rand,
+    Random,
+    Accelerometer,
     Other(String),
 }
 

@@ -4,8 +4,8 @@ use crate::{
         OutInstruction, ProcBlockInstruction, RunInstruction, Runefile,
     },
     hir::{
-        HirId, Model, Pipeline, PipelineNode, ProcBlock, Rune, Sink, Source,
-        SourceKind, Type,
+        HirId, Model, Pipeline, PipelineNode, Primitive, ProcBlock, Rune, Sink,
+        Source, SourceKind, Type,
     },
     Diagnostics,
 };
@@ -33,32 +33,25 @@ struct Analyser<'diag> {
     diags: &'diag mut Diagnostics,
     file_id: FileId,
     rune: Rune,
-    last_hir_id: HirId,
-    unknown_type: HirId,
+    ids: HirIds,
+    builtins: Builtins,
 }
 
 impl<'diag> Analyser<'diag> {
     fn new(file_id: FileId, diags: &'diag mut Diagnostics) -> Self {
         let mut rune = Rune::default();
 
-        let first_id = HirId::ERROR;
-
-        let unknown_type = first_id.next();
-        rune.types.insert(unknown_type, Type::Unknown);
+        let mut ids = HirIds::new();
+        let builtins = Builtins::new(&mut ids);
+        builtins.copy_into(&mut rune);
 
         Analyser {
             diags,
             file_id,
             rune,
-            last_hir_id: unknown_type,
-            unknown_type,
+            ids,
+            builtins,
         }
-    }
-
-    fn next_id(&mut self) -> HirId {
-        let id = self.last_hir_id.next();
-        self.last_hir_id = id;
-        id
     }
 
     /// Report an error to the user.
@@ -137,11 +130,11 @@ impl<'diag> Analyser<'diag> {
 
     fn load_model(&mut self, model: &ModelInstruction) -> HirId {
         let hir = Model {
-            input: self.unknown_type,
-            output: self.unknown_type,
+            input: self.builtins.unknown_type,
+            output: self.builtins.unknown_type,
             model_file: PathBuf::from(&model.file),
         };
-        let id = self.next_id();
+        let id = self.ids.next();
         self.rune.models.insert(id, hir);
         self.rune.names.register(&model.name.value, id);
         id
@@ -154,8 +147,9 @@ impl<'diag> Analyser<'diag> {
                 // and pull the relevant ones out into actual fields on the Rand
                 // variant. That way we aren't relying on the loosely-typed
                 // parameter map.
-                SourceKind::Rand
+                SourceKind::Random
             },
+            "ACCEL" => SourceKind::Accelerometer,
             other => {
                 self.warn(
                     "This isn't one of the builtin capabilities",
@@ -165,7 +159,7 @@ impl<'diag> Analyser<'diag> {
             },
         };
 
-        let id = self.next_id();
+        let id = self.ids.next();
         let output_type = self.interpret_type(&capability.output_type);
         self.rune.sources.insert(
             id,
@@ -182,18 +176,41 @@ impl<'diag> Analyser<'diag> {
 
     fn interpret_type(&mut self, ty: &crate::ast::Type) -> HirId {
         match &ty.kind {
-            crate::ast::TypeKind::Inferred => self.unknown_type,
-            crate::ast::TypeKind::Named(name) => match name.value.as_str() {
-                "U32" | "I32" | "F32" | "U64" | "I64" | "F64" => {
-                    // TODO: Actually convert this to a known type
-                    self.unknown_type
-                },
-                _ => {
-                    self.warn("Unknown type", name.span);
-                    self.unknown_type
-                },
+            crate::ast::TypeKind::Inferred => self.builtins.unknown_type,
+            crate::ast::TypeKind::Named(name) => self.primitive_type(name),
+            crate::ast::TypeKind::Buffer {
+                type_name,
+                dimensions,
+            } => {
+                let underlying_type = self.primitive_type(type_name);
+                let ty = Type::Buffer {
+                    underlying_type,
+                    dimensions: dimensions.clone(),
+                };
+
+                match self.rune.types.iter().find(|(_, t)| **t == ty) {
+                    Some((id, _)) => *id,
+                    None => {
+                        // new buffer type
+                        let id = self.ids.next();
+                        self.rune.types.insert(id, ty);
+                        id
+                    },
+                }
             },
-            crate::ast::TypeKind::Buffer { .. } => todo!(),
+        }
+    }
+
+    fn primitive_type(&mut self, ident: &Ident) -> HirId {
+        match ident.value.as_str() {
+            "U32" | "I32" | "F32" | "U64" | "I64" | "F64" => {
+                // TODO: Actually convert this to a known type
+                self.builtins.unknown_type
+            },
+            _ => {
+                self.warn("Unknown type", ident.span);
+                self.builtins.unknown_type
+            },
         }
     }
 
@@ -253,21 +270,21 @@ impl<'diag> Analyser<'diag> {
 
         let pipeline = Pipeline {
             last_step: pipeline_node,
-            output_type: self.unknown_type,
+            output_type: self.builtins.unknown_type,
         };
-        let id = self.next_id();
+        let id = self.ids.next();
         self.rune.pipelines.insert(id, pipeline);
 
         id
     }
 
     fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) -> HirId {
-        let id = self.next_id();
+        let id = self.ids.next();
         self.rune.proc_blocks.insert(
             id,
             ProcBlock {
-                input: self.unknown_type,
-                output: self.unknown_type,
+                input: self.builtins.unknown_type,
+                output: self.builtins.unknown_type,
                 path: proc_block.path.clone(),
                 params: proc_block.params.clone(),
             },
@@ -279,8 +296,8 @@ impl<'diag> Analyser<'diag> {
 
     fn load_out(&mut self, out: &OutInstruction) -> HirId {
         match out.out_type.value.as_str() {
-            "serial" => {
-                let id = self.next_id();
+            "SERIAL" | "serial" => {
+                let id = self.ids.next();
                 self.rune.sinks.insert(id, Sink::Serial);
                 self.rune.names.register("serial", id);
 
@@ -299,6 +316,70 @@ impl<'diag> Analyser<'diag> {
         // input/output type at each stage should be.
         //
         // This will be a bit like a fixed-point iteration
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct HirIds {
+    last_id: HirId,
+}
+
+impl HirIds {
+    fn new() -> Self {
+        HirIds {
+            last_id: HirId::ERROR,
+        }
+    }
+
+    fn next(&mut self) -> HirId {
+        let id = self.last_id.next();
+        self.last_id = id;
+        id
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Builtins {
+    unknown_type: HirId,
+    u32: HirId,
+    i32: HirId,
+    f32: HirId,
+    u64: HirId,
+    i64: HirId,
+    f64: HirId,
+}
+
+impl Builtins {
+    fn new(ids: &mut HirIds) -> Self {
+        Builtins {
+            unknown_type: ids.next(),
+            u32: ids.next(),
+            i32: ids.next(),
+            f32: ids.next(),
+            u64: ids.next(),
+            i64: ids.next(),
+            f64: ids.next(),
+        }
+    }
+
+    fn copy_into(&self, rune: &mut Rune) {
+        let Builtins {
+            unknown_type,
+            u32,
+            i32,
+            f32,
+            u64,
+            i64,
+            f64,
+        } = *self;
+
+        rune.types.insert(unknown_type, Type::Unknown);
+        rune.types.insert(u32, Type::Primitive(Primitive::U32));
+        rune.types.insert(i32, Type::Primitive(Primitive::I32));
+        rune.types.insert(f32, Type::Primitive(Primitive::F32));
+        rune.types.insert(u64, Type::Primitive(Primitive::U64));
+        rune.types.insert(i64, Type::Primitive(Primitive::I64));
+        rune.types.insert(f64, Type::Primitive(Primitive::F64));
     }
 }
 
@@ -442,8 +523,8 @@ mod tests {
         assert_eq!(analyser.rune.names.get_name(id), Some("rand"));
         let source = &analyser.rune.sources[&id];
         let should_be = Source {
-            kind: SourceKind::Rand,
-            output_type: analyser.unknown_type,
+            kind: SourceKind::Random,
+            output_type: analyser.builtins.unknown_type,
             parameters: capability.parameters.clone(),
         };
         assert_eq!(source, &should_be);
