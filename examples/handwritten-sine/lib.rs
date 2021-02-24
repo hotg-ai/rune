@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use runic_types::{
     debug,
-    wasm32::{intrinsics, Model, Random},
+    wasm32::{intrinsics, Model, Random, Serial},
     PipelineContext, Source, Transform,
 };
 
@@ -20,8 +20,7 @@ pub extern "C" fn _manifest() -> u32 {
 
         let blob = include_bytes!("sine.tflite");
         let mut sine_model: Model<[i32; 1], [f32; 1]> = Model::load(blob);
-
-        intrinsics::request_manifest_output(runic_types::OUTPUT::SERIAL as u32);
+        let mut serial = Serial::new();
 
         // We need a way to store the pipeline so it can be used by the call.
         // For now I'll just wrap it in a closure and store it as a global
@@ -29,8 +28,10 @@ pub extern "C" fn _manifest() -> u32 {
         // and be given a pointer to it in _call().
         PIPELINE = Some(Box::new(move || {
             let mut ctx = PipelineContext::default();
+
             let random_bytes = rand.generate(&mut ctx);
             let sine_value = sine_model.transform(random_bytes, &mut ctx);
+            serial.consume(sine_value, &mut ctx);
 
             debug!("Sine of {:?} is {:?}", random_bytes, sine_value);
         }));
