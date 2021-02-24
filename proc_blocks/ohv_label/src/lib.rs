@@ -6,7 +6,7 @@ extern crate alloc;
 extern crate std;
 
 use alloc::vec::Vec;
-use runic_types::{PipelineContext, Transform};
+use runic_types::Transform;
 
 struct OhvLabel {
     labels: Vec<&'static str>,
@@ -16,11 +16,7 @@ struct OhvLabel {
 impl Transform<Vec<u8>> for OhvLabel {
     type Output = &'static str;
 
-    fn transform(
-        &mut self,
-        input: Vec<u8>,
-        _ctx: &mut PipelineContext,
-    ) -> Self::Output {
+    fn transform(&mut self, input: Vec<u8>) -> Self::Output {
         input
             .iter()
             .position(|&r| r == 1)
@@ -33,8 +29,8 @@ impl Transform<Vec<u8>> for OhvLabel {
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
-    use runic_types::{PipelineContext, Transform};
-    use std::prelude::v1::*;
+
+    use runic_types::Transform;
 
     use crate::OhvLabel;
 
@@ -43,7 +39,6 @@ mod tests {
         let mut input: [u8; 4] = [0; 4];
         let mut rng = thread_rng();
         let idx = rng.gen_range(0..4) as usize;
-        let mut pipeline = PipelineContext {};
         input[idx] = 1;
 
         let mut pb = OhvLabel {
@@ -51,7 +46,7 @@ mod tests {
             unknown_label: "NO_LABEL_FOUND",
         };
 
-        let out = pb.transform(input.to_vec(), &mut pipeline);
+        let out = pb.transform(input.to_vec());
         let labels = vec!["Wing", "Ring", "Slope", "Unknown"];
         assert_eq!(out, labels[idx]);
         println!("OhV={:?} | Label={}", input, out);
@@ -62,7 +57,6 @@ mod tests {
         let mut input: [u8; 4] = [0; 4];
         let mut rng = thread_rng();
         let idx = rng.gen_range(0..4) as usize;
-        let mut pipeline = PipelineContext {};
         input[idx] = 1;
 
         let mut pb = OhvLabel {
@@ -70,7 +64,7 @@ mod tests {
             unknown_label: "NO_LABEL_FOUND",
         };
 
-        let out = pb.transform(input.to_vec(), &mut pipeline);
+        let out = pb.transform(input.to_vec());
 
         assert_eq!(out, "NO_LABEL_FOUND");
         println!("OhV={:?} | Label={}", input, out);
@@ -84,9 +78,8 @@ mod tests {
             labels: vec!["a", "b", "c", "d"],
             unknown_label: "NO_LABEL_FOUND",
         };
-        let mut pipeline = PipelineContext {};
 
-        let out = pb.transform(input.to_vec(), &mut pipeline);
+        let out = pb.transform(input.to_vec());
 
         assert_eq!(out, "NO_LABEL_FOUND");
         println!("OhV={:?} | Label={}", input, out);

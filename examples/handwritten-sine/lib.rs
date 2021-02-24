@@ -8,7 +8,7 @@ use alloc::boxed::Box;
 use runic_types::{
     debug,
     wasm32::{intrinsics, Model, Random, Serial},
-    PipelineContext, Source, Transform,
+    Sink, Source, Transform,
 };
 
 static mut PIPELINE: Option<Box<FnMut()>> = None;
@@ -20,6 +20,7 @@ pub extern "C" fn _manifest() -> u32 {
 
         let blob = include_bytes!("sine.tflite");
         let mut sine_model: Model<[i32; 1], [f32; 1]> = Model::load(blob);
+
         let mut serial = Serial::new();
 
         // We need a way to store the pipeline so it can be used by the call.
@@ -27,11 +28,9 @@ pub extern "C" fn _manifest() -> u32 {
         // variable, but ideally we'd pass ownership of the pipeline to the VM
         // and be given a pointer to it in _call().
         PIPELINE = Some(Box::new(move || {
-            let mut ctx = PipelineContext::default();
-
-            let random_bytes = rand.generate(&mut ctx);
-            let sine_value = sine_model.transform(random_bytes, &mut ctx);
-            serial.consume(sine_value, &mut ctx);
+            let random_bytes = rand.generate();
+            let sine_value = sine_model.transform(random_bytes);
+            serial.consume(sine_value);
 
             debug!("Sine of {:?} is {:?}", random_bytes, sine_value);
         }));
@@ -47,9 +46,12 @@ pub extern "C" fn _call(
     capability_idx: i32,
 ) -> i32 {
     unsafe {
+        // load the pipeline, blowing up if it hasn't been initialized
         let pipeline = PIPELINE
             .as_mut()
             .expect("You need to initialize the Rune before calling it");
+
+        // then run it
         pipeline();
 
         0

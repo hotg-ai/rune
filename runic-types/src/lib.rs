@@ -15,7 +15,7 @@ pub mod proc_block;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm32;
 
-pub use pipelines::{PipelineContext, Sink, Source, Transform};
+pub use pipelines::{Sink, Source, Transform};
 
 #[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY {

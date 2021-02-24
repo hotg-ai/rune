@@ -1,6 +1,4 @@
-use crate::{
-    wasm32::intrinsics, AsParamType, PipelineContext, Source, CAPABILITY,
-};
+use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY};
 use core::marker::PhantomData;
 
 pub struct Random<T, const N: usize> {
@@ -39,7 +37,7 @@ where
 {
     type Output = [T; N];
 
-    fn generate(&mut self, _ctx: &mut PipelineContext) -> Self::Output {
+    fn generate(&mut self) -> Self::Output {
         unsafe {
             let mut buffer = <[T; N]>::default();
 

@@ -1,4 +1,4 @@
-use crate::{wasm32::intrinsics, PipelineContext, Transform};
+use crate::{wasm32::intrinsics, Transform};
 use core::marker::PhantomData;
 
 /// A machine learning model.
@@ -35,11 +35,7 @@ where
 {
     type Output = [Out; N];
 
-    fn transform(
-        &mut self,
-        input: [In; M],
-        _ctx: &mut PipelineContext,
-    ) -> [Out; N] {
+    fn transform(&mut self, input: [In; M]) -> [Out; N] {
         unsafe {
             let ptr = input.as_ptr() as *const u8;
             let length = core::mem::size_of_val(&input);
