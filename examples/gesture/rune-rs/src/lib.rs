@@ -98,7 +98,7 @@ fn debug(s: &[u8]) -> u32 {
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-      tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  64*3, 64);
+      tfm_preload_model(model::MODEL.as_ptr(), model::MODEL.len() as u32,  128*3, 64);
  
         
         
@@ -108,7 +108,7 @@ pub extern "C" fn _manifest() -> u32 {
         
         
         let key = b"n";       
-        let value: &[u8; 4] = &u32::to_be_bytes(64u32); 
+        let value: &[u8; 4] = &u32::to_be_bytes(128u32); 
         request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
 
         // 
@@ -141,7 +141,7 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
                 let accel_sample: &[u8] = &PROVIDER_RESPONSE_BUFFER[0..response_size];
                 let accel_sample: Vec<f32> = runic_transform::RTransform::<f32,f32>::from_buffer(&accel_sample.to_vec()).unwrap();
                 // debug(b"Trace::request_provider_response returned response");
-                let mut input: [f32; 348] = [0.0; 348];
+                let mut input: [f32; 384] = [0.0; 384];
               
                 let mut i = 0;
                 for element in &mut input {
@@ -156,22 +156,22 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
                 let mut pipeline = PipelineContext{};
                 let proc_block_output = norm_pb.transform(input, &mut pipeline);
                 let mut proc_block_output_vec: Vec<f32> = Vec::with_capacity(348);
-                // for element in &proc_block_output {
+                for element in &proc_block_output {
             
-                //     proc_block_output_vec.push(*element);
-                // }
-                // let proc_block_output: Vec<u8> = 
-                //     runic_transform::RTransform::<f32, f32>::to_buffer(&proc_block_output_vec).unwrap();
+                    proc_block_output_vec.push(*element);
+                }
+                let proc_block_output: Vec<u8> = 
+                    runic_transform::RTransform::<f32, f32>::to_buffer(&proc_block_output_vec).unwrap();
             
                 debug(b"Finished preparing buffer");
                 // Processing 
                 
-                //  tfm_model_invoke(
-                //                 proc_block_output.as_ptr() as *const u8,
-                //                 proc_block_output.len() as u32,
-                //             );
+                 tfm_model_invoke(
+                                proc_block_output.as_ptr() as *const u8,
+                                proc_block_output.len() as u32,
+                            );
                 
-                 return 0 as i32;
+                 return 348; //proc_block_output.len() as i32;
 
             }
             //debug(b"Have a response\r\n");
