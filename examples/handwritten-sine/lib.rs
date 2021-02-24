@@ -1,6 +1,5 @@
 #![no_std]
 #![feature(alloc_error_handler)]
-#![allow(warnings)]
 
 extern crate alloc;
 
@@ -16,10 +15,12 @@ static mut PIPELINE: Option<Box<FnMut()>> = None;
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-        let mut rand: Random<i32, 1> = Random::new();
+        debug!("Initializing!");
+
+        let mut rand: Random<f32, 1> = Random::new();
 
         let blob = include_bytes!("sine.tflite");
-        let mut sine_model: Model<[i32; 1], [f32; 1]> = Model::load(blob);
+        let mut sine_model: Model<[f32; 1], [f32; 1]> = Model::load(blob);
 
         let mut serial = Serial::new();
 
@@ -28,7 +29,8 @@ pub extern "C" fn _manifest() -> u32 {
         // variable, but ideally we'd pass ownership of the pipeline to the VM
         // and be given a pointer to it in _call().
         PIPELINE = Some(Box::new(move || {
-            let random_bytes = rand.generate();
+            let [r] = rand.generate();
+            let random_bytes = [f32::from_le_bytes(r.to_be_bytes())];
             let sine_value = sine_model.transform(random_bytes);
             serial.consume(sine_value);
 

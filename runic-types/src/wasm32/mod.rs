@@ -11,7 +11,8 @@ pub use model::Model;
 pub use random::Random;
 pub use serial::Serial;
 
-use core::{alloc::Layout, panic::PanicInfo};
+use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
+use debug::BufWriter;
 use wee_alloc::WeeAlloc;
 
 #[global_allocator]
@@ -19,9 +20,16 @@ pub static ALLOC: WeeAlloc = WeeAlloc::INIT;
 
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {
-    debug!("Panic {}", info);
+    unsafe {
+        let mut buffer = [0; 512];
+        let mut w = BufWriter::new(&mut buffer);
 
-    unsafe { core::arch::wasm32::unreachable() }
+        if write!(w, "{}", info).is_ok() {
+            w.flush();
+        }
+
+        core::arch::wasm32::unreachable()
+    }
 }
 
 #[alloc_error_handler]

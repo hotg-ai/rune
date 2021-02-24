@@ -38,6 +38,7 @@ impl<'buf> core::fmt::Write for BufWriter<'buf> {
         }
 
         rest[..s.len()].copy_from_slice(s.as_bytes());
+        self.bytes_written += s.len();
 
         Ok(())
     }
@@ -54,7 +55,7 @@ macro_rules! debug {
                 let mut buffer = $crate::wasm32::debug::BufWriter::new(&mut $crate::wasm32::debug::DEBUG_BUFFER);
 
                 if write!(buffer,
-                    concat!("{} ", $fmt),
+                    concat!("[{}] ", $fmt),
                     core::panic::Location::caller(),
                     $($arg),*
                 ).is_ok() {
