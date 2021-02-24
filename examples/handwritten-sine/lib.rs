@@ -2,32 +2,38 @@
 #![feature(alloc_error_handler)]
 #![allow(warnings)]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use runic_types::{
     debug,
-    wasm32::{intrinsics, Model},
+    wasm32::{intrinsics, Model, Random},
+    PipelineContext, Source, Transform,
 };
+
+static mut PIPELINE: Option<Box<FnMut()>> = None;
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
+        let mut rand: Random<i32, 1> = Random::new();
+
         let blob = include_bytes!("sine.tflite");
-        let sine_model: Model<[f32; 1], [f32; 1]> = Model::load(blob);
+        let mut sine_model: Model<[i32; 1], [f32; 1]> = Model::load(blob);
 
-        let ix = intrinsics::request_capability(
-            runic_types::CAPABILITY::RAND as u32,
-        );
-
-        let key = "n";
-        let value = u32::to_be_bytes(1);
-        intrinsics::request_capability_set_param(
-            ix,
-            key.as_ptr(),
-            key.len() as u32,
-            value.as_ptr(),
-            value.len() as u32,
-            runic_types::PARAM_TYPE::INT as u32,
-        );
         intrinsics::request_manifest_output(runic_types::OUTPUT::SERIAL as u32);
+
+        // We need a way to store the pipeline so it can be used by the call.
+        // For now I'll just wrap it in a closure and store it as a global
+        // variable, but ideally we'd pass ownership of the pipeline to the VM
+        // and be given a pointer to it in _call().
+        PIPELINE = Some(Box::new(move || {
+            let mut ctx = PipelineContext::default();
+            let random_bytes = rand.generate(&mut ctx);
+            let sine_value = sine_model.transform(random_bytes, &mut ctx);
+
+            debug!("Sine of {:?} is {:?}", random_bytes, sine_value);
+        }));
     }
 
     1
@@ -39,32 +45,12 @@ pub extern "C" fn _call(
     input_type: i32,
     capability_idx: i32,
 ) -> i32 {
-    static mut BUFFER: [u8; 512] = [0; 512];
-
     unsafe {
-        let response_size = intrinsics::request_provider_response(
-            BUFFER.as_ptr(),
-            BUFFER.len() as u32,
-            capability_idx as u32,
-        );
+        let pipeline = PIPELINE
+            .as_mut()
+            .expect("You need to initialize the Rune before calling it");
+        pipeline();
 
-        if response_size > 0 {
-            // debug(b"Have a response\r\n");
-            let response_size = response_size as usize;
-            let buf: &[u8] = &BUFFER[..response_size];
-            let proc_block_output = buf;
-
-            if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
-                if capability_type == runic_types::CAPABILITY::RAND as i32 {
-                    intrinsics::tfm_model_invoke(
-                        proc_block_output.as_ptr() as *const u8,
-                        proc_block_output.len() as u32,
-                    );
-                    return proc_block_output.len() as i32;
-                }
-            }
-        }
-
-        response_size as i32
+        0
     }
 }

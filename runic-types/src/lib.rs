@@ -71,6 +71,20 @@ impl PARAM_TYPE {
     }
 }
 
+/// A helper trait that lets us go from a type to its [`PARAM_TYPE`] equivalent.
+pub trait AsParamType {
+    /// The corresponding [`PARAM_TYPE`] variant.
+    const VALUE: PARAM_TYPE;
+}
+
+impl AsParamType for i32 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::INT;
+}
+
+impl AsParamType for f32 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum OUTPUT {
     SERIAL = 1,

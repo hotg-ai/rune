@@ -1,4 +1,6 @@
-use crate::{wasm32::intrinsics, PipelineContext, Source, CAPABILITY};
+use crate::{
+    wasm32::intrinsics, AsParamType, PipelineContext, Source, CAPABILITY,
+};
 use core::marker::PhantomData;
 
 pub struct Random<T, const N: usize> {
@@ -6,10 +8,22 @@ pub struct Random<T, const N: usize> {
     _type: PhantomData<fn() -> [T; N]>,
 }
 
-impl<T, const N: usize> Random<T, N> {
+impl<T: AsParamType, const N: usize> Random<T, N> {
     pub fn new() -> Self {
         unsafe {
             let index = intrinsics::request_capability(CAPABILITY::RAND as u32);
+
+            // ask for the correct length
+            let key = "n";
+            let value = u32::to_be_bytes(1);
+            intrinsics::request_capability_set_param(
+                index,
+                key.as_ptr(),
+                key.len() as u32,
+                value.as_ptr(),
+                value.len() as u32,
+                T::VALUE as u32,
+            );
 
             Random {
                 index,

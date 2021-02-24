@@ -1,5 +1,6 @@
 /// Contextual information passed in by the runtime while executing a particular
 /// pipeline.
+#[derive(Default)]
 pub struct PipelineContext {}
 
 /// A stream of data, typically something like a random number generator or
