@@ -1,0 +1,5 @@
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=-zstack-size=4096", "-C", "link-arg=-s"]
+
+[net]
+git-fetch-with-cli = true

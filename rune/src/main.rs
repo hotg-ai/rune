@@ -1,5 +1,5 @@
-#![feature(allocator_api)]
 mod build;
+mod build_alt;
 mod run;
 
 use anyhow::{Context, Error};
@@ -34,6 +34,15 @@ fn main() -> Result<(), Error> {
                     .help("Runefile to build")
                     .takes_value(true),
             ),
+            SubCommand::with_name("build-alt")
+                .about("Alternate codegen")
+                .arg(
+                    Arg::with_name("runefile")
+                        .value_name("FILE")
+                        .default_value("Runefile")
+                        .help("Runefile to build")
+                        .takes_value(true),
+                ),
             SubCommand::with_name("run")
                 .arg(
                     Arg::with_name("rune")
@@ -57,6 +66,11 @@ fn main() -> Result<(), Error> {
     if let Some(matches) = matches.subcommand_matches("build") {
         match matches.value_of("runefile") {
             Some(x) => build::build(x)?,
+            _ => log::info!("No runefile provided"),
+        }
+    } else if let Some(matches) = matches.subcommand_matches("build-alt") {
+        match matches.value_of("runefile") {
+            Some(x) => build_alt::build(x),
             _ => log::info!("No runefile provided"),
         }
     } else if let Some(matches) = matches.subcommand_matches("run") {
