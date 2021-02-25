@@ -1,22 +1,19 @@
 extern crate sonogram;
 use sonogram::SpecOptionsBuilder;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 pub use runic_types::{Transform, PipelineContext};
 
 pub struct FFT {}
 
-impl<const N: usize> runic_types::Transform<Vec<i16>> for FFT {
+impl runic_types::Transform<Vec<i16>> for FFT {
     // N = 1960
     type Output = Vec<u8>;
 
     fn transform(&mut self,
-        mut input: Vec<i16>,
+        input: Vec<i16>,
         _ctx: &mut PipelineContext) -> Self::Output {
 
-        let result: Vec<f32>;
-        // Build the model
+        // Build the spectrogram computation engine
         let mut spectrograph = SpecOptionsBuilder::new(49, 40)
         .load_data_from_memory(input, 16000)
         //.unwrap()
@@ -32,9 +29,6 @@ impl<const N: usize> runic_types::Transform<Vec<i16>> for FFT {
     
         let min_value = result_f32_slice.iter().fold(f32::INFINITY, |a, &b| a.min(b));
         let max_value = result_f32_slice.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-    
-        // println!("min {:?}", minValue);
-        // println!("max {:?}", maxValue);
     
         for i in 0..spectrogram_u8.len() {
             spectrogram_u8[i] = (255.0*(result_f32_slice[i]-min_value)/(max_value-min_value)) as u8;
