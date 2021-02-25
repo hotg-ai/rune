@@ -1,10 +1,11 @@
+#![no_std]
+
 extern crate sonogram;
 use sonogram::SpecOptionsBuilder;
 
 pub use runic_types::{Transform, PipelineContext};
 
 pub struct FFT {}
-
 
 impl<const N: usize> runic_types::Transform<[i16; N]> for FFT {
     type Output = [u8; 1960];
