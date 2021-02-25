@@ -12,7 +12,7 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for FFT {
 
     fn transform(
         &mut self,
-        mut input: [i16; N],
+        input: [i16; N],
         _ctx: &mut PipelineContext,
     ) -> Self::Output {
         // Build the spectrogram computation engine
