@@ -5,17 +5,17 @@ pub use runic_types::{Transform, PipelineContext};
 
 pub struct FFT {}
 
-impl runic_types::Transform<Vec<i16>> for FFT {
-    // N = 1960
-    type Output = Vec<u8>;
+
+impl<const N: usize> runic_types::Transform<[i16; N]> for FFT {
+    type Output = [u8; 1960];
 
     fn transform(&mut self,
-        input: Vec<i16>,
+        mut input: [i16; N],
         _ctx: &mut PipelineContext) -> Self::Output {
 
         // Build the spectrogram computation engine
         let mut spectrograph = SpecOptionsBuilder::new(49, 40)
-        .load_data_from_memory(input, 16000)
+        .load_data_from_memory(input.to_vec(), 16000)
         //.unwrap()
         .build();
     
@@ -34,7 +34,7 @@ impl runic_types::Transform<Vec<i16>> for FFT {
             spectrogram_u8[i] = (255.0*(result_f32_slice[i]-min_value)/(max_value-min_value)) as u8;
         }
 
-        return spectrogram_u8.to_vec();
+        return spectrogram_u8;
         
       }
     
@@ -44,7 +44,7 @@ impl runic_types::Transform<Vec<i16>> for FFT {
 #[test]
 fn test_processing_block(){
 
-    let waveform: Vec<i16> = vec![0; 16000];
+    let waveform: [i16; 16000] = vec![0; 16000];
 
     let fft = FFT{};
     let mut pipeline = PipelineContext{};
