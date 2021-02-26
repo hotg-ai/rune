@@ -25,6 +25,8 @@ pub struct Compilation {
     pub working_directory: PathBuf,
     /// The directory that all paths (e.g. to models) are resolved relative to.
     pub current_directory: PathBuf,
+    /// The root directory for the `rune` project (used for locating
+    /// dependencies).
     pub rune_project_dir: PathBuf,
 }
 
@@ -144,6 +146,7 @@ impl Generator {
             "models": self.models(),
             "capabilities": self.capabilities(),
             "outputs": self.outputs(),
+            "pipeline": self.pipeline(),
         });
         self.render_to(self.dest.join("lib.rs"), "lib.rs", &ctx)?;
 
@@ -191,6 +194,41 @@ impl Generator {
         }
 
         capabilities
+    }
+
+    fn pipeline(&self) -> Vec<Value> {
+        #[derive(serde::Serialize)]
+        struct Stage<'a> {
+            name: &'a str,
+            first: bool,
+            last: bool,
+        }
+
+        let pipeline = self
+            .rune
+            .pipelines
+            .values()
+            .next()
+            .expect("There should be at least one pipeline");
+
+        let mut pipeline: Vec<_> = pipeline
+            .iter()
+            .map(|id| self.rune.names.get_name(id).unwrap())
+            .map(|name| Stage {
+                name,
+                first: false,
+                last: false,
+            })
+            .collect();
+
+        assert!(pipeline.len() >= 2);
+        pipeline.first_mut().unwrap().first = true;
+        pipeline.last_mut().unwrap().last = true;
+
+        pipeline
+            .into_iter()
+            .map(|s| serde_json::to_value(&s).unwrap())
+            .collect()
     }
 
     fn render_to(

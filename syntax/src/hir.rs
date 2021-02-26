@@ -120,6 +120,35 @@ pub struct Pipeline {
     pub output_type: HirId,
 }
 
+impl Pipeline {
+    /// Iterate over each step in the pipeline.
+    pub fn iter(&self) -> impl Iterator<Item = HirId> + '_ {
+        let mut current_node = Some(&self.last_step);
+        let mut nodes = Vec::new();
+
+        while let Some(node) = current_node.take() {
+            match node {
+                PipelineNode::Source(id) => {
+                    nodes.push(*id);
+                },
+                PipelineNode::Model { model, previous } => {
+                    nodes.push(*model);
+                    current_node = Some(&**previous);
+                },
+                PipelineNode::ProcBlock {
+                    proc_block,
+                    previous,
+                } => {
+                    nodes.push(*proc_block);
+                    current_node = Some(&**previous);
+                },
+            }
+        }
+
+        nodes.into_iter().rev()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PipelineNode {
     Source(HirId),
@@ -128,7 +157,7 @@ pub enum PipelineNode {
         previous: Box<PipelineNode>,
     },
     ProcBlock {
-        model: HirId,
+        proc_block: HirId,
         previous: Box<PipelineNode>,
     },
 }

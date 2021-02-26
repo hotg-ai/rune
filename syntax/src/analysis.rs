@@ -261,7 +261,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
                 };
             } else if self.rune.proc_blocks.contains_key(&id) {
                 pipeline_node = PipelineNode::ProcBlock {
-                    model: id,
+                    proc_block: id,
                     previous: Box::new(pipeline_node),
                 };
             } else {
