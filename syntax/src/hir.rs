@@ -2,6 +2,8 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
+use codespan::Span;
+
 use crate::ast::{Argument, Path};
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -14,6 +16,7 @@ pub struct Rune {
     pub pipelines: HashMap<HirId, Pipeline>,
     pub proc_blocks: HashMap<HirId, ProcBlock>,
     pub names: NameTable,
+    pub spans: HashMap<HirId, Span>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

@@ -11,7 +11,7 @@ use crate::{
 };
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 type FileId = usize;
 
@@ -135,6 +135,7 @@ impl<'diag> Analyser<'diag> {
             model_file: PathBuf::from(&model.file),
         };
         let id = self.ids.next();
+        self.rune.spans.insert(id, model.span);
         self.rune.models.insert(id, hir);
         self.rune.names.register(&model.name.value, id);
         id
@@ -160,6 +161,7 @@ impl<'diag> Analyser<'diag> {
         };
 
         let id = self.ids.next();
+        self.rune.spans.insert(id, capability.span);
         let output_type = self.interpret_type(&capability.output_type);
         self.rune.sources.insert(
             id,
@@ -275,6 +277,7 @@ impl<'diag> Analyser<'diag> {
             output_type: self.builtins.unknown_type,
         };
         let id = self.ids.next();
+        self.rune.spans.insert(id, run.span);
         self.rune.pipelines.insert(id, pipeline);
 
         id
@@ -282,6 +285,7 @@ impl<'diag> Analyser<'diag> {
 
     fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) -> HirId {
         let id = self.ids.next();
+        self.rune.spans.insert(id, proc_block.span);
         self.rune.proc_blocks.insert(
             id,
             ProcBlock {
@@ -300,6 +304,7 @@ impl<'diag> Analyser<'diag> {
         match out.out_type.value.as_str() {
             "SERIAL" | "serial" => {
                 let id = self.ids.next();
+                self.rune.spans.insert(id, out.span);
                 self.rune.sinks.insert(id, Sink::Serial);
                 self.rune.names.register("serial", id);
 
@@ -317,7 +322,70 @@ impl<'diag> Analyser<'diag> {
         // TODO: Go through each pipeline and try to figure out what the
         // input/output type at each stage should be.
         //
-        // This will be a bit like a fixed-point iteration
+        // This will be a bit like a fixed-point iteration, where you keep
+        // running inference in a loop until you've either inferred all the
+        // types or are unable to make any more progress.
+        //
+        // For now, let's just emit a warning.
+
+        let unknown = self.builtins.unknown_type;
+
+        let msg = "Unable to infer the input or output type.";
+
+        warn_on_unknown_type(
+            &mut self.diags,
+            &self.rune.spans,
+            self.file_id,
+            &self.rune.models,
+            msg,
+            |m| m.input == unknown || m.output == unknown,
+        );
+        warn_on_unknown_type(
+            &mut self.diags,
+            &self.rune.spans,
+            self.file_id,
+            &self.rune.proc_blocks,
+            msg,
+            |p| p.input == unknown || p.output == unknown,
+        );
+        warn_on_unknown_type(
+            &mut self.diags,
+            &self.rune.spans,
+            self.file_id,
+            &self.rune.sources,
+            msg,
+            |s| s.output_type == unknown,
+        );
+    }
+}
+
+fn warn_on_unknown_type<'a, I, T, F>(
+    diags: &mut Diagnostics,
+    spans: &HashMap<HirId, Span>,
+    file_id: FileId,
+    items: I,
+    msg: &str,
+    mut filter: F,
+) where
+    I: IntoIterator<Item = (&'a HirId, &'a T)> + 'a,
+    T: 'a,
+    F: FnMut(&T) -> bool,
+{
+    for (id, value) in items {
+        if filter(value) {
+            let mut diag =
+                Diagnostic::warning().with_message(msg).with_notes(vec![
+                    String::from(
+                        "See <https://github.com/hotg-ai/rune/issues/33>",
+                    ),
+                ]);
+
+            if let Some(span) = spans.get(id) {
+                diag = diag.with_labels(vec![Label::primary(file_id, *span)]);
+            }
+
+            diags.push(diag);
+        }
     }
 }
 

@@ -1,9 +1,6 @@
 use codespan_reporting::{
     files::SimpleFiles,
-    term::{
-        termcolor::{ColorChoice, StandardStream},
-        Config,
-    },
+    term::{termcolor::Buffer, Config},
 };
 use rune_syntax::Diagnostics;
 
@@ -41,7 +38,7 @@ macro_rules! parse_and_analyse {
                 let mut diags = Diagnostics::new();
                 rune_syntax::analyse(id, &parsed, &mut diags);
 
-                let mut writer = StandardStream::stdout(ColorChoice::Auto);
+                let mut writer = Buffer::no_color();
                 let config = Config::default();
 
                 for diag in &diags {
@@ -54,8 +51,8 @@ macro_rules! parse_and_analyse {
                     .unwrap();
                 }
 
-                if !diags.is_empty() {
-                    panic!("There were errors");
+                if diags.has_errors() {
+                    panic!("{}", String::from_utf8_lossy(writer.as_slice()));
                 }
             }
         }
