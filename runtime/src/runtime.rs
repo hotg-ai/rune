@@ -1,6 +1,6 @@
 use crate::{context::Context, Environment};
 use anyhow::{Context as _, Error};
-use runic_types::{OUTPUT, PARAM_TYPE};
+use runic_types::{CAPABILITY, OUTPUT, PARAM_TYPE};
 use std::{
     ffi::c_void,
     fmt::{self, Display, Formatter},
@@ -54,8 +54,24 @@ impl Runtime {
         Ok(Runtime { instance })
     }
 
-    pub fn call(&mut self) -> Result<(), CallError> {
-        self.instance.call("_call", &[])?;
+    pub fn call(&mut self) -> Result<(), Error> {
+        let call_func: Func<(i32, i32, i32), i32> = self
+            .instance
+            .exports
+            .get("_call")
+            .context("Unable to load the _call function")?;
+
+        // For some reason we pass in the RAND capability ID when it's meant
+        // to be the Rune's responsibility to remember it. Similarly we are
+        // passing in the sine model's output type as the "input_type" parameter
+        // even though the model should know that.
+        //
+        // We should be able to change the _call function's signature once
+        // hotg-ai/rune#28 lands.
+        call_func
+            .call(CAPABILITY::RAND as i32, PARAM_TYPE::FLOAT as i32, 2)
+            .map_err(runtime_error)
+            .context("Unable to call the _call function")?;
 
         Ok(())
     }
@@ -241,21 +257,41 @@ pub fn request_manifest_output<E>(ctx: &mut Ctx, output: u32) -> u32
 where
     E: Environment,
 {
-    let context = unsafe { &mut *(ctx.data as *mut Context<E>)};
+    let context = unsafe { &mut *(ctx.data as *mut Context<E>) };
     let output = OUTPUT::from_u32(output);
     context.register_output(output)
 }
 
 pub fn request_provider_response<E>(
-    _ctx: &mut Ctx,
-    _provider_response_idx: WasmPtr<u8, Array>,
-    _max_allowed_provider_response: u32,
-    _capability_idx: u32,
+    ctx: &mut Ctx,
+    buffer: WasmPtr<u8, Array>,
+    buffer_len: u32,
+    capability_id: u32,
 ) -> Result<u32, RuntimeError>
 where
     E: Environment,
 {
-    todo!()
+    unsafe {
+        let (mem, context) = ctx.memory_and_data_mut::<Context<E>>(0);
+
+        let buffer = buffer
+            .deref_mut(mem, 0, buffer_len)
+            .ok_or_else(|| runtime_err("Bad buffer pointer"))?;
+
+        // SAFETY: We are guaranteed to have unique access to this piece of
+        // WebAssembly memory because
+        // - The runtime's call() method takes &mut self
+        // - Context methods never call back into WebAssembly, so it's not
+        //   possible to accidentally end up back here while buffer is still
+        //   mutably borrowed
+        let buffer: &mut [u8] = std::mem::transmute(buffer);
+
+        context
+            .invoke_capability(capability_id, buffer)
+            .map_err(|e| RuntimeError::User(Box::new(e)))?;
+
+        Ok(0)
+    }
 }
 
 /// An error indicating there was an abnormal abort.
@@ -279,9 +315,15 @@ fn runtime_error(e: RuntimeError) -> Error {
                 // it was an anyhow::Error thrown by one of our host bindings,
                 // keep bubbling it up
                 Ok(error) => *error,
-                // Our code only ever returns an anyhow::Error, so wasmer
-                // must have caught a panic.
-                Err(other) => std::panic::resume_unwind(other),
+                // Sometimes wasmer will randomly re-box a RuntimeError
+                Err(other) => match other.downcast::<RuntimeError>() {
+                    Ok(error) => runtime_error(*error),
+                    // Our code only ever returns an anyhow::Error, so wasmer
+                    // must have caught a panic.
+                    Err(panic_payload) => {
+                        std::panic::resume_unwind(panic_payload)
+                    },
+                },
             }
         },
         // just fall back to the default error message (RuntimeError: !Sync so

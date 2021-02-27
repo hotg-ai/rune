@@ -11,7 +11,8 @@ use tflite::{
     InterpreterBuilder,
 };
 
-/// Contextual state associated with a single instance of the [`Runtime`].
+/// Contextual state associated with a single instance of the
+/// [`crate::Runtime`].
 pub(crate) struct Context<E> {
     env: E,
     models: HashMap<u32, Interpreter<'static, BuiltinOpResolver>>,
@@ -110,6 +111,7 @@ impl<E: Environment> Context<E> {
         let value = CapabilityParam::from_raw(value, ty)
             .context("Invalid capability parameter")?;
 
+        log::debug!("Setting {}={:?} on capability {}", key, value, id);
         request.params.insert(key.to_string(), value);
 
         Ok(())
@@ -117,8 +119,40 @@ impl<E: Environment> Context<E> {
 
     pub fn register_output(&mut self, output: OUTPUT) -> u32 {
         let id = self.next_id();
+        log::debug!("Registered the {:?} output as {}", output, id);
         self.outputs.insert(id, output);
 
         id
+    }
+
+    pub fn invoke_capability(
+        &mut self,
+        id: u32,
+        dest: &mut [u8],
+    ) -> Result<(), Error> {
+        log::debug!("Getting capability {}", id);
+        let cap = self.capabilities.get(&id).context("Invalid capability")?;
+        log::debug!(
+            "Invoking capability {} ({:?}) on a {}-byte buffer",
+            id,
+            cap.c_type,
+            dest.len()
+        );
+
+        match cap.c_type {
+            runic_types::CAPABILITY::RAND => {
+                let rng = self.env.rng().context(
+                    "The environment doesn't provide a random number generator",
+                )?;
+
+                rng.fill_bytes(dest);
+
+                Ok(())
+            },
+            other => Err(anyhow::anyhow!(
+                "The {:?} capability isn't implemented",
+                other
+            )),
+        }
     }
 }
