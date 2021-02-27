@@ -1,9 +1,16 @@
 use crate::{context::Context, Environment};
-use anyhow::Error;
-use std::{ffi::c_void, sync::Mutex};
+use anyhow::{Context as _, Error};
+use runic_types::{OUTPUT, PARAM_TYPE};
+use std::{
+    ffi::c_void,
+    fmt::{self, Display, Formatter},
+    sync::Mutex,
+};
 use wasmer_runtime::{
-    error::{CallError, Error as WasmerError, RuntimeError, RuntimeResult},
-    func, Array, Ctx, ImportObject, Instance, WasmPtr,
+    error::{
+        CallError, Error as WasmerError, LinkError, RuntimeError, RuntimeResult,
+    },
+    func, Array, Ctx, Func, ImportObject, Instance, WasmPtr,
 };
 
 pub struct Runtime {
@@ -11,17 +18,38 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn load<E>(rune: &[u8], env: E) -> Result<Self, WasmerError>
+    pub fn load<E>(rune: &[u8], env: E) -> Result<Self, Error>
     where
         E: Environment + Send + Sync + 'static,
     {
-        let module = wasmer_runtime::compile(rune)?;
+        let module = wasmer_runtime::compile(rune)
+            .context("WebAssembly compilation failed")?;
         let imports = onetime_import_object(env);
-        let instance = module.instantiate(&imports)?;
+        let instance = module
+            .instantiate(&imports)
+            .map_err(|e| match e {
+                WasmerError::CompileError(c) => Error::from(c),
+                WasmerError::LinkError(l) => Error::from(LinkErrors(l)),
+                WasmerError::RuntimeError(r) => runtime_error(r),
+                WasmerError::ResolveError(r) => Error::from(r),
+                WasmerError::CallError(CallError::Resolve(r)) => Error::from(r),
+                WasmerError::CallError(CallError::Runtime(r)) => {
+                    runtime_error(r)
+                },
+                WasmerError::CreationError(c) => Error::from(c),
+            })
+            .context("Instantiation failed")?;
 
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
-        instance.call("_manifest", &[])?;
+        let manifest: Func<(), i32> = instance
+            .exports
+            .get("_manifest")
+            .context("Unable to load the _manifest function")?;
+        manifest
+            .call()
+            .map_err(runtime_error)
+            .context("Unable to call the _manifest function")?;
 
         Ok(Runtime { instance })
     }
@@ -161,33 +189,61 @@ where
     todo!()
 }
 
-pub fn request_capability<E>(_ctx: &mut Ctx, _ct: u32) -> u32
+pub fn request_capability<E>(ctx: &mut Ctx, capability_type: u32) -> u32
 where
     E: Environment,
 {
-    todo!()
+    let context = unsafe { &mut *(ctx.data as *mut Context<E>) };
+    let cap = runic_types::CAPABILITY::from_u32(capability_type);
+
+    context.request_capability(cap)
 }
 
 pub fn request_capability_set_param<E>(
-    _ctx: &mut Ctx,
-    _idx: u32,
-    _key_str_ptr: WasmPtr<u8, Array>,
-    _key_str_len: u32,
-    _value_ptr: WasmPtr<u8, Array>,
-    _value_len: u32,
-    _value_type: u32,
+    ctx: &mut Ctx,
+    capability_id: u32,
+    key: WasmPtr<u8, Array>,
+    key_len: u32,
+    value: WasmPtr<u8, Array>,
+    value_len: u32,
+    value_type: u32,
 ) -> Result<u32, RuntimeError>
 where
     E: Environment,
 {
-    todo!()
+    let (mem, context) = unsafe { ctx.memory_and_data_mut::<Context<E>>(0) };
+
+    let key = key
+        .get_utf8_string(mem, key_len)
+        .context("Unable to load the key")
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
+
+    let value = value
+        .deref(mem, 0, value_len)
+        .ok_or_else(|| runtime_err("Bad value pointer"))?
+        .iter()
+        .map(|v| v.get())
+        .collect();
+
+    context
+        .set_capability_request_parameter(
+            capability_id,
+            key,
+            value,
+            PARAM_TYPE::from_u32(value_type),
+        )
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
+
+    Ok(0)
 }
 
-pub fn request_manifest_output<E>(_ctx: &mut Ctx, _t: u32) -> u32
+pub fn request_manifest_output<E>(ctx: &mut Ctx, output: u32) -> u32
 where
     E: Environment,
 {
-    todo!()
+    let context = unsafe { &mut *(ctx.data as *mut Context<E>)};
+    let output = OUTPUT::from_u32(output);
+    context.register_output(output)
 }
 
 pub fn request_provider_response<E>(
@@ -213,4 +269,45 @@ struct Abort {
 
 fn runtime_err(msg: &'static str) -> RuntimeError {
     RuntimeError::User(Box::new(Error::msg(msg)))
+}
+
+/// Tries to extract the [`anyhow::Error`] from a runtime error.
+fn runtime_error(e: RuntimeError) -> Error {
+    match e {
+        RuntimeError::User(user_error) => {
+            match user_error.downcast::<Error>() {
+                // it was an anyhow::Error thrown by one of our host bindings,
+                // keep bubbling it up
+                Ok(error) => *error,
+                // Our code only ever returns an anyhow::Error, so wasmer
+                // must have caught a panic.
+                Err(other) => std::panic::resume_unwind(other),
+            }
+        },
+        // just fall back to the default error message (RuntimeError: !Sync so
+        // we can't just wrap it)
+        other => Error::msg(other.to_string()),
+    }
+}
+
+#[derive(Debug, Clone)]
+struct LinkErrors(Vec<LinkError>);
+
+impl std::error::Error for LinkErrors {}
+
+impl Display for LinkErrors {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let errs = &self.0;
+
+        if errs.len() == 1 {
+            write!(f, "link error: {}", errs[0])
+        } else {
+            write!(f, "{} link errors:", errs.len())?;
+            for (i, err) in errs.iter().enumerate() {
+                write!(f, " ({} of {}) {}", i + 1, errs.len(), err)?;
+            }
+
+            Ok(())
+        }
+    }
 }

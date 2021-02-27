@@ -114,7 +114,7 @@ impl Provider {
 
     pub fn request_capability(&mut self, requested: u32) -> u32 {
         let idx = self.requests.len() as u32;
-        let cr = CapabilityRequest::init(runic_types::CAPABILITY::from_u32(
+        let cr = CapabilityRequest::new(runic_types::CAPABILITY::from_u32(
             requested,
         ));
 
@@ -134,10 +134,12 @@ impl Provider {
         value: Vec<u8>,
         value_t: runic_types::PARAM_TYPE,
     ) {
-        match self.requests.get_mut(request_idx as usize) {
-            Some(cr) => {
-                cr.set_param(key, value, value_t);
-                log::info!("Setting params for capability({})", request_idx);
+        let capability_request = match self
+            .requests
+            .get_mut(request_idx as usize)
+        {
+            Some(_) => {
+                unimplemented!()
             },
             _ => {
                 log::warn!(

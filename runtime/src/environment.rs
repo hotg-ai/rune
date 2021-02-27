@@ -1,3 +1,4 @@
+use log::Record;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 
 pub trait Environment: 'static {
@@ -32,6 +33,9 @@ impl Environment for DefaultEnvironment {
     fn rng(&mut self) -> Option<&mut dyn RngCore> { Some(&mut self.rng) }
 
     fn log(&mut self, msg: &str) {
-        println!("{}", msg);
+        // TODO: Update the _debug() function to take a file name and line
+        // number.
+        log::logger()
+            .log(&Record::builder().args(format_args!("{}", msg)).build());
     }
 }

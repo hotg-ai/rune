@@ -69,3 +69,15 @@ pub enum OUTPUT {
     PIN = 3,
     WIFI = 4,
 }
+
+impl OUTPUT {
+    pub fn from_u32(value: u32) -> OUTPUT {
+        match value {
+            1 => OUTPUT::SERIAL,
+            2 => OUTPUT::BLE,
+            3 => OUTPUT::PIN,
+            4 => OUTPUT::WIFI,
+            _ => OUTPUT::SERIAL,
+        }
+    }
+}

@@ -1,17 +1,22 @@
-use std::collections::HashMap;
-
+use crate::{
+    capability::{CapabilityParam, CapabilityRequest},
+    Environment,
+};
 use anyhow::{Context as _, Error};
+use log::Level;
+use runic_types::{OUTPUT, PARAM_TYPE};
+use std::collections::HashMap;
 use tflite::{
     ops::builtin::BuiltinOpResolver, FlatBufferModel, Interpreter,
     InterpreterBuilder,
 };
 
-use crate::Environment;
-
 /// Contextual state associated with a single instance of the [`Runtime`].
 pub(crate) struct Context<E> {
     env: E,
     models: HashMap<u32, Interpreter<'static, BuiltinOpResolver>>,
+    capabilities: HashMap<u32, CapabilityRequest>,
+    outputs: HashMap<u32, OUTPUT>,
     last_id: u32,
 }
 
@@ -19,8 +24,10 @@ impl<E: Environment> Context<E> {
     pub fn new(env: E) -> Self {
         Context {
             env,
-            models: HashMap::new(),
             last_id: 0,
+            models: HashMap::new(),
+            capabilities: HashMap::new(),
+            outputs: HashMap::new(),
         }
     }
 
@@ -49,8 +56,69 @@ impl<E: Environment> Context<E> {
             .context("Unable to allocate tensors")?;
 
         let id = self.next_id();
+
+        if log::log_enabled!(Level::Debug) {
+            let inputs: Vec<_> = interpreter
+                .inputs()
+                .iter()
+                .filter_map(|ix| interpreter.tensor_info(*ix))
+                .collect();
+            let outputs: Vec<_> = interpreter
+                .inputs()
+                .iter()
+                .filter_map(|ix| interpreter.tensor_info(*ix))
+                .collect();
+            log::debug!(
+                "Loaded model {} with inputs {:?} and outputs {:?}",
+                id,
+                inputs,
+                outputs
+            );
+        }
+
         self.models.insert(id, interpreter);
 
         Ok(id)
+    }
+
+    pub fn request_capability(
+        &mut self,
+        capability: runic_types::CAPABILITY,
+    ) -> u32 {
+        let request = CapabilityRequest::new(capability);
+
+        let id = self.next_id();
+        self.capabilities.insert(id, request);
+
+        log::debug!("Requested capability {:?} with ID {}", capability, id);
+
+        id
+    }
+
+    pub fn set_capability_request_parameter(
+        &mut self,
+        id: u32,
+        key: &str,
+        value: Vec<u8>,
+        ty: PARAM_TYPE,
+    ) -> Result<(), Error> {
+        let request = self
+            .capabilities
+            .get_mut(&id)
+            .context("Invalid capability")?;
+
+        let value = CapabilityParam::from_raw(value, ty)
+            .context("Invalid capability parameter")?;
+
+        request.params.insert(key.to_string(), value);
+
+        Ok(())
+    }
+
+    pub fn register_output(&mut self, output: OUTPUT) -> u32 {
+        let id = self.next_id();
+        self.outputs.insert(id, output);
+
+        id
     }
 }
