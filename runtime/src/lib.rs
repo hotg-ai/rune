@@ -1,8 +1,9 @@
 pub mod capability;
-mod default_env;
+mod context;
+mod environment;
 pub mod provider;
 mod runtime;
 pub mod vm;
 
-pub use default_env::DefaultEnvironment;
-pub use runtime::{Environment, Runtime};
+pub use environment::{DefaultEnvironment, Environment};
+pub use runtime::Runtime;

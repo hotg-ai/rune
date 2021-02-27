@@ -1291,6 +1291,7 @@ dependencies = [
  "runic-transform",
  "runic-types",
  "tflite",
+ "thiserror",
  "wasmer-runtime",
 ]
 
