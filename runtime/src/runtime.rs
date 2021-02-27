@@ -55,6 +55,8 @@ impl Runtime {
     }
 
     pub fn call(&mut self) -> Result<(), Error> {
+        log::debug!("Running the rune");
+
         let call_func: Func<(i32, i32, i32), i32> = self
             .instance
             .exports

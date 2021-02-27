@@ -3,7 +3,7 @@ mod run;
 
 use anyhow::Error;
 use clap::{App, Arg, SubCommand};
-use env_logger;
+use env_logger::Env;
 use log;
 
 const VERSION: &str = "v0.0.2";
@@ -11,13 +11,8 @@ const VERSION: &str = "v0.0.2";
 /// Rune CLI
 ///   Provides two CLI subcommands (run, build)
 fn main() -> Result<(), Error> {
-    // Setting up environment logger that will only show logs
-    // for rune crates. We can change this with env variables.
-    let mut builder = env_logger::Builder::new();
-    builder.filter_module("rune", log::LevelFilter::Info);
-    builder.filter_module("rune::*", log::LevelFilter::Info);
-    builder.filter_module("runic_os::rune", log::LevelFilter::Info);
-    builder.init();
+    let env = Env::new().default_filter_or("rune=info,rune_runtime=info");
+    env_logger::init_from_env(env);
 
     // Log the version
     log::info!("Rune {}", VERSION);

@@ -1,17 +1,19 @@
 use anyhow::{Context, Error};
 use log;
-use rune_runtime::vm::VM;
+use rune_runtime::{DefaultEnvironment, Runtime};
 
 pub fn run(container: &str, number_of_runs: i32) -> Result<(), Error> {
     log::info!("Running rune: {}", container);
 
-    let vm = VM::init(container)
+    let rune = std::fs::read(container)
+        .with_context(|| format!("Unable to read \"{}\"", container))?;
+
+    let env = DefaultEnvironment::default();
+    let mut runtime = Runtime::load(&rune, env)
         .context("Unable to initialize the virtual machine")?;
 
-    // Create a Provider
-    // Set up capabilities and use inputs from CLI params
     for _ in 0..number_of_runs {
-        vm.call(vec![]).context("Call failed")?;
+        runtime.call().context("Call failed")?;
     }
 
     Ok(())
