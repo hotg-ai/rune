@@ -1,10 +1,8 @@
+use crate::capability::{Capability, CapabilityParam, CapabilityRequest};
 use anyhow::{Context, Error};
 use log;
-
-use crate::run::vm::capability::*;
-use runic_types::*;
-
 use runic_transform::{Transform, Transformable};
+use runic_types::*;
 
 use tflite::{
     ops::builtin::BuiltinOpResolver, FlatBufferModel, Interpreter,

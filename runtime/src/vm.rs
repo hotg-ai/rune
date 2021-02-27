@@ -1,7 +1,4 @@
-pub mod capability;
-pub mod provider;
-
-use crate::run::vm::provider::Provider;
+use crate::provider::Provider;
 use anyhow::{Context, Error};
 use log;
 use std::{ffi::c_void, string::String};

@@ -1,7 +1,6 @@
-use log;
-pub mod vm;
 use anyhow::{Context, Error};
-use vm::*;
+use log;
+use rune_runtime::vm::VM;
 
 pub fn run(container: &str, number_of_runs: i32) -> Result<(), Error> {
     log::info!("Running rune: {}", container);

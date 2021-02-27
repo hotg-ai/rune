@@ -1,4 +1,4 @@
-use crate::run::vm::capability::*;
+use crate::capability::{Capability, CapabilityParam, CAPABILITY};
 
 pub struct RandCapability {}
 
