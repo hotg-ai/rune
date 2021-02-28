@@ -4,23 +4,26 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use modulo::Modulo;
 use runic_types::{
     debug,
-    wasm32::{intrinsics, Model, Random, Serial},
+    wasm32::{Model, Random, Serial},
     Sink, Source, Transform,
 };
 
-static mut PIPELINE: Option<Box<FnMut()>> = None;
+static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
-        debug!("Initializing!");
+        debug!("Initializing");
 
         let mut rand: Random<f32, 1> = Random::new();
 
-        let blob = include_bytes!("sine.tflite");
-        let mut sine_model: Model<[f32; 1], [f32; 1]> = Model::load(blob);
+        let mut mod360 = Modulo::default().with_modulus(360.0);
+
+        let mut sine_model: Model<[f32; 1], [f32; 1]> =
+            Model::load(include_bytes!("sine.tflite"));
 
         let mut serial = Serial::new();
 
@@ -29,23 +32,23 @@ pub extern "C" fn _manifest() -> u32 {
         // variable, but ideally we'd pass ownership of the pipeline to the VM
         // and be given a pointer to it in _call().
         PIPELINE = Some(Box::new(move || {
-            let [r] = rand.generate();
-            let random_bytes = [f32::from_le_bytes(r.to_be_bytes())];
-            let sine_value = sine_model.transform(random_bytes);
-            serial.consume(sine_value);
-
-            debug!("Sine of {:?} is {:?}", random_bytes, sine_value);
+            let input = rand.generate();
+            let input = mod360.transform(input);
+            let input = sine_model.transform(input);
+            serial.consume(input);
         }));
     }
 
     1
 }
 
+fn type_name<T: 'static>(_: &T) -> &'static str { core::any::type_name::<T>() }
+
 #[no_mangle]
 pub extern "C" fn _call(
-    capability_type: i32,
-    input_type: i32,
-    capability_idx: i32,
+    _capability_type: i32,
+    _input_type: i32,
+    _capability_idx: i32,
 ) -> i32 {
     unsafe {
         // load the pipeline, blowing up if it hasn't been initialized

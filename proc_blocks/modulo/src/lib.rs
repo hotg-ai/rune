@@ -28,6 +28,21 @@ where
     fn transform(&mut self, input: T) -> T { input % self.modulus.clone() }
 }
 
+impl<T, const N: usize> Transform<[T; N]> for Modulo<T>
+where
+    T: Rem<Output = T> + Clone,
+{
+    type Output = [T; N];
+
+    fn transform(&mut self, mut input: [T; N]) -> [T; N] {
+        for item in &mut input {
+            *item = item.clone() % self.modulus.clone();
+        }
+
+        input
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
