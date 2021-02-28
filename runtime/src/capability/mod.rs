@@ -2,12 +2,6 @@ use anyhow::Error;
 use runic_types::{CAPABILITY, PARAM_TYPE};
 use std::collections::HashMap;
 
-mod rand;
-pub trait Capability {
-    fn get_type() -> CAPABILITY;
-    fn request(params: HashMap<String, CapabilityParam>) -> Vec<u8>;
-}
-
 #[derive(Debug, Clone)]
 pub enum CapabilityParam {
     Integer(i64),
