@@ -84,4 +84,7 @@ We use [`cargo xtask`][xtask] to help with various things during development.
 You can use `cargo xtask install-pre-commit-hook` to install a pre-commit hook
 that will automatically run `rustfmt` whenever you make a commit.
 
+The `cargo rune` alias can be used to run the `rune` binary (e.g.
+`cargo rune run ./sine.rune` or `cargo rune build ./Runefile`).
+
 [xtask]: https://github.com/matklad/cargo-xtask

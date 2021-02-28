@@ -1240,6 +1240,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "normalize"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "runic-types 0.1.0 (git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture)",
+]
+
+[[package]]
 name = "num"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1324,6 +1332,14 @@ checksum = "05499f3756671c15885fee9034446956fff3f243d6077b91e5767df161f766b3"
 dependencies = [
  "hermit-abi",
  "libc",
+]
+
+[[package]]
+name = "ohv_label"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "runic-types 0.1.0 (git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture)",
 ]
 
 [[package]]
@@ -1766,6 +1782,11 @@ dependencies = [
  "rand",
  "runic-types 0.1.0",
 ]
+
+[[package]]
+name = "runic-types"
+version = "0.1.0"
+source = "git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture#b5337e7132763311ab9f155b11d09857a3be62e0"
 
 [[package]]
 name = "runic-types"

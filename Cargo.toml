@@ -1,5 +1,4 @@
 [workspace]
-
 members = [
     "codegen",
     "proc_blocks/*",
@@ -10,12 +9,4 @@ members = [
     "syntax",
     "xtask"
 ]
-
-exclude = [
-    "examples/sine/rune-rs",
-    "examples/boilerplate",
-    "examples/gesture",
-    "proc_blocks/normalize",
-    "proc_blocks/ohv_label"
-]
-default-members = ["rune"]
+exclude = [ "examples/*", ]
