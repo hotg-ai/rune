@@ -15,6 +15,10 @@ impl<T: One> Modulo<T> {
     pub fn with_modulus(self, modulus: T) -> Self { Modulo { modulus } }
 }
 
+impl<T: One> Default for Modulo<T> {
+    fn default() -> Self { Modulo::new() }
+}
+
 impl<T> Transform<T> for Modulo<T>
 where
     T: Rem<Output = T> + Clone,

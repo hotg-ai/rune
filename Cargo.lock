@@ -867,7 +867,6 @@ dependencies = [
 name = "normalize"
 version = "0.1.0"
 dependencies = [
- "rand",
  "runic-types",
 ]
 
