@@ -2,9 +2,13 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
+use codespan::Span;
+
+use crate::ast::{Argument, Path};
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Rune {
-    pub base_image: Option<String>,
+    pub base_image: Option<Path>,
     pub sinks: HashMap<HirId, Sink>,
     pub sources: HashMap<HirId, Source>,
     pub models: HashMap<HirId, Model>,
@@ -12,6 +16,7 @@ pub struct Rune {
     pub pipelines: HashMap<HirId, Pipeline>,
     pub proc_blocks: HashMap<HirId, ProcBlock>,
     pub names: NameTable,
+    pub spans: HashMap<HirId, Span>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -67,11 +72,12 @@ pub struct Model {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
+    Primitive(Primitive),
     /// The concrete type isn't yet known.
     Unknown,
     /// A multidimensional array of data.
     Buffer {
-        underlying_type: Primitive,
+        underlying_type: HirId,
         dimensions: Vec<usize>,
     },
     /// This can be *any* type.
@@ -92,12 +98,13 @@ pub enum Primitive {
 pub struct Source {
     pub kind: SourceKind,
     pub output_type: HirId,
-    pub parameters: HashMap<String, String>,
+    pub parameters: Vec<Argument>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceKind {
-    Rand,
+    Random,
+    Accelerometer,
     Other(String),
 }
 
@@ -130,6 +137,6 @@ pub enum PipelineNode {
 pub struct ProcBlock {
     pub input: HirId,
     pub output: HirId,
-    pub path: String,
-    pub params: HashMap<String, String>,
+    pub path: Path,
+    pub params: Vec<Argument>,
 }

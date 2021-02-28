@@ -1,9 +1,13 @@
 use anyhow::{Context, Error};
 use handlebars::Handlebars;
-use rune_syntax::hir::{Rune, Sink, SourceKind};
+use rune_syntax::{
+    ast::{ArgumentValue, Literal, LiteralKind},
+    hir::{Rune, Sink, SourceKind},
+};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
+    collections::HashMap,
     fs::File,
     path::{Path, PathBuf},
     process::Command,
@@ -171,14 +175,17 @@ impl Generator {
         for (&id, source) in &self.rune.sources {
             if let Some(name) = self.rune.names.get_name(id) {
                 let kind = match &source.kind {
-                    SourceKind::Rand => "RAND",
+                    SourceKind::Random => "RAND",
+                    SourceKind::Accelerometer => "ACCEL",
                     SourceKind::Other(name) => name.as_str(),
                 };
 
                 capabilities.push(json!({
                     "name": name,
                     "kind": kind,
-                    "parameters": source.parameters,
+                    "parameters": source.parameters.iter()
+                        .map(|p| (&p.name.value, jsonify_arg_value(&p.value)))
+                        .collect::<HashMap<_, _>>(),
                 }));
             }
         }
@@ -255,7 +262,7 @@ fn _dependency_info(
     let git_repo = if is_builtin {
         String::from(RUNE_GIT_REPO)
     } else {
-        format!("https://github.com/{}.git", proc.path)
+        format!("https://github.com/{}.git", proc.path.body)
     };
 
     json!({ "name": name, "git": git_repo })
@@ -265,4 +272,24 @@ fn create_dir(path: impl AsRef<Path>) -> Result<(), Error> {
     let path = path.as_ref();
     std::fs::create_dir_all(path)
         .with_context(|| format!("Unable to create \"{}\"", path.display()))
+}
+
+fn jsonify_arg_value(arg: &ArgumentValue) -> Value {
+    match arg {
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::Integer(i),
+            ..
+        }) => Value::from(*i),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::Float(f),
+            ..
+        }) => Value::from(*f),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::String(s),
+            ..
+        }) => Value::from(s.as_str()),
+        ArgumentValue::List(list) => {
+            Value::Array(list.iter().map(|s| Value::from(s.as_str())).collect())
+        },
+    }
 }

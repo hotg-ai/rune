@@ -1,7 +1,6 @@
 //! The *Abstract Syntax Tree* for a Runefile.
 
 use codespan::Span;
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Runefile {
@@ -62,7 +61,7 @@ impl From<OutInstruction> for Instruction {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FromInstruction {
-    pub image: Ident,
+    pub image: Path,
     pub span: Span,
 }
 
@@ -70,7 +69,9 @@ pub struct FromInstruction {
 pub struct ModelInstruction {
     pub name: Ident,
     pub file: String,
-    pub parameters: HashMap<String, String>,
+    pub input_type: Type,
+    pub output_type: Type,
+    pub parameters: Vec<Argument>,
     pub span: Span,
 }
 
@@ -97,11 +98,10 @@ impl Ident {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CapabilityInstruction {
+    pub kind: Ident,
     pub name: Ident,
-    pub description: String,
-    pub parameters: HashMap<String, String>,
-    pub input_type: Type,
     pub output_type: Type,
+    pub parameters: Vec<Argument>,
     pub span: Span,
 }
 
@@ -132,6 +132,10 @@ impl Type {
 pub enum TypeKind {
     Inferred,
     Named(Ident),
+    Buffer {
+        type_name: Ident,
+        dimensions: Vec<usize>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -142,9 +146,11 @@ pub struct RunInstruction {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ProcBlockInstruction {
-    pub path: String,
+    pub path: Path,
+    pub input_type: Type,
+    pub output_type: Type,
     pub name: Ident,
-    pub params: HashMap<String, String>,
+    pub params: Vec<Argument>,
     pub span: Span,
 }
 
@@ -152,4 +158,100 @@ pub struct ProcBlockInstruction {
 pub struct OutInstruction {
     pub out_type: Ident,
     pub span: Span,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Literal {
+    pub kind: LiteralKind,
+    pub span: Span,
+}
+
+impl Literal {
+    pub fn new(kind: impl Into<LiteralKind>, span: Span) -> Self {
+        Literal {
+            kind: kind.into(),
+            span,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum LiteralKind {
+    Integer(i64),
+    Float(f64),
+    String(String),
+}
+
+impl From<i64> for LiteralKind {
+    fn from(other: i64) -> Self { LiteralKind::Integer(other) }
+}
+
+impl From<f64> for LiteralKind {
+    fn from(other: f64) -> Self { LiteralKind::Float(other) }
+}
+
+impl<'a> From<&'a str> for LiteralKind {
+    fn from(other: &'a str) -> Self { LiteralKind::String(other.to_string()) }
+}
+
+impl From<String> for LiteralKind {
+    fn from(other: String) -> Self { LiteralKind::String(other) }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Argument {
+    pub name: Ident,
+    pub value: ArgumentValue,
+    pub span: Span,
+}
+
+impl Argument {
+    pub fn literal(name: Ident, value: Literal, span: Span) -> Self {
+        Argument {
+            name,
+            value: ArgumentValue::Literal(value),
+            span,
+        }
+    }
+
+    pub fn list<I>(name: Ident, values: I, span: Span) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        Argument {
+            name,
+            value: ArgumentValue::List(
+                values.into_iter().map(Into::into).collect(),
+            ),
+            span,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ArgumentValue {
+    Literal(Literal),
+    List(Vec<String>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Path {
+    pub body: String,
+    pub version: Option<String>,
+    pub span: Span,
+}
+
+impl Path {
+    pub fn new(
+        body: impl Into<String>,
+        version: impl Into<Option<String>>,
+        span: Span,
+    ) -> Self {
+        Path {
+            body: body.into(),
+            version: version.into(),
+            span,
+        }
+    }
 }
