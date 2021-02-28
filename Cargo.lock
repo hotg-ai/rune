@@ -1772,10 +1772,6 @@ dependencies = [
 [[package]]
 name = "runic-types"
 version = "0.1.0"
-
-[[package]]
-name = "runic-types"
-version = "0.1.0"
 source = "git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture_normalized#d159657d49b89e21c1132617fa16da48aa72170b"
 
 [[package]]
@@ -1786,6 +1782,10 @@ dependencies = [
  "bincode",
  "serde",
 ]
+
+[[package]]
+name = "runic-types"
+version = "0.1.0"
 
 [[package]]
 name = "rustc-hash"

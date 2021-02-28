@@ -55,6 +55,13 @@ const PROVIDER_RESPONSE_BUFFER_SIZE: usize = 4096*8;
 static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] =
     [0; PROVIDER_RESPONSE_BUFFER_SIZE];
 
+
+
+const MODEL_INPUT_BUFFER_SIZE: usize = 4096*8;
+
+static mut MODEL_INPUT_BUFFER: [u8; MODEL_INPUT_BUFFER_SIZE] =
+    [0; MODEL_INPUT_BUFFER_SIZE];
+
 static mut PRINT_BUF: [u8;512] = [0 as u8; 512];
 
 mod model;
@@ -140,7 +147,7 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
             if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
                 let accel_sample: &[u8] = &PROVIDER_RESPONSE_BUFFER[0..response_size];
                 let accel_sample: Vec<f32> = runic_transform::RTransform::<f32,f32>::from_buffer(&accel_sample.to_vec()).unwrap();
-                // debug(b"Trace::request_provider_response returned response");
+                debug(b"Trace::request_provider_response returned response");
                 let mut input: [f32; 384] = [0.0; 384];
               
                 let mut i = 0;
@@ -150,28 +157,35 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
                     i = i+ 1;
                 }
               
-                debug(b"Finished normalizing\n");
                 
                 let mut norm_pb: Normalize = Normalize{}; 
                 let mut pipeline = PipelineContext{};
-                let proc_block_output = norm_pb.transform(input, &mut pipeline);
-                let mut proc_block_output_vec: Vec<f32> = Vec::with_capacity(348);
-                for element in &proc_block_output {
-            
-                    proc_block_output_vec.push(*element);
+                let proc_block_output: [f32; 384] = norm_pb.transform(input, &mut pipeline);
+                
+                let mut i = 0; 
+                for element in proc_block_output.iter() {
+                    let f: f32 = proc_block_output[i];
+                    let f = f.to_be_bytes();
+                    MODEL_INPUT_BUFFER[i] = f[3];
+                    MODEL_INPUT_BUFFER[i+1] = f[2];
+                    MODEL_INPUT_BUFFER[i+2] = f[1];
+                    MODEL_INPUT_BUFFER[i+3] = f[0];
+
+                    i = i + 4;
+                    
                 }
-                let proc_block_output: Vec<u8> = 
-                    runic_transform::RTransform::<f32, f32>::to_buffer(&proc_block_output_vec).unwrap();
+                
+                debug(b"Finished PB and vec<u8> normalizing\n");
             
                 debug(b"Finished preparing buffer");
-                // Processing 
+                // // Processing 
                 
                  tfm_model_invoke(
-                                proc_block_output.as_ptr() as *const u8,
+                                MODEL_INPUT_BUFFER.as_ptr() as *const u8,
                                 proc_block_output.len() as u32,
                             );
                 
-                 return 348; //proc_block_output.len() as i32;
+                 return proc_block_output.len() as i32; //proc_block_output.len() as i32;
 
             }
             //debug(b"Have a response\r\n");
