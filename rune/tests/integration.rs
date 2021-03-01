@@ -1,16 +1,22 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const RUST_LOG: &str = "debug,cranelift_codegen=warn";
 
-#[test]
-fn compile_and_run_sine() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+fn example_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .join("examples")
-        .join("sine");
+}
+
+fn sine_dir() -> PathBuf { example_dir().join("sine") }
+fn gesture_dir() -> PathBuf { example_dir().join("gesture") }
+
+#[test]
+fn compile_sine() {
+    let dir = sine_dir();
     let runefile = dir.join("Runefile");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
@@ -20,6 +26,21 @@ fn compile_and_run_sine() {
 
     let rune = dir.join("sine.rune");
     assert!(rune.exists());
+}
+
+#[test]
+#[ignore = "We need to return a model's output then send it to the serial OUT"]
+fn run_sine() {
+    let dir = sine_dir();
+    let runefile = dir.join("Runefile");
+
+    let mut cmd = Command::cargo_bin("rune").unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .env("RUST_LOG", RUST_LOG)
+        .unwrap();
+
+    let rune = dir.join("sine.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run").arg(&rune).env("RUST_LOG", RUST_LOG);
@@ -31,12 +52,8 @@ fn compile_and_run_sine() {
 }
 
 #[test]
-fn compile_and_run_gesture() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("examples")
-        .join("gesture");
+fn compile_gesture() {
+    let dir = gesture_dir();
     let runefile = dir.join("Runefile");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
@@ -46,6 +63,21 @@ fn compile_and_run_gesture() {
 
     let rune = dir.join("gesture.rune");
     assert!(rune.exists());
+}
+
+#[test]
+#[ignore = "The ACCEL capability isn't implemented yet"]
+fn run_gesture() {
+    let dir = gesture_dir();
+    let runefile = dir.join("Runefile");
+
+    let mut cmd = Command::cargo_bin("rune").unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .env("RUST_LOG", RUST_LOG)
+        .unwrap();
+
+    let rune = dir.join("gesture.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run").arg(&rune).env("RUST_LOG", RUST_LOG);
