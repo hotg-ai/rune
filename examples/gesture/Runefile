@@ -13,5 +13,3 @@ PROC_BLOCK<f32[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=Wing,
 OUT SERIAL
 
 RUN accelerometer normalize gesture label serial
-
-

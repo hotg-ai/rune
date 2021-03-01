@@ -53,6 +53,7 @@ pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
         rune_project_dir: nearest_git_repo(),
         current_directory,
         working_directory,
+        optimized: false,
     };
     let blob = rune_codegen::generate(compilation)
         .context("Rune compilation failed")?;

@@ -29,6 +29,8 @@ pub struct Compilation {
     /// The root directory for the `rune` project (used for locating
     /// dependencies).
     pub rune_project_dir: PathBuf,
+    /// Generate an optimized build.
+    pub optimized: bool,
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
@@ -40,11 +42,17 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
     generator.render()?;
     generator.compile()?;
 
+    let build_dir = if generator.optimized {
+            "release"
+        } else {
+            "debug"
+        };
+
     let wasm = generator
         .dest
         .join("target")
         .join("wasm32-unknown-unknown")
-        .join("release")
+        .join(build_dir)
         .join(&generator.name)
         .with_extension("wasm");
 
@@ -59,6 +67,7 @@ struct Generator {
     dest: PathBuf,
     current_directory: PathBuf,
     rune_project_dir: PathBuf,
+    optimized: bool,
 }
 
 impl Generator {
@@ -91,6 +100,7 @@ impl Generator {
             working_directory,
             current_directory,
             rune_project_dir,
+            optimized,
         } = compilation;
 
         Generator {
@@ -99,6 +109,7 @@ impl Generator {
             rune,
             current_directory,
             rune_project_dir,
+            optimized,
             dest: working_directory,
         }
     }
@@ -127,8 +138,9 @@ impl Generator {
     fn render_cargo_toml(&self) -> Result<(), Error> {
         let runic_types = self.rune_project_dir.join("runic-types");
         let mut dependencies = vec![
-            json!({ "name": "wee_alloc", "deps": { "version": "0.4.5"} }),
-            json!({ "name": "runic-types", "deps": {"path": runic_types} }),
+            json!({ "name": "wee_alloc", "deps": { "version": "0.4.5" }}),
+            json!({ "name": "once_cell", "deps": { "version": "1.7.0", "default-features": false }}),
+            json!({ "name": "runic-types", "deps": { "path": runic_types }}),
         ];
 
         for proc in self.rune.proc_blocks.values() {
@@ -343,12 +355,18 @@ impl Generator {
     }
 
     fn compile(&self) -> Result<(), Error> {
-        let status = Command::new("cargo")
-            .arg("build")
-            .arg("--release")
+        let mut cmd = Command::new("cargo");
+        cmd.arg("build")
             .arg("--target=wasm32-unknown-unknown")
             .arg("--quiet")
-            .current_dir(&self.dest)
+            .current_dir(&self.dest);
+
+        if self.optimized {
+            cmd.arg("--release");
+        }
+
+        log::debug!("Executing {:?}", cmd);
+        let status = cmd
             .status()
             .context("Unable to start `cargo`. Is it installed?")?;
 
@@ -427,12 +445,74 @@ fn to_toml(
         .param(0)
         .ok_or_else(|| RenderError::new("Missing parameter"))?;
 
-    let as_toml = toml::to_string(param.value()).map_err(|e| {
-        RenderError::from_error("Unable to serialize as toml", e)
-    })?;
-    out.write("{")?;
-    out.write(as_toml.trim())?;
-    out.write("}")?;
+    let toml = as_inline_toml(param.value());
+    out.write(&toml)?;
 
     Ok(())
+}
+
+fn as_inline_toml(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => format!("{:?}", s),
+        Value::Array(arr) => {
+            let mut buffer = String::new();
+            buffer.push_str("[ ");
+            for item in arr {
+                let item = as_inline_toml(item);
+                buffer.push_str(&item);
+            }
+            buffer.push_str(" ]");
+
+            buffer
+        },
+        Value::Object(obj) => {
+            let mut buffer = String::new();
+            buffer.push_str("{ ");
+            for (i, (key, value)) in obj.iter().enumerate() {
+                if i > 0 {
+                    buffer.push_str(", ");
+                }
+
+                buffer.push_str(key);
+                buffer.push_str(" = ");
+                let value = as_inline_toml(value);
+                buffer.push_str(&value);
+            }
+            buffer.push_str(" }");
+
+            buffer
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_object_to_inline_table() {
+        let object = json!({
+            "default-features": false,
+            "version": "1.7.0",
+        });
+
+        let got = as_inline_toml(&object);
+        assert_eq!(got, r#"{ default-features = false, version = "1.7.0" }"#);
+
+        #[derive(serde::Deserialize)]
+        struct Document {
+            temp: Temp,
+        }
+        #[derive(serde::Deserialize)]
+        struct Temp {
+            foo: Value,
+        }
+
+        let src = format!("[temp]\nfoo = {}", got);
+        let deserialized: Document = toml::from_str(&src).unwrap();
+        assert_eq!(deserialized.temp.foo, object);
+    }
 }
