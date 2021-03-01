@@ -237,19 +237,22 @@ pub enum ArgumentValue {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
-    pub body: String,
+    pub base: String,
+    pub sub_path: Option<String>,
     pub version: Option<String>,
     pub span: Span,
 }
 
 impl Path {
     pub fn new(
-        body: impl Into<String>,
+        base: impl Into<String>,
+        sub_path: impl Into<Option<String>>,
         version: impl Into<Option<String>>,
         span: Span,
     ) -> Self {
         Path {
-            body: body.into(),
+            base: base.into(),
+            sub_path: sub_path.into(),
             version: version.into(),
             span,
         }
