@@ -16,7 +16,7 @@ pub struct Run {
     #[structopt(short, long, default_value = "1")]
     repeats: usize,
     /// Pass information to a capability.
-    #[structopt(short, long)]
+    #[structopt(short, long = "capability")]
     capabilities: Vec<Capability>,
 }
 
@@ -44,6 +44,10 @@ impl Run {
     fn env(&self) -> Result<DefaultEnvironment, Error> {
         let mut env = DefaultEnvironment::default();
 
+        if let Some(name) = self.name() {
+            env.set_name(name);
+        }
+
         for cap in &self.capabilities {
             match cap {
                 Capability::Random { seed } => {
@@ -66,6 +70,8 @@ impl Run {
 
         Ok(env)
     }
+
+    fn name(&self) -> Option<&str> { self.rune.file_stem()?.to_str() }
 }
 
 #[derive(Debug, Clone, PartialEq)]

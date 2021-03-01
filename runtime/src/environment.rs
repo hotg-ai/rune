@@ -10,6 +10,7 @@ pub trait Environment: 'static {
 #[derive(Debug, Clone)]
 pub struct DefaultEnvironment {
     rng: SmallRng,
+    name: String,
     accelerometer_samples: Vec<[f32; 3]>,
 }
 
@@ -17,6 +18,7 @@ impl DefaultEnvironment {
     pub fn with_seed(seed: [u8; 32]) -> Self {
         DefaultEnvironment {
             rng: SmallRng::from_seed(seed),
+            name: String::from("current_rune"),
             accelerometer_samples: Vec::new(),
         }
     }
@@ -28,6 +30,10 @@ impl DefaultEnvironment {
 
     pub fn set_accelerometer_data(&mut self, samples: Vec<[f32; 3]>) {
         self.accelerometer_samples = samples;
+    }
+
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = name.into();
     }
 }
 
@@ -48,7 +54,7 @@ impl Environment for DefaultEnvironment {
         // number.
         log::logger().log(
             &Record::builder()
-                .module_path(Some("current_rune"))
+                .module_path(Some(&self.name))
                 .args(format_args!("{}", msg))
                 .build(),
         );

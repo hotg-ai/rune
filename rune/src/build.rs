@@ -17,7 +17,7 @@ pub struct Build {
     #[structopt(parse(from_os_str))]
     runefile: PathBuf,
     /// Where to write the generated Rune.
-    #[structopt(parse(from_os_str))]
+    #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
     /// The directory to use when caching builds.
     #[structopt(long, env, default_value = &**DEFAULT_CACHE_DIR)]
@@ -41,6 +41,7 @@ impl Build {
         let mut files = SimpleFiles::new();
         let id = files.add(self.runefile.display().to_string(), &src);
 
+        log::debug!("Parsing \"{}\"", self.runefile.display());
         let parsed = rune_syntax::parse(&src).unwrap();
 
         let mut diags = Diagnostics::new();
@@ -51,7 +52,7 @@ impl Build {
 
         for diag in &diags {
             codespan_reporting::term::emit(&mut writer, &config, &files, diag)
-                .unwrap();
+                .context("Unable to print the diagnostic")?;
         }
 
         if diags.has_errors() {
@@ -66,6 +67,11 @@ impl Build {
             current_directory.join(&name).with_extension("rune")
         });
 
+        log::debug!(
+            "Compiling {} in \"{}\"",
+            name,
+            working_directory.display()
+        );
         let compilation = Compilation {
             name,
             rune,
@@ -76,6 +82,8 @@ impl Build {
         };
         let blob = rune_codegen::generate(compilation)
             .context("Rune compilation failed")?;
+
+        log::debug!("Generated {} bytes", blob.len());
 
         std::fs::write(&dest, &blob).with_context(|| {
             format!("Unable to write to \"{}\"", dest.display())

@@ -32,8 +32,6 @@ pub struct Compilation {
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
-    log::info!("Generating {}", c.name);
-
     let generator = Generator::new(c);
 
     generator.create_directories()?;
