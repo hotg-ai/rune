@@ -16,9 +16,7 @@ static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
         {{#each capabilities~}}
-        {{#if (eq kind "RAND")}}
-        let {{name}} = Random::new();
-        {{/if}}
+        let {{name}} = {{type}}::default();
         {{~/each~}}
 
         {{~#each models}}
@@ -36,11 +34,11 @@ pub extern "C" fn _manifest() -> u32 {
         PIPELINE = Some(Box::new(|| {
             {{#each pipeline~}}
             {{~#if first~}}
-            let data = {{name}}.generate();
+            let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();
             {{else}}{{#if last}}
             {{name}}.consume(data);
             {{~else~}}
-            let data = {{name}}.transform(data);
+            let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.transform(data);
             {{/if}}{{/if~}}{{~/each}}
         }));
     }

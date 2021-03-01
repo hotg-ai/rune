@@ -237,15 +237,19 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
         let source = self.get_named(first);
 
-        if !self.rune.sources.contains_key(&source) {
-            self.error(
-                "RUN instructions must start with a CAPABILITY",
-                first.span,
-            );
-            return HirId::ERROR;
-        }
-
-        let mut pipeline_node = PipelineNode::Source(source);
+        let mut pipeline_node = match self.rune.sources.get(&source) {
+            Some(s) => PipelineNode::Source {
+                source,
+                output_type: s.output_type,
+            },
+            None => {
+                self.error(
+                    "RUN instructions must start with a CAPABILITY",
+                    first.span,
+                );
+                return HirId::ERROR;
+            },
+        };
 
         for step in rest {
             let id = self.get_named(step);
@@ -254,15 +258,17 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
                 return HirId::ERROR;
             }
 
-            if self.rune.models.contains_key(&id) {
+            if let Some(model) = self.rune.models.get(&id) {
                 pipeline_node = PipelineNode::Model {
                     model: id,
                     previous: Box::new(pipeline_node),
+                    output_type: model.output,
                 };
-            } else if self.rune.proc_blocks.contains_key(&id) {
+            } else if let Some(proc_block) = self.rune.proc_blocks.get(&id) {
                 pipeline_node = PipelineNode::ProcBlock {
                     proc_block: id,
                     previous: Box::new(pipeline_node),
+                    output_type: proc_block.output,
                 };
             } else if self.rune.sinks.contains_key(&id) {
                 pipeline_node = PipelineNode::Sink {

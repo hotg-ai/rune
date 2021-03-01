@@ -72,17 +72,23 @@ impl PARAM_TYPE {
 }
 
 /// A helper trait that lets us go from a type to its [`PARAM_TYPE`] equivalent.
-pub trait AsParamType {
+pub trait AsParamType: Sized {
     /// The corresponding [`PARAM_TYPE`] variant.
     const VALUE: PARAM_TYPE;
+
+    fn zeroed_array<const N: usize>() -> [Self; N];
 }
 
 impl AsParamType for i32 {
     const VALUE: PARAM_TYPE = PARAM_TYPE::INT;
+
+    fn zeroed_array<const N: usize>() -> [Self; N] { [0; N] }
 }
 
 impl AsParamType for f32 {
     const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
+
+    fn zeroed_array<const N: usize>() -> [Self; N] { [0.0; N] }
 }
 
 #[derive(Copy, Clone, Debug)]

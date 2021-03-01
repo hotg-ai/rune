@@ -1,6 +1,7 @@
 use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY};
 use core::marker::PhantomData;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Random<T, const N: usize> {
     index: u32,
     _type: PhantomData<fn() -> [T; N]>,
@@ -31,15 +32,16 @@ impl<T: AsParamType, const N: usize> Random<T, N> {
     }
 }
 
-impl<T, const N: usize> Source for Random<T, N>
-where
-    [T; N]: Default,
-{
+impl<T: AsParamType, const N: usize> Default for Random<T, N> {
+    fn default() -> Self { Random::new() }
+}
+
+impl<T: AsParamType, const N: usize> Source for Random<T, N> {
     type Output = [T; N];
 
     fn generate(&mut self) -> Self::Output {
         unsafe {
-            let mut buffer = <[T; N]>::default();
+            let mut buffer = T::zeroed_array::<N>();
 
             let byte_length = core::mem::size_of_val(&buffer) as u32;
 

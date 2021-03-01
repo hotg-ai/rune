@@ -5,7 +5,7 @@ use handlebars::{
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{Rune, Sink, SourceKind},
+    hir::{HirId, Rune, Sink, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -188,15 +188,15 @@ impl Generator {
 
         for (&id, source) in &self.rune.sources {
             if let Some(name) = self.rune.names.get_name(id) {
-                let kind = match &source.kind {
-                    SourceKind::Random => "RAND",
-                    SourceKind::Accelerometer => "ACCEL",
+                let type_name = match &source.kind {
+                    SourceKind::Random => "runic_types::wasm32::Random",
+                    SourceKind::Accelerometer => "runic_types::wasm32::Random",
                     SourceKind::Other(name) => name.as_str(),
                 };
 
                 capabilities.push(json!({
                     "name": name,
-                    "kind": kind,
+                    "type": type_name,
                     "parameters": source.parameters.iter()
                         .map(|p| (&p.name.value, jsonify_arg_value(&p.value)))
                         .collect::<HashMap<_, _>>(),
@@ -232,6 +232,7 @@ impl Generator {
             name: &'a str,
             first: bool,
             last: bool,
+            output_type: Option<String>,
         }
 
         let pipeline = self
@@ -241,24 +242,68 @@ impl Generator {
             .next()
             .expect("There should be at least one pipeline");
 
-        let mut pipeline: Vec<_> = pipeline
-            .iter()
-            .map(|id| self.rune.names.get_name(id).unwrap())
-            .map(|name| Stage {
+        let mut stages = Vec::new();
+
+        for node in pipeline.iter() {
+            let name = self
+                .rune
+                .names
+                .get_name(node.id())
+                .expect("All pipeline nodes have names");
+
+            let output_type =
+                node.output_type().and_then(|t| self.rust_type_name(t));
+            log::info!(
+                "{} -> {:?} ({:?})",
                 name,
+                output_type,
+                node.output_type()
+            );
+
+            stages.push(Stage {
+                name,
+                output_type,
                 first: false,
                 last: false,
-            })
-            .collect();
+            });
+        }
 
-        assert!(pipeline.len() >= 2);
-        pipeline.first_mut().unwrap().first = true;
-        pipeline.last_mut().unwrap().last = true;
+        assert!(stages.len() >= 2);
+        stages.first_mut().unwrap().first = true;
+        stages.last_mut().unwrap().last = true;
 
-        pipeline
+        stages
             .into_iter()
             .map(|s| serde_json::to_value(&s).unwrap())
             .collect()
+    }
+
+    fn rust_type_name(&self, id: HirId) -> Option<String> {
+        let ty = self.rune.types.get(&id)?;
+
+        match ty {
+            Type::Primitive(p) => Some(p.rust_name().to_string()),
+            Type::Buffer {
+                underlying_type,
+                dimensions,
+            } => self.rust_array_type_name(*underlying_type, dimensions),
+            Type::Any | Type::Unknown => None,
+        }
+    }
+
+    fn rust_array_type_name(
+        &self,
+        underlying_type: HirId,
+        dimensions: &[usize],
+    ) -> Option<String> {
+        match dimensions.split_first() {
+            Some((dim, rest)) => {
+                let inner = self.rust_array_type_name(underlying_type, rest)?;
+
+                Some(format!("[{}; {}]", inner, dim))
+            },
+            None => self.rust_type_name(underlying_type),
+        }
     }
 
     fn render_to(

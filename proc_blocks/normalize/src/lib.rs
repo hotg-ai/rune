@@ -11,7 +11,7 @@ use runic_types::Transform;
 
 /// Normalize the input to the range `[0, 1]`.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
-struct Normalize<T> {
+pub struct Normalize<T> {
     _type: PhantomData<fn(T) -> T>,
 }
 

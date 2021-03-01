@@ -8,6 +8,7 @@ extern crate std;
 use alloc::vec::Vec;
 use runic_types::Transform;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct OhvLabel {
     labels: Vec<&'static str>,
     unknown_label: &'static str,
@@ -53,6 +54,10 @@ impl<S: AsRef<[u8]>> Transform<S> for OhvLabel {
             .copied()
             .unwrap_or(self.unknown_label)
     }
+}
+
+impl Default for OhvLabel {
+    fn default() -> Self { OhvLabel::new() }
 }
 
 #[cfg(test)]

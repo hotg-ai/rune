@@ -94,6 +94,19 @@ pub enum Primitive {
     F64,
 }
 
+impl Primitive {
+    pub fn rust_name(self) -> &'static str {
+        match self {
+            Primitive::U32 => "u32",
+            Primitive::I32 => "i32",
+            Primitive::F32 => "f32",
+            Primitive::U64 => "u64",
+            Primitive::I64 => "i64",
+            Primitive::F64 => "f64",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Source {
     pub kind: SourceKind,
@@ -122,12 +135,12 @@ pub struct Pipeline {
 
 impl Pipeline {
     /// Iterate over each step in the pipeline.
-    pub fn iter(&self) -> impl Iterator<Item = HirId> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = &PipelineNode> + '_ {
         let mut current_node = Some(&self.last_step);
         let mut nodes = Vec::new();
 
         while let Some(node) = current_node.take() {
-            nodes.push(node.id());
+            nodes.push(node);
             current_node = node.previous();
         }
 
@@ -137,14 +150,19 @@ impl Pipeline {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PipelineNode {
-    Source(HirId),
+    Source {
+        source: HirId,
+        output_type: HirId,
+    },
     Model {
         model: HirId,
         previous: Box<PipelineNode>,
+        output_type: HirId,
     },
     ProcBlock {
         proc_block: HirId,
         previous: Box<PipelineNode>,
+        output_type: HirId,
     },
     Sink {
         sink: HirId,
@@ -155,7 +173,7 @@ pub enum PipelineNode {
 impl PipelineNode {
     pub fn previous(&self) -> Option<&PipelineNode> {
         match self {
-            PipelineNode::Source(_) => None,
+            PipelineNode::Source { .. } => None,
             PipelineNode::Model { previous, .. } => Some(&**previous),
             PipelineNode::ProcBlock { previous, .. } => Some(&**previous),
             PipelineNode::Sink { previous, .. } => Some(&**previous),
@@ -164,10 +182,19 @@ impl PipelineNode {
 
     pub fn id(&self) -> HirId {
         match self {
-            PipelineNode::Source(id)
+            PipelineNode::Source { source: id, .. }
             | PipelineNode::Model { model: id, .. }
             | PipelineNode::ProcBlock { proc_block: id, .. }
             | PipelineNode::Sink { sink: id, .. } => *id,
+        }
+    }
+
+    pub fn output_type(&self) -> Option<HirId> {
+        match self {
+            PipelineNode::Source { output_type, .. }
+            | PipelineNode::Model { output_type, .. }
+            | PipelineNode::ProcBlock { output_type, .. } => Some(*output_type),
+            PipelineNode::Sink { .. } => None,
         }
     }
 }
