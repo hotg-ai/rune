@@ -9,7 +9,6 @@ keywords = ["tinyml", "container"]
 
 [dependencies]
 runic-types = { path = "../runic-types" }
-cargo = "0.51.0"
 clap = "2.33.3"
 env_logger = "0.8.1"
 log = "0.4.11"
