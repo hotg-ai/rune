@@ -1125,11 +1125,13 @@ dependencies = [
  "dirs",
  "env_logger 0.8.3",
  "log",
+ "once_cell",
  "predicates",
  "rune-codegen",
  "rune-runtime",
  "rune-syntax",
  "runic-types",
+ "structopt",
 ]
 
 [[package]]

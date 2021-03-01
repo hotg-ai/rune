@@ -2,7 +2,7 @@ FROM runicos/base
 
 CAPABILITY<F32> rand RAND --n 1
 
-PROC_BLOCK<_,_> mod360 hotg-ai/rune#proc_blocks/modulo --modulus 3.14
+PROC_BLOCK<_,_> mod360 hotg-ai/rune#proc_blocks/modulo --modulus 360.0
 
 MODEL<F32, F32> sine ./sinemodel.tflite
 
