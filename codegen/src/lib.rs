@@ -1,7 +1,5 @@
 use anyhow::{Context as _, Error};
-use handlebars::{
-    Context, Handlebars, Helper, Output, RenderContext, RenderError,
-};
+use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError};
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
@@ -43,10 +41,10 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
     generator.compile()?;
 
     let build_dir = if generator.optimized {
-            "release"
-        } else {
-            "debug"
-        };
+        "release"
+    } else {
+        "debug"
+    };
 
     let wasm = generator
         .dest
@@ -228,9 +226,21 @@ impl Generator {
                 let type_name =
                     format!("{}::{}", module_name, module_name.to_camel_case());
 
+                let params: Vec<_> = proc_block
+                    .params
+                    .iter()
+                    .map(|arg| {
+                        json!({
+                            "name": arg.name.value,
+                            "value": rust_literal(&arg.value),
+                        })
+                    })
+                    .collect();
+
                 blocks.push(json!({
                     "name": name,
                     "type": type_name,
+                    "params": params,
                 }));
             }
         }
@@ -375,6 +385,24 @@ impl Generator {
         } else {
             Err(Error::msg("Compilation failed"))
         }
+    }
+}
+
+fn rust_literal(arg: &ArgumentValue) -> String {
+    match arg {
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::Integer(i),
+            ..
+        }) => i.to_string(),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::Float(f),
+            ..
+        }) => format!("{:.1}", f),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::String(s),
+            ..
+        }) => format!("{:?}", s),
+        ArgumentValue::List(_) => todo!(),
     }
 }
 

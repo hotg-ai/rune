@@ -25,7 +25,10 @@ pub extern "C" fn _manifest() -> u32 {
     {{~ /each~}}
 
     {{~#each proc_blocks}}
-    let mut {{name}} = {{type}}::default();
+    let mut {{name}} = {{type}}::default()
+    {{~#each params}}
+        .with_{{name}}({{value}})
+    {{/each~}};
     {{~ /each~}}
 
     {{~#each outputs}}

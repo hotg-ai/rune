@@ -22,9 +22,11 @@ impl Runtime {
     where
         E: Environment + Send + Sync + 'static,
     {
+        log::debug!("Compiling the WebAssembly to native code");
         let module = wasmer_runtime::compile(rune)
             .context("WebAssembly compilation failed")?;
         let imports = onetime_import_object(env);
+        log::debug!("Instantiating the WebAssembly module");
         let instance = module
             .instantiate(&imports)
             .map_err(|e| match e {
@@ -50,6 +52,8 @@ impl Runtime {
             .call()
             .map_err(runtime_error)
             .context("Unable to call the _manifest function")?;
+
+        log::debug!("Loaded the Rune");
 
         Ok(Runtime { instance })
     }
