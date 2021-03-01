@@ -130,7 +130,6 @@ pub struct Pipeline {
     /// later include some sort of "merge" node for joining two
     /// sub-pipelines.
     pub last_step: PipelineNode,
-    pub output_type: HirId,
 }
 
 impl Pipeline {

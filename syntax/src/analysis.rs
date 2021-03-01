@@ -128,8 +128,8 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
     fn load_model(&mut self, model: &ModelInstruction) -> HirId {
         let hir = Model {
-            input: self.builtins.unknown_type,
-            output: self.builtins.unknown_type,
+            input: self.interpret_type(&model.input_type),
+            output: self.interpret_type(&model.output_type),
             model_file: PathBuf::from(&model.file),
         };
         let id = self.ids.next();
@@ -283,7 +283,6 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
         let pipeline = Pipeline {
             last_step: pipeline_node,
-            output_type: self.builtins.unknown_type,
         };
         let id = self.ids.next();
         self.rune.spans.insert(id, run.span);
@@ -294,17 +293,16 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
     fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) -> HirId {
         let id = self.ids.next();
-        self.rune.spans.insert(id, proc_block.span);
-        self.rune.proc_blocks.insert(
-            id,
-            ProcBlock {
-                input: self.builtins.unknown_type,
-                output: self.builtins.unknown_type,
-                path: proc_block.path.clone(),
-                params: proc_block.params.clone(),
-            },
-        );
         self.rune.names.register(&proc_block.name.value, id);
+        self.rune.spans.insert(id, proc_block.span);
+
+        let pb = ProcBlock {
+            input: self.interpret_type(&proc_block.input_type),
+            output: self.interpret_type(&proc_block.output_type),
+            path: proc_block.path.clone(),
+            params: proc_block.params.clone(),
+        };
+        self.rune.proc_blocks.insert(id, pb);
 
         id
     }

@@ -253,12 +253,6 @@ impl Generator {
 
             let output_type =
                 node.output_type().and_then(|t| self.rust_type_name(t));
-            log::info!(
-                "{} -> {:?} ({:?})",
-                name,
-                output_type,
-                node.output_type()
-            );
 
             stages.push(Stage {
                 name,
