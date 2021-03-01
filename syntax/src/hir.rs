@@ -127,22 +127,8 @@ impl Pipeline {
         let mut nodes = Vec::new();
 
         while let Some(node) = current_node.take() {
-            match node {
-                PipelineNode::Source(id) => {
-                    nodes.push(*id);
-                },
-                PipelineNode::Model { model, previous } => {
-                    nodes.push(*model);
-                    current_node = Some(&**previous);
-                },
-                PipelineNode::ProcBlock {
-                    proc_block,
-                    previous,
-                } => {
-                    nodes.push(*proc_block);
-                    current_node = Some(&**previous);
-                },
-            }
+            nodes.push(node.id());
+            current_node = node.previous();
         }
 
         nodes.into_iter().rev()
@@ -160,6 +146,30 @@ pub enum PipelineNode {
         proc_block: HirId,
         previous: Box<PipelineNode>,
     },
+    Sink {
+        sink: HirId,
+        previous: Box<PipelineNode>,
+    },
+}
+
+impl PipelineNode {
+    pub fn previous(&self) -> Option<&PipelineNode> {
+        match self {
+            PipelineNode::Source(_) => None,
+            PipelineNode::Model { previous, .. } => Some(&**previous),
+            PipelineNode::ProcBlock { previous, .. } => Some(&**previous),
+            PipelineNode::Sink { previous, .. } => Some(&**previous),
+        }
+    }
+
+    pub fn id(&self) -> HirId {
+        match self {
+            PipelineNode::Source(id)
+            | PipelineNode::Model { model: id, .. }
+            | PipelineNode::ProcBlock { proc_block: id, .. }
+            | PipelineNode::Sink { sink: id, .. } => *id,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

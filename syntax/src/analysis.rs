@@ -264,6 +264,11 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
                     proc_block: id,
                     previous: Box::new(pipeline_node),
                 };
+            } else if self.rune.sinks.contains_key(&id) {
+                pipeline_node = PipelineNode::Sink {
+                    sink: id,
+                    previous: Box::new(pipeline_node),
+                };
             } else {
                 self.error("Unknown pipeline node type", step.span);
                 return HirId::ERROR;

@@ -7,6 +7,6 @@ PROC_BLOCK<_,_> mod360 hotg-ai/rune#proc_blocks/modulo --modulo 100
 
 MODEL<I32, F32> sine ./sinemodel.tflite
 
-RUN rand mod360 sine
-
 OUT serial
+
+RUN rand mod360 sine serial

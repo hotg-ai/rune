@@ -2,6 +2,7 @@ use anyhow::{Context as _, Error};
 use handlebars::{
     Context, Handlebars, Helper, Output, RenderContext, RenderError,
 };
+use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
     hir::{Rune, Sink, SourceKind},
@@ -145,6 +146,7 @@ impl Generator {
         let ctx = json!({
             "models": self.models(),
             "capabilities": self.capabilities(),
+            "proc_blocks": self.proc_blocks(),
             "outputs": self.outputs(),
             "pipeline": self.pipeline(),
         });
@@ -163,13 +165,22 @@ impl Generator {
     }
 
     fn outputs(&self) -> Vec<Value> {
-        self.rune
-            .sinks
-            .values()
-            .map(|sink| match sink {
-                Sink::Serial => Value::from("SERIAL"),
-            })
-            .collect()
+        let mut blocks = Vec::new();
+
+        for (&id, sink) in &self.rune.sinks {
+            if let Some(name) = self.rune.names.get_name(id) {
+                let type_name = match sink {
+                    Sink::Serial => "Serial",
+                };
+
+                blocks.push(json!({
+                    "name": name,
+                    "type": type_name,
+                }));
+            }
+        }
+
+        blocks
     }
 
     fn capabilities(&self) -> Vec<Value> {
@@ -194,6 +205,25 @@ impl Generator {
         }
 
         capabilities
+    }
+
+    fn proc_blocks(&self) -> Vec<Value> {
+        let mut blocks = Vec::new();
+
+        for (&id, proc_block) in &self.rune.proc_blocks {
+            if let Some(name) = self.rune.names.get_name(id) {
+                let module_name = proc_block.name();
+                let type_name =
+                    format!("{}::{}", module_name, module_name.to_camel_case());
+
+                blocks.push(json!({
+                    "name": name,
+                    "type": type_name,
+                }));
+            }
+        }
+
+        blocks
     }
 
     fn pipeline(&self) -> Vec<Value> {
@@ -298,7 +328,7 @@ fn dependency_info(
     const BUILTIN_PROC_BLOCKS: &[&str] =
         &["mod360", "modulo", "normalize", "ohv_label"];
 
-    let name = dbg!(proc.name());
+    let name = proc.name();
 
     if BUILTIN_PROC_BLOCKS.contains(&name) {
         let path = rune_project_dir.join("proc_blocks").join(name);

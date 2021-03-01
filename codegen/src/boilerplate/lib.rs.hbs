@@ -25,20 +25,23 @@ pub extern "C" fn _manifest() -> u32 {
         let {{this}} = Model::load(include_bytes!("{{this}}.tflite"));
         {{~ /each~}}
 
+        {{~#each proc_blocks}}
+        let {{name}} = {{type}}::default();
+        {{~ /each~}}
+
         {{~#each outputs}}
-        {{#if (eq kind "SERIAL")~}}
-        let serial = Serial::new();
-        {{~/if~}}
+        let {{name}} = {{type}}::default();
         {{~/each}}
 
         PIPELINE = Some(Box::new(|| {
             {{#each pipeline~}}
             {{~#if first~}}
             let data = {{name}}.generate();
-            {{~else}}
+            {{else}}{{#if last}}
+            {{name}}.consume(data);
+            {{~else~}}
             let data = {{name}}.transform(data);
-            {{~/if}}
-            {{~/each}}
+            {{/if}}{{/if~}}{{~/each}}
         }));
     }
 

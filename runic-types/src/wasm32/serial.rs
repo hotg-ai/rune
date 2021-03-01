@@ -1,5 +1,6 @@
 use crate::{wasm32::intrinsics, Sink, OUTPUT};
 
+#[derive(Debug, Default, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Serial {}
 

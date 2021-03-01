@@ -1274,6 +1274,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "handlebars",
+ "heck",
  "log",
  "rune-syntax",
  "serde",
