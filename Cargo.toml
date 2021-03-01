@@ -3,10 +3,9 @@ members = [
     "codegen",
     "proc_blocks/*",
     "rune",
-    "runefile-parser",
     "runic-types",
     "runic-transform",
     "syntax",
     "xtask"
 ]
-exclude = [ "examples/*", ]
+exclude = [ "examples/*" ]

@@ -29,8 +29,9 @@ literal = { float | integer | string }
 
 // Paths to external resources
 
-path = ${ path_body ~ ("@" ~ path_version)? ~ ("#" ~ path_segment ~ ("/" ~ path_segment))? }
-path_body = @{ scheme? ~ path_segment ~ ("/" ~ path_segment)* }
+path = ${ path_body ~ ("@" ~ path_version)? ~ ("#" ~ path_segments)? }
+path_body = @{ scheme? ~ path_segments }
+path_segments = @{ path_segment ~ ("/" ~ path_segment)* }
 path_segment = @{ (ASCII_ALPHANUMERIC | "-" | "_" | "." | "%" | "&")+ }
 scheme = @{ ASCII_ALPHANUMERIC+ ~ "://" }
 path_version = { (ASCII_ALPHANUMERIC | ".")+ }

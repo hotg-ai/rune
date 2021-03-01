@@ -11,7 +11,7 @@ fn we_can_compile_the_sine_example() {
 
     let mut diags = Diagnostics::new();
     let rune = rune_syntax::analyse(0, &parsed, &mut diags);
-    assert!(!diags.has_errors());
+    assert!(!diags.has_errors(), "{:?}", diags);
 
     let temp = TempDir::new().unwrap();
     let sine_dir = project_root().join("examples").join("sine");
@@ -21,6 +21,10 @@ fn we_can_compile_the_sine_example() {
         rune,
         current_directory: sine_dir,
         working_directory: temp.path().to_path_buf(),
+        rune_project_dir: Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf(),
     };
 
     if let Err(e) = rune_codegen::generate(compilation) {

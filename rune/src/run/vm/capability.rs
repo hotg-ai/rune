@@ -1,7 +1,4 @@
-use log;
-
-use runic_types::*;
-use std::collections::HashMap;
+use runic_types::CAPABILITY;
 
 mod rand;
 

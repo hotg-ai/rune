@@ -8,9 +8,7 @@ keywords = ["tinyml", "container"]
 
 
 [dependencies]
-runefile-parser = { path = "../runefile-parser" }
 runic-types = { path = "../runic-types" }
-cargo = "0.51.0"
 clap = "2.33.3"
 env_logger = "0.8.1"
 log = "0.4.11"
@@ -23,4 +21,9 @@ anyhow = "1.0.38"
 rune-syntax = { path = "../syntax" }
 codespan-reporting = "0.11.0"
 rune-codegen = { path = "../codegen" }
+dirs = "3.0.1"
+
+[dev-dependencies]
+assert_cmd = "1.0.3"
+predicates = "1.0.7"
 

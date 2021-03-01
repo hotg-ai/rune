@@ -42,6 +42,7 @@ impl CAPABILITY {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(non_camel_case_types)]
 pub enum PARAM_TYPE {
     INT = 1,
     FLOAT = 2,

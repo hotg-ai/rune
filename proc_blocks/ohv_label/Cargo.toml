@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-runic-types = { git="ssh://github.com/hotg-ai/rune.git", branch="feature/gesture"}
+runic-types = { path = "../../runic-types"}
 
 [dev-dependencies]
 rand = "0.8.3"

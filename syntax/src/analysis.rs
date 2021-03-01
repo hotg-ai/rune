@@ -512,6 +512,7 @@ mod tests {
             got.base_image,
             Some(Path::new(
                 "runicos/base",
+                None,
                 "1.0".to_string(),
                 Span::new(5, 21)
             ))

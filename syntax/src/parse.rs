@@ -146,11 +146,25 @@ fn parse_path(pair: Pair<Rule>) -> Path {
     debug_assert_eq!(pair.as_rule(), Rule::path);
     let mut pair = pair.into_inner();
 
-    let body = pair.next().unwrap().as_str().to_string();
-    let version = pair.next().map(|p| p.as_str().to_string());
+    let base = pair.next().unwrap().as_str().to_string();
+
+    let (version, sub_path) = match (pair.next(), pair.next()) {
+        (Some(version), Some(sub_path)) => (
+            Some(version.as_str().to_string()),
+            Some(sub_path.as_str().to_string()),
+        ),
+        (Some(unknown), None) if unknown.as_rule() == Rule::path_version => {
+            (Some(unknown.as_str().to_string()), None)
+        },
+        (Some(unknown), None) if unknown.as_rule() == Rule::path_segments => {
+            (None, Some(unknown.as_str().to_string()))
+        },
+        _ => (None, None),
+    };
 
     Path {
-        body,
+        base,
+        sub_path,
         version,
         span,
     }
@@ -272,7 +286,7 @@ mod tests {
     fn parse_a_from_instruction() {
         let src = "FROM runicos/base";
         let should_be = FromInstruction {
-            image: Path::new("runicos/base", None, Span::new(5, 17)),
+            image: Path::new("runicos/base", None, None, Span::new(5, 17)),
             span: Span::new(0, 17),
         };
 
@@ -416,9 +430,14 @@ mod tests {
 
     #[test]
     fn parse_a_proc_block() {
-        let src = "PROC_BLOCK<_,_> mod360 hotg-ai/pb-mod --modulo 100";
+        let src = "PROC_BLOCK<_,_> mod360 hotg-ai/pb-mod@latest --modulo 100";
         let should_be = ProcBlockInstruction {
-            path: Path::new("hotg-ai/pb-mod", None, Span::new(23, 37)),
+            path: Path::new(
+                "hotg-ai/pb-mod",
+                None,
+                String::from("latest"),
+                Span::new(23, 44),
+            ),
             input_type: Type {
                 kind: TypeKind::Inferred,
                 span: Span::new(11, 12),
@@ -432,13 +451,13 @@ mod tests {
                 span: Span::new(16, 22),
             },
             params: vec![Argument::literal(
-                Ident::new("modulo", Span::new(38, 46)),
-                Literal::new(100, Span::new(47, 50)),
-                Span::new(38, 50),
+                Ident::new("modulo", Span::new(45, 53)),
+                Literal::new(100, Span::new(54, 57)),
+                Span::new(45, 57),
             )]
             .into_iter()
             .collect(),
-            span: Span::new(0, 50),
+            span: Span::new(0, 57),
         };
 
         let got = RunefileParser::parse(Rule::proc_block, src)
@@ -446,6 +465,25 @@ mod tests {
             .next()
             .unwrap();
         let got = parse_proc_block(got);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_path_to_file_inside_dependency() {
+        let src = "hotg-ai/rune@v1.2#proc_blocks/normalize";
+        let should_be = Path {
+            base: String::from("hotg-ai/rune"),
+            sub_path: Some(String::from("proc_blocks/normalize")),
+            version: Some(String::from("v1.2")),
+            span: Span::new(0, 39),
+        };
+
+        let got = RunefileParser::parse(Rule::path, src)
+            .unwrap()
+            .next()
+            .unwrap();
+        let got = parse_path(got);
 
         assert_eq!(got, should_be);
     }
@@ -552,6 +590,7 @@ mod tests {
         "runicos/base",
         "runicos/base@0.1.2",
         "runicos/base@latest",
+        "hotg-ai/rune#proc_blocks/normalize",
         "https://github.com/hotg-ai/rune",
         "https://github.com/hotg-ai/rune@2"
     );

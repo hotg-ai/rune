@@ -3,7 +3,6 @@ use log;
 
 use crate::run::vm::capability::*;
 use runic_types::*;
-use std::{boxed::Box, cell::RefCell};
 
 use runic_transform::{Transform, Transformable};
 
@@ -29,7 +28,7 @@ impl Provider {
         &mut self,
         idx: u32,
         input: Vec<u8>,
-        value_t: PARAM_TYPE,
+        _value_t: PARAM_TYPE,
     ) -> Result<Vec<T>, Error> {
         log::info!("HAS {} MODELS", self.models.len());
         let model = self
@@ -137,10 +136,7 @@ impl Provider {
         value: Vec<u8>,
         value_t: runic_types::PARAM_TYPE,
     ) {
-        let capability_request = match self
-            .requests
-            .get_mut(request_idx as usize)
-        {
+        match self.requests.get_mut(request_idx as usize) {
             Some(cr) => {
                 cr.set_param(key, value, value_t);
                 log::info!("Setting params for capability({})", request_idx);
