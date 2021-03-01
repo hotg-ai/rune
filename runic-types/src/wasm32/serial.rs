@@ -1,4 +1,5 @@
 use crate::{wasm32::intrinsics, Sink, OUTPUT};
+use core::fmt::Debug;
 
 #[derive(Debug, Default, PartialEq, Clone)]
 #[non_exhaustive]
@@ -14,10 +15,8 @@ impl Serial {
     }
 }
 
-impl<T> Sink<T> for Serial {
-    fn consume(&mut self, _input: T) {
-        // TODO: Wire up the VM to accept data for the serial connection. At
-        // the moment we just log the output from a model to the debug console
-        // so outputs aren't actually used.
+impl<T: Debug> Sink<T> for Serial {
+    fn consume(&mut self, input: T) {
+        crate::debug!("Serial -> {:?}", input);
     }
 }
