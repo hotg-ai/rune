@@ -8,20 +8,16 @@ keywords = ["tinyml", "container"]
 
 
 [dependencies]
-runic-types = { path = "../runic-types" }
+anyhow = "1.0.38"
 clap = "2.33.3"
+codespan-reporting = "0.11.0"
+dirs = "3.0.1"
 env_logger = "0.8.1"
 log = "0.4.11"
-rand = "0.8.3"
-wasmer-runtime = "0.17.1"
-wasmer-runtime-core = "0.17.1"
-tflite = "0.9.2"
-anyhow = "1.0.38"
-rune-syntax = { path = "../syntax" }
-codespan-reporting = "0.11.0"
 rune-codegen = { path = "../codegen" }
-dirs = "3.0.1"
 rune-runtime = { path = "../runtime" }
+rune-syntax = { path = "../syntax" }
+runic-types = { path = "../runic-types" }
 
 [dev-dependencies]
 assert_cmd = "1.0.3"

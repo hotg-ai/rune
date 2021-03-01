@@ -201,6 +201,7 @@ impl Generator {
             if let Some(name) = self.rune.names.get_name(id) {
                 let type_name = match &source.kind {
                     SourceKind::Random => "runic_types::wasm32::Random",
+                    // TODO: Create an accelerometer type
                     SourceKind::Accelerometer => "runic_types::wasm32::Random",
                     SourceKind::Other(name) => name.as_str(),
                 };

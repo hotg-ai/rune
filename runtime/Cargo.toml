@@ -13,7 +13,7 @@ rand = { version = "0.8.3", features = ["small_rng"] }
 runic-types = { path = "../runic-types" }
 tflite = "0.9.4"
 thiserror = "1.0.24"
-wasmer-runtime = "0.17.1"
+wasmer-runtime = { version = "0.17.1", default-features = false, features = ["default-backend-singlepass"] }
 
 [dev-dependencies]
 env_logger = "0.8.3"

@@ -30,14 +30,15 @@ impl Runtime {
         let instance = module
             .instantiate(&imports)
             .map_err(|e| match e {
-                WasmerError::CompileError(c) => Error::from(c),
                 WasmerError::LinkError(l) => Error::from(LinkErrors(l)),
-                WasmerError::RuntimeError(r) => runtime_error(r),
-                WasmerError::ResolveError(r) => Error::from(r),
-                WasmerError::CallError(CallError::Resolve(r)) => Error::from(r),
-                WasmerError::CallError(CallError::Runtime(r)) => {
+                WasmerError::RuntimeError(r)
+                | WasmerError::CallError(CallError::Runtime(r)) => {
                     runtime_error(r)
                 },
+
+                WasmerError::CompileError(c) => Error::from(c),
+                WasmerError::ResolveError(r) => Error::from(r),
+                WasmerError::CallError(CallError::Resolve(r)) => Error::from(r),
                 WasmerError::CreationError(c) => Error::from(c),
             })
             .context("Instantiation failed")?;
