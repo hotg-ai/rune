@@ -608,12 +608,16 @@ mod tests {
         assert!(!analyser.diags.has_errors());
         assert!(!id.is_error());
         assert_eq!(analyser.rune.names.get_name(id), Some("rand"));
-        let source = &analyser.rune.sources[&id];
+        let i32_by_1_type = analyser.intern_type(Type::Buffer {
+            underlying_type: analyser.builtins.i32,
+            dimensions: vec![1],
+        });
         let should_be = Source {
             kind: SourceKind::Random,
-            output_type: analyser.builtins.i32,
+            output_type: i32_by_1_type,
             parameters: capability.parameters.clone(),
         };
+        let source = &analyser.rune.sources[&id];
         assert_eq!(source, &should_be);
     }
 
