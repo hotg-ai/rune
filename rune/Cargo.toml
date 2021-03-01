@@ -8,7 +8,6 @@ keywords = ["tinyml", "container"]
 
 
 [dependencies]
-runefile-parser = { path = "../runefile-parser" }
 runic-types = { path = "../runic-types" }
 cargo = "0.51.0"
 clap = "2.33.3"
