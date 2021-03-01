@@ -101,7 +101,7 @@ pub extern "C" fn _manifest() -> u32 {
         let rand_capability_idx = request_capability(CAPABILITY::RAND as u32);
         /// SET RAND CAPABILITY PARMS
         let key = b"n";
-        let value: &[u8; 4] = &u32::to_be_bytes(1u32);
+        let value: &[u8; 4] = &u32::to_le_bytes(1u32);
         request_capability_set_param(
             rand_capability_idx,
             key.as_ptr(),

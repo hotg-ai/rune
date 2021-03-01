@@ -94,12 +94,6 @@ extern "C" {
         capability_idx: u32
     ) -> u32;
 
-    fn request_model_response(
-        provider_response_idx: *const u8,
-        max_allowed_provider_response: u32,
-        model_idx: u32
-    ) -> u32;
-
 }
 
 fn debug(s: &[u8]) -> u32 {
