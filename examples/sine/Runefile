@@ -1,4 +1,3 @@
-
 FROM runicos/base
 
 CAPABILITY<F32> rand RAND --n 1

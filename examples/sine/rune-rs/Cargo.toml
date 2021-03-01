@@ -1,18 +1,23 @@
 [package]
-name = "rune"
+name = "sine"
 version = "0.1.0"
-authors = ["HOTG-AI"]
+authors = ["The Rune Developers"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-no-std-compat = "0.4.1"
-wee_alloc = "0.4.5"
-runic-types = { path = "../../../runic-types" }
+publish = false
 
 [lib]
 crate-type = ["cdylib"]
+path = "lib.rs"
+
+[dependencies]
+
+wee_alloc = { version = "0.4.5" }
+
+once_cell = { default-features = false, version = "1.7.0" }
+
+runic-types = { path = "/home/michael/Documents/hotg-ai/rune/runic-types" }
+
+modulo = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/modulo" }
 
 
 [profile.dev]
@@ -22,7 +27,3 @@ panic = "abort"
 opt-level = "s"
 codegen-units = 1
 lto = true
-
-
-
-

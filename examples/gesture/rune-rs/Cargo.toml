@@ -1,16 +1,25 @@
 [package]
-name = "rune"
+name = "gesture"
 version = "0.1.0"
-authors = ["HOTG"]
+authors = ["The Rune Developers"]
 edition = "2018"
+publish = false
 
-[dependencies]
-no-std-compat = "0.4.1"
-wee_alloc = "0.4.5"
-runic-types = { path = "../../runic-types" } #change to github on deployment
-runic-transform = { path = "../../runic-transform" }
 [lib]
 crate-type = ["cdylib"]
+path = "lib.rs"
+
+[dependencies]
+
+wee_alloc = { version = "0.4.5" }
+
+once_cell = { default-features = false, version = "1.7.0" }
+
+runic-types = { path = "/home/michael/Documents/hotg-ai/rune/runic-types" }
+
+normalize = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/normalize" }
+
+ohv_label = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/ohv_label" }
 
 
 [profile.dev]
@@ -20,7 +29,3 @@ panic = "abort"
 opt-level = "s"
 codegen-units = 1
 lto = true
-
-
-
-
