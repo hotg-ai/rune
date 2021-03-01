@@ -1260,7 +1260,7 @@ name = "normalize"
 version = "0.1.0"
 dependencies = [
  "rand",
- "runic-types 0.1.0 (git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture)",
+ "runic-types",
 ]
 
 [[package]]
@@ -1293,7 +1293,7 @@ name = "ohv_label"
 version = "0.1.0"
 dependencies = [
  "rand",
- "runic-types 0.1.0 (git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture)",
+ "runic-types",
 ]
 
 [[package]]
@@ -1713,7 +1713,7 @@ dependencies = [
  "rune-codegen",
  "rune-syntax",
  "runic-transform",
- "runic-types 0.1.0",
+ "runic-types",
  "tflite",
  "wasmer-runtime",
  "wasmer-runtime-core",
@@ -1748,13 +1748,8 @@ name = "runic-transform"
 version = "0.1.0"
 dependencies = [
  "rand",
- "runic-types 0.1.0",
+ "runic-types",
 ]
-
-[[package]]
-name = "runic-types"
-version = "0.1.0"
-source = "git+ssh://github.com/hotg-ai/rune.git?branch=feature/gesture#b5337e7132763311ab9f155b11d09857a3be62e0"
 
 [[package]]
 name = "runic-types"
