@@ -31,8 +31,8 @@ pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
             .unwrap();
     }
 
-    if !diags.is_empty() {
-        panic!("There were errors");
+    if diags.has_errors() {
+        anyhow::bail!("Aborting compilation due to errors.");
     }
 
     let current_directory = runefile.parent().unwrap().to_path_buf();
