@@ -1261,7 +1261,6 @@ dependencies = [
  "rune-codegen",
  "rune-runtime",
  "rune-syntax",
- "runic-transform",
  "runic-types",
  "tflite",
  "wasmer-runtime",
@@ -1291,7 +1290,6 @@ dependencies = [
  "env_logger 0.8.3",
  "log",
  "rand",
- "runic-transform",
  "runic-types",
  "tflite",
  "thiserror",
@@ -1307,14 +1305,6 @@ dependencies = [
  "pest",
  "pest_derive",
  "pretty_assertions",
-]
-
-[[package]]
-name = "runic-transform"
-version = "0.1.0"
-dependencies = [
- "rand",
- "runic-types",
 ]
 
 [[package]]

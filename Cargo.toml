@@ -4,7 +4,6 @@ members = [
     "proc_blocks/*",
     "rune",
     "runic-types",
-    "runic-transform",
     "runtime",
     "syntax",
     "xtask"

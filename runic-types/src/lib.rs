@@ -5,15 +5,13 @@
     feature(core_intrinsics, lang_items, alloc_error_handler)
 )]
 
-#[macro_use]
+#[cfg(target_arch = "wasm32")]
 extern crate alloc;
-
-pub mod marshall;
-mod pipelines;
-pub mod proc_block;
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm32;
+
+mod pipelines;
 
 pub use pipelines::{Sink, Source, Transform};
 

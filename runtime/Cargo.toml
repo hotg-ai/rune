@@ -10,7 +10,6 @@ edition = "2018"
 anyhow = "1.0.38"
 log = "0.4.14"
 rand = { version = "0.8.3", features = ["small_rng"] }
-runic-transform = { path = "../runic-transform" }
 runic-types = { path = "../runic-types" }
 tflite = "0.9.4"
 thiserror = "1.0.24"
