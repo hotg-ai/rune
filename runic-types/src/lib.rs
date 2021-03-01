@@ -42,21 +42,21 @@ impl CAPABILITY {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum PARAM_TYPE {
+pub enum PARAMTYPE {
     INT = 1,
     FLOAT = 2,
     UTF8 = 3,
     BINARY = 4,
 }
 
-impl PARAM_TYPE {
-    pub fn from_u32(value: u32) -> PARAM_TYPE {
+impl PARAMTYPE {
+    pub fn from_u32(value: u32) -> PARAMTYPE {
         match value {
-            1 => PARAM_TYPE::INT,
-            2 => PARAM_TYPE::FLOAT,
-            3 => PARAM_TYPE::UTF8,
-            4 => PARAM_TYPE::BINARY,
-            _ => PARAM_TYPE::BINARY,
+            1 => PARAMTYPE::INT,
+            2 => PARAMTYPE::FLOAT,
+            3 => PARAMTYPE::UTF8,
+            4 => PARAMTYPE::BINARY,
+            _ => PARAMTYPE::BINARY,
         }
     }
 }

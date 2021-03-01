@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(alloc, core_intrinsics, lang_items, alloc_error_handler)]
+#![feature(core_intrinsics, lang_items, alloc_error_handler)]
 extern crate alloc;
 extern crate wee_alloc;
 
@@ -57,10 +57,10 @@ static mut PROVIDER_RESPONSE_BUFFER: [u8; PROVIDER_RESPONSE_BUFFER_SIZE] =
 
 
 
-const MODEL_INPUT_BUFFER_SIZE: usize = 4096*8;
+// const MODEL_INPUT_BUFFER_SIZE: usize = 4096*8;
 
-static mut MODEL_INPUT_BUFFER: [u8; MODEL_INPUT_BUFFER_SIZE] =
-    [0; MODEL_INPUT_BUFFER_SIZE];
+// static mut MODEL_INPUT_BUFFER: [u8; MODEL_INPUT_BUFFER_SIZE] =
+//     [0; MODEL_INPUT_BUFFER_SIZE];
 
 static mut PRINT_BUF: [u8;512] = [0 as u8; 512];
 
@@ -94,6 +94,12 @@ extern "C" {
         capability_idx: u32
     ) -> u32;
 
+    fn request_model_response(
+        provider_response_idx: *const u8,
+        max_allowed_provider_response: u32,
+        model_idx: u32
+    ) -> u32;
+
 }
 
 fn debug(s: &[u8]) -> u32 {
@@ -116,7 +122,7 @@ pub extern "C" fn _manifest() -> u32 {
         
         let key = b"n";       
         let value: &[u8; 4] = &u32::to_be_bytes(128u32); 
-        request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
+        request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAMTYPE::INT as u32);
 
         // 
         request_manifest_output(OUTPUT::SERIAL as u32);
@@ -128,7 +134,7 @@ pub extern "C" fn _manifest() -> u32 {
 
 #[no_mangle]
 #[warn(unused_must_use)]
-pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32) -> i32 {
+pub extern "C" fn _call(_capability_type:i32, input_type:i32, capability_idx:i32) -> i32 {
     
     debug(b"Checking for Data");
     
@@ -144,7 +150,7 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
          
         if response_size > 0 {
             let response_size = response_size as usize;
-            if input_type == runic_types::PARAM_TYPE::FLOAT as i32 {
+            if input_type == runic_types::PARAMTYPE::FLOAT as i32 {
                 let accel_sample: &[u8] = &PROVIDER_RESPONSE_BUFFER[0..response_size];
                 let accel_sample: Vec<f32> = runic_transform::RTransform::<f32,f32>::from_buffer(&accel_sample.to_vec()).unwrap();
                 debug(b"Trace::request_provider_response returned response");
@@ -156,36 +162,36 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
                     *element =  accel_sample[i];
                     i = i+ 1;
                 }
-              
+                
+
+                debug(b"Transformed");
                 
                 let mut norm_pb: Normalize = Normalize{}; 
                 let mut pipeline = PipelineContext{};
                 let proc_block_output: [f32; 384] = norm_pb.transform(input, &mut pipeline);
-                
-                let mut i = 0; 
-                for element in proc_block_output.iter() {
-                    let f: f32 = proc_block_output[i];
-                    let f = f.to_be_bytes();
-                    MODEL_INPUT_BUFFER[i] = f[3];
-                    MODEL_INPUT_BUFFER[i+1] = f[2];
-                    MODEL_INPUT_BUFFER[i+2] = f[1];
-                    MODEL_INPUT_BUFFER[i+3] = f[0];
+                //let pbo = runic_transform::RTransform::<f32,f32>::to_buffer(&proc_block_output.to_vec()).unwrap();
 
-                    i = i + 4;
-                    
+                let mut out: Vec<u8> = Vec::with_capacity(384*4);
+                let input_size = proc_block_output.len();
+                for input_idx in 0..input_size {
+                    let input = input[input_idx];
+        
+                    let input = input.to_be_bytes();
+        
+                    out.push(input[0]);
+                    out.push(input[1]);
+                    out.push(input[2]);
+                    out.push(input[3]);
                 }
-                
-                debug(b"Finished PB and vec<u8> normalizing\n");
+
+                let pbo = &out[..];
             
-                debug(b"Finished preparing buffer");
-                // // Processing 
-                
                  tfm_model_invoke(
-                                MODEL_INPUT_BUFFER.as_ptr() as *const u8,
-                                proc_block_output.len() as u32,
+                                pbo.as_ptr() as *const u8,
+                                pbo.len() as u32,
                             );
-                
-                 return proc_block_output.len() as i32; //proc_block_output.len() as i32;
+                debug(b"Sending shit\n");
+                return pbo.len() as i32;
 
             }
             //debug(b"Have a response\r\n");
