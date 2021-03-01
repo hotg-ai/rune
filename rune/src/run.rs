@@ -15,7 +15,10 @@ pub struct Run {
     /// The number of times to execute this rune
     #[structopt(short, long, default_value = "1")]
     repeats: usize,
-    /// Pass information to a capability.
+    /// Pass information to a capability as `key:value` pairs.
+    ///
+    /// Supported keys are `random` for seeding the random number generator
+    /// and `accelerometer` for providing accelerometer samples.
     #[structopt(short, long = "capability")]
     capabilities: Vec<Capability>,
 }
@@ -100,7 +103,10 @@ impl FromStr for Capability {
                     filename: PathBuf::from(value),
                 })
             },
-            other => anyhow::bail!("Unknown capability: \"{}\"", other),
+            other => anyhow::bail!(
+                "Supported capabilities are \"random\" and \"accelerometer\", found \"{}\"",
+                other,
+            ),
         }
     }
 }
