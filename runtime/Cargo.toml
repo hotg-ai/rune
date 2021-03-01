@@ -1,0 +1,20 @@
+[package]
+name = "rune-runtime"
+version = "0.1.0"
+authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.38"
+log = "0.4.14"
+rand = { version = "0.8.3", features = ["small_rng"] }
+runic-transform = { path = "../runic-transform" }
+runic-types = { path = "../runic-types" }
+tflite = "0.9.4"
+thiserror = "1.0.24"
+wasmer-runtime = "0.17.1"
+
+[dev-dependencies]
+env_logger = "0.8.3"

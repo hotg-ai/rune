@@ -1,12 +1,12 @@
 use codespan_reporting::diagnostic::{Diagnostic, Severity};
 
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct Diagnostics(Vec<Diagnostic<usize>>);
+pub struct Diagnostics<FileId>(Vec<Diagnostic<FileId>>);
 
-impl Diagnostics {
+impl<FileId> Diagnostics<FileId> {
     pub fn new() -> Self { Diagnostics(Vec::new()) }
 
-    pub fn iter(&self) -> impl Iterator<Item = &'_ Diagnostic<usize>> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = &'_ Diagnostic<FileId>> + '_ {
         self.0.iter()
     }
 
@@ -18,14 +18,14 @@ impl Diagnostics {
 
     pub fn has_warnings(&self) -> bool { self.has_severity(Severity::Warning) }
 
-    pub fn push(&mut self, diag: Diagnostic<usize>) { self.0.push(diag); }
+    pub fn push(&mut self, diag: Diagnostic<FileId>) { self.0.push(diag); }
 
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 }
 
-impl<'a> IntoIterator for &'a Diagnostics {
-    type IntoIter = <&'a Vec<Diagnostic<usize>> as IntoIterator>::IntoIter;
-    type Item = &'a Diagnostic<usize>;
+impl<'a, FileId> IntoIterator for &'a Diagnostics<FileId> {
+    type IntoIter = <&'a Vec<Diagnostic<FileId>> as IntoIterator>::IntoIter;
+    type Item = &'a Diagnostic<FileId>;
 
     fn into_iter(self) -> Self::IntoIter { self.0.iter() }
 }

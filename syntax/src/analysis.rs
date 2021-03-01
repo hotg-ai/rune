@@ -13,12 +13,10 @@ use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::{collections::HashMap, path::PathBuf};
 
-type FileId = usize;
-
-pub fn analyse(
+pub fn analyse<FileId: Copy>(
     file_id: FileId,
     runefile: &Runefile,
-    diags: &mut Diagnostics,
+    diags: &mut Diagnostics<FileId>,
 ) -> Rune {
     let mut analyser = Analyser::new(file_id, diags);
 
@@ -29,16 +27,16 @@ pub fn analyse(
 }
 
 #[derive(Debug)]
-struct Analyser<'diag> {
-    diags: &'diag mut Diagnostics,
+struct Analyser<'diag, FileId> {
+    diags: &'diag mut Diagnostics<FileId>,
     file_id: FileId,
     rune: Rune,
     ids: HirIds,
     builtins: Builtins,
 }
 
-impl<'diag> Analyser<'diag> {
-    fn new(file_id: FileId, diags: &'diag mut Diagnostics) -> Self {
+impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
+    fn new(file_id: FileId, diags: &'diag mut Diagnostics<FileId>) -> Self {
         let mut rune = Rune::default();
 
         let mut ids = HirIds::new();
@@ -359,8 +357,8 @@ impl<'diag> Analyser<'diag> {
     }
 }
 
-fn warn_on_unknown_type<'a, I, T, F>(
-    diags: &mut Diagnostics,
+fn warn_on_unknown_type<'a, I, T, F, FileId>(
+    diags: &mut Diagnostics<FileId>,
     spans: &HashMap<HirId, Span>,
     file_id: FileId,
     items: I,
@@ -370,6 +368,7 @@ fn warn_on_unknown_type<'a, I, T, F>(
     I: IntoIterator<Item = (&'a HirId, &'a T)> + 'a,
     T: 'a,
     F: FnMut(&T) -> bool,
+    FileId: Copy,
 {
     for (id, value) in items {
         if filter(value) {
@@ -458,24 +457,18 @@ mod tests {
     use super::*;
     use crate::ast::{Argument, Ident, Literal, Path};
     use codespan::Span;
-    use codespan_reporting::files::SimpleFiles;
 
-    fn setup_analyser(diags: &mut Diagnostics) -> Analyser<'_> {
-        let mut files = SimpleFiles::new();
-        let id = files.add("", "");
-        Analyser::new(id, diags)
+    fn setup_analyser(diags: &mut Diagnostics<()>) -> Analyser<'_, ()> {
+        Analyser::new((), diags)
     }
 
-    fn setup(src: &str) -> (FileId, Runefile) {
-        let mut files = SimpleFiles::new();
-        let id = files.add("", src.to_string());
-
+    fn setup(src: &str) -> ((), Runefile) {
         let runefile = match crate::parse(src) {
             Ok(r) => r,
             Err(e) => panic!("{}", e),
         };
 
-        (id, runefile)
+        ((), runefile)
     }
 
     #[test]

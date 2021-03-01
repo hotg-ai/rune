@@ -5,6 +5,7 @@ members = [
     "rune",
     "runic-types",
     "runic-transform",
+    "runtime",
     "syntax",
     "xtask"
 ]
