@@ -10,13 +10,24 @@ pub trait Environment: 'static {
 #[derive(Debug, Clone)]
 pub struct DefaultEnvironment {
     rng: SmallRng,
+    accelerometer_samples: Vec<[f32; 3]>,
 }
 
 impl DefaultEnvironment {
     pub fn with_seed(seed: [u8; 32]) -> Self {
         DefaultEnvironment {
             rng: SmallRng::from_seed(seed),
+            accelerometer_samples: Vec::new(),
         }
+    }
+
+    /// Reset the [`Environment::rng()`]'s seed.
+    pub fn seed_rng(&mut self, seed: u64) {
+        self.rng = SmallRng::seed_from_u64(seed);
+    }
+
+    pub fn set_accelerometer_data(&mut self, samples: Vec<[f32; 3]>) {
+        self.accelerometer_samples = samples;
     }
 }
 

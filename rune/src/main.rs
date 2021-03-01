@@ -1,12 +1,13 @@
 mod build;
 mod run;
 
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 use build::Build;
 use anyhow::Error;
 use codespan_reporting::term::termcolor;
 use structopt::StructOpt;
 use env_logger::{Env, WriteStyle};
+use run::Run;
 
 const DEFAULT_RUST_LOG: &str = concat!(
     "info,",
@@ -29,7 +30,7 @@ fn main() -> Result<(), Error> {
 
     match cmd {
         Cmd::Build(build) => build.execute(colour.into()),
-        Cmd::Run { rune, repeats } => run::run(rune, repeats),
+        Cmd::Run(run) => run.execute(),
     }
 }
 
@@ -92,19 +93,5 @@ enum Cmd {
     /// Compile a Runefile into a Rune.
     Build(Build),
     /// Run a rune.
-    Run {
-        #[structopt(help = "The Rune to run.", parse(from_os_str))]
-        rune: PathBuf,
-        #[structopt(
-            short,
-            long,
-            help = "The number of times to execute this rune",
-            default_value = "1"
-        )]
-        repeats: usize,
-    },
-}
-
-enum Capability {
-    Random { seed: u64 },
+    Run(Run),
 }
