@@ -22,20 +22,23 @@ impl Runtime {
     where
         E: Environment + Send + Sync + 'static,
     {
+        log::debug!("Compiling the WebAssembly to native code");
         let module = wasmer_runtime::compile(rune)
             .context("WebAssembly compilation failed")?;
         let imports = onetime_import_object(env);
+        log::debug!("Instantiating the WebAssembly module");
         let instance = module
             .instantiate(&imports)
             .map_err(|e| match e {
-                WasmerError::CompileError(c) => Error::from(c),
                 WasmerError::LinkError(l) => Error::from(LinkErrors(l)),
-                WasmerError::RuntimeError(r) => runtime_error(r),
-                WasmerError::ResolveError(r) => Error::from(r),
-                WasmerError::CallError(CallError::Resolve(r)) => Error::from(r),
-                WasmerError::CallError(CallError::Runtime(r)) => {
+                WasmerError::RuntimeError(r)
+                | WasmerError::CallError(CallError::Runtime(r)) => {
                     runtime_error(r)
                 },
+
+                WasmerError::CompileError(c) => Error::from(c),
+                WasmerError::ResolveError(r) => Error::from(r),
+                WasmerError::CallError(CallError::Resolve(r)) => Error::from(r),
                 WasmerError::CreationError(c) => Error::from(c),
             })
             .context("Instantiation failed")?;
@@ -50,6 +53,8 @@ impl Runtime {
             .call()
             .map_err(runtime_error)
             .context("Unable to call the _manifest function")?;
+
+        log::debug!("Loaded the Rune");
 
         Ok(Runtime { instance })
     }

@@ -8,7 +8,7 @@ use codespan_reporting::{
 };
 use rune_codegen::Compilation;
 use rune_syntax::Diagnostics;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
     let runefile = runefile.as_ref();
@@ -50,12 +50,10 @@ pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
     let compilation = Compilation {
         name: name.to_string_lossy().into_owned(),
         rune,
+        rune_project_dir: nearest_git_repo(),
         current_directory,
         working_directory,
-        rune_project_dir: Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .to_path_buf(),
+        optimized: true,
     };
     let blob = rune_codegen::generate(compilation)
         .context("Rune compilation failed")?;
@@ -65,4 +63,16 @@ pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
     })?;
 
     Ok(())
+}
+
+fn nearest_git_repo() -> PathBuf {
+    let current_dir = std::env::current_dir().unwrap();
+
+    for parent in current_dir.ancestors() {
+        if parent.join(".git").exists() {
+            return parent.to_path_buf();
+        }
+    }
+
+    panic!("Unable to find the rune project root");
 }

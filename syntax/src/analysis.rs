@@ -128,8 +128,8 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
     fn load_model(&mut self, model: &ModelInstruction) -> HirId {
         let hir = Model {
-            input: self.builtins.unknown_type,
-            output: self.builtins.unknown_type,
+            input: self.interpret_type(&model.input_type),
+            output: self.interpret_type(&model.output_type),
             model_file: PathBuf::from(&model.file),
         };
         let id = self.ids.next();
@@ -177,26 +177,40 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     fn interpret_type(&mut self, ty: &crate::ast::Type) -> HirId {
         match &ty.kind {
             crate::ast::TypeKind::Inferred => self.builtins.unknown_type,
-            crate::ast::TypeKind::Named(name) => self.primitive_type(name),
+            crate::ast::TypeKind::Named(name) => {
+                // Everything gets passed around as an array, so a plain
+                // `T` gets turned into a `[T; 1]`.
+                let underlying_type = self.primitive_type(name);
+                self.intern_type(Type::Buffer {
+                    underlying_type,
+                    dimensions: vec![1],
+                })
+            },
             crate::ast::TypeKind::Buffer {
                 type_name,
                 dimensions,
             } => {
                 let underlying_type = self.primitive_type(type_name);
-                let ty = Type::Buffer {
+                self.intern_type(Type::Buffer {
                     underlying_type,
                     dimensions: dimensions.clone(),
-                };
+                })
+            },
+        }
+    }
 
-                match self.rune.types.iter().find(|(_, t)| **t == ty) {
-                    Some((id, _)) => *id,
-                    None => {
-                        // new buffer type
-                        let id = self.ids.next();
-                        self.rune.types.insert(id, ty);
-                        id
-                    },
-                }
+    /// Add a type to the rune, returning its [`HirId`].
+    ///
+    /// Adding the same type multiple times is guaranteed to return the same
+    /// [`HirId`].
+    fn intern_type(&mut self, ty: Type) -> HirId {
+        match self.rune.types.iter().find(|(_, t)| **t == ty) {
+            Some((id, _)) => *id,
+            None => {
+                // new buffer type
+                let id = self.ids.next();
+                self.rune.types.insert(id, ty);
+                id
             },
         }
     }
@@ -237,15 +251,19 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
         let source = self.get_named(first);
 
-        if !self.rune.sources.contains_key(&source) {
-            self.error(
-                "RUN instructions must start with a CAPABILITY",
-                first.span,
-            );
-            return HirId::ERROR;
-        }
-
-        let mut pipeline_node = PipelineNode::Source(source);
+        let mut pipeline_node = match self.rune.sources.get(&source) {
+            Some(s) => PipelineNode::Source {
+                source,
+                output_type: s.output_type,
+            },
+            None => {
+                self.error(
+                    "RUN instructions must start with a CAPABILITY",
+                    first.span,
+                );
+                return HirId::ERROR;
+            },
+        };
 
         for step in rest {
             let id = self.get_named(step);
@@ -254,14 +272,21 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
                 return HirId::ERROR;
             }
 
-            if self.rune.models.contains_key(&id) {
+            if let Some(model) = self.rune.models.get(&id) {
                 pipeline_node = PipelineNode::Model {
                     model: id,
                     previous: Box::new(pipeline_node),
+                    output_type: model.output,
                 };
-            } else if self.rune.proc_blocks.contains_key(&id) {
+            } else if let Some(proc_block) = self.rune.proc_blocks.get(&id) {
                 pipeline_node = PipelineNode::ProcBlock {
-                    model: id,
+                    proc_block: id,
+                    previous: Box::new(pipeline_node),
+                    output_type: proc_block.output,
+                };
+            } else if self.rune.sinks.contains_key(&id) {
+                pipeline_node = PipelineNode::Sink {
+                    sink: id,
                     previous: Box::new(pipeline_node),
                 };
             } else {
@@ -272,7 +297,6 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
         let pipeline = Pipeline {
             last_step: pipeline_node,
-            output_type: self.builtins.unknown_type,
         };
         let id = self.ids.next();
         self.rune.spans.insert(id, run.span);
@@ -283,17 +307,16 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
     fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) -> HirId {
         let id = self.ids.next();
-        self.rune.spans.insert(id, proc_block.span);
-        self.rune.proc_blocks.insert(
-            id,
-            ProcBlock {
-                input: self.builtins.unknown_type,
-                output: self.builtins.unknown_type,
-                path: proc_block.path.clone(),
-                params: proc_block.params.clone(),
-            },
-        );
         self.rune.names.register(&proc_block.name.value, id);
+        self.rune.spans.insert(id, proc_block.span);
+
+        let pb = ProcBlock {
+            input: self.interpret_type(&proc_block.input_type),
+            output: self.interpret_type(&proc_block.output_type),
+            path: proc_block.path.clone(),
+            params: proc_block.params.clone(),
+        };
+        self.rune.proc_blocks.insert(id, pb);
 
         id
     }
@@ -585,12 +608,16 @@ mod tests {
         assert!(!analyser.diags.has_errors());
         assert!(!id.is_error());
         assert_eq!(analyser.rune.names.get_name(id), Some("rand"));
-        let source = &analyser.rune.sources[&id];
+        let i32_by_1_type = analyser.intern_type(Type::Buffer {
+            underlying_type: analyser.builtins.i32,
+            dimensions: vec![1],
+        });
         let should_be = Source {
             kind: SourceKind::Random,
-            output_type: analyser.builtins.i32,
+            output_type: i32_by_1_type,
             parameters: capability.parameters.clone(),
         };
+        let source = &analyser.rune.sources[&id];
         assert_eq!(source, &should_be);
     }
 

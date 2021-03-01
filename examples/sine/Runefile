@@ -1,12 +1,11 @@
-
 FROM runicos/base
 
-CAPABILITY<I32> rand RAND --n 1
+CAPABILITY<F32> rand RAND --n 1
 
-PROC_BLOCK<_,_> mod360 hotg-ai/rune#proc_blocks/mod360 --modulo 100
+PROC_BLOCK<_,_> mod360 hotg-ai/rune#proc_blocks/modulo --modulus 3.14
 
-MODEL<I32, F32> sine ./sinemodel.tflite
-
-RUN rand mod360 sine
+MODEL<F32, F32> sine ./sinemodel.tflite
 
 OUT serial
+
+RUN rand mod360 sine serial

@@ -1,10 +1,9 @@
 use anyhow::{Context as _, Error};
-use handlebars::{
-    Context, Handlebars, Helper, Output, RenderContext, RenderError,
-};
+use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError};
+use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{Rune, Sink, SourceKind},
+    hir::{HirId, Rune, Sink, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -25,7 +24,11 @@ pub struct Compilation {
     pub working_directory: PathBuf,
     /// The directory that all paths (e.g. to models) are resolved relative to.
     pub current_directory: PathBuf,
+    /// The root directory for the `rune` project (used for locating
+    /// dependencies).
     pub rune_project_dir: PathBuf,
+    /// Generate an optimized build.
+    pub optimized: bool,
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
@@ -37,11 +40,17 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
     generator.render()?;
     generator.compile()?;
 
+    let build_dir = if generator.optimized {
+        "release"
+    } else {
+        "debug"
+    };
+
     let wasm = generator
         .dest
         .join("target")
         .join("wasm32-unknown-unknown")
-        .join("release")
+        .join(build_dir)
         .join(&generator.name)
         .with_extension("wasm");
 
@@ -56,12 +65,14 @@ struct Generator {
     dest: PathBuf,
     current_directory: PathBuf,
     rune_project_dir: PathBuf,
+    optimized: bool,
 }
 
 impl Generator {
     fn new(compilation: Compilation) -> Self {
         let mut hbs = Handlebars::new();
         hbs.set_strict_mode(true);
+        hbs.register_escape_fn(|s| s.to_string());
 
         // Note: all these templates are within our control, so any error here
         // is the developer's fault.
@@ -88,6 +99,7 @@ impl Generator {
             working_directory,
             current_directory,
             rune_project_dir,
+            optimized,
         } = compilation;
 
         Generator {
@@ -96,6 +108,7 @@ impl Generator {
             rune,
             current_directory,
             rune_project_dir,
+            optimized,
             dest: working_directory,
         }
     }
@@ -124,8 +137,9 @@ impl Generator {
     fn render_cargo_toml(&self) -> Result<(), Error> {
         let runic_types = self.rune_project_dir.join("runic-types");
         let mut dependencies = vec![
-            json!({ "name": "wee_alloc", "deps": { "version": "0.4.5"} }),
-            json!({ "name": "runic-types", "deps": {"path": runic_types} }),
+            json!({ "name": "wee_alloc", "deps": { "version": "0.4.5" }}),
+            json!({ "name": "once_cell", "deps": { "version": "1.7.0", "default-features": false }}),
+            json!({ "name": "runic-types", "deps": { "path": runic_types }}),
         ];
 
         for proc in self.rune.proc_blocks.values() {
@@ -143,7 +157,9 @@ impl Generator {
         let ctx = json!({
             "models": self.models(),
             "capabilities": self.capabilities(),
+            "proc_blocks": self.proc_blocks(),
             "outputs": self.outputs(),
+            "pipeline": self.pipeline(),
         });
         self.render_to(self.dest.join("lib.rs"), "lib.rs", &ctx)?;
 
@@ -160,13 +176,22 @@ impl Generator {
     }
 
     fn outputs(&self) -> Vec<Value> {
-        self.rune
-            .sinks
-            .values()
-            .map(|sink| match sink {
-                Sink::Serial => Value::from("SERIAL"),
-            })
-            .collect()
+        let mut blocks = Vec::new();
+
+        for (&id, sink) in &self.rune.sinks {
+            if let Some(name) = self.rune.names.get_name(id) {
+                let type_name = match sink {
+                    Sink::Serial => "Serial",
+                };
+
+                blocks.push(json!({
+                    "name": name,
+                    "type": type_name,
+                }));
+            }
+        }
+
+        blocks
     }
 
     fn capabilities(&self) -> Vec<Value> {
@@ -174,15 +199,16 @@ impl Generator {
 
         for (&id, source) in &self.rune.sources {
             if let Some(name) = self.rune.names.get_name(id) {
-                let kind = match &source.kind {
-                    SourceKind::Random => "RAND",
-                    SourceKind::Accelerometer => "ACCEL",
+                let type_name = match &source.kind {
+                    SourceKind::Random => "runic_types::wasm32::Random",
+                    // TODO: Create an accelerometer type
+                    SourceKind::Accelerometer => "runic_types::wasm32::Random",
                     SourceKind::Other(name) => name.as_str(),
                 };
 
                 capabilities.push(json!({
                     "name": name,
-                    "kind": kind,
+                    "type": type_name,
                     "parameters": source.parameters.iter()
                         .map(|p| (&p.name.value, jsonify_arg_value(&p.value)))
                         .collect::<HashMap<_, _>>(),
@@ -191,6 +217,111 @@ impl Generator {
         }
 
         capabilities
+    }
+
+    fn proc_blocks(&self) -> Vec<Value> {
+        let mut blocks = Vec::new();
+
+        for (&id, proc_block) in &self.rune.proc_blocks {
+            if let Some(name) = self.rune.names.get_name(id) {
+                let module_name = proc_block.name();
+                let type_name =
+                    format!("{}::{}", module_name, module_name.to_camel_case());
+
+                let params: Vec<_> = proc_block
+                    .params
+                    .iter()
+                    .map(|arg| {
+                        json!({
+                            "name": arg.name.value,
+                            "value": rust_literal(&arg.value),
+                        })
+                    })
+                    .collect();
+
+                blocks.push(json!({
+                    "name": name,
+                    "type": type_name,
+                    "params": params,
+                }));
+            }
+        }
+
+        blocks
+    }
+
+    fn pipeline(&self) -> Vec<Value> {
+        #[derive(serde::Serialize)]
+        struct Stage<'a> {
+            name: &'a str,
+            first: bool,
+            last: bool,
+            output_type: Option<String>,
+        }
+
+        let pipeline = self
+            .rune
+            .pipelines
+            .values()
+            .next()
+            .expect("There should be at least one pipeline");
+
+        let mut stages = Vec::new();
+
+        for node in pipeline.iter() {
+            let name = self
+                .rune
+                .names
+                .get_name(node.id())
+                .expect("All pipeline nodes have names");
+
+            let output_type =
+                node.output_type().and_then(|t| self.rust_type_name(t));
+
+            stages.push(Stage {
+                name,
+                output_type,
+                first: false,
+                last: false,
+            });
+        }
+
+        assert!(stages.len() >= 2);
+        stages.first_mut().unwrap().first = true;
+        stages.last_mut().unwrap().last = true;
+
+        stages
+            .into_iter()
+            .map(|s| serde_json::to_value(&s).unwrap())
+            .collect()
+    }
+
+    fn rust_type_name(&self, id: HirId) -> Option<String> {
+        let ty = self.rune.types.get(&id)?;
+
+        match ty {
+            Type::Primitive(p) => Some(p.rust_name().to_string()),
+            Type::Buffer {
+                underlying_type,
+                dimensions,
+            } => self.rust_array_type_name(*underlying_type, dimensions),
+            Type::Any | Type::Unknown => None,
+        }
+    }
+
+    fn rust_array_type_name(
+        &self,
+        underlying_type: HirId,
+        dimensions: &[usize],
+    ) -> Option<String> {
+        match dimensions.split_first() {
+            Some((dim, rest)) => {
+                let inner = self.rust_array_type_name(underlying_type, rest)?;
+
+                Some(format!("[{}; {}]", inner, dim))
+            },
+            None => self.rust_type_name(underlying_type),
+        }
     }
 
     fn render_to(
@@ -236,12 +367,18 @@ impl Generator {
     }
 
     fn compile(&self) -> Result<(), Error> {
-        let status = Command::new("cargo")
-            .arg("build")
-            .arg("--release")
+        let mut cmd = Command::new("cargo");
+        cmd.arg("build")
             .arg("--target=wasm32-unknown-unknown")
             .arg("--quiet")
-            .current_dir(&self.dest)
+            .current_dir(&self.dest);
+
+        if self.optimized {
+            cmd.arg("--release");
+        }
+
+        log::debug!("Executing {:?}", cmd);
+        let status = cmd
             .status()
             .context("Unable to start `cargo`. Is it installed?")?;
 
@@ -253,6 +390,24 @@ impl Generator {
     }
 }
 
+fn rust_literal(arg: &ArgumentValue) -> String {
+    match arg {
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::Integer(i),
+            ..
+        }) => i.to_string(),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::Float(f),
+            ..
+        }) => format!("{:.1}", f),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::String(s),
+            ..
+        }) => format!("{:?}", s),
+        ArgumentValue::List(items) => format!("{:?}", items),
+    }
+}
+
 fn dependency_info(
     proc: &rune_syntax::hir::ProcBlock,
     rune_project_dir: &Path,
@@ -260,7 +415,7 @@ fn dependency_info(
     const BUILTIN_PROC_BLOCKS: &[&str] =
         &["mod360", "modulo", "normalize", "ohv_label"];
 
-    let name = dbg!(proc.name());
+    let name = proc.name();
 
     if BUILTIN_PROC_BLOCKS.contains(&name) {
         let path = rune_project_dir.join("proc_blocks").join(name);
@@ -320,12 +475,74 @@ fn to_toml(
         .param(0)
         .ok_or_else(|| RenderError::new("Missing parameter"))?;
 
-    let as_toml = toml::to_string(param.value()).map_err(|e| {
-        RenderError::from_error("Unable to serialize as toml", e)
-    })?;
-    out.write("{")?;
-    out.write(as_toml.trim())?;
-    out.write("}")?;
+    let toml = as_inline_toml(param.value());
+    out.write(&toml)?;
 
     Ok(())
+}
+
+fn as_inline_toml(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => format!("{:?}", s),
+        Value::Array(arr) => {
+            let mut buffer = String::new();
+            buffer.push_str("[ ");
+            for item in arr {
+                let item = as_inline_toml(item);
+                buffer.push_str(&item);
+            }
+            buffer.push_str(" ]");
+
+            buffer
+        },
+        Value::Object(obj) => {
+            let mut buffer = String::new();
+            buffer.push_str("{ ");
+            for (i, (key, value)) in obj.iter().enumerate() {
+                if i > 0 {
+                    buffer.push_str(", ");
+                }
+
+                buffer.push_str(key);
+                buffer.push_str(" = ");
+                let value = as_inline_toml(value);
+                buffer.push_str(&value);
+            }
+            buffer.push_str(" }");
+
+            buffer
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_object_to_inline_table() {
+        let object = json!({
+            "default-features": false,
+            "version": "1.7.0",
+        });
+
+        let got = as_inline_toml(&object);
+        assert_eq!(got, r#"{ default-features = false, version = "1.7.0" }"#);
+
+        #[derive(serde::Deserialize)]
+        struct Document {
+            temp: Temp,
+        }
+        #[derive(serde::Deserialize)]
+        struct Temp {
+            foo: Value,
+        }
+
+        let src = format!("[temp]\nfoo = {}", got);
+        let deserialized: Document = toml::from_str(&src).unwrap();
+        assert_eq!(deserialized.temp.foo, object);
+    }
 }

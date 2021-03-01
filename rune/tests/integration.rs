@@ -29,7 +29,7 @@ fn compile_sine() {
 }
 
 #[test]
-#[ignore = "We need to return a model's output then send it to the serial OUT"]
+#[ignore = "We need to return a model's output, seed the RNG, then send it to the serial OUT"]
 fn run_sine() {
     let dir = sine_dir();
     let runefile = dir.join("Runefile");

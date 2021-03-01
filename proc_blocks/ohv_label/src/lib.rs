@@ -1,92 +1,108 @@
-use runic_types::{Transform, PipelineContext};
+#![no_std]
+extern crate alloc;
 
-struct OhvLabel {
-    labels: Vec<&'static str>,
-    unknown_label: &'static str
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+
+use runic_types::Transform;
+
+pub const MISSING_LABEL: &'static str = "<MISSING>";
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OhvLabel<const N: usize> {
+    labels: [&'static str; N],
+    unknown_label: &'static str,
 }
 
-impl Transform<Vec<u8>> for OhvLabel {
+impl<const N: usize> OhvLabel<N> {
+    pub fn new() -> Self {
+        OhvLabel {
+            labels: [MISSING_LABEL; N],
+            unknown_label: MISSING_LABEL,
+        }
+    }
+
+    pub fn with_unknown_label(self, unknown_label: &'static str) -> Self {
+        let OhvLabel {
+            mut labels,
+            unknown_label: old_unknown_label,
+        } = self;
+
+        // Make sure any existing "missing" labels are updated.
+        for label in &mut labels {
+            if *label == old_unknown_label {
+                *label = unknown_label;
+            }
+        }
+
+        OhvLabel {
+            labels,
+            unknown_label,
+        }
+    }
+
+    pub fn with_labels(self, labels: [&'static str; N]) -> Self {
+        OhvLabel { labels, ..self }
+    }
+}
+
+impl<const N: usize> Transform<[f32; N]> for OhvLabel<N> {
     type Output = &'static str;
 
-    
-
-    fn transform(&mut self,
-        input: Vec<u8>,
-        _ctx: &mut PipelineContext) -> Self::Output {
-
-            input.iter()
-            .position(|&r| r == 1)
-            .and_then(|index| self.labels.get(index))
-            .copied()
-            .unwrap_or(self.unknown_label)
-      }
-    
+    fn transform(&mut self, input: [f32; N]) -> Self::Output {
+        match self
+            .labels
+            .iter()
+            .zip(input.iter().copied())
+            .max_by(|left, right| left.1.partial_cmp(&right.1).unwrap())
+        {
+            Some((label, probability)) if probability > 0.0 => *label,
+            _ => MISSING_LABEL,
+        }
+    }
 }
 
+impl<const N: usize> Default for OhvLabel<N> {
+    fn default() -> Self { OhvLabel::new() }
+}
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
-    use rand::thread_rng;
+    use super::*;
+    use runic_types::Transform;
 
-    use runic_types::{Transform, PipelineContext};
-    
-    use crate::OhvLabel;
-    
     #[test]
     fn it_works() {
-        let mut input: [u8; 4] = [0;4];
-        let mut rng = thread_rng();
-        let idx = rng.gen_range(0..4) as usize;
-        let mut pipeline = PipelineContext{};
-        input[idx] = 1;
-        
-        let mut pb = OhvLabel{
-            labels: vec!["Wing", "Ring", "Slope", "Unknown"],
-            unknown_label: "NO_LABEL_FOUND"
-        };
+        let input = [0.0, 1.0, 0.0, 0.0];
+        let mut pb = OhvLabel::new()
+            .with_unknown_label("NO_LABEL_FOUND")
+            .with_labels(["Wing", "Ring", "Slope", "Unknown"]);
 
-        let out = pb.transform(input.to_vec(), &mut pipeline);
-        let labels = vec!["Wing", "Ring", "Slope", "Unknown"];
-        assert_eq!(out, labels[idx]);
-        println!("OhV={:?} | Label={}", input, out);
+        let out = pb.transform(input);
+
+        assert_eq!(out, "Ring");
     }
 
     #[test]
-    fn handles_missing_labels() {
-        let mut input: [u8; 4] = [0;4];
-        let mut rng = thread_rng();
-        let idx = rng.gen_range(0..4) as usize;
-        let mut pipeline = PipelineContext{};
-        input[idx] = 1;
-        
-        let mut pb = OhvLabel{
-            labels: vec![],
-            unknown_label: "NO_LABEL_FOUND"
-        };
+    fn handles_empty_input() {
+        let input = [];
+        let mut pb = OhvLabel::new().with_unknown_label(MISSING_LABEL);
 
-        let out = pb.transform(input.to_vec(), &mut pipeline);
-        
-        assert_eq!(out, "NO_LABEL_FOUND");
-        println!("OhV={:?} | Label={}", input, out);
+        let out = pb.transform(input);
+
+        assert_eq!(out, MISSING_LABEL);
     }
 
     #[test]
     fn handles_null_ohv() {
-        let input: [u8; 4] = [0;4];
+        let input = [0.0; 4];
+        let mut pb = OhvLabel::new()
+            .with_unknown_label(MISSING_LABEL)
+            .with_labels(["a", "b", "c", "d"]);
 
-        
-        let mut pb = OhvLabel{
-            labels: vec!["a", "b", "c", "d"],
-            unknown_label: "NO_LABEL_FOUND"
-        };
-        let mut pipeline = PipelineContext{};
-        
-        let out = pb.transform(input.to_vec(), &mut pipeline);
-        
-        assert_eq!(out, "NO_LABEL_FOUND");
-        println!("OhV={:?} | Label={}", input, out);
+        let out = pb.transform(input);
+
+        assert_eq!(out, MISSING_LABEL);
     }
-
-
 }

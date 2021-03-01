@@ -10,15 +10,9 @@ crate-type = ["cdylib"]
 path = "lib.rs"
 
 [dependencies]
-
-wee_alloc = { version = "0.4.5" }
-
-once_cell = { default-features = false, version = "1.7.0" }
-
-runic-types = { path = "/home/michael/Documents/hotg-ai/rune/runic-types" }
-
-modulo = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/modulo" }
-
+wee_alloc = "0.4.5"
+runic-types = { path = "../../runic-types" }
+modulo = { path = "../../proc_blocks/modulo" }
 
 [profile.dev]
 panic = "abort"

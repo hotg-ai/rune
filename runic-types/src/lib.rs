@@ -1,12 +1,19 @@
 #![no_std]
-#[macro_use]
+// The WebAssembly bindings need to provide alloc error handling.
+#![cfg_attr(
+    target_arch = "wasm32",
+    feature(core_intrinsics, lang_items, alloc_error_handler)
+)]
+
+#[cfg(target_arch = "wasm32")]
 extern crate alloc;
 
-pub mod marshall;
-mod pipelines;
-pub mod proc_block;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm32;
 
-pub use pipelines::{PipelineContext, Sink, Source, Transform};
+mod pipelines;
+
+pub use pipelines::{Sink, Source, Transform};
 
 #[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY {
@@ -60,6 +67,26 @@ impl PARAM_TYPE {
             _ => PARAM_TYPE::BINARY,
         }
     }
+}
+
+/// A helper trait that lets us go from a type to its [`PARAM_TYPE`] equivalent.
+pub trait AsParamType: Sized {
+    /// The corresponding [`PARAM_TYPE`] variant.
+    const VALUE: PARAM_TYPE;
+
+    fn zeroed_array<const N: usize>() -> [Self; N];
+}
+
+impl AsParamType for i32 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::INT;
+
+    fn zeroed_array<const N: usize>() -> [Self; N] { [0; N] }
+}
+
+impl AsParamType for f32 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
+
+    fn zeroed_array<const N: usize>() -> [Self; N] { [0.0; N] }
 }
 
 #[derive(Copy, Clone, Debug)]
