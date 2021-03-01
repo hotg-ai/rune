@@ -35,7 +35,11 @@ impl Environment for DefaultEnvironment {
     fn log(&mut self, msg: &str) {
         // TODO: Update the _debug() function to take a file name and line
         // number.
-        log::logger()
-            .log(&Record::builder().args(format_args!("{}", msg)).build());
+        log::logger().log(
+            &Record::builder()
+                .module_path(Some("current_rune"))
+                .args(format_args!("{}", msg))
+                .build(),
+        );
     }
 }

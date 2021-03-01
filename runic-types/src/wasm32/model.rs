@@ -5,7 +5,8 @@ use core::marker::PhantomData;
 pub struct Model<Input, Output> {
     /// A unique identifier we can use to refer to the model.
     // FIXME: Change the VM to allow multiple models.
-    _index: u32,
+    #[allow(dead_code)]
+    index: u32,
     _type: PhantomData<fn(Input) -> Output>,
 }
 
@@ -21,7 +22,7 @@ impl<In, Out, const M: usize, const N: usize> Model<[In; M], [Out; N]> {
             );
 
             Model {
-                _index: ix,
+                index: ix,
                 _type: PhantomData,
             }
         }
@@ -32,6 +33,7 @@ impl<In, Out, const M: usize, const N: usize> Transform<[In; M]>
     for Model<[In; M], [Out; N]>
 where
     Out: AsParamType,
+    In: AsParamType,
 {
     type Output = [Out; N];
 

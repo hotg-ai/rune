@@ -51,6 +51,7 @@ macro_rules! debug {
             use core::fmt::Write as _;
             // SAFETY: This WebAssembly code will only ever be used by a single
             // thread at a time.
+            #[allow(unused_unsafe)]
             unsafe {
                 let mut buffer = $crate::wasm32::debug::BufWriter::new(&mut $crate::wasm32::debug::DEBUG_BUFFER);
 

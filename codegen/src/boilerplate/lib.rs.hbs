@@ -39,10 +39,12 @@ pub extern "C" fn _manifest() -> u32 {
         {{#each pipeline~}}
         {{~#if first~}}
         let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();
+        runic_types::debug!("{{name}} => {:?}", data);
         {{else}}{{#if last}}
         {{name}}.consume(data);
         {{~else~}}
         let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.transform(data);
+        runic_types::debug!("{{name}} => {:?}", data);
         {{/if}}{{/if~}}{{~/each}}
     };
 
