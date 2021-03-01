@@ -72,6 +72,7 @@ impl Generator {
     fn new(compilation: Compilation) -> Self {
         let mut hbs = Handlebars::new();
         hbs.set_strict_mode(true);
+        hbs.register_escape_fn(|s| s.to_string());
 
         // Note: all these templates are within our control, so any error here
         // is the developer's fault.
@@ -402,7 +403,7 @@ fn rust_literal(arg: &ArgumentValue) -> String {
             kind: LiteralKind::String(s),
             ..
         }) => format!("{:?}", s),
-        ArgumentValue::List(_) => todo!(),
+        ArgumentValue::List(items) => format!("{:?}", items),
     }
 }
 
