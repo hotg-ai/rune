@@ -14,14 +14,14 @@ impl<T: AsParamType, const N: usize> Random<T, N> {
 
             // ask for the correct length
             let key = "n";
-            let value = u32::to_be_bytes(N as u32);
+            let value = i32::to_le_bytes(N as i32);
             intrinsics::request_capability_set_param(
                 index,
                 key.as_ptr(),
                 key.len() as u32,
                 value.as_ptr(),
                 value.len() as u32,
-                T::VALUE as u32,
+                i32::VALUE as u32,
             );
 
             Random {
