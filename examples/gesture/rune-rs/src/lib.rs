@@ -115,7 +115,7 @@ pub extern "C" fn _manifest() -> u32 {
         
         
         let key = b"n";       
-        let value: &[u8; 4] = &u32::to_be_bytes(128u32); 
+        let value: &[u8; 4] = &u32::to_le_bytes(128u32); 
         request_capability_set_param(accel_capability_idx, key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32, PARAM_TYPE::INT as u32);
 
         // 
@@ -165,7 +165,7 @@ pub extern "C" fn _call(capability_type:i32, input_type:i32, capability_idx:i32)
                 let mut i = 0; 
                 for element in proc_block_output.iter() {
                     let f: f32 = proc_block_output[i];
-                    let f = f.to_be_bytes();
+                    let f = f.to_le_bytes();
                     MODEL_INPUT_BUFFER[i] = f[3];
                     MODEL_INPUT_BUFFER[i+1] = f[2];
                     MODEL_INPUT_BUFFER[i+2] = f[1];
