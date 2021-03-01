@@ -10,8 +10,8 @@ crate-type = ["cdylib"]
 path = "lib.rs"
 
 [dependencies]
-{{#each dependencies ~}}
-{{#if git}}{{name}} = { git = "{{git}}" }{{/if}}{{#if crates_io}}{{name}} = "{{crates_io}}"{{/if}}
+{{#each dependencies }}
+{{name}} = {{toml deps}}
 {{/each}}
 
 [profile.dev]

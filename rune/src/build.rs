@@ -52,6 +52,10 @@ pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
         rune,
         current_directory,
         working_directory,
+        rune_project_dir: Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf(),
     };
     let blob = rune_codegen::generate(compilation)
         .context("Rune compilation failed")?;

@@ -235,6 +235,16 @@ pub enum ArgumentValue {
     List(Vec<String>),
 }
 
+/// A specification for finding a dependency.
+///
+/// The full syntax is `base@version#sub_path` where
+///
+/// - `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`
+///   or `https://github.com/hotg-ai/rune`)
+/// - `version` is an optional field specifying the version (e.g. as a git tag)
+/// - `sub_path` is an optional field which is useful when pointing to
+///   repositories with multiple relevant items because it lets you specify
+///   which directory the specified item is in.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     pub base: String,

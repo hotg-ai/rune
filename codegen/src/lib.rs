@@ -1,5 +1,7 @@
-use anyhow::{Context, Error};
-use handlebars::Handlebars;
+use anyhow::{Context as _, Error};
+use handlebars::{
+    Context, Handlebars, Helper, Output, RenderContext, RenderError,
+};
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
     hir::{Rune, Sink, SourceKind},
@@ -13,8 +15,6 @@ use std::{
     process::Command,
 };
 
-const RUNE_GIT_REPO: &str = "ssh://git@github.com/hotg-ai/rune.git";
-
 #[derive(Debug)]
 pub struct Compilation {
     /// The name of the [`Rune`] being compiled.
@@ -25,6 +25,7 @@ pub struct Compilation {
     pub working_directory: PathBuf,
     /// The directory that all paths (e.g. to models) are resolved relative to.
     pub current_directory: PathBuf,
+    pub rune_project_dir: PathBuf,
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
@@ -54,11 +55,13 @@ struct Generator {
     rune: Rune,
     dest: PathBuf,
     current_directory: PathBuf,
+    rune_project_dir: PathBuf,
 }
 
 impl Generator {
     fn new(compilation: Compilation) -> Self {
         let mut hbs = Handlebars::new();
+        hbs.set_strict_mode(true);
 
         // Note: all these templates are within our control, so any error here
         // is the developer's fault.
@@ -77,12 +80,14 @@ impl Generator {
             include_str!("./boilerplate/lib.rs.hbs"),
         )
         .unwrap();
+        hbs.register_helper("toml", Box::new(to_toml));
 
         let Compilation {
             name,
             rune,
             working_directory,
             current_directory,
+            rune_project_dir,
         } = compilation;
 
         Generator {
@@ -90,6 +95,7 @@ impl Generator {
             hbs,
             rune,
             current_directory,
+            rune_project_dir,
             dest: working_directory,
         }
     }
@@ -116,21 +122,15 @@ impl Generator {
     }
 
     fn render_cargo_toml(&self) -> Result<(), Error> {
-        let dependencies = vec![
-            json!({ "name": "wee_alloc", "crates_io": "0.4.5" }),
-            json!({ "name": "runic-types", "git": RUNE_GIT_REPO }),
+        let runic_types = self.rune_project_dir.join("runic-types");
+        let mut dependencies = vec![
+            json!({ "name": "wee_alloc", "deps": { "version": "0.4.5"} }),
+            json!({ "name": "runic-types", "deps": {"path": runic_types} }),
         ];
 
-        // TODO: Make PROC_BLOCKs usable as git dependencies
-        // for (&id, proc) in &self.rune.proc_blocks {
-        //     let name = self
-        //         .rune
-        //         .names
-        //         .get_name(id)
-        //         .context("Unable to get the PROC_BLOCK's name")?;
-        //
-        //     dependencies.push(dependency_info(name, proc));
-        // }
+        for proc in self.rune.proc_blocks.values() {
+            dependencies.push(dependency_info(proc, &self.rune_project_dir));
+        }
 
         let ctx = json!({ "name": self.name, "dependencies": dependencies });
 
@@ -253,19 +253,34 @@ impl Generator {
     }
 }
 
-fn _dependency_info(
-    name: &str,
+fn dependency_info(
     proc: &rune_syntax::hir::ProcBlock,
+    rune_project_dir: &Path,
 ) -> serde_json::Value {
-    let is_builtin = ["mod360"].contains(&name);
+    const BUILTIN_PROC_BLOCKS: &[&str] =
+        &["mod360", "modulo", "normalize", "ohv_label"];
 
-    let git_repo = if is_builtin {
-        String::from(RUNE_GIT_REPO)
+    let name = dbg!(proc.name());
+
+    if BUILTIN_PROC_BLOCKS.contains(&name) {
+        let path = rune_project_dir.join("proc_blocks").join(name);
+        json!({
+            "name": name,
+            "deps": {"path": path.display().to_string() },
+        })
     } else {
-        format!("https://github.com/{}.git", proc.path.body)
-    };
+        let repo = format!("https://github.com/{}.git", proc.path.base);
+        json!({
+            "name": name,
+            "deps": {"git": repo },
+        })
+    }
+}
 
-    json!({ "name": name, "git": git_repo })
+#[derive(Debug)]
+struct Dependency {
+    name: String,
+    ty: String,
 }
 
 fn create_dir(path: impl AsRef<Path>) -> Result<(), Error> {
@@ -292,4 +307,25 @@ fn jsonify_arg_value(arg: &ArgumentValue) -> Value {
             Value::Array(list.iter().map(|s| Value::from(s.as_str())).collect())
         },
     }
+}
+
+fn to_toml(
+    h: &Helper<'_, '_>,
+    _: &Handlebars<'_>,
+    _: &Context,
+    _: &mut RenderContext<'_, '_>,
+    out: &mut dyn Output,
+) -> Result<(), RenderError> {
+    let param = h
+        .param(0)
+        .ok_or_else(|| RenderError::new("Missing parameter"))?;
+
+    let as_toml = toml::to_string(param.value()).map_err(|e| {
+        RenderError::from_error("Unable to serialize as toml", e)
+    })?;
+    out.write("{")?;
+    out.write(as_toml.trim())?;
+    out.write("}")?;
+
+    Ok(())
 }
