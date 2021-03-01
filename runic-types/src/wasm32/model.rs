@@ -1,4 +1,4 @@
-use crate::{wasm32::intrinsics, Transform};
+use crate::{wasm32::intrinsics, AsParamType, Transform};
 use core::marker::PhantomData;
 
 /// A machine learning model.
@@ -31,7 +31,7 @@ impl<In, Out, const M: usize, const N: usize> Model<[In; M], [Out; N]> {
 impl<In, Out, const M: usize, const N: usize> Transform<[In; M]>
     for Model<[In; M], [Out; N]>
 where
-    [Out; N]: Default,
+    Out: AsParamType,
 {
     type Output = [Out; N];
 
@@ -45,7 +45,7 @@ where
             // outputs can be written to.
             let _got = intrinsics::tfm_model_invoke(ptr, length as u32);
 
-            Default::default()
+            Out::zeroed_array()
         }
     }
 }
