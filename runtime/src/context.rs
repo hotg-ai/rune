@@ -65,7 +65,7 @@ impl<E: Environment> Context<E> {
                 .filter_map(|ix| interpreter.tensor_info(*ix))
                 .collect();
             let outputs: Vec<_> = interpreter
-                .inputs()
+                .outputs()
                 .iter()
                 .filter_map(|ix| interpreter.tensor_info(*ix))
                 .collect();
