@@ -142,7 +142,9 @@ where
             // fallible.
             Ok(0)
         },
-        None => Err(RuntimeError::User(Box::new(Error::msg("")))),
+        None => Err(RuntimeError::User(Box::new(Error::msg(
+            "Unable to load the log message",
+        )))),
     }
 }
 
@@ -197,14 +199,26 @@ where
 }
 
 pub fn tfm_model_invoke<E>(
-    _ctx: &mut Ctx,
-    _feature_idx: WasmPtr<u8, Array>,
-    _feature_len: u32,
+    ctx: &mut Ctx,
+    feature: WasmPtr<u8, Array>,
+    feature_len: u32,
 ) -> Result<u32, RuntimeError>
 where
     E: Environment,
 {
-    todo!()
+    let (mem, context) = unsafe { ctx.memory_and_data_mut::<Context<E>>(0) };
+
+    let input = feature
+        .deref(mem, 0, feature_len)
+        .ok_or_else(|| runtime_err("Bad input pointer"))?;
+
+    let input: Vec<_> = input.iter().map(|v| v.get()).collect();
+
+    context
+        .invoke_model(&input)
+        .map_err(|e| RuntimeError::User(Box::new(e)))?;
+
+    Ok(0)
 }
 
 pub fn request_capability<E>(ctx: &mut Ctx, capability_type: u32) -> u32
@@ -292,7 +306,7 @@ where
             .invoke_capability(capability_id, buffer)
             .map_err(|e| RuntimeError::User(Box::new(e)))?;
 
-        Ok(0)
+        Ok(buffer.len() as u32)
     }
 }
 

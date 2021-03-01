@@ -82,6 +82,53 @@ impl<E: Environment> Context<E> {
         Ok(id)
     }
 
+    pub fn invoke_model(&mut self, input: &[u8]) -> Result<Vec<u8>, Error> {
+        // FIXME: We should be passing in a model index instead of just
+        // defaulting to the first one we find.
+        let (&model_index, model) =
+            self.models.iter_mut().next().context("Model not found")?;
+
+        let tensor_inputs = model.inputs();
+        anyhow::ensure!(
+            tensor_inputs.len() == 1,
+            "We can't handle models with less/more than 1 input"
+        );
+        let input_index = tensor_inputs[0];
+
+        let buffer = model
+            .tensor_buffer_mut(input_index)
+            .context("Unable to get the input buffer")?;
+
+        if input.len() != buffer.len() {
+            log::warn!(
+                "The input vector for model {} is {} bytes long but the tensor expects {}",
+                model_index,
+                input.len(),
+                buffer.len(),
+            );
+        }
+        let len = std::cmp::min(input.len(), buffer.len());
+        buffer[..len].copy_from_slice(&input[..len]);
+
+        log::debug!("Model {} input: {:?}", model_index, &buffer[..len]);
+
+        model.invoke().context("Calling the model failed")?;
+
+        let tensor_outputs = model.outputs();
+        anyhow::ensure!(
+            tensor_outputs.len() == 1,
+            "We can't handle models with less/more than 1 output"
+        );
+        let output_index = tensor_outputs[0];
+        let buffer = model
+            .tensor_buffer(output_index)
+            .context("Unable to get the output buffer")?;
+
+        log::debug!("Model {} Output: {:?}", model_index, buffer);
+
+        Ok(buffer.to_vec())
+    }
+
     pub fn request_capability(
         &mut self,
         capability: runic_types::CAPABILITY,
@@ -146,6 +193,7 @@ impl<E: Environment> Context<E> {
                 )?;
 
                 rng.fill_bytes(dest);
+                log::debug!("Rand: {:?}", dest);
 
                 Ok(())
             },
