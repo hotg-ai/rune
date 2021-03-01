@@ -7,11 +7,18 @@ use env_logger::Env;
 use log;
 
 const VERSION: &str = "v0.0.2";
+const DEFAULT_RUST_LOG: &str = concat!(
+    "info,",
+    "rune=debug,",
+    "rune_runtime=debug,",
+    "rune_codegen=debug,",
+    "rune_syntax=debug,",
+);
 
 /// Rune CLI
 ///   Provides two CLI subcommands (run, build)
 fn main() -> Result<(), Error> {
-    let env = Env::new().default_filter_or("rune=info,rune_runtime=info");
+    let env = Env::new().default_filter_or(DEFAULT_RUST_LOG);
     env_logger::init_from_env(env);
 
     // Log the version
