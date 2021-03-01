@@ -1,12 +1,18 @@
+use std::path::Path;
+
 use anyhow::{Context, Error};
 use log;
 use rune_runtime::{DefaultEnvironment, Runtime};
 
-pub fn run(container: &str, number_of_runs: i32) -> Result<(), Error> {
-    log::info!("Running rune: {}", container);
+pub fn run(
+    container: impl AsRef<Path>,
+    number_of_runs: usize,
+) -> Result<(), Error> {
+    let rune = container.as_ref();
+    log::info!("Running rune: {}", rune.display());
 
-    let rune = std::fs::read(container)
-        .with_context(|| format!("Unable to read \"{}\"", container))?;
+    let rune = std::fs::read(rune)
+        .with_context(|| format!("Unable to read \"{}\"", rune.display()))?;
 
     let env = DefaultEnvironment::default();
     let mut runtime = Runtime::load(&rune, env)

@@ -2,8 +2,6 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 use std::path::{Path, PathBuf};
 
-const RUST_LOG: &str = "debug,cranelift_codegen=warn";
-
 fn example_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -20,7 +18,7 @@ fn compile_sine() {
     let runefile = dir.join("Runefile");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile).env("RUST_LOG", RUST_LOG);
+    cmd.arg("build").arg(&runefile);
 
     cmd.assert().success().code(0);
 
@@ -35,15 +33,12 @@ fn run_sine() {
     let runefile = dir.join("Runefile");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build")
-        .arg(&runefile)
-        .env("RUST_LOG", RUST_LOG)
-        .unwrap();
+    cmd.arg("build").arg(&runefile).unwrap();
 
     let rune = dir.join("sine.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run").arg(&rune).env("RUST_LOG", RUST_LOG);
+    cmd.arg("run").arg(&rune);
 
     cmd.assert()
         .success()
@@ -57,7 +52,7 @@ fn compile_gesture() {
     let runefile = dir.join("Runefile");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile).env("RUST_LOG", RUST_LOG);
+    cmd.arg("build").arg(&runefile);
 
     cmd.assert().success().code(0);
 
@@ -72,15 +67,12 @@ fn run_gesture() {
     let runefile = dir.join("Runefile");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build")
-        .arg(&runefile)
-        .env("RUST_LOG", RUST_LOG)
-        .unwrap();
+    cmd.arg("build").arg(&runefile).unwrap();
 
     let rune = dir.join("gesture.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run").arg(&rune).env("RUST_LOG", RUST_LOG);
+    cmd.arg("run").arg(&rune);
 
     // FIXME: We should probably check the output for some well-known string
     // indicating success.
