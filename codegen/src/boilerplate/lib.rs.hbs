@@ -16,22 +16,22 @@ static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
 pub extern "C" fn _manifest() -> u32 {
     unsafe {
         {{#each capabilities~}}
-        let {{name}} = {{type}}::default();
+        let mut {{name}} = {{type}}::default();
         {{~/each~}}
 
         {{~#each models}}
-        let {{this}} = Model::load(include_bytes!("{{this}}.tflite"));
+        let mut {{this}} = Model::load(include_bytes!("{{this}}.tflite"));
         {{~ /each~}}
 
         {{~#each proc_blocks}}
-        let {{name}} = {{type}}::default();
+        let mut {{name}} = {{type}}::default();
         {{~ /each~}}
 
         {{~#each outputs}}
-        let {{name}} = {{type}}::default();
+        let mut {{name}} = {{type}}::default();
         {{~/each}}
 
-        PIPELINE = Some(Box::new(|| {
+        PIPELINE = Some(Box::new(move || {
             {{#each pipeline~}}
             {{~#if first~}}
             let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();
@@ -48,9 +48,9 @@ pub extern "C" fn _manifest() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn _call(
-    capability_type: i32,
-    input_type: i32,
-    capability_idx: i32,
+    _capability_type: i32,
+    _input_type: i32,
+    _capability_idx: i32,
 ) -> i32 {
     unsafe {
         let pipeline = PIPELINE.as_mut()

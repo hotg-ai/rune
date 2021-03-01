@@ -177,26 +177,40 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     fn interpret_type(&mut self, ty: &crate::ast::Type) -> HirId {
         match &ty.kind {
             crate::ast::TypeKind::Inferred => self.builtins.unknown_type,
-            crate::ast::TypeKind::Named(name) => self.primitive_type(name),
+            crate::ast::TypeKind::Named(name) => {
+                // Everything gets passed around as an array, so a plain
+                // `T` gets turned into a `[T; 1]`.
+                let underlying_type = self.primitive_type(name);
+                self.intern_type(Type::Buffer {
+                    underlying_type,
+                    dimensions: vec![1],
+                })
+            },
             crate::ast::TypeKind::Buffer {
                 type_name,
                 dimensions,
             } => {
                 let underlying_type = self.primitive_type(type_name);
-                let ty = Type::Buffer {
+                self.intern_type(Type::Buffer {
                     underlying_type,
                     dimensions: dimensions.clone(),
-                };
+                })
+            },
+        }
+    }
 
-                match self.rune.types.iter().find(|(_, t)| **t == ty) {
-                    Some((id, _)) => *id,
-                    None => {
-                        // new buffer type
-                        let id = self.ids.next();
-                        self.rune.types.insert(id, ty);
-                        id
-                    },
-                }
+    /// Add a type to the rune, returning its [`HirId`].
+    ///
+    /// Adding the same type multiple times is guaranteed to return the same
+    /// [`HirId`].
+    fn intern_type(&mut self, ty: Type) -> HirId {
+        match self.rune.types.iter().find(|(_, t)| **t == ty) {
+            Some((id, _)) => *id,
+            None => {
+                // new buffer type
+                let id = self.ids.next();
+                self.rune.types.insert(id, ty);
+                id
             },
         }
     }
