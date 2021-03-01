@@ -40,7 +40,7 @@ pub fn build(runefile: impl AsRef<Path>) -> Result<(), Error> {
         .file_name()
         .expect("The directory has a name");
 
-    let working_directory = std::env::home_dir()
+    let working_directory = dirs::home_dir()
         .unwrap()
         .join(".rune")
         .join("runes")
