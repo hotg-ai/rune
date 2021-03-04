@@ -41,5 +41,5 @@ jobs:
       - name: Upload Benchmark Results
         uses: actions/upload-artifact@v2
         with:
-            name: benchmarks
+          name: benchmarks
           path: target/criterion
