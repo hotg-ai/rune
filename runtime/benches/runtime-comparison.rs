@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use runic_types::Transform;
-use rand::Rng;
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
@@ -11,13 +10,19 @@ use rune_syntax::{Diagnostics};
 use rune_codegen::Compilation;
 use rune_runtime::{DefaultEnvironment, Environment, Runtime};
 
+fn main() {
+    env_logger::init();
+
+    criterion_main!(benches);
+    main();
+}
+
 criterion_group!(
     benches,
     execute_sine,
     // compile_times,
     runtime_startup
 );
-criterion_main!(benches);
 
 pub fn compile_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("compile");
@@ -115,8 +120,10 @@ impl ManualSine {
     fn call(&mut self) -> f32 {
         const SIZE_OF_FLOAT: usize = std::mem::size_of::<f32>();
 
-        let random_data: f32 = self.env.rng().unwrap().gen();
-        let within_360: f32 = self.modulo.transform(random_data);
+        let mut random_data = [0; SIZE_OF_FLOAT];
+        self.env.fill_random(&mut random_data).unwrap();
+        let within_360: f32 =
+            self.modulo.transform(f32::from_le_bytes(random_data));
 
         let input_ix = self.interpreter.inputs()[0];
         let buffer = self.interpreter.tensor_buffer_mut(input_ix).unwrap();

@@ -26,9 +26,13 @@ pub extern "C" fn _manifest() -> u32 {
 
     let pipeline = move || {
         let data: [f32; 384] = accelerometer.generate();
+        runic_types::debug!("accelerometer => {:?}", data);
         let data: [f32; 384] = normalize.transform(data);
+        runic_types::debug!("normalize => {:?}", data);
         let data: [f32; 4] = gesture.transform(data);
+        runic_types::debug!("gesture => {:?}", data);
         let data = label.transform(data);
+        runic_types::debug!("label => {:?}", data);
         
         serial.consume(data);
     };

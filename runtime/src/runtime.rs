@@ -1,17 +1,28 @@
-use crate::{context::Context, Environment};
+use crate::{
+    Environment,
+    capability::{CapabilityParam, CapabilityRequest},
+};
 use anyhow::{Context as _, Error};
-use runic_types::{CAPABILITY, OUTPUT, PARAM_TYPE};
+use log::Level;
+use runic_types::{CAPABILITY, PARAM_TYPE};
+use tflite::{
+    FlatBufferModel, Interpreter, InterpreterBuilder,
+    ops::builtin::BuiltinOpResolver,
+};
 use std::{
-    ffi::c_void,
-    fmt::{self, Display, Formatter},
-    sync::Mutex,
-};
-use wasmer_runtime::{
-    error::{
-        CallError, Error as WasmerError, LinkError, RuntimeError, RuntimeResult,
+    collections::HashMap,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU32, Ordering},
     },
-    func, Array, Ctx, Func, ImportObject, Instance, WasmPtr,
 };
+use wasmer::{
+    Array, Function, ImportObject, Instance, LazyInit, Memory, Module,
+    NativeFunc, Store, WasmPtr,
+};
+
+type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
+type Capabilities = Arc<Mutex<HashMap<u32, CapabilityRequest>>>;
 
 pub struct Runtime {
     instance: Instance,
@@ -23,35 +34,24 @@ impl Runtime {
         E: Environment + Send + Sync + 'static,
     {
         log::debug!("Compiling the WebAssembly to native code");
-        let module = wasmer_runtime::compile(rune)
+        let store = Store::default();
+        let module = Module::new(&store, rune)
             .context("WebAssembly compilation failed")?;
-        let imports = onetime_import_object(env);
-        log::debug!("Instantiating the WebAssembly module");
-        let instance = module
-            .instantiate(&imports)
-            .map_err(|e| match e {
-                WasmerError::LinkError(l) => Error::from(LinkErrors(l)),
-                WasmerError::RuntimeError(r)
-                | WasmerError::CallError(CallError::Runtime(r)) => {
-                    runtime_error(r)
-                },
 
-                WasmerError::CompileError(c) => Error::from(c),
-                WasmerError::ResolveError(r) => Error::from(r),
-                WasmerError::CallError(CallError::Resolve(r)) => Error::from(r),
-                WasmerError::CreationError(c) => Error::from(c),
-            })
-            .context("Instantiation failed")?;
+        let imports = import_object(&store, env);
+        log::debug!("Instantiating the WebAssembly module");
+
+        let instance =
+            Instance::new(&module, &imports).context("Instantiation failed")?;
 
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
-        let manifest: Func<(), i32> = instance
+        let manifest: NativeFunc<(), i32> = instance
             .exports
-            .get("_manifest")
+            .get_native_function("_manifest")
             .context("Unable to load the _manifest function")?;
         manifest
             .call()
-            .map_err(runtime_error)
             .context("Unable to call the _manifest function")?;
 
         log::debug!("Loaded the Rune");
@@ -62,10 +62,10 @@ impl Runtime {
     pub fn call(&mut self) -> Result<(), Error> {
         log::debug!("Running the rune");
 
-        let call_func: Func<(i32, i32, i32), i32> = self
+        let call_func: NativeFunc<(i32, i32, i32), i32> = self
             .instance
             .exports
-            .get("_call")
+            .get_native_function("_call")
             .context("Unable to load the _call function")?;
 
         // For some reason we pass in the RAND capability ID when it's meant
@@ -77,300 +77,448 @@ impl Runtime {
         // hotg-ai/rune#28 lands.
         call_func
             .call(CAPABILITY::RAND as i32, PARAM_TYPE::FLOAT as i32, 2)
-            .map_err(runtime_error)
             .context("Unable to call the _call function")?;
 
         Ok(())
     }
 }
 
-fn onetime_import_object<E>(env: E) -> ImportObject
-where
-    E: Environment + Send + Sync + 'static,
-{
-    let env = Mutex::new(Some(env));
+fn import_object(store: &Store, env: impl Environment) -> ImportObject {
+    let env: Arc<dyn Environment> = Arc::new(env);
+    let ids = Arc::new(Identifiers::new());
+    let models = Arc::new(Mutex::new(HashMap::new()));
+    let capabilities = Arc::new(Mutex::new(HashMap::new()));
 
-    import_object(move || {
-        env.lock()
-            .unwrap()
-            .take()
-            .expect("Initializer should only ever be called once")
-    })
-}
-
-/// Create a new [`ImportObject`] using a closure that will instantiate a new
-/// [`Environment`] for every new WebAssembly [`Instance`].
-fn import_object<F, E>(constructor: F) -> ImportObject
-where
-    F: Fn() -> E + Send + Sync + 'static,
-    E: Environment,
-{
-    wasmer_runtime::imports! {
-        move || {
-            let env = constructor();
-
-            let ctx = Box::new(Context::new(env));
-            let free = |data: *mut c_void| unsafe {
-                let _ = Box::from_raw(data as *mut Context<E>);
-            };
-
-            (Box::into_raw(ctx) as *mut c_void, free)
-        },
-
+    wasmer::imports! {
         "env" => {
-            "_debug" => func!(log::<E>),
-            "_abort" => func!(abort::<E>),
-            "tfm_model_invoke" => func!(tfm_model_invoke::<E>),
-            "tfm_preload_model" => func!(tfm_preload_model::<E>),
-            "request_capability" => func!(request_capability::<E>),
-            "request_capability_set_param" => func!(request_capability_set_param::<E>),
-            "request_manifest_output" => func!(request_manifest_output::<E>),
-            "request_provider_response" => func!(request_provider_response::<E>)
+            "_debug" => log(Arc::clone(&env), store),
+            "tfm_preload_model" => tfm_preload_model(Arc::clone(&ids), Arc::clone(&models), store),
+            "tfm_model_invoke" => tfm_model_invoke(Arc::clone(&models), store),
+            "request_capability" => request_capability(Arc::clone(&ids), Arc::clone(&capabilities), store),
+            "request_capability_set_param" => request_capability_set_param(Arc::clone(&capabilities), store),
+            "request_provider_response" => request_provider_response(Arc::clone(&env), Arc::clone(&capabilities), store),
         },
     }
 }
 
-fn log<E>(
-    ctx: &mut Ctx,
-    buffer: WasmPtr<u8, Array>,
-    len: u32,
-) -> RuntimeResult<u32>
-where
-    E: Environment,
-{
-    let (mem, context) = unsafe { ctx.memory_and_data_mut::<Context<E>>(0) };
+#[derive(Debug)]
+struct Identifiers(AtomicU32);
 
-    match buffer.get_utf8_string(mem, len) {
-        Some(msg) => {
-            context.log(msg);
-            // FIXME: We should just return () here because logging isn't
-            // fallible.
-            Ok(0)
+impl Identifiers {
+    pub const fn new() -> Self { Identifiers(AtomicU32::new(0)) }
+
+    pub fn next(&self) -> u32 { self.0.fetch_add(1, Ordering::SeqCst) }
+}
+
+fn log(env: Arc<dyn Environment + 'static>, store: &Store) -> Function {
+    #[derive(wasmer::WasmerEnv, Clone)]
+    struct State {
+        env: Arc<dyn Environment>,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        env,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, buffer: WasmPtr<u8, Array>, len: u32| unsafe {
+            let memory = s.memory.get_unchecked();
+            let msg = buffer
+                .get_utf8_str(memory, len)
+                .unwrap_or_trap("Bad message pointer");
+
+            s.env.log(msg);
+
+            0_u32
         },
-        None => Err(RuntimeError::User(Box::new(Error::msg(
-            "Unable to load the log message",
-        )))),
+    )
+}
+
+fn tfm_preload_model(
+    ids: Arc<Identifiers>,
+    models: Models,
+    store: &Store,
+) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        ids: Arc<Identifiers>,
+        models: Models,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
     }
-}
 
-fn abort<E>(
-    ctx: &mut Ctx,
-    msg: WasmPtr<u8, Array>,
-    msg_len: u32,
-    file: WasmPtr<u8, Array>,
-    file_len: u32,
-    line: u32,
-) -> RuntimeResult<()>
-where
-    E: Environment,
-{
-    let mem = ctx.memory(0);
+    let state = State {
+        ids,
+        models,
+        memory: LazyInit::default(),
+    };
 
-    let msg = msg
-        .get_utf8_string(mem, msg_len)
-        .ok_or_else(|| runtime_err("Unable to retrieve the abort message"))?;
-    let file = file.get_utf8_string(mem, file_len).ok_or_else(|| {
-        runtime_err("Unable to retrieve the abort line number")
-    })?;
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State,
+         model: WasmPtr<u8, Array>,
+         model_len: u32,
+         _inputs: u32,
+         _outputs: u32| {
+            unsafe {
+                let memory = s.memory.get_unchecked();
+                let raw = model
+                    .deref(memory, 0, model_len)
+                    .unwrap_or_trap("Bad pointer");
+                let raw: &[u8] = std::mem::transmute(raw);
 
-    Err(RuntimeError::User(Box::new(Error::new(Abort {
-        message: msg.to_string(),
-        file: file.to_string(),
-        line,
-    }))))
-}
+                let mut models = s.models.lock().unwrap();
+                preload_model(raw, &s.ids, &mut models)
+                    .unwrap_or_trap("Unable to load the model");
 
-pub fn tfm_preload_model<E>(
-    ctx: &mut Ctx,
-    model: WasmPtr<u8, Array>,
-    model_len: u32,
-    _inputs: u32,
-    _outputs: u32,
-) -> Result<u32, RuntimeError>
-where
-    E: Environment,
-{
-    let (mem, context) = unsafe { ctx.memory_and_data_mut::<Context<E>>(0) };
-
-    let model = model
-        .deref(mem, 0, model_len)
-        .ok_or_else(|| runtime_err("Unable to retrieve the model buffer"))?;
-
-    let model = model.iter().map(|b| b.get()).collect();
-
-    context
-        .register_model(model)
-        .map_err(|e| RuntimeError::User(Box::new(e)))
-}
-
-pub fn tfm_model_invoke<E>(
-    ctx: &mut Ctx,
-    feature: WasmPtr<u8, Array>,
-    feature_len: u32,
-) -> Result<u32, RuntimeError>
-where
-    E: Environment,
-{
-    let (mem, context) = unsafe { ctx.memory_and_data_mut::<Context<E>>(0) };
-
-    let input = feature
-        .deref(mem, 0, feature_len)
-        .ok_or_else(|| runtime_err("Bad input pointer"))?;
-
-    let input: Vec<_> = input.iter().map(|v| v.get()).collect();
-
-    context
-        .invoke_model(&input)
-        .map_err(|e| RuntimeError::User(Box::new(e)))?;
-
-    Ok(0)
-}
-
-pub fn request_capability<E>(ctx: &mut Ctx, capability_type: u32) -> u32
-where
-    E: Environment,
-{
-    let context = unsafe { &mut *(ctx.data as *mut Context<E>) };
-    let cap = runic_types::CAPABILITY::from_u32(capability_type);
-
-    context.request_capability(cap)
-}
-
-pub fn request_capability_set_param<E>(
-    ctx: &mut Ctx,
-    capability_id: u32,
-    key: WasmPtr<u8, Array>,
-    key_len: u32,
-    value: WasmPtr<u8, Array>,
-    value_len: u32,
-    value_type: u32,
-) -> Result<u32, RuntimeError>
-where
-    E: Environment,
-{
-    let (mem, context) = unsafe { ctx.memory_and_data_mut::<Context<E>>(0) };
-
-    let key = key
-        .get_utf8_string(mem, key_len)
-        .context("Unable to load the key")
-        .map_err(|e| RuntimeError::User(Box::new(e)))?;
-
-    let value = value
-        .deref(mem, 0, value_len)
-        .ok_or_else(|| runtime_err("Bad value pointer"))?
-        .iter()
-        .map(|v| v.get())
-        .collect();
-
-    context
-        .set_capability_request_parameter(
-            capability_id,
-            key,
-            value,
-            PARAM_TYPE::from_u32(value_type),
-        )
-        .map_err(|e| RuntimeError::User(Box::new(e)))?;
-
-    Ok(0)
-}
-
-pub fn request_manifest_output<E>(ctx: &mut Ctx, output: u32) -> u32
-where
-    E: Environment,
-{
-    let context = unsafe { &mut *(ctx.data as *mut Context<E>) };
-    let output = OUTPUT::from_u32(output);
-    context.register_output(output)
-}
-
-pub fn request_provider_response<E>(
-    ctx: &mut Ctx,
-    buffer: WasmPtr<u8, Array>,
-    buffer_len: u32,
-    capability_id: u32,
-) -> Result<u32, RuntimeError>
-where
-    E: Environment,
-{
-    unsafe {
-        let (mem, context) = ctx.memory_and_data_mut::<Context<E>>(0);
-
-        let buffer = buffer
-            .deref_mut(mem, 0, buffer_len)
-            .ok_or_else(|| runtime_err("Bad buffer pointer"))?;
-
-        // SAFETY: We are guaranteed to have unique access to this piece of
-        // WebAssembly memory because
-        // - The runtime's call() method takes &mut self
-        // - Context methods never call back into WebAssembly, so it's not
-        //   possible to accidentally end up back here while buffer is still
-        //   mutably borrowed
-        let buffer: &mut [u8] = std::mem::transmute(buffer);
-
-        context
-            .invoke_capability(capability_id, buffer)
-            .map_err(|e| RuntimeError::User(Box::new(e)))?;
-
-        Ok(buffer.len() as u32)
-    }
-}
-
-/// An error indicating there was an abnormal abort.
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-#[error("Abort on line {} of {}: {}", line, file, message)]
-struct Abort {
-    message: String,
-    file: String,
-    line: u32,
-}
-
-fn runtime_err(msg: &'static str) -> RuntimeError {
-    RuntimeError::User(Box::new(Error::msg(msg)))
-}
-
-/// Tries to extract the [`anyhow::Error`] from a runtime error.
-fn runtime_error(e: RuntimeError) -> Error {
-    match e {
-        RuntimeError::User(user_error) => {
-            match user_error.downcast::<Error>() {
-                // it was an anyhow::Error thrown by one of our host bindings,
-                // keep bubbling it up
-                Ok(error) => *error,
-                // Sometimes wasmer will randomly re-box a RuntimeError
-                Err(other) => match other.downcast::<RuntimeError>() {
-                    Ok(error) => runtime_error(*error),
-                    // Our code only ever returns an anyhow::Error, so wasmer
-                    // must have caught a panic.
-                    Err(panic_payload) => {
-                        std::panic::resume_unwind(panic_payload)
-                    },
-                },
+                0_u32
             }
         },
-        // just fall back to the default error message (RuntimeError: !Sync so
-        // we can't just wrap it)
-        other => Error::msg(other.to_string()),
-    }
+    )
 }
 
-#[derive(Debug, Clone)]
-struct LinkErrors(Vec<LinkError>);
+fn preload_model(
+    raw: &[u8],
+    ids: &Identifiers,
+    models: &mut HashMap<u32, Interpreter<'static, BuiltinOpResolver>>,
+) -> Result<u32, Error> {
+    let model = FlatBufferModel::build_from_buffer(raw.to_vec())
+        .context("Unable to build the model")?;
 
-impl std::error::Error for LinkErrors {}
+    let resolver = BuiltinOpResolver::default();
 
-impl Display for LinkErrors {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let errs = &self.0;
+    let builder = InterpreterBuilder::new(model, resolver)
+        .context("Unable to create a model interpreter builder")?;
+    let mut interpreter = builder
+        .build()
+        .context("Unable to initialize the model interpreter")?;
+    interpreter
+        .allocate_tensors()
+        .context("Unable to allocate tensors")?;
 
-        if errs.len() == 1 {
-            write!(f, "link error: {}", errs[0])
-        } else {
-            write!(f, "{} link errors:", errs.len())?;
-            for (i, err) in errs.iter().enumerate() {
-                write!(f, " ({} of {}) {}", i + 1, errs.len(), err)?;
-            }
+    let id = ids.next();
+
+    if log::log_enabled!(Level::Debug) {
+        let inputs: Vec<_> = interpreter
+            .inputs()
+            .iter()
+            .filter_map(|ix| interpreter.tensor_info(*ix))
+            .collect();
+        let outputs: Vec<_> = interpreter
+            .outputs()
+            .iter()
+            .filter_map(|ix| interpreter.tensor_info(*ix))
+            .collect();
+        log::debug!(
+            "Loaded model {} with inputs {:?} and outputs {:?}",
+            id,
+            inputs,
+            outputs
+        );
+    }
+
+    models.insert(id, interpreter);
+
+    Ok(id)
+}
+
+pub fn tfm_model_invoke(models: Models, store: &Store) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        models: Models,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        models,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, input: WasmPtr<u8, Array>, len: u32| unsafe {
+            let memory = s.memory.get_unchecked();
+            let input =
+                input.deref(memory, 0, len).unwrap_or_trap("Bad pointer");
+
+            let input: &[u8] = std::mem::transmute(input);
+
+            let mut models = s.models.lock().unwrap();
+
+            // FIXME: We should be passing in a model index instead of just
+            // defaulting to the first one we find.
+            let (ix, interpreter) = models.iter_mut().next().unwrap();
+
+            let _output =
+                invoke_model(*ix, interpreter, input).unwrap_or_trap("");
+
+            0
+        },
+    )
+}
+
+fn invoke_model<'i>(
+    model_index: u32,
+    model: &'i mut Interpreter<BuiltinOpResolver>,
+    input: &[u8],
+) -> Result<&'i [u8], Error> {
+    let tensor_inputs = model.inputs();
+    anyhow::ensure!(
+        tensor_inputs.len() == 1,
+        "We can't handle models with less/more than 1 input"
+    );
+    let input_index = tensor_inputs[0];
+
+    let buffer = model
+        .tensor_buffer_mut(input_index)
+        .context("Unable to get the input buffer")?;
+
+    if input.len() != buffer.len() {
+        log::warn!(
+                "The input vector for model {} is {} bytes long but the tensor expects {}",
+                model_index,
+                input.len(),
+                buffer.len(),
+            );
+    }
+    let len = std::cmp::min(input.len(), buffer.len());
+    buffer[..len].copy_from_slice(&input[..len]);
+
+    log::debug!("Model {} input: {:?}", model_index, &buffer[..len]);
+
+    model.invoke().context("Calling the model failed")?;
+
+    let tensor_outputs = model.outputs();
+    anyhow::ensure!(
+        tensor_outputs.len() == 1,
+        "We can't handle models with less/more than 1 output"
+    );
+    let output_index = tensor_outputs[0];
+    let buffer = model
+        .tensor_buffer(output_index)
+        .context("Unable to get the output buffer")?;
+
+    log::debug!("Model {} Output: {:?}", model_index, buffer);
+
+    Ok(buffer)
+}
+
+fn request_capability(
+    ids: Arc<Identifiers>,
+    caps: Capabilities,
+    store: &Store,
+) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        ids: Arc<Identifiers>,
+        caps: Capabilities,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        ids,
+        caps,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, capability_type: u32| {
+            let cap = runic_types::CAPABILITY::from_u32(capability_type);
+            let request = CapabilityRequest::new(cap);
+
+            let id = s.ids.next();
+            s.caps.lock().unwrap().insert(id, request);
+
+            log::debug!("Requested capability {:?} with ID {}", cap, id);
+
+            id
+        },
+    )
+}
+
+fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        caps: Capabilities,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        caps,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State,
+         capability_id: u32,
+         key: WasmPtr<u8, Array>,
+         key_len: u32,
+         value: WasmPtr<u8, Array>,
+         value_len: u32,
+         value_type: u32| unsafe {
+            let memory = s.memory.get_unchecked();
+            let key = key
+                .get_utf8_str(memory, key_len)
+                .unwrap_or_trap("Invalid key");
+
+            let value = value
+                .deref(memory, 0, value_len)
+                .unwrap_or_trap("Invalid value");
+            let value: &[u8] = std::mem::transmute(value);
+
+            let mut capabilities = s.caps.lock().unwrap();
+            set_capability_parameter(
+                capability_id,
+                &mut capabilities,
+                key,
+                value,
+                PARAM_TYPE::from_u32(value_type),
+            )
+            .unwrap_or_trap("Unable to set the capability parameter");
+
+            0_u32
+        },
+    )
+}
+
+fn set_capability_parameter(
+    id: u32,
+    capabilities: &mut HashMap<u32, CapabilityRequest>,
+    key: &str,
+    value: &[u8],
+    ty: PARAM_TYPE,
+) -> Result<(), Error> {
+    let request = capabilities.get_mut(&id).context("Invalid capability")?;
+    let value = CapabilityParam::from_raw(value.to_vec(), ty)
+        .context("Invalid capability parameter")?;
+
+    log::debug!("Setting {}={:?} on capability {}", key, value, id);
+    request.params.insert(key.to_string(), value);
+
+    Ok(())
+}
+
+fn request_provider_response(
+    env: Arc<dyn Environment>,
+    caps: Capabilities,
+    store: &Store,
+) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        env: Arc<dyn Environment>,
+        caps: Capabilities,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        caps,
+        env,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State,
+         buffer: WasmPtr<u8, Array>,
+         buffer_len: u32,
+         capability_id: u32| unsafe {
+            let memory = s.memory.get_unchecked();
+            let buffer = buffer
+                .deref_mut(memory, 0, buffer_len)
+                .unwrap_or_trap("Bad buffer pointer");
+            let buffer: &mut [u8] = std::mem::transmute(buffer);
+
+            let mut capabilities = s.caps.lock().unwrap();
+
+            invoke_capability(
+                &mut capabilities,
+                capability_id,
+                &*s.env,
+                buffer,
+            )
+            .unwrap_or_trap("Unable to invoke the capability");
+
+            buffer.len() as u32
+        },
+    )
+}
+
+fn invoke_capability(
+    capabilities: &mut HashMap<u32, CapabilityRequest>,
+    id: u32,
+    env: &dyn Environment,
+    dest: &mut [u8],
+) -> Result<(), Error> {
+    log::debug!("Getting capability {}", id);
+    let cap =
+        unsafe { capabilities.get(&id).unwrap_or_trap("Invalid capability") };
+
+    log::debug!(
+        "Invoking capability {} ({:?}) on a {}-byte buffer",
+        id,
+        cap.c_type,
+        dest.len()
+    );
+
+    match cap.c_type {
+        runic_types::CAPABILITY::RAND => {
+            env.fill_random(dest)
+                .context("Unable to get random bytes")?;
+
+            log::debug!("Rand: {:?}", dest);
 
             Ok(())
+        },
+        other => Err(anyhow::anyhow!(
+            "The {:?} capability isn't implemented",
+            other
+        )),
+    }
+}
+
+trait TrapExt<T> {
+    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T;
+}
+
+impl<T> TrapExt<T> for Option<T> {
+    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T {
+        match self {
+            Some(value) => value,
+            None => {
+                let err = Error::msg(msg);
+                wasmer::raise_user_trap(err.into());
+            },
+        }
+    }
+}
+
+impl<T, E> TrapExt<T> for Result<T, E>
+where
+    Result<T, E>: anyhow::Context<T, E>,
+{
+    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T {
+        match self.context(msg) {
+            Ok(value) => value,
+            Err(e) => {
+                let err = e.context(msg);
+                wasmer::raise_user_trap(err.into())
+            },
         }
     }
 }

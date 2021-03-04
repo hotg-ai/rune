@@ -19,14 +19,17 @@ pub extern "C" fn _manifest() -> u32 {
     let mut rand = runic_types::wasm32::Random::default();
     let mut sine = Model::load(include_bytes!("sine.tflite"));
     let mut mod360 = modulo::Modulo::default()
-        .with_modulus(3.1)
+        .with_modulus(360.0)
     ;
     let mut serial = Serial::default();
 
     let pipeline = move || {
         let data: [f32; 1] = rand.generate();
+        runic_types::debug!("rand => {:?}", data);
         let data = mod360.transform(data);
+        runic_types::debug!("mod360 => {:?}", data);
         let data: [f32; 1] = sine.transform(data);
+        runic_types::debug!("sine => {:?}", data);
         
         serial.consume(data);
     };

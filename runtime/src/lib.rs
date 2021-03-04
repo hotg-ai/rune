@@ -1,5 +1,4 @@
 pub mod capability;
-mod context;
 mod environment;
 mod runtime;
 
