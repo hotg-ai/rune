@@ -39,15 +39,20 @@ where
 
     fn transform(&mut self, input: [In; M]) -> [Out; N] {
         unsafe {
-            let ptr = input.as_ptr() as *const u8;
-            let length = core::mem::size_of_val(&input);
+            let input_length = core::mem::size_of_val(&input);
 
-            // FIXME(Michael-F-Bryan): Figure out how we get the result back
-            // from the VM. Ideally we should provide a buffer that model
-            // outputs can be written to.
-            let _got = intrinsics::tfm_model_invoke(ptr, length as u32);
+            let mut output = Out::zeroed_array::<N>();
+            let output_length = core::mem::size_of_val(&output);
 
-            Out::zeroed_array()
+            let _ret = intrinsics::tfm_model_invoke(
+                self.index,
+                input.as_ptr() as *const u8,
+                input_length as u32,
+                output.as_mut_ptr() as *mut u8,
+                output_length as u32,
+            );
+
+            output
         }
     }
 }

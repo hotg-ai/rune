@@ -175,9 +175,7 @@ fn tfm_preload_model(
 
                 let mut models = s.models.lock().unwrap();
                 preload_model(raw, &s.ids, &mut models)
-                    .unwrap_or_trap("Unable to load the model");
-
-                0_u32
+                    .unwrap_or_trap("Unable to load the model")
             }
         },
     )
@@ -244,32 +242,43 @@ pub fn tfm_model_invoke(models: Models, store: &Store) -> Function {
     Function::new_native_with_env(
         store,
         state,
-        |s: &State, input: WasmPtr<u8, Array>, len: u32| unsafe {
+        |s: &State,
+         model_id: u32,
+         input: WasmPtr<u8, Array>,
+         input_len: u32,
+         output: WasmPtr<u8, Array>,
+         output_len: u32| unsafe {
             let memory = s.memory.get_unchecked();
-            let input =
-                input.deref(memory, 0, len).unwrap_or_trap("Bad pointer");
 
+            let input = input
+                .deref(memory, 0, input_len)
+                .unwrap_or_trap("Bad input pointer");
             let input: &[u8] = std::mem::transmute(input);
+
+            let output = output
+                .deref_mut(memory, 0, output_len)
+                .unwrap_or_trap("Bad output pointer");
+            let output: &mut [u8] = std::mem::transmute(output);
 
             let mut models = s.models.lock().unwrap();
 
-            // FIXME: We should be passing in a model index instead of just
-            // defaulting to the first one we find.
-            let (ix, interpreter) = models.iter_mut().next().unwrap();
+            let interpreter =
+                models.get_mut(&model_id).unwrap_or_trap("Invalid model");
 
-            let _output =
-                invoke_model(*ix, interpreter, input).unwrap_or_trap("");
+            let _output = invoke_model(model_id, interpreter, input, output)
+                .unwrap_or_trap("");
 
             0
         },
     )
 }
 
-fn invoke_model<'i>(
+fn invoke_model(
     model_index: u32,
-    model: &'i mut Interpreter<BuiltinOpResolver>,
+    model: &mut Interpreter<BuiltinOpResolver>,
     input: &[u8],
-) -> Result<&'i [u8], Error> {
+    output: &mut [u8],
+) -> Result<(), Error> {
     let tensor_inputs = model.inputs();
     anyhow::ensure!(
         tensor_inputs.len() == 1,
@@ -308,7 +317,10 @@ fn invoke_model<'i>(
 
     log::debug!("Model {} Output: {:?}", model_index, buffer);
 
-    Ok(buffer)
+    anyhow::ensure!(buffer.len() == output.len());
+    output.copy_from_slice(buffer);
+
+    Ok(())
 }
 
 fn request_capability(
