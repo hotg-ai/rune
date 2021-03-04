@@ -29,6 +29,9 @@ pub struct Build {
     /// The name of the Rune (defaults to the Runefile directory's name).
     #[structopt(short, long)]
     name: Option<String>,
+    /// Compile the Rune without optimisations.
+    #[structopt(long)]
+    debug: bool,
 }
 
 impl Build {
@@ -78,7 +81,7 @@ impl Build {
             rune_project_dir: nearest_git_repo(),
             current_directory,
             working_directory,
-            optimized: true,
+            optimized: !self.debug,
         };
         let blob = rune_codegen::generate(compilation)
             .context("Rune compilation failed")?;
