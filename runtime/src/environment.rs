@@ -57,6 +57,23 @@ impl Default for DefaultEnvironment {
     fn default() -> Self { DefaultEnvironment::with_os_seed() }
 }
 
+impl Clone for DefaultEnvironment {
+    fn clone(&self) -> Self {
+        let DefaultEnvironment {
+            rng,
+            name,
+            accelerometer_samples,
+        } = self;
+        let rng = rng.lock().unwrap();
+
+        DefaultEnvironment {
+            rng: Mutex::new(rng.clone()),
+            name: name.clone(),
+            accelerometer_samples: accelerometer_samples.clone(),
+        }
+    }
+}
+
 impl Environment for DefaultEnvironment {
     fn fill_random(&self, buffer: &mut [u8]) -> Result<(), Error> {
         self.rng.lock().unwrap().fill_bytes(buffer);

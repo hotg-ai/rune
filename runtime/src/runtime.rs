@@ -454,7 +454,7 @@ fn request_provider_response(
             )
             .unwrap_or_trap("Unable to invoke the capability");
 
-            0_u32
+            buffer.len() as u32
         },
     )
 }
