@@ -1,0 +1,45 @@
+name: Benchmarks
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Fetch Previous Benchmark Results
+        uses: actions/download-artifact@v2
+        with:
+          name: benchmarks
+          path: target/criterion
+      - name: Install cargo-criterion
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-criterion
+          version: latest
+      - name: Execute the Benchmarks
+        run: |
+          cd runtime
+          cargo criterion
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v2
+        with:
+            name: benchmarks
+          path: target/criterion
