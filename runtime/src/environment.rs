@@ -15,6 +15,13 @@ pub struct DefaultEnvironment {
 }
 
 impl DefaultEnvironment {
+    pub fn with_os_seed() -> Self {
+        let mut seed = [0; 32];
+        rand::thread_rng().fill(&mut seed);
+
+        DefaultEnvironment::with_seed(seed)
+    }
+
     pub fn with_seed(seed: [u8; 32]) -> Self {
         DefaultEnvironment {
             rng: SmallRng::from_seed(seed),
@@ -38,12 +45,7 @@ impl DefaultEnvironment {
 }
 
 impl Default for DefaultEnvironment {
-    fn default() -> Self {
-        let mut seed = [0; 32];
-        rand::thread_rng().fill(&mut seed);
-
-        DefaultEnvironment::with_seed(seed)
-    }
+    fn default() -> Self { DefaultEnvironment::with_os_seed() }
 }
 
 impl Environment for DefaultEnvironment {
