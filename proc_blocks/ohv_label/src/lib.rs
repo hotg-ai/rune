@@ -5,6 +5,8 @@ extern crate alloc;
 #[macro_use]
 extern crate std;
 
+use core::cmp::Ordering;
+
 use runic_types::Transform;
 
 pub const MISSING_LABEL: &'static str = "<MISSING>";
@@ -51,12 +53,11 @@ impl<const N: usize> Transform<[f32; N]> for OhvLabel<N> {
     type Output = &'static str;
 
     fn transform(&mut self, input: [f32; N]) -> Self::Output {
-        match self
-            .labels
-            .iter()
-            .zip(input.iter().copied())
-            .max_by(|left, right| left.1.partial_cmp(&right.1).unwrap())
-        {
+        match self.labels.iter().zip(input.iter().copied()).max_by(
+            |left, right| {
+                left.1.partial_cmp(&right.1).unwrap_or(Ordering::Equal)
+            },
+        ) {
             Some((label, probability)) if probability > 0.0 => *label,
             _ => MISSING_LABEL,
         }
@@ -104,5 +105,22 @@ mod tests {
         let out = pb.transform(input);
 
         assert_eq!(out, MISSING_LABEL);
+    }
+
+    #[test]
+    fn handle_non_finite_values() {
+        let input = [
+            std::f32::NAN,
+            -0.0,
+            std::f32::INFINITY,
+            std::f32::NEG_INFINITY,
+        ];
+        let mut pb = OhvLabel::new()
+            .with_unknown_label(MISSING_LABEL)
+            .with_labels(["a", "b", "c", "d"]);
+
+        let out = pb.transform(input);
+
+        assert_eq!(out, "c");
     }
 }
