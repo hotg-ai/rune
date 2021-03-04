@@ -6,9 +6,16 @@
 extern "C" {
     /// Invoke the default model with the specified data.
     ///
-    /// FIXME: Shouldn't this take a `model_id: u32` parameter so the VM knows
-    /// which model to invoke?
-    pub fn tfm_model_invoke(feature_idx: *const u8, feature_len: u32) -> u32;
+    /// The model's output will be written to the `output` buffer.
+    ///
+    /// Model failures will trigger a trap and abort at runtime.
+    pub fn tfm_model_invoke(
+        feature_id: u32,
+        input: *const u8,
+        input_len: u32,
+        output: *mut u8,
+        output_len: u32,
+    ) -> i32;
 
     /// Load a model (as a byte buffer) into the runtime, telling it how many
     /// inputs and outputs there will be.
