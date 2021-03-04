@@ -11,28 +11,40 @@ use rune_syntax::{Diagnostics};
 use rune_codegen::Compilation;
 use rune_runtime::{DefaultEnvironment, Environment, Runtime};
 
-fn compile_sine(optimized: bool) -> Vec<u8> {
-    let src = include_str!("../../examples/sine/Runefile");
-    let parsed = rune_syntax::parse(src).unwrap();
-    let mut diags = Diagnostics::new();
-    let rune = rune_syntax::analyse(0, &parsed, &mut diags);
-    assert!(!diags.has_errors());
+criterion_group!(
+    benches,
+    execute_sine,
+    // compile_times,
+    runtime_startup
+);
+criterion_main!(benches);
 
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let sine_dir = repo_root.join("examples").join("sine");
+pub fn compile_times(c: &mut Criterion) {
+    let mut group = c.benchmark_group("compile");
 
-    let working_dir = tempfile::tempdir().unwrap();
+    group
+        .bench_function("debug sine", |b| b.iter(|| compile_sine(false)))
+        .bench_function("release sine", |b| b.iter(|| compile_sine(true)))
+        .bench_function("debug gesture", |b| b.iter(|| compile_gesture(false)))
+        .bench_function("release gesture", |b| {
+            b.iter(|| compile_gesture(true))
+        });
+}
 
-    let compilation = Compilation {
-        name: String::from("sine"),
-        rune,
-        rune_project_dir: repo_root.to_path_buf(),
-        current_directory: sine_dir,
-        working_directory: working_dir.path().to_path_buf(),
-        optimized,
-    };
+pub fn runtime_startup(c: &mut Criterion) {
+    let mut group = c.benchmark_group("startup");
 
-    rune_codegen::generate(compilation).unwrap()
+    let sine = compile_sine(true);
+    let gesture = compile_gesture(true);
+    let env = DefaultEnvironment::default();
+
+    group
+        .bench_function("sine", |b| {
+            b.iter(|| Runtime::load(&sine, env.clone()).unwrap())
+        })
+        .bench_function("gesture", |b| {
+            b.iter(|| Runtime::load(&gesture, env.clone()).unwrap())
+        });
 }
 
 pub fn execute_sine(c: &mut Criterion) {
@@ -56,6 +68,22 @@ pub fn execute_sine(c: &mut Criterion) {
 
     let mut manual = ManualSine::load();
     group.bench_function("no rune", |b| b.iter(|| manual.call()));
+}
+
+pub fn execute_gesture(c: &mut Criterion) {
+    let mut group = c.benchmark_group("execute gesture");
+
+    let wasm = compile_gesture(true);
+    let mut runtime =
+        Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
+    group.bench_function("optimised rune", |b| {
+        b.iter(|| runtime.call().unwrap())
+    });
+
+    let wasm = compile_gesture(false);
+    let mut runtime =
+        Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
+    group.bench_function("debug rune", |b| b.iter(|| runtime.call().unwrap()));
 }
 
 struct ManualSine {
@@ -104,5 +132,35 @@ impl ManualSine {
     }
 }
 
-criterion_group!(benches, execute_sine);
-criterion_main!(benches);
+fn compile_sine(optimized: bool) -> Vec<u8> {
+    let src = include_str!("../../examples/sine/Runefile");
+    compile("sine", src, optimized)
+}
+
+fn compile_gesture(optimized: bool) -> Vec<u8> {
+    let src = include_str!("../../examples/gesture/Runefile");
+    compile("gesture", src, optimized)
+}
+
+fn compile(name: &str, runefile: &str, optimized: bool) -> Vec<u8> {
+    let parsed = rune_syntax::parse(runefile).unwrap();
+    let mut diags = Diagnostics::new();
+    let rune = rune_syntax::analyse(0, &parsed, &mut diags);
+    assert!(!diags.has_errors());
+
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let sine_dir = repo_root.join("examples").join(name);
+
+    let working_dir = tempfile::tempdir().unwrap();
+
+    let compilation = Compilation {
+        name: String::from(name),
+        rune,
+        rune_project_dir: repo_root.to_path_buf(),
+        current_directory: sine_dir,
+        working_directory: working_dir.path().to_path_buf(),
+        optimized,
+    };
+
+    rune_codegen::generate(compilation).unwrap()
+}
