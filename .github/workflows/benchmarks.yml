@@ -24,11 +24,6 @@ jobs:
           override: true
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown
-      - name: Fetch Previous Benchmark Results
-        uses: actions/download-artifact@v2
-        with:
-          name: benchmarks
-          path: target/criterion
       - name: Install cargo-criterion
         uses: actions-rs/install@v0.1
         with:
