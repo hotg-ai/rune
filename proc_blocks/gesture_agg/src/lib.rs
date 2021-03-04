@@ -6,76 +6,99 @@ extern crate alloc;
 extern crate std;
 
 use runic_types::Transform;
+use alloc::collections::VecDeque;
 
-
+/// Gesture Aggregator takes a list of confidences and returns the associated
+/// label of the most confident gesture so it identifies which gesture is
+/// occuring.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GestureAgg<const N: usize> {
-    labels: [N],
+    labels: [&'static str; N],
+    history: VecDeque<[f32; N]>,
+    max_capacity: usize,
+    unknown: &'static str,
+    throttle_interval: usize,
+    countdown: usize,
 }
+const MAX_CAPACITY: usize = 1024;
+const UNKNOWN_LABEL: &'static str = "<MISSING>";
+const DEFAULT_THROTTLE_INTERVAL: usize = 16;
 
 impl<const N: usize> GestureAgg<N> {
     pub fn new() -> Self {
-            labels: [N],
+        GestureAgg {
+            labels: [""; N],
+            history: VecDeque::new(),
+            max_capacity: MAX_CAPACITY,
+            unknown: UNKNOWN_LABEL,
+            throttle_interval: DEFAULT_THROTTLE_INTERVAL,
+            countdown: 0,
         }
     }
 
-pub extern "C" fn PredictGesture(tfArray: <[f32; N]>) -> f32 {
-    unsafe{
-        float prediction_history[kGestureCount][kPredictionHistoryLength] = {};
-        int prediction_history_index = 0;
-        int prediction_suppression_count = 0;
+    pub fn with_labels(self, labels: [&'static str; N]) -> Self {
+        GestureAgg { labels, ..self }
+    }
 
-        for(int j=0; j < kgestureCount; j++){
-            prediction_history[i][prediction_history_index] = output[i];
+    pub fn with_throttle_interval(self, throttle_interval: usize) -> Self {
+        GestureAgg {
+            throttle_interval,
+            ..self
+        }
+    }
+
+    fn add_history(&mut self, input: [f32; N]) {
+        self.history.push_back(input);
+
+        while self.history.len() > self.max_capacity {
+            self.history.pop_front();
+        }
+    }
+
+    fn most_likely_gesture(&self) -> Option<usize> {
+        if self.history.is_empty() {
+            return None;
         }
 
-        prediction_history_index++;
-        if prediction_history_index >= kPredictionHistoryLength {
-            prediction_history_index = 0
-        }
+        (0..N)
+            .fold(None, |previous_most_likely, gesture_index| {
+                let sum: f32 =
+                    self.history.iter().map(|input| input[gesture_index]).sum();
+                let avg = sum / self.history.len() as f32;
 
-        int max_predict_index = -1;
-        float max_predict_score = 0.0;
+                match previous_most_likely {
+                    Some((_, previous_avg)) if previous_avg >= avg => {
+                        previous_most_likely
+                    },
+                    _ => Some((gesture_index, avg)),
+                }
+            })
+            .map(|pair| pair.0)
+    }
 
-        for (int i = 0; i < kGestureCount; i++) {
-            float prediction_sum = 0.0;
-            for (int j = 0; j < kPredictionHistoryLength; ++j) {
-                prediction_sum += prediction_history[i][j];
-            }
-            const float prediction_average = prediction_sum / kPredictionHistoryLength;
-            if ((max_predict_index == -1) || (prediction_average > max_predict_score)) {
-                max_predict_index = i;
-                max_predict_score = prediction_average;
-            }
-        }
-
-        // If there's been a recent prediction, don't trigger a new one too soon.
-        if (prediction_suppression_count > 0) {
-            --prediction_suppression_count;
-        }
-
-        if ((max_predict_index == kNoGesture) ||
-            (max_predict_score < kDetectionThreshold) ||
-            (prediction_suppression_count > 0)) {
-            return kNoGesture;
-        } else {
-            // Reset the suppression counter so we don't come up with another prediction
-            // too soon.
-            prediction_suppression_count = kPredictionSuppressionDuration;
-            return max_predict_index;
-        }
+    fn label_for_index(&self, index: Option<usize>) -> Option<&'static str> {
+        index.and_then(|ix| self.labels.get(ix)).copied()
     }
 }
-
 
 impl<const N: usize> Transform<[f32; N]> for GestureAgg<N> {
     type Output = &'static str;
 
     fn transform(&mut self, input: [f32; N]) -> Self::Output {
+        // This is a rust port of https://github.com/andriyadi/MagicWand-TFLite-ESP32/blob/00fd15f0861b27437236689ceb642a05cf5fb028/src/gesture_predictor.cpp#L35-L101
 
-        PredictGesture(input: [f32; N]);
-        // Some(PredictGesture(input: [f32; N])) => { println!("warning: sound buffer is full"); }
-        _ => { }
+        self.add_history(input);
+        let gesture_index = self.most_likely_gesture();
+        let label = self.label_for_index(gesture_index);
+        self.countdown = self.countdown.saturating_sub(1);
+
+        match label {
+            Some(label) if self.countdown == 0 => {
+                self.countdown = self.throttle_interval;
+                label
+            },
+            _ => self.unknown,
+        }
     }
 }
 
@@ -91,32 +114,99 @@ mod tests {
     #[test]
     fn it_works() {
         let input = [0.0, 1.0, 0.0, 0.0];
-        let mut pb = GestureAgg::new()
+        let mut pb =
+            GestureAgg::new().with_labels(["Wing", "Ring", "Slope", "Unknown"]);
 
         let out = pb.transform(input);
 
-        // assert_eq!(out, "Ring");
+        assert_eq!(out, "Ring");
     }
 
-    // #[test]
-    // fn handles_empty_input() {
-    //     let input = [];
-    //     let mut pb = GestureAgg::new().with_unknown_label(MISSING_LABEL);
+    #[test]
+    fn add_one_in_to_history() {
+        let mut ges = GestureAgg::new();
+        assert!(ges.history.is_empty());
 
-    //     let out = pb.transform(input);
+        ges.add_history([0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(ges.history.len(), 1);
+    }
+    #[test]
+    fn history_buf_is_less_than_1024() {
+        let mut ges = GestureAgg::new();
 
-    //     assert_eq!(out, MISSING_LABEL);
-    // }
+        for _ in 0..MAX_CAPACITY {
+            ges.add_history([0.5])
+        }
+        assert_eq!(ges.history.len(), MAX_CAPACITY);
 
-    // #[test]
-    // fn handles_null_ohv() {
-    //     let input = [0.0; 4];
-    //     let mut pb = GestureAgg::new()
-    //         .with_unknown_label(MISSING_LABEL)
-    //         .with_labels(["a", "b", "c", "d"]);
+        ges.add_history([0.5]);
+        assert_eq!(ges.history.len(), MAX_CAPACITY);
+    }
 
-    //     let out = pb.transform(input);
+    #[test]
+    fn empty_history_has_no_most_likely_ges() {
+        let ges: GestureAgg<42> = GestureAgg::new();
 
-    //     assert_eq!(out, MISSING_LABEL);
-    // }
+        let got = ges.most_likely_gesture();
+
+        assert!(got.is_none());
+    }
+
+    #[test]
+    fn previous_most_likely_ges() {
+        let mut ges = GestureAgg::new();
+        ges.add_history([0.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+
+        let got = ges.most_likely_gesture();
+
+        assert_eq!(got, Some(3));
+    }
+
+    #[test]
+    fn labels_for_valid_index() {
+        let ges =
+            GestureAgg::new().with_labels(["Wing", "Ring", "Slope", "Unknown"]);
+
+        let got = ges.label_for_index(Some(2));
+
+        assert_eq!(got, Some("Slope"));
+    }
+    #[test]
+    fn labels_for_out_of_bounds_index() {
+        let ges =
+            GestureAgg::new().with_labels(["Wing", "Ring", "Slope", "Unknown"]);
+
+        let got = ges.label_for_index(Some(5));
+
+        assert_eq!(got, None);
+    }
+
+    #[test]
+    fn labels_for_no_index() {
+        let ges =
+            GestureAgg::new().with_labels(["Wing", "Ring", "Slope", "Unknown"]);
+
+        let got = ges.label_for_index(None);
+
+        assert_eq!(got, None);
+    }
+
+    #[test]
+    fn throttling() {
+        let mut ges = GestureAgg::new()
+            .with_labels(["Wing", "Ring", "Slope", "Unknown"])
+            .with_throttle_interval(3);
+
+        let got = ges.transform([0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(got, "Ring");
+
+        let got = ges.transform([0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(got, ges.unknown);
+
+        let got = ges.transform([0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(got, ges.unknown);
+
+        let got = ges.transform([0.0, 1.0, 0.0, 0.0]);
+        assert_eq!(got, "Ring");
+    }
 }
