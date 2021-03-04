@@ -23,10 +23,10 @@ pub fn compile_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("compile");
 
     group
-        .bench_function("debug sine", |b| b.iter(|| compile_sine(false)))
-        .bench_function("release sine", |b| b.iter(|| compile_sine(true)))
-        .bench_function("debug gesture", |b| b.iter(|| compile_gesture(false)))
-        .bench_function("release gesture", |b| {
+        .bench_function("debug-sine", |b| b.iter(|| compile_sine(false)))
+        .bench_function("release-sine", |b| b.iter(|| compile_sine(true)))
+        .bench_function("debug-gesture", |b| b.iter(|| compile_gesture(false)))
+        .bench_function("release-gesture", |b| {
             b.iter(|| compile_gesture(true))
         });
 }
@@ -52,38 +52,38 @@ pub fn execute_sine(c: &mut Criterion) {
     // Ideally we'd create a new runtime every time, but that's incredibly
     // expensive.
 
-    let mut group = c.benchmark_group("execute sine");
+    let mut group = c.benchmark_group("execute-sine");
 
     let wasm = compile_sine(true);
     let mut runtime =
         Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("optimised rune", |b| {
+    group.bench_function("optimised-rune", |b| {
         b.iter(|| runtime.call().unwrap())
     });
 
     let wasm = compile_sine(false);
     let mut runtime =
         Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("debug rune", |b| b.iter(|| runtime.call().unwrap()));
+    group.bench_function("debug-rune", |b| b.iter(|| runtime.call().unwrap()));
 
     let mut manual = ManualSine::load();
-    group.bench_function("no rune", |b| b.iter(|| manual.call()));
+    group.bench_function("no-rune", |b| b.iter(|| manual.call()));
 }
 
 pub fn execute_gesture(c: &mut Criterion) {
-    let mut group = c.benchmark_group("execute gesture");
+    let mut group = c.benchmark_group("execute-gesture");
 
     let wasm = compile_gesture(true);
     let mut runtime =
         Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("optimised rune", |b| {
+    group.bench_function("optimised-rune", |b| {
         b.iter(|| runtime.call().unwrap())
     });
 
     let wasm = compile_gesture(false);
     let mut runtime =
         Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("debug rune", |b| b.iter(|| runtime.call().unwrap()));
+    group.bench_function("debug-rune", |b| b.iter(|| runtime.call().unwrap()));
 }
 
 struct ManualSine {
