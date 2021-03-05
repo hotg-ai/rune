@@ -174,7 +174,7 @@ impl Generator {
     }
 
     fn outputs(&self) -> Vec<Value> {
-        let mut blocks = Vec::new();
+        let mut outputs = Vec::new();
 
         for (&id, sink) in &self.rune.sinks {
             if let Some(name) = self.rune.names.get_name(id) {
@@ -182,14 +182,16 @@ impl Generator {
                     Sink::Serial => "Serial",
                 };
 
-                blocks.push(json!({
+                outputs.push(json!({
                     "name": name,
                     "type": type_name,
                 }));
             }
         }
 
-        blocks
+        log::debug!("Outputs: {:?}", outputs);
+
+        outputs
     }
 
     fn capabilities(&self) -> Vec<Value> {
@@ -199,8 +201,9 @@ impl Generator {
             if let Some(name) = self.rune.names.get_name(id) {
                 let type_name = match &source.kind {
                     SourceKind::Random => "runic_types::wasm32::Random",
-                    // TODO: Create an accelerometer type
-                    SourceKind::Accelerometer => "runic_types::wasm32::Random",
+                    SourceKind::Accelerometer => {
+                        "runic_types::wasm32::Accelerometer"
+                    },
                     SourceKind::Other(name) => name.as_str(),
                 };
 
@@ -213,6 +216,8 @@ impl Generator {
                 }));
             }
         }
+
+        log::debug!("Capabilities: {:?}", capabilities);
 
         capabilities
     }
@@ -288,10 +293,14 @@ impl Generator {
         stages.first_mut().unwrap().first = true;
         stages.last_mut().unwrap().last = true;
 
-        stages
+        let pipelines: Vec<_> = stages
             .into_iter()
             .map(|s| serde_json::to_value(&s).unwrap())
-            .collect()
+            .collect();
+
+        log::debug!("Pipelines: {:?}", pipelines);
+
+        pipelines
     }
 
     fn rust_type_name(&self, id: HirId) -> Option<String> {

@@ -4,30 +4,30 @@
 extern crate std;
 
 use core::{
+    fmt::{self, Formatter, Debug},
     marker::PhantomData,
     ops::{Div, Sub},
 };
-use runic_types::Transform;
+use runic_types::{Transform, Buffer};
 
 /// Normalize the input to the range `[0, 1]`.
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
-pub struct Normalize<T> {
-    _type: PhantomData<fn(T) -> T>,
+pub struct Normalize<B> {
+    _type: PhantomData<fn(B) -> B>,
 }
 
-impl<T, A> Transform<A> for Normalize<T>
+impl<B> Transform<B> for Normalize<B>
 where
-    A: AsMut<[T]> + AsRef<[T]>,
-    T: PartialOrd + Div<Output = T> + Sub<Output = T> + Copy,
+    B: Buffer,
+    B::Item: PartialOrd + Div<Output = B::Item> + Sub<Output = B::Item> + Copy,
 {
-    type Output = A;
+    type Output = B;
 
-    fn transform(&mut self, mut input: A) -> A {
-        if let Some((min, max)) = min_max(input.as_ref()) {
+    fn transform(&mut self, mut input: B) -> B {
+        if let Some((min, max)) = min_max(input.as_slice()) {
             if min != max {
                 let range = max - min;
 
-                for item in input.as_mut() {
+                for item in input.as_mut_slice() {
                     *item = (*item - min) / range;
                 }
             }
@@ -35,6 +35,31 @@ where
 
         input
     }
+}
+
+impl<B> Debug for Normalize<B> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Normalize").finish()
+    }
+}
+
+impl<B> Default for Normalize<B> {
+    fn default() -> Self { Normalize { _type: PhantomData } }
+}
+
+impl<B> PartialEq for Normalize<B> {
+    fn eq(&self, other: &Self) -> bool {
+        let Normalize { _type: type_a } = self;
+        let Normalize { _type: type_b } = other;
+
+        type_a == type_b
+    }
+}
+
+impl<B> Copy for Normalize<B> {}
+
+impl<B> Clone for Normalize<B> {
+    fn clone(&self) -> Self { *self }
 }
 
 fn min_max<'a, I, T>(items: I) -> Option<(T, T)>
@@ -69,18 +94,10 @@ mod tests {
 
     #[test]
     fn it_accepts_vectors() {
-        let input = std::vec![0.0, 1.0, 2.0];
+        let input = [0.0, 1.0, 2.0];
         let mut pb = Normalize::default();
 
         let _ = pb.transform(input);
-    }
-
-    #[test]
-    fn it_accepts_mutable_slices() {
-        let mut input = [0.0, 1.0, 2.0];
-        let mut pb = Normalize::default();
-
-        let _ = pb.transform(&mut input[..]);
     }
 
     #[test]

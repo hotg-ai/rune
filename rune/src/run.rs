@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
 };
 use anyhow::{Context, Error};
+use hound::WavReader;
 use log;
 use rune_runtime::{DefaultEnvironment, Runtime};
 
@@ -68,6 +69,24 @@ impl Run {
                     );
                     env.set_accelerometer_data(samples);
                 },
+                Capability::Image { filename } => {
+                    let img = image::open(filename).with_context(|| {
+                        format!("Unable to load \"{}\"", filename.display())
+                    })?;
+                    env.set_image(img.to_rgb8());
+                },
+                Capability::Audio {filename } => {
+                    let f = File::open(filename)
+                    .with_context(|| format!("Unable to open \"{}\" for reading", filename.display()))?;
+                    let reader = WavReader::new(f)
+                    .context("Unable to read the WAV file's header")?;
+
+                    let samples = reader.into_samples::<i16>()
+                        .collect::<Result<Vec<_>, _>>()
+                        .context("Unable to parse the WAV file's samples")?;
+
+                    env.set_audio(samples);
+                }
             }
         }
 
@@ -81,6 +100,8 @@ impl Run {
 enum Capability {
     Random { seed: u64 },
     Accelerometer { filename: PathBuf },
+    Image { filename: PathBuf },
+    Audio { filename: PathBuf },
 }
 
 impl FromStr for Capability {
@@ -102,6 +123,12 @@ impl FromStr for Capability {
                 Ok(Capability::Accelerometer {
                     filename: PathBuf::from(value),
                 })
+            },
+            "i" | "img" | "image" => {
+                Ok(Capability::Image { filename: PathBuf::from(value) })
+            }
+            "s" | "sound" | "wav" | "audio" => {
+                Ok(Capability::Audio { filename: PathBuf::from(value) })
             },
             other => anyhow::bail!(
                 "Supported capabilities are \"random\" and \"accelerometer\", found \"{}\"",

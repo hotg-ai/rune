@@ -1,20 +1,20 @@
-use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY};
+use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY, Buffer};
 use core::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Random<T, const N: usize> {
+pub struct Random<B> {
     index: u32,
-    _type: PhantomData<fn() -> [T; N]>,
+    _type: PhantomData<fn() -> B>,
 }
 
-impl<T: AsParamType, const N: usize> Random<T, N> {
+impl<B: Buffer> Random<B> {
     pub fn new() -> Self {
         unsafe {
             let index = intrinsics::request_capability(CAPABILITY::RAND as u32);
 
             // ask for the correct length
             let key = "n";
-            let value = i32::to_le_bytes(N as i32);
+            let value = i32::to_le_bytes(B::OVERALL_LENGTH as i32);
             intrinsics::request_capability_set_param(
                 index,
                 key.as_ptr(),
@@ -32,28 +32,16 @@ impl<T: AsParamType, const N: usize> Random<T, N> {
     }
 }
 
-impl<T: AsParamType, const N: usize> Default for Random<T, N> {
+impl<B: Buffer> Default for Random<B> {
     fn default() -> Self { Random::new() }
 }
 
-impl<T: AsParamType, const N: usize> Source for Random<T, N> {
-    type Output = [T; N];
+impl<B: Buffer> Source for Random<B> {
+    type Output = B;
 
     fn generate(&mut self) -> Self::Output {
-        unsafe {
-            let mut buffer = T::zeroed_array::<N>();
-
-            let byte_length = core::mem::size_of_val(&buffer) as u32;
-
-            let response_size = intrinsics::request_provider_response(
-                buffer.as_mut_ptr() as _,
-                byte_length,
-                self.index as u32,
-            );
-
-            debug_assert_eq!(response_size, byte_length);
-
-            buffer
-        }
+        let mut buffer = Self::Output::zeroed();
+        super::copy_capability_data_to_buffer(self.index, &mut buffer);
+        buffer
     }
 }

@@ -1,11 +1,33 @@
-use std::sync::Mutex;
-
+use std::{borrow::Cow, sync::Mutex};
 use log::Record;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
-use anyhow::Error;
+use anyhow::{Context, Error};
+use image::RgbImage;
+use image::imageops::FilterType;
 
 pub trait Environment: Send + Sync + 'static {
-    fn fill_random(&self, _buffer: &mut [u8]) -> Result<(), Error> {
+    fn fill_random(&self, _buffer: &mut [u8]) -> Result<usize, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    fn fill_accelerometer(
+        &self,
+        _buffer: &mut [[f32; 3]],
+    ) -> Result<usize, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    fn fill_audio(&self, _buffer: &mut [i16]) -> Result<usize, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    /// Fill the provided buffer with RGB pixels.
+    fn fill_image(
+        &self,
+        _buffer: &mut [u8],
+        _width: u32,
+        _height: u32,
+    ) -> Result<usize, Error> {
         Err(Error::new(NotSupportedError))
     }
 
@@ -21,6 +43,8 @@ pub struct DefaultEnvironment {
     rng: Mutex<SmallRng>,
     name: String,
     accelerometer_samples: Vec<[f32; 3]>,
+    image: Option<RgbImage>,
+    audio: Vec<i16>,
 }
 
 impl DefaultEnvironment {
@@ -36,6 +60,8 @@ impl DefaultEnvironment {
             rng: Mutex::new(SmallRng::from_seed(seed)),
             name: String::from("current_rune"),
             accelerometer_samples: Vec::new(),
+            audio: Vec::new(),
+            image: None,
         }
     }
 
@@ -51,6 +77,10 @@ impl DefaultEnvironment {
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = name.into();
     }
+
+    pub fn set_image(&mut self, image: RgbImage) { self.image = Some(image); }
+
+    pub fn set_audio(&mut self, audio: Vec<i16>) { self.audio = audio; }
 }
 
 impl Default for DefaultEnvironment {
@@ -63,22 +93,90 @@ impl Clone for DefaultEnvironment {
             rng,
             name,
             accelerometer_samples,
+            image,
+            audio,
         } = self;
         let rng = rng.lock().unwrap();
 
         DefaultEnvironment {
             rng: Mutex::new(rng.clone()),
             name: name.clone(),
+            image: image.clone(),
+            audio: audio.clone(),
             accelerometer_samples: accelerometer_samples.clone(),
         }
     }
 }
 
 impl Environment for DefaultEnvironment {
-    fn fill_random(&self, buffer: &mut [u8]) -> Result<(), Error> {
+    fn fill_random(&self, buffer: &mut [u8]) -> Result<usize, Error> {
         self.rng.lock().unwrap().fill_bytes(buffer);
 
-        Ok(())
+        Ok(buffer.len())
+    }
+
+    fn fill_accelerometer(
+        &self,
+        buffer: &mut [[f32; 3]],
+    ) -> Result<usize, Error> {
+        if self.accelerometer_samples.is_empty() {
+            return Err(Error::new(NotSupportedError));
+        }
+
+        let len = std::cmp::min(buffer.len(), self.accelerometer_samples.len());
+        buffer.copy_from_slice(&self.accelerometer_samples[..len]);
+
+        Ok(len)
+    }
+
+    fn fill_image(
+        &self,
+        buffer: &mut [u8],
+        width: u32,
+        height: u32,
+    ) -> Result<usize, Error> {
+        let img = self.image.as_ref().ok_or(NotSupportedError)?;
+
+        let img = if width == img.width() && height == img.height() {
+            Cow::Borrowed(img)
+        } else if width == 0 && height == 0 {
+            // no dimensions provided, copy the current one across and hope for
+            // the best
+            Cow::Borrowed(img)
+        } else {
+            log::debug!(
+                "Resizing image from {:?} to {:?}",
+                img.dimensions(),
+                (width, height)
+            );
+
+            Cow::Owned(image::imageops::resize(
+                img,
+                width,
+                height,
+                FilterType::Nearest,
+            ))
+        };
+
+        let raw = img.as_flat_samples();
+        let raw = raw.image_slice().context("The image was malformed")?;
+
+        let len = std::cmp::min(raw.len(), buffer.len());
+        buffer[..len].copy_from_slice(&raw[..len]);
+
+        Ok(len)
+    }
+
+    fn fill_audio(&self, buffer: &mut [i16]) -> Result<usize, Error> {
+        if self.audio.is_empty() {
+            return Err(Error::new(NotSupportedError));
+        }
+
+        let len = std::cmp::min(self.audio.len(), buffer.len());
+
+        buffer[..len].copy_from_slice(&self.audio[..len]);
+
+        Ok(len)
     }
 
     fn log(&self, msg: &str) {
