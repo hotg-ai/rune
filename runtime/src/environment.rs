@@ -5,7 +5,14 @@ use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use anyhow::Error;
 
 pub trait Environment: Send + Sync + 'static {
-    fn fill_random(&self, _buffer: &mut [u8]) -> Result<(), Error> {
+    fn fill_random(&self, _buffer: &mut [u8]) -> Result<usize, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    fn fill_accelerometer(
+        &self,
+        _buffer: &mut [[f32; 3]],
+    ) -> Result<usize, Error> {
         Err(Error::new(NotSupportedError))
     }
 
@@ -75,10 +82,24 @@ impl Clone for DefaultEnvironment {
 }
 
 impl Environment for DefaultEnvironment {
-    fn fill_random(&self, buffer: &mut [u8]) -> Result<(), Error> {
+    fn fill_random(&self, buffer: &mut [u8]) -> Result<usize, Error> {
         self.rng.lock().unwrap().fill_bytes(buffer);
 
-        Ok(())
+        Ok(buffer.len())
+    }
+
+    fn fill_accelerometer(
+        &self,
+        buffer: &mut [[f32; 3]],
+    ) -> Result<usize, Error> {
+        if self.accelerometer_samples.is_empty() {
+            return Err(Error::new(NotSupportedError));
+        }
+
+        let len = std::cmp::min(buffer.len(), self.accelerometer_samples.len());
+        buffer.copy_from_slice(&self.accelerometer_samples[..len]);
+
+        Ok(len)
     }
 
     fn log(&self, msg: &str) {

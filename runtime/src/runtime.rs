@@ -497,6 +497,25 @@ fn invoke_capability(
 
             Ok(())
         },
+        runic_types::CAPABILITY::ACCEL => {
+            let buffer = unsafe {
+                // HACK: We've been given a byte array but accelerometer data
+                // comes as XYZ floats. Float arrays are POD types so it's okay
+                // to transmute them.
+                //
+                // This wouldn't be necessary if each capability had its own
+                // host function with a strongly typed signature.
+                let len = dest.len() / std::mem::size_of::<[f32; 3]>();
+                std::slice::from_raw_parts_mut(
+                    dest.as_mut_ptr() as *mut [f32; 3],
+                    len,
+                )
+            };
+            env.fill_accelerometer(buffer)
+                .context("Unable to fill the buffer with accelerometer data")?;
+
+            Ok(())
+        },
         other => Err(anyhow::anyhow!(
             "The {:?} capability isn't implemented",
             other
