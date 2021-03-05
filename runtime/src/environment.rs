@@ -1,9 +1,9 @@
-use std::sync::Mutex;
-
+use std::{borrow::Cow, sync::Mutex};
 use log::Record;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
-use anyhow::Error;
+use anyhow::{Context, Error};
 use image::RgbImage;
+use image::imageops::FilterType;
 
 pub trait Environment: Send + Sync + 'static {
     fn fill_random(&self, _buffer: &mut [u8]) -> Result<usize, Error> {
@@ -25,8 +25,8 @@ pub trait Environment: Send + Sync + 'static {
     fn fill_image(
         &self,
         _buffer: &mut [u8],
-        _width: usize,
-        _height: usize,
+        _width: u32,
+        _height: u32,
     ) -> Result<usize, Error> {
         Err(Error::new(NotSupportedError))
     }
@@ -119,6 +119,44 @@ impl Environment for DefaultEnvironment {
 
         let len = std::cmp::min(buffer.len(), self.accelerometer_samples.len());
         buffer.copy_from_slice(&self.accelerometer_samples[..len]);
+
+        Ok(len)
+    }
+
+    fn fill_image(
+        &self,
+        buffer: &mut [u8],
+        width: u32,
+        height: u32,
+    ) -> Result<usize, Error> {
+        let img = self.image.as_ref().ok_or(NotSupportedError)?;
+
+        let img = if width == img.width() && height == img.height() {
+            Cow::Borrowed(img)
+        } else if width == 0 && height == 0 {
+            // no dimensions provided, copy the current one across and hope for
+            // the best
+            Cow::Borrowed(img)
+        } else {
+            log::debug!(
+                "Resizing image from {:?} to {:?}",
+                img.dimensions(),
+                (width, height)
+            );
+
+            Cow::Owned(image::imageops::resize(
+                img,
+                width,
+                height,
+                FilterType::Nearest,
+            ))
+        };
+
+        let raw = img.as_flat_samples();
+        let raw = raw.image_slice().context("The image was malformed")?;
+
+        let len = std::cmp::min(raw.len(), buffer.len());
+        buffer[..len].copy_from_slice(&raw[..len]);
 
         Ok(len)
     }

@@ -516,6 +516,12 @@ fn invoke_capability(
 
             Ok(())
         },
+        runic_types::CAPABILITY::IMAGE => {
+            env.fill_image(dest, 0, 0)
+                .context("Unable to fill the buffer with image data")?;
+
+            Ok(())
+        },
         other => Err(anyhow::anyhow!(
             "The {:?} capability isn't implemented",
             other
