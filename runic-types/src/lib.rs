@@ -104,3 +104,11 @@ impl AsParamType for i32 {
 impl AsParamType for f32 {
     const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
 }
+
+impl AsParamType for i16 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::BINARY;
+}
+
+impl AsParamType for u8 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::BINARY;
+}

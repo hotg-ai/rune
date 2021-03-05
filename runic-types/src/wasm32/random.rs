@@ -40,19 +40,8 @@ impl<B: Buffer> Source for Random<B> {
     type Output = B;
 
     fn generate(&mut self) -> Self::Output {
-        unsafe {
-            let mut buffer = B::zeroed();
-            let byte_length = core::mem::size_of_val(&buffer);
-
-            let response_size = intrinsics::request_provider_response(
-                buffer.as_mut_ptr() as _,
-                byte_length as u32,
-                self.index as u32,
-            );
-
-            debug_assert_eq!(response_size, byte_length as u32);
-
-            buffer
-        }
+        let mut buffer = Self::Output::zeroed();
+        super::copy_capability_data_to_buffer(self.index, &mut buffer);
+        buffer
     }
 }

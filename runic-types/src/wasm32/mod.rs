@@ -18,6 +18,7 @@ pub use image::Image;
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use debug::BufWriter;
 use wee_alloc::WeeAlloc;
+use crate::Buffer;
 
 #[global_allocator]
 pub static ALLOC: WeeAlloc = WeeAlloc::INIT;
@@ -39,4 +40,21 @@ fn on_panic(info: &PanicInfo) -> ! {
 #[alloc_error_handler]
 fn on_alloc_error(layout: Layout) -> ! {
     panic!("memory allocation of {} bytes failed", layout.size())
+}
+
+fn copy_capability_data_to_buffer<B>(capability_id: u32, buffer: &mut B)
+where
+    B: Buffer,
+{
+    let byte_length = core::mem::size_of_val(&buffer) as u32;
+
+    unsafe {
+        let response_size = intrinsics::request_provider_response(
+            buffer.as_mut_ptr() as _,
+            byte_length,
+            capability_id,
+        );
+
+        debug_assert_eq!(response_size, byte_length);
+    }
 }

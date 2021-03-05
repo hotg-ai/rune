@@ -522,6 +522,25 @@ fn invoke_capability(
 
             Ok(())
         },
+        runic_types::CAPABILITY::SOUND => {
+            let buffer = unsafe {
+                // HACK: We've been given a byte array but audio data comes as
+                // PCM-encoded i16. Integer arrays are POD types so it's okay to
+                // transmute them.
+                //
+                // This wouldn't be necessary if each capability had its own
+                // host function with a strongly typed signature.
+                let len = dest.len() / std::mem::size_of::<i16>();
+                std::slice::from_raw_parts_mut(
+                    dest.as_mut_ptr() as *mut i16,
+                    len,
+                )
+            };
+            env.fill_audio(buffer)
+                .context("Unable to fill the buffer with audio data")?;
+
+            Ok(())
+        },
         other => Err(anyhow::anyhow!(
             "The {:?} capability isn't implemented",
             other

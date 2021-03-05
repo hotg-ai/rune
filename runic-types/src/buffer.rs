@@ -77,3 +77,5 @@ macro_rules! impl_buffer {
 
 impl_buffer!(f32, A, B, C, D);
 impl_buffer!(i32, A, B, C, D);
+impl_buffer!(i16, A, B, C, D);
+impl_buffer!(u8, A, B, C, D);
