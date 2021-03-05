@@ -8,6 +8,8 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.38"
+env_logger = "0.8.3"
+libc = "0.2.87"
 rune-runtime = { path = "../runtime" }
 
 [lib]

@@ -1815,6 +1815,8 @@ name = "rune-ffi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "env_logger 0.8.3",
+ "libc",
  "rune-runtime",
 ]
 
