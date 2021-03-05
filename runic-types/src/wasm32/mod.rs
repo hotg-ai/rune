@@ -1,3 +1,4 @@
+mod accelerometer;
 pub mod intrinsics;
 mod model;
 mod random;
@@ -10,6 +11,7 @@ pub mod debug;
 pub use model::Model;
 pub use random::Random;
 pub use serial::Serial;
+pub use accelerometer::Accelerometer;
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use debug::BufWriter;

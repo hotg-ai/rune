@@ -200,7 +200,9 @@ impl Generator {
                 let type_name = match &source.kind {
                     SourceKind::Random => "runic_types::wasm32::Random",
                     // TODO: Create an accelerometer type
-                    SourceKind::Accelerometer => "runic_types::wasm32::Random",
+                    SourceKind::Accelerometer => {
+                        "runic_types::wasm32::Accelerometer"
+                    },
                     SourceKind::Other(name) => name.as_str(),
                 };
 
