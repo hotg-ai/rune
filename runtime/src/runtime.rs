@@ -1,15 +1,15 @@
 use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
-use log::{Level, Record};
-use runic_types::{SerializableRecord, Value, outputs};
+use log::Level;
+use runic_types::{SerializableRecord, Value, Type, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
 };
 use std::{
     collections::HashMap,
-    convert::{TryFrom, TryInto},
-    fmt::{Debug, Display},
+    convert::TryFrom,
+    fmt::{self, Display, Formatter},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -17,7 +17,7 @@ use std::{
 };
 use wasmer::{
     Array, Function, ImportObject, Instance, LazyInit, Memory, Module,
-    NativeFunc, Store, WasmPtr,
+    NativeFunc, RuntimeError, Store, WasmPtr,
 };
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
@@ -69,6 +69,7 @@ impl Runtime {
             .context("Unable to load the _manifest function")?;
         manifest
             .call()
+            .map_err(recover_anyhow_error)
             .context("Unable to call the _manifest function")?;
 
         log::debug!("Loaded the Rune");
@@ -96,6 +97,7 @@ impl Runtime {
         // hotg-ai/rune#28 lands.
         call_func
             .call(0, 0, 0)
+            .map_err(recover_anyhow_error)
             .context("Unable to call the _call function")?;
 
         self.env.after_call();
@@ -455,7 +457,7 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 .unwrap_or_trap("Invalid value");
             let raw: &[u8] = std::mem::transmute(raw);
 
-            let ty = runic_types::Type::try_from(value_type)
+            let ty = Type::try_from(value_type)
                 .map_err(|_| Error::msg("Unknown type"))
                 .unwrap_or_trap(
                     "Unable to determine the capability parameter value",
@@ -680,13 +682,32 @@ where
             Ok(value) => value,
             Err(err) => {
                 raise_user_trap(err.into());
-            },
         }
     }
 }
 
-unsafe fn raise_user_trap(error: Error) -> ! {
-    wasmer::raise_user_trap(error.into())
+fn recover_anyhow_error(e: RuntimeError) -> Error {
+    match e.downcast::<WrappedError>() {
+        Ok(e) => e.0,
+        Err(other) => Error::new(other),
+    }
+}
+
+/// A temporary struct we can use when downcasting to recover the original
+/// [`Error`].
+#[derive(Debug)]
+struct WrappedError(Error);
+
+impl std::error::Error for WrappedError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl Display for WrappedError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
 }
 
 fn set_max_log_level(instance: &Instance) -> Result<(), Error> {
