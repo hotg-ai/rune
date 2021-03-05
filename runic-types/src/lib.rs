@@ -11,9 +11,11 @@ extern crate alloc;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm32;
 
+mod buffer;
 mod pipelines;
 
 pub use pipelines::{Sink, Source, Transform};
+pub use buffer::Buffer;
 
 #[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY {
@@ -69,26 +71,6 @@ impl PARAM_TYPE {
     }
 }
 
-/// A helper trait that lets us go from a type to its [`PARAM_TYPE`] equivalent.
-pub trait AsParamType: Sized {
-    /// The corresponding [`PARAM_TYPE`] variant.
-    const VALUE: PARAM_TYPE;
-
-    fn zeroed_array<const N: usize>() -> [Self; N];
-}
-
-impl AsParamType for i32 {
-    const VALUE: PARAM_TYPE = PARAM_TYPE::INT;
-
-    fn zeroed_array<const N: usize>() -> [Self; N] { [0; N] }
-}
-
-impl AsParamType for f32 {
-    const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
-
-    fn zeroed_array<const N: usize>() -> [Self; N] { [0.0; N] }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub enum OUTPUT {
     SERIAL = 1,
@@ -107,4 +89,18 @@ impl OUTPUT {
             _ => OUTPUT::SERIAL,
         }
     }
+}
+
+/// A helper trait that lets us go from a type to its [`PARAM_TYPE`] equivalent.
+pub trait AsParamType: Sized {
+    /// The corresponding [`PARAM_TYPE`] variant.
+    const VALUE: PARAM_TYPE;
+}
+
+impl AsParamType for i32 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::INT;
+}
+
+impl AsParamType for f32 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
 }
