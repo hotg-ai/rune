@@ -3,5 +3,5 @@ mod environment;
 pub mod outputs;
 mod runtime;
 
-pub use environment::{DefaultEnvironment, Environment};
+pub use environment::{DefaultEnvironment, Environment, NotSupportedError};
 pub use runtime::Runtime;

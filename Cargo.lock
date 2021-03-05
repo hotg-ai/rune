@@ -1811,6 +1811,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-ffi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rune-runtime",
+]
+
+[[package]]
 name = "rune-runtime"
 version = "0.1.0"
 dependencies = [

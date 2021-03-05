@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "codegen",
+    "ffi",
     "proc_blocks/*",
     "rune",
     "runic-types",
