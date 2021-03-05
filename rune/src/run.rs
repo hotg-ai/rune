@@ -68,6 +68,12 @@ impl Run {
                     );
                     env.set_accelerometer_data(samples);
                 },
+                Capability::Image { filename } => {
+                    let img = image::open(filename).with_context(|| {
+                        format!("Unable to load \"{}\"", filename.display())
+                    })?;
+                    env.set_image(img.to_rgb8());
+                },
             }
         }
 
@@ -81,6 +87,7 @@ impl Run {
 enum Capability {
     Random { seed: u64 },
     Accelerometer { filename: PathBuf },
+    Image { filename: PathBuf },
 }
 
 impl FromStr for Capability {
@@ -103,6 +110,10 @@ impl FromStr for Capability {
                     filename: PathBuf::from(value),
                 })
             },
+            "i" | "img" | "image" => {
+                Ok(Capability::Image { filename: PathBuf::from(value)
+                })
+            }
             other => anyhow::bail!(
                 "Supported capabilities are \"random\" and \"accelerometer\", found \"{}\"",
                 other,
