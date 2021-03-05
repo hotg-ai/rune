@@ -1,0 +1,12 @@
+[package]
+name = "FFT"
+version = "0.1.0"
+authors = ["Kartik Thakore <kartik@thakore.ai"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+runic-types = { path = "../../runic-types" }
+hound = "3.4"
+sonogram = {git = "ssh://git@github.com/hotg-ai/sonogram"}
