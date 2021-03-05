@@ -9,7 +9,8 @@
 
 void log(void *data, const char *msg, int len)
 {
-    std::cout << msg << std::endl;
+    std::string_view message{msg, (size_t)len};
+    std::cout << message << std::endl;
 }
 
 int fill_random(void *data, char *buffer, int len)
