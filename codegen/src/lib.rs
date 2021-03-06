@@ -419,12 +419,9 @@ fn dependency_info(
     proc: &rune_syntax::hir::ProcBlock,
     rune_project_dir: &Path,
 ) -> serde_json::Value {
-    const BUILTIN_PROC_BLOCKS: &[&str] =
-        &["mod360", "modulo", "normalize", "ohv_label"];
-
     let name = proc.name();
 
-    if BUILTIN_PROC_BLOCKS.contains(&name) {
+    if is_builtin(&proc.path) {
         let path = rune_project_dir.join("proc_blocks").join(name);
         json!({
             "name": name,
@@ -437,6 +434,10 @@ fn dependency_info(
             "deps": {"git": repo },
         })
     }
+}
+
+fn is_builtin(path: &rune_syntax::ast::Path) -> bool {
+    path.base == "hotg-ai/rune"
 }
 
 #[derive(Debug)]
@@ -527,7 +528,26 @@ fn as_inline_toml(value: &Value) -> String {
 
 #[cfg(test)]
 mod tests {
+    use rune_syntax::ast::Path;
+
     use super::*;
+
+    #[test]
+    fn detect_builtin_proc_blocks() {
+        let inputs = vec![
+            ("hotg-ai/rune#proc_blocks/normalize", true),
+            ("https://github.com/hotg-ai/rune", false),
+            ("hotg-ai/rune", true),
+            ("hotg-ai/rune@latest", true),
+        ];
+
+        for (path, should_be) in inputs {
+            let path: Path = path.parse().unwrap();
+            let got = is_builtin(&path);
+
+            assert_eq!(got, should_be);
+        }
+    }
 
     #[test]
     fn json_object_to_inline_table() {

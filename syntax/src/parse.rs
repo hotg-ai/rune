@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use codespan::Span;
 use pest::{error::Error, iterators::Pair, Parser, RuleType};
 
@@ -38,6 +40,12 @@ pub fn parse(src: &str) -> Result<Runefile, Error<Rule>> {
     }
 
     Ok(Runefile { instructions, span })
+}
+
+impl FromStr for Runefile {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> { parse(s) }
 }
 
 #[derive(pest_derive::Parser)]
@@ -83,6 +91,15 @@ fn parse_type(pair: Pair<Rule>) -> Type {
     Type { kind, span }
 }
 
+impl FromStr for Type {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::ty, s)
+            .map(|mut pairs| parse_type(pairs.next().unwrap()))
+    }
+}
+
 fn parse_dimensions(pair: Pair<Rule>) -> Vec<usize> {
     debug_assert_eq!(pair.as_rule(), Rule::dimensions);
 
@@ -105,6 +122,15 @@ fn parse_literal(pair: Pair<Rule>) -> Literal {
     };
 
     Literal { kind, span }
+}
+
+impl FromStr for Literal {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::literal, s)
+            .map(|mut pairs| parse_literal(pairs.next().unwrap()))
+    }
 }
 
 fn parse_argument(pair: Pair<Rule>) -> Argument {
@@ -170,6 +196,15 @@ fn parse_path(pair: Pair<Rule>) -> Path {
     }
 }
 
+impl FromStr for Path {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::path, s)
+            .map(|mut pairs| parse_path(pairs.next().unwrap()))
+    }
+}
+
 fn parse_run(pair: Pair<Rule>) -> RunInstruction {
     let span = get_span(&pair);
     debug_assert_eq!(pair.as_rule(), Rule::run);
@@ -177,6 +212,15 @@ fn parse_run(pair: Pair<Rule>) -> RunInstruction {
     RunInstruction {
         steps: pair.into_inner().map(parse_ident).collect(),
         span,
+    }
+}
+
+impl FromStr for RunInstruction {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::run, s)
+            .map(|mut pairs| parse_run(pairs.next().unwrap()))
     }
 }
 
@@ -202,6 +246,15 @@ fn parse_proc_block(pair: Pair<Rule>) -> ProcBlockInstruction {
     }
 }
 
+impl FromStr for ProcBlockInstruction {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::proc_block, s)
+            .map(|mut pairs| parse_proc_block(pairs.next().unwrap()))
+    }
+}
+
 fn parse_args(pair: Pair<Rule>) -> Vec<Argument> {
     debug_assert_eq!(pair.as_rule(), Rule::arguments);
 
@@ -220,6 +273,15 @@ fn parse_out(pair: Pair<Rule>) -> OutInstruction {
     }
 }
 
+impl FromStr for OutInstruction {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::out, s)
+            .map(|mut pairs| parse_out(pairs.next().unwrap()))
+    }
+}
+
 fn parse_from(pair: Pair<Rule>) -> FromInstruction {
     let span = get_span(&pair);
 
@@ -229,6 +291,15 @@ fn parse_from(pair: Pair<Rule>) -> FromInstruction {
     let image = parse_path(pair.next().unwrap());
 
     FromInstruction { image, span }
+}
+
+impl FromStr for FromInstruction {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::from, s)
+            .map(|mut pairs| parse_from(pairs.next().unwrap()))
+    }
 }
 
 fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
@@ -251,6 +322,15 @@ fn parse_capability(pair: Pair<Rule>) -> CapabilityInstruction {
     }
 }
 
+impl FromStr for CapabilityInstruction {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::capability, s)
+            .map(|mut pairs| parse_capability(pairs.next().unwrap()))
+    }
+}
+
 fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
     let span = get_span(&pair);
 
@@ -270,6 +350,15 @@ fn parse_model(pair: Pair<Rule>) -> ModelInstruction {
         name,
         parameters,
         span,
+    }
+}
+
+impl FromStr for ModelInstruction {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::model, s)
+            .map(|mut pairs| parse_model(pairs.next().unwrap()))
     }
 }
 
