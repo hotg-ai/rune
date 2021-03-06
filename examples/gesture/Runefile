@@ -8,11 +8,11 @@ PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
 MODEL<f32[128, 3],f32[4]> gesture ./model.tflite
 
 # Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/ohv_label" }
-PROC_BLOCK<f32[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=Wing,Ring,Slope,Unknown
+# PROC_BLOCK<f32[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=Wing,Ring,Slope,Unknown
 
 # Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/gesture_agg" }
 PROC_BLOCK<f32[64], UTF8> gesture_agg hotg-ai/rune#proc_blocks/gesture_agg --labels=Wing,Ring,Slope,Unknown
 
 OUT SERIAL
 
-RUN accelerometer normalize gesture label gesture_agg serial
+RUN accelerometer normalize gesture gesture_agg serial
