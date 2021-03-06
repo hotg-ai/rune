@@ -46,7 +46,7 @@ fn copy_capability_data_to_buffer<B>(capability_id: u32, buffer: &mut B)
 where
     B: Buffer,
 {
-    let byte_length = core::mem::size_of_val(&buffer) as u32;
+    let byte_length = buffer.size_in_bytes() as u32;
 
     unsafe {
         let response_size = intrinsics::request_provider_response(
