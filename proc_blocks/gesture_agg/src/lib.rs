@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let input = [0.0, 1.0, 0.0, 0.0];
+        let input = [0.010419448, 0.9256067, 0.016922968, 0.047050953];
         let mut pb =
             GestureAgg::new().with_labels(["Wing", "Ring", "Slope", "Unknown"]);
 
@@ -127,7 +127,7 @@ mod tests {
         let mut ges = GestureAgg::new();
         assert!(ges.history.is_empty());
 
-        ges.add_history([0.0, 1.0, 0.0, 0.0]);
+        ges.add_history([0.010419448, 0.9256067, 0.016922968, 0.047050953]);
         assert_eq!(ges.history.len(), 1);
     }
     #[test]
