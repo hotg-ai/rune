@@ -11,6 +11,10 @@ pub trait Buffer: Sized {
     fn as_mut_ptr(&mut self) -> *mut Self::Item;
     fn as_slice(&self) -> &[Self::Item];
     fn as_mut_slice(&mut self) -> &mut [Self::Item];
+
+    fn size_in_bytes(&self) -> usize {
+        Self::OVERALL_LENGTH * core::mem::size_of::<Self::Item>()
+    }
 }
 
 /// Gets the type name for a multidimensional array (e.g. `[[[f32; A]; B], C]`).

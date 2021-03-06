@@ -458,7 +458,7 @@ fn request_provider_response(
 
             let mut capabilities = s.caps.lock().unwrap();
 
-            invoke_capability(
+            let bytes_written = invoke_capability(
                 &mut capabilities,
                 capability_id,
                 &*s.env,
@@ -466,7 +466,7 @@ fn request_provider_response(
             )
             .unwrap_or_trap("Unable to invoke the capability");
 
-            buffer.len() as u32
+            bytes_written as i32
         },
     )
 }
@@ -476,7 +476,7 @@ fn invoke_capability(
     id: u32,
     env: &dyn Environment,
     dest: &mut [u8],
-) -> Result<(), Error> {
+) -> Result<usize, Error> {
     log::debug!("Getting capability {}", id);
     let cap =
         unsafe { capabilities.get(&id).unwrap_or_trap("Invalid capability") };
@@ -495,7 +495,7 @@ fn invoke_capability(
 
             log::debug!("Rand: {:?}", dest);
 
-            Ok(())
+            Ok(dest.len())
         },
         runic_types::CAPABILITY::ACCEL => {
             let buffer = unsafe {
@@ -512,16 +512,11 @@ fn invoke_capability(
                 )
             };
             env.fill_accelerometer(buffer)
-                .context("Unable to fill the buffer with accelerometer data")?;
-
-            Ok(())
+                .context("Unable to fill the buffer with accelerometer data")
         },
-        runic_types::CAPABILITY::IMAGE => {
-            env.fill_image(dest, 0, 0)
-                .context("Unable to fill the buffer with image data")?;
-
-            Ok(())
-        },
+        runic_types::CAPABILITY::IMAGE => env
+            .fill_image(dest, 0, 0)
+            .context("Unable to fill the buffer with image data"),
         runic_types::CAPABILITY::SOUND => {
             let buffer = unsafe {
                 // HACK: We've been given a byte array but audio data comes as
@@ -537,9 +532,7 @@ fn invoke_capability(
                 )
             };
             env.fill_audio(buffer)
-                .context("Unable to fill the buffer with audio data")?;
-
-            Ok(())
+                .context("Unable to fill the buffer with audio data")
         },
         other => Err(anyhow::anyhow!(
             "The {:?} capability isn't implemented",
