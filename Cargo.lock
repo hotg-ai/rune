@@ -1851,7 +1851,7 @@ checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 [[package]]
 name = "sonogram"
 version = "0.4.4"
-source = "git+ssh://git@github.com/hotg-ai/sonogram#39d4c4608e2a870fc3c7562eb3f1108010cf3087"
+source = "git+https://github.com/hotg-ai/sonogram#39d4c4608e2a870fc3c7562eb3f1108010cf3087"
 dependencies = [
  "hound",
  "num",

@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 runic-types = { path = "../../runic-types" }
 hound = "3.4"
-sonogram = {git = "ssh://git@github.com/hotg-ai/sonogram"}
+sonogram = {git = "https://github.com/hotg-ai/sonogram"}
