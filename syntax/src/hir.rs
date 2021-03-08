@@ -118,6 +118,8 @@ pub struct Source {
 pub enum SourceKind {
     Random,
     Accelerometer,
+    Sound,
+    Image,
     Other(String),
 }
 
