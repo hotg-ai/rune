@@ -204,6 +204,8 @@ impl Generator {
                     SourceKind::Accelerometer => {
                         "runic_types::wasm32::Accelerometer"
                     },
+                    SourceKind::Sound => "runic_types::wasm32::Sound",
+                    SourceKind::Image => "runic_types::wasm32::Image",
                     SourceKind::Other(name) => name.as_str(),
                 };
 
