@@ -17,7 +17,7 @@ pub trait Environment: Send + Sync + 'static {
         Err(Error::new(NotSupportedError))
     }
 
-    fn fill_audio(&self, _buffer: &mut [i16]) -> Result<usize, Error> {
+    fn fill_sound(&self, _buffer: &mut [i16]) -> Result<usize, Error> {
         Err(Error::new(NotSupportedError))
     }
 
@@ -44,7 +44,7 @@ pub struct DefaultEnvironment {
     name: String,
     accelerometer_samples: Vec<[f32; 3]>,
     image: Option<RgbImage>,
-    audio: Vec<i16>,
+    sound: Vec<i16>,
 }
 
 impl DefaultEnvironment {
@@ -60,7 +60,7 @@ impl DefaultEnvironment {
             rng: Mutex::new(SmallRng::from_seed(seed)),
             name: String::from("current_rune"),
             accelerometer_samples: Vec::new(),
-            audio: Vec::new(),
+            sound: Vec::new(),
             image: None,
         }
     }
@@ -80,7 +80,7 @@ impl DefaultEnvironment {
 
     pub fn set_image(&mut self, image: RgbImage) { self.image = Some(image); }
 
-    pub fn set_audio(&mut self, audio: Vec<i16>) { self.audio = audio; }
+    pub fn set_sound(&mut self, sound: Vec<i16>) { self.sound = sound; }
 }
 
 impl Default for DefaultEnvironment {
@@ -94,7 +94,7 @@ impl Clone for DefaultEnvironment {
             name,
             accelerometer_samples,
             image,
-            audio,
+            sound,
         } = self;
         let rng = rng.lock().unwrap();
 
@@ -102,7 +102,7 @@ impl Clone for DefaultEnvironment {
             rng: Mutex::new(rng.clone()),
             name: name.clone(),
             image: image.clone(),
-            audio: audio.clone(),
+            sound: sound.clone(),
             accelerometer_samples: accelerometer_samples.clone(),
         }
     }
@@ -167,14 +167,14 @@ impl Environment for DefaultEnvironment {
         Ok(len)
     }
 
-    fn fill_audio(&self, buffer: &mut [i16]) -> Result<usize, Error> {
-        if self.audio.is_empty() {
+    fn fill_sound(&self, buffer: &mut [i16]) -> Result<usize, Error> {
+        if self.sound.is_empty() {
             return Err(Error::new(NotSupportedError));
         }
 
-        let len = std::cmp::min(self.audio.len(), buffer.len());
+        let len = std::cmp::min(self.sound.len(), buffer.len());
 
-        buffer[..len].copy_from_slice(&self.audio[..len]);
+        buffer[..len].copy_from_slice(&self.sound[..len]);
 
         Ok(len)
     }

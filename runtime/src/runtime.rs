@@ -531,8 +531,8 @@ fn invoke_capability(
                     len,
                 )
             };
-            env.fill_audio(buffer)
-                .context("Unable to fill the buffer with audio data")
+            env.fill_sound(buffer)
+                .context("Unable to fill the buffer with sound data")
         },
         other => Err(anyhow::anyhow!(
             "The {:?} capability isn't implemented",
