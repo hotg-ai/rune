@@ -1,5 +1,5 @@
 [package]
-name = "FFT"
+name = "fft"
 version = "0.1.0"
 authors = ["Kartik Thakore <kartik@thakore.ai"]
 edition = "2018"
