@@ -4,6 +4,7 @@ pub mod intrinsics;
 mod model;
 mod random;
 mod serial;
+mod sound;
 
 #[doc(hidden)] // only exposed so we can refer to the buffer and writer
 #[macro_use]
@@ -11,6 +12,7 @@ pub mod debug;
 
 pub use model::Model;
 pub use random::Random;
+pub use sound::Sound;
 pub use serial::Serial;
 pub use accelerometer::Accelerometer;
 pub use image::Image;

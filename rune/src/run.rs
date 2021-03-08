@@ -75,18 +75,23 @@ impl Run {
                     })?;
                     env.set_image(img.to_rgb8());
                 },
-                Capability::Audio {filename } => {
-                    let f = File::open(filename)
-                    .with_context(|| format!("Unable to open \"{}\" for reading", filename.display()))?;
+                Capability::Sound { filename } => {
+                    let f = File::open(filename).with_context(|| {
+                        format!(
+                            "Unable to open \"{}\" for reading",
+                            filename.display()
+                        )
+                    })?;
                     let reader = WavReader::new(f)
-                    .context("Unable to read the WAV file's header")?;
+                        .context("Unable to read the WAV file's header")?;
 
-                    let samples = reader.into_samples::<i16>()
+                    let samples = reader
+                        .into_samples::<i16>()
                         .collect::<Result<Vec<_>, _>>()
                         .context("Unable to parse the WAV file's samples")?;
 
-                    env.set_audio(samples);
-                }
+                    env.set_sound(samples);
+                },
             }
         }
 
@@ -101,7 +106,7 @@ enum Capability {
     Random { seed: u64 },
     Accelerometer { filename: PathBuf },
     Image { filename: PathBuf },
-    Audio { filename: PathBuf },
+    Sound { filename: PathBuf },
 }
 
 impl FromStr for Capability {
@@ -127,8 +132,8 @@ impl FromStr for Capability {
             "i" | "img" | "image" => {
                 Ok(Capability::Image { filename: PathBuf::from(value) })
             }
-            "s" | "sound" | "wav" | "audio" => {
-                Ok(Capability::Audio { filename: PathBuf::from(value) })
+            "s" | "sound" | "wav" => {
+                Ok(Capability::Sound { filename: PathBuf::from(value) })
             },
             other => anyhow::bail!(
                 "Supported capabilities are \"random\" and \"accelerometer\", found \"{}\"",

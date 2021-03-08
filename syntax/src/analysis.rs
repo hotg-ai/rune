@@ -149,6 +149,8 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
                 SourceKind::Random
             },
             "ACCEL" => SourceKind::Accelerometer,
+            "SOUND" => SourceKind::Sound,
+            "IMAGE" => SourceKind::Image,
             other => {
                 self.warn(
                     "This isn't one of the builtin capabilities",
@@ -619,6 +621,34 @@ mod tests {
         };
         let source = &analyser.rune.sources[&id];
         assert_eq!(source, &should_be);
+    }
+
+    #[test]
+    fn known_capabilities() {
+        let inputs = vec![
+            ("RAND", SourceKind::Random),
+            ("ACCEL", SourceKind::Accelerometer),
+            ("SOUND", SourceKind::Sound),
+            ("IMAGE", SourceKind::Image),
+        ];
+
+        for (src, should_be) in inputs {
+            let capability = CapabilityInstruction {
+                kind: Ident::dangling(src),
+                name: Ident::new("foo", Span::new(0, 0)),
+                parameters: Default::default(),
+                output_type: crate::ast::Type::named_dangling("I32"),
+                span: Span::new(0, 0),
+            };
+            let mut diags = Diagnostics::new();
+            let mut analyser = setup_analyser(&mut diags);
+
+            let id = analyser.load_capability(&capability);
+
+            assert!(analyser.diags.is_empty(), "{:?}", analyser.diags);
+            let got = &analyser.rune.sources[&id];
+            assert_eq!(got.kind, should_be);
+        }
     }
 
     #[test]
