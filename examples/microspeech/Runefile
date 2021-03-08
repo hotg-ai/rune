@@ -2,10 +2,10 @@ FROM runicos/base
 
 CAPABILITY<i16[24000]> audio SOUND --hz 16000 --samples 150 --sample-size-ms 1500  # set up libraries and interfaces
 
-PROC_BLOCK<_, F32[150]> fft runicos/proc-block/fft
+CAPABILITY<F32[150]> audio AUDIO --hz 16000 --samples 150 --sample-size-ms 1500
+PROC_BLOCK<f32[128, 3],f32[128, 3]> fft otg-ai/rune#proc_blocks/fft
 
-MODEL<F32[150],F32> model ./example.tflite --input [150,1] --output 1
+MODEL<F32[150],F32> model ./model.tflite
+RUN audio fft model
 
 OUT serial
-
-RUN audio fft model serial
