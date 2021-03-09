@@ -4,7 +4,7 @@ use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
 };
-use std::path::Path;
+use std::{convert::TryFrom, path::Path};
 use modulo::Modulo;
 use rune_syntax::{Diagnostics};
 use rune_codegen::Compilation;
@@ -20,6 +20,7 @@ fn main() {
 criterion_group!(
     benches,
     execute_sine,
+    execute_gesture,
     // compile_times,
     runtime_startup
 );
@@ -34,6 +35,8 @@ pub fn compile_times(c: &mut Criterion) {
         .bench_function("release-gesture", |b| {
             b.iter(|| compile_gesture(true))
         });
+
+    group.finish();
 }
 
 pub fn runtime_startup(c: &mut Criterion) {
@@ -50,6 +53,8 @@ pub fn runtime_startup(c: &mut Criterion) {
         .bench_function("gesture", |b| {
             b.iter(|| Runtime::load(&gesture, env.clone()).unwrap())
         });
+
+    group.finish();
 }
 
 pub fn execute_sine(c: &mut Criterion) {
@@ -73,22 +78,80 @@ pub fn execute_sine(c: &mut Criterion) {
 
     let mut manual = ManualSine::load();
     group.bench_function("no-rune", |b| b.iter(|| manual.call()));
+
+    group.finish();
 }
 
 pub fn execute_gesture(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-gesture");
 
     let wasm = compile_gesture(true);
-    let mut runtime =
-        Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
     group.bench_function("optimised-rune", |b| {
-        b.iter(|| runtime.call().unwrap())
+        b.iter_with_setup(
+            || gesture_runtime(&wasm, RING),
+            |mut runtime| runtime.call().unwrap(),
+        )
     });
 
     let wasm = compile_gesture(false);
-    let mut runtime =
-        Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("debug-rune", |b| b.iter(|| runtime.call().unwrap()));
+    group.bench_function("debug-rune", |b| {
+        b.iter_with_setup(
+            || gesture_runtime(&wasm, RING),
+            |mut runtime| runtime.call().unwrap(),
+        )
+    });
+
+    group.finish();
+}
+
+fn gesture_runtime(wasm: &[u8], accelerometer_samples: &str) -> Runtime {
+    let mut env = DefaultEnvironment::default();
+    env.set_accelerometer_data(load_csv(accelerometer_samples));
+
+    Runtime::load(wasm, env).unwrap()
+}
+
+const WING: &str = include_str!("../../examples/gesture/example_wing.csv");
+const RING: &str = include_str!("../../examples/gesture/example_ring.csv");
+const SLOPE: &str = include_str!("../../examples/gesture/example_slope.csv");
+
+pub fn gesture_recognition(c: &mut Criterion) {
+    let mut group = c.benchmark_group("gesture-recognition");
+
+    let wasm = compile_gesture(true);
+
+    group
+        .bench_function("ring", |b| {
+            b.iter_with_setup(
+                || gesture_runtime(&wasm, RING),
+                |mut runtime| runtime.call().unwrap(),
+            )
+        })
+        .bench_function("wing", |b| {
+            b.iter_with_setup(
+                || gesture_runtime(&wasm, WING),
+                |mut runtime| runtime.call().unwrap(),
+            )
+        })
+        .bench_function("slope", |b| {
+            b.iter_with_setup(
+                || gesture_runtime(&wasm, SLOPE),
+                |mut runtime| runtime.call().unwrap(),
+            )
+        });
+
+    group.finish();
+}
+
+fn load_csv(raw: &str) -> Vec<[f32; 3]> {
+    raw.lines()
+        .map(|line| {
+            line.split(",")
+                .map(|word| word.trim().parse::<f32>().unwrap())
+                .collect::<Vec<f32>>()
+        })
+        .filter_map(|samples| <[f32; 3]>::try_from(samples).ok())
+        .collect()
 }
 
 struct ManualSine {
