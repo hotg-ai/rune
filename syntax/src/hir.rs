@@ -86,23 +86,29 @@ pub enum Type {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Primitive {
+    U16,
+    I16,
     U32,
     I32,
     F32,
     U64,
     I64,
     F64,
+    String,
 }
 
 impl Primitive {
     pub fn rust_name(self) -> &'static str {
         match self {
+            Primitive::I16 => "i16",
+            Primitive::U16 => "u16",
             Primitive::U32 => "u32",
             Primitive::I32 => "i32",
             Primitive::F32 => "f32",
             Primitive::U64 => "u64",
             Primitive::I64 => "i64",
             Primitive::F64 => "f64",
+            Primitive::String => "&'static str",
         }
     }
 }
