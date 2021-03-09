@@ -64,6 +64,21 @@ impl<const N: usize> Transform<[f32; N]> for OhvLabel<N> {
     }
 }
 
+impl<const N: usize> Transform<[u8; N]> for OhvLabel<N> {
+    type Output = &'static str;
+
+    fn transform(&mut self, input: [u8; N]) -> Self::Output {
+        match self.labels.iter().zip(input.iter().copied()).max_by(
+            |left, right| {
+                left.1.partial_cmp(&right.1).unwrap_or(Ordering::Equal)
+            },
+        ) {
+            Some((label, probability)) if probability > 0u8 => *label,
+            _ => MISSING_LABEL,
+        }
+    }
+}
+
 impl<const N: usize> Default for OhvLabel<N> {
     fn default() -> Self { OhvLabel::new() }
 }
@@ -87,8 +102,10 @@ mod tests {
 
     #[test]
     fn handles_empty_input() {
-        let input = [];
-        let mut pb = OhvLabel::new().with_unknown_label(MISSING_LABEL);
+        let input: [f32; 0] = [];
+        let mut pb = OhvLabel::new()
+            .with_labels([])
+            .with_unknown_label(MISSING_LABEL);
 
         let out = pb.transform(input);
 

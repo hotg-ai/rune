@@ -8,7 +8,7 @@ use sonogram::SpecOptionsBuilder;
 
 pub use runic_types::{Transform};
 
-pub struct FFT {
+pub struct Fft {
     sample_rate: u32,
     bins: usize,
     window_overlap: f32,
@@ -18,35 +18,37 @@ const DEFAULT_SAMPLE_RATE: u32 = 16000;
 const DEFAULT_BINS: usize = 256;
 const DEFAULT_WINDOW_OVERLAP: f32 = 6.0 / 10.0;
 
-impl FFT {
+impl Fft {
     pub fn new() -> Self {
-        FFT {
+        Fft {
             sample_rate: DEFAULT_SAMPLE_RATE,
             bins: DEFAULT_BINS,
             window_overlap: DEFAULT_WINDOW_OVERLAP,
         }
     }
 
+    pub fn default() -> Self { Fft::new() }
+
     // `Self` is the type and `self` is the pointer
     pub fn with_sample_rate(self, sample_rate: u32) -> Self {
-        FFT {
+        Fft {
             sample_rate,
             ..self
         }
     }
 
-    pub fn with_bins(self, bins: usize) -> Self { FFT { bins, ..self } }
+    pub fn with_bins(self, bins: usize) -> Self { Fft { bins, ..self } }
 
     pub fn with_window_overlap(self, window_overlap: f32) -> Self {
-        FFT {
+        Fft {
             window_overlap,
             ..self
         }
     }
 }
 
-impl<const N: usize> runic_types::Transform<[i16; N]> for FFT {
-    type Output = Vec<u8>;
+impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
+    type Output = [u8; 1960];
 
     fn transform(&mut self, input: [i16; N]) -> Self::Output {
         // Build the spectrogram computation engine
@@ -65,11 +67,18 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for FFT {
         let max_value =
             result_f32.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
 
-        result_f32
+        let res: Vec<u8> = result_f32
             .into_iter()
             .map(|freq| 255.0 * (freq - min_value) / (max_value - min_value))
             .map(|freq| freq as u8)
-            .collect()
+            .collect();
+        let mut out = [0; 1960];
+
+        for i in 0..1960 {
+            out[i] = res[i];
+        }
+
+        return out;
     }
 }
 
@@ -79,7 +88,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let mut fft_pb = FFT::new().with_sample_rate(16000);
+        let mut fft_pb = Fft::new().with_sample_rate(16000);
         let input = [0; 16000];
 
         let res = fft_pb.transform(input);
