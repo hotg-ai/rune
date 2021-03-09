@@ -16,23 +16,23 @@ static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
-    let mut accelerometer = runic_types::wasm32::Random::default();
+    let mut accelerometer = runic_types::wasm32::Accelerometer::default();
     let mut gesture = Model::load(include_bytes!("gesture.tflite"));
-    let mut normalize = normalize::Normalize::default();
-    let mut label = ohv_label::OhvLabel::default()
+    let mut gesture_agg = gesture_agg::GestureAgg::default()
         .with_labels(["Wing", "Ring", "Slope", "Unknown"])
     ;
+    let mut normalize = normalize::Normalize::default();
     let mut serial = Serial::default();
 
     let pipeline = move || {
-        let data: [f32; 384] = accelerometer.generate();
+        let data: [[f32; 3]; 128] = accelerometer.generate();
         runic_types::debug!("accelerometer => {:?}", data);
-        let data: [f32; 384] = normalize.transform(data);
+        let data: [[f32; 3]; 128] = normalize.transform(data);
         runic_types::debug!("normalize => {:?}", data);
         let data: [f32; 4] = gesture.transform(data);
         runic_types::debug!("gesture => {:?}", data);
-        let data = label.transform(data);
-        runic_types::debug!("label => {:?}", data);
+        let data = gesture_agg.transform(data);
+        runic_types::debug!("gesture_agg => {:?}", data);
         
         serial.consume(data);
     };

@@ -17,9 +17,9 @@ once_cell = { default-features = false, version = "1.7.0" }
 
 runic-types = { path = "/home/michael/Documents/hotg-ai/rune/runic-types" }
 
-normalize = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/normalize" }
+gesture_agg = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/gesture_agg" }
 
-ohv_label = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/ohv_label" }
+normalize = { path = "/home/michael/Documents/hotg-ai/rune/proc_blocks/normalize" }
 
 
 [profile.dev]
