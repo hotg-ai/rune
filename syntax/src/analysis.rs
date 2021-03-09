@@ -180,9 +180,14 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         match &ty.kind {
             crate::ast::TypeKind::Inferred => self.builtins.unknown_type,
             crate::ast::TypeKind::Named(name) => {
-                // Everything gets passed around as an array, so a plain
-                // `T` gets turned into a `[T; 1]`.
                 let underlying_type = self.primitive_type(name);
+
+                if underlying_type == self.builtins.string {
+                    return underlying_type;
+                }
+
+                // All non-string types are passed around as an array, so a
+                // plain `T` gets turned into a `[T; 1]`.
                 self.intern_type(Type::Buffer {
                     underlying_type,
                     dimensions: vec![1],
@@ -219,12 +224,17 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
     fn primitive_type(&mut self, ident: &Ident) -> HirId {
         match ident.value.as_str() {
+            "u8" | "U8" => self.builtins.u8,
+            "i8" | "I8" => self.builtins.i8,
+            "u16" | "U16" => self.builtins.u16,
+            "i16" | "I16" => self.builtins.i16,
             "u32" | "U32" => self.builtins.u32,
             "i32" | "I32" => self.builtins.i32,
-            "f32" | "F32" => self.builtins.f32,
             "u64" | "U64" => self.builtins.u64,
             "i64" | "I64" => self.builtins.i64,
+            "f32" | "F32" => self.builtins.f32,
             "f64" | "F64" => self.builtins.f64,
+            "utf8" | "UTF8" => self.builtins.string,
             _ => {
                 self.warn("Unknown type", ident.span);
                 self.builtins.unknown_type
@@ -435,45 +445,66 @@ impl HirIds {
 #[derive(Copy, Clone, Debug)]
 struct Builtins {
     unknown_type: HirId,
+    u8: HirId,
+    i8: HirId,
+    u16: HirId,
+    i16: HirId,
     u32: HirId,
     i32: HirId,
-    f32: HirId,
     u64: HirId,
     i64: HirId,
+    f32: HirId,
     f64: HirId,
+    string: HirId,
 }
 
 impl Builtins {
     fn new(ids: &mut HirIds) -> Self {
         Builtins {
             unknown_type: ids.next(),
+            u8: ids.next(),
+            i8: ids.next(),
+            u16: ids.next(),
+            i16: ids.next(),
             u32: ids.next(),
             i32: ids.next(),
-            f32: ids.next(),
             u64: ids.next(),
             i64: ids.next(),
+            f32: ids.next(),
             f64: ids.next(),
+            string: ids.next(),
         }
     }
 
     fn copy_into(&self, rune: &mut Rune) {
         let Builtins {
             unknown_type,
+            u8,
+            i8,
+            u16,
+            i16,
             u32,
             i32,
-            f32,
             u64,
             i64,
+            f32,
             f64,
+            string,
         } = *self;
 
         rune.types.insert(unknown_type, Type::Unknown);
+        rune.types.insert(u8, Type::Primitive(Primitive::U8));
+        rune.types.insert(i8, Type::Primitive(Primitive::I8));
+        rune.types.insert(u16, Type::Primitive(Primitive::U16));
+        rune.types.insert(i16, Type::Primitive(Primitive::I16));
         rune.types.insert(u32, Type::Primitive(Primitive::U32));
         rune.types.insert(i32, Type::Primitive(Primitive::I32));
-        rune.types.insert(f32, Type::Primitive(Primitive::F32));
         rune.types.insert(u64, Type::Primitive(Primitive::U64));
         rune.types.insert(i64, Type::Primitive(Primitive::I64));
+        rune.types.insert(f32, Type::Primitive(Primitive::F32));
         rune.types.insert(f64, Type::Primitive(Primitive::F64));
+        rune.types
+            .insert(string, Type::Primitive(Primitive::String));
     }
 }
 
@@ -733,5 +764,23 @@ mod tests {
         let second = analyser.interpret_type(&type_2);
 
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn strings_dont_get_wrapped_in_a_buffer() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let ty = crate::ast::Type {
+            kind: crate::ast::TypeKind::Named(Ident::dangling("UTF8")),
+            span: Span::new(0, 0),
+        };
+
+        let got = analyser.interpret_type(&ty);
+
+        assert_eq!(got, analyser.builtins.string);
+        assert_eq!(
+            analyser.rune.types[&got],
+            Type::Primitive(Primitive::String),
+        );
     }
 }
