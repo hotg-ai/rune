@@ -6,7 +6,8 @@ PROC_BLOCK<I16[24000],U8[1960]> fft hotg-ai/rune#proc_blocks/fft
 
 MODEL<U8[1960],U8[4]> model ./model.tflite
 
+PROC_BLOCK<U8[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=Yes,No,Noise,Unknown
 
 OUT serial
 
-RUN audio fft model serial
+RUN audio fft model label serial
