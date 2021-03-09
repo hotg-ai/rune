@@ -102,8 +102,10 @@ mod tests {
 
     #[test]
     fn handles_empty_input() {
-        let input = [];
-        let mut pb = OhvLabel::new().with_unknown_label(MISSING_LABEL);
+        let input: [f32; 0] = [];
+        let mut pb = OhvLabel::new()
+            .with_labels([])
+            .with_unknown_label(MISSING_LABEL);
 
         let out = pb.transform(input);
 
