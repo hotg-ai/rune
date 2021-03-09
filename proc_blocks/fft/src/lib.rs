@@ -27,6 +27,8 @@ impl Fft {
         }
     }
 
+    pub fn default() -> Self { Fft::new() }
+
     // `Self` is the type and `self` is the pointer
     pub fn with_sample_rate(self, sample_rate: u32) -> Self {
         Fft {

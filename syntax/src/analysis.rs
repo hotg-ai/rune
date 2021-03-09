@@ -498,6 +498,7 @@ impl Builtins {
         rune.types.insert(u16, Type::Primitive(Primitive::U16));
         rune.types.insert(i16, Type::Primitive(Primitive::I16));
         rune.types.insert(u32, Type::Primitive(Primitive::U32));
+        rune.types.insert(i16, Type::Primitive(Primitive::I16));
         rune.types.insert(i32, Type::Primitive(Primitive::I32));
         rune.types.insert(u64, Type::Primitive(Primitive::U64));
         rune.types.insert(i64, Type::Primitive(Primitive::I64));
