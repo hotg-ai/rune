@@ -180,9 +180,14 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         match &ty.kind {
             crate::ast::TypeKind::Inferred => self.builtins.unknown_type,
             crate::ast::TypeKind::Named(name) => {
-                // Everything gets passed around as an array, so a plain
-                // `T` gets turned into a `[T; 1]`.
                 let underlying_type = self.primitive_type(name);
+
+                if underlying_type == self.builtins.string {
+                    return underlying_type;
+                }
+
+                // All non-string types are passed around as an array, so a
+                // plain `T` gets turned into a `[T; 1]`.
                 self.intern_type(Type::Buffer {
                     underlying_type,
                     dimensions: vec![1],
@@ -749,5 +754,23 @@ mod tests {
         let second = analyser.interpret_type(&type_2);
 
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn strings_dont_get_wrapped_in_a_buffer() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        let ty = crate::ast::Type {
+            kind: crate::ast::TypeKind::Named(Ident::dangling("UTF8")),
+            span: Span::new(0, 0),
+        };
+
+        let got = analyser.interpret_type(&ty);
+
+        assert_eq!(got, analyser.builtins.string);
+        assert_eq!(
+            analyser.rune.types[&got],
+            Type::Primitive(Primitive::String),
+        );
     }
 }
