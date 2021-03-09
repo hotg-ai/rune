@@ -1,9 +1,10 @@
 FROM runicos/base
 
-CAPABILITY<i16[24000]> audio SOUND --hz 16000 --samples 150 --sample-size-ms 1500  # set up libraries and interfaces
+CAPABILITY<I16[24000]> audio SOUND --hz 16000 --samples 150 --sample-size-ms 1500
+PROC_BLOCK<I16[24000],U8[1960]> fft hotg-ai/rune#proc_blocks/fft
 
-CAPABILITY<F32[24000, 1]> audio SOUND --hz 16000 --samples 150 --sample-size-ms 1500
-PROC_BLOCK<F32[24000, 1],F32[49, 40]> fft hotg-ai/rune#proc_blocks/fft
+
+MODEL<U8[1960],F32[4,1]> model ./model.tflite
 
 MODEL<F32[150],F32> model ./model.tflite
 RUN audio fft model
