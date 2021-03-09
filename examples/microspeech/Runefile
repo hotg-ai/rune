@@ -4,7 +4,7 @@ CAPABILITY<I16[24000]> audio SOUND --hz 16000 --samples 150 --sample-size-ms 150
 PROC_BLOCK<I16[24000],U8[1960]> fft hotg-ai/rune#proc_blocks/fft
 
 
-MODEL<U8[1960],F32[4,1]> model ./model.tflite
+MODEL<U8[1960],U8[4]> model ./model.tflite
 
 
 OUT serial
