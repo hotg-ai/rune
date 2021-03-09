@@ -72,7 +72,7 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
             .map(|freq| 255.0 * (freq - min_value) / (max_value - min_value))
             .map(|freq| freq as u8)
             .collect();
-        let mut out = [0u8; 1960];
+        let mut out = [0; 1960];
 
         for i in 0..1960 {
             out[i] = res[i];
