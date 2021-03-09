@@ -2,7 +2,6 @@ FROM runicos/base
 
 CAPABILITY<i16[24000]> audio SOUND --hz 16000 --samples 150 --sample-size-ms 1500  # set up libraries and interfaces
 
-
 CAPABILITY<F32[24000, 1]> audio AUDIO --hz 16000 --samples 150 --sample-size-ms 1500
 PROC_BLOCK<F32[24000, 1],F32[49, 40]> fft hotg-ai/rune#proc_blocks/fft
 
