@@ -265,7 +265,7 @@ pub fn tfm_model_invoke(models: Models, store: &Store) -> Function {
             let interpreter =
                 models.get_mut(&model_id).unwrap_or_trap("Invalid model");
 
-            let _output = invoke_model(model_id, interpreter, input, output)
+            invoke_model(model_id, interpreter, input, output)
                 .unwrap_or_trap("");
 
             0
