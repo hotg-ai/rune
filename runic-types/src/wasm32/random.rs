@@ -1,4 +1,4 @@
-use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY, Buffer};
+use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY, Buffer, Value};
 use core::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,5 +43,10 @@ impl<B: Buffer> Source for Random<B> {
         let mut buffer = Self::Output::zeroed();
         super::copy_capability_data_to_buffer(self.index, &mut buffer);
         buffer
+    }
+
+    fn set_parameter(&mut self, key: &str, value: Value) -> &mut Self {
+        super::set_capability_parameter(self.index, key, value);
+        self
     }
 }

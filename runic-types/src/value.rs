@@ -12,8 +12,10 @@ pub enum Value {
 }
 
 impl Value {
-    /// The minimum number of
-    pub const BYTE_LENGTH: usize = core::mem::size_of::<Value>();
+    /// Get a buffer big enough to be used with [`Value::to_le_bytes()`].
+    pub const fn buffer() -> [u8; core::mem::size_of::<Value>()] {
+        [0; core::mem::size_of::<Value>()]
+    }
 
     pub fn from_le_bytes(ty: Type, bytes: &[u8]) -> Self {
         match ty {
@@ -45,7 +47,9 @@ impl Value {
     /// Write this [`Value`]'s underlying value to the start of the provided
     /// buffer, returning the number of bytes written.
     ///
-    /// The buffer should have space for at least [`Value::BYTE_LENGTH`] bytes.
+    /// The buffer should have at least `core::mem::size_of::<Value>()` bytes.
+    /// You can use the [`Value::buffer()`] helper for creating an adequately
+    /// sized buffer.
     pub fn to_le_bytes(self, buffer: &mut [u8]) -> usize {
         match self {
             Value::Byte(b) => {
@@ -67,6 +71,15 @@ impl Value {
                 buffer[..bytes.len()].copy_from_slice(&bytes);
                 bytes.len()
             },
+        }
+    }
+
+    pub fn ty(&self) -> Type {
+        match self {
+            Value::Byte(_) => Type::Byte,
+            Value::Short(_) => Type::Short,
+            Value::Integer(_) => Type::Integer,
+            Value::Float(_) => Type::Float,
         }
     }
 }

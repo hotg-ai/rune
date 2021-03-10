@@ -20,7 +20,7 @@ pub use image::Image;
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use debug::BufWriter;
 use wee_alloc::WeeAlloc;
-use crate::Buffer;
+use crate::{Buffer, Value};
 
 #[global_allocator]
 pub static ALLOC: WeeAlloc = WeeAlloc::INIT;
@@ -58,5 +58,21 @@ where
         );
 
         debug_assert_eq!(response_size, byte_length);
+    }
+}
+
+fn set_capability_parameter(capability_id: u32, key: &str, value: Value) {
+    unsafe {
+        let mut buffer = Value::buffer();
+        let bytes_written = value.to_le_bytes(&mut buffer);
+
+        intrinsics::request_capability_set_param(
+            capability_id,
+            key.as_ptr(),
+            key.len() as u32,
+            buffer.as_ptr(),
+            bytes_written as u32,
+            value.ty().into(),
+        );
     }
 }
