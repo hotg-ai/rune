@@ -13,9 +13,11 @@ pub mod wasm32;
 
 mod buffer;
 mod pipelines;
+mod value;
 
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
+pub use value::{Value, Type, AsType};
 
 #[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY {
