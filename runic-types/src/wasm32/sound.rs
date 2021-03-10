@@ -26,8 +26,12 @@ impl<const N: usize> Source for Sound<N> {
         buffer
     }
 
-    fn set_parameter(&mut self, key: &str, value: Value) -> &mut Self {
-        super::set_capability_parameter(self.index, key, value);
+    fn set_parameter(
+        &mut self,
+        key: &str,
+        value: impl Into<Value>,
+    ) -> &mut Self {
+        super::set_capability_parameter(self.index, key, value.into());
         self
     }
 }

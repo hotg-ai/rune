@@ -8,7 +8,6 @@ use rune_syntax::{
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
     fs::File,
     path::{Path, PathBuf},
     process::Command,
@@ -213,8 +212,11 @@ impl Generator {
                     "name": name,
                     "type": type_name,
                     "parameters": source.parameters.iter()
-                        .map(|p| (&p.name.value, jsonify_arg_value(&p.value)))
-                        .collect::<HashMap<_, _>>(),
+                        .map(|(name, value)| json!({
+                            "name": name,
+                            "value": rust_literal(&value)
+                        }))
+                        .collect::<Vec<_>>(),
                 }));
             }
         }
@@ -233,21 +235,21 @@ impl Generator {
                 let type_name =
                     format!("{}::{}", module_name, module_name.to_camel_case());
 
-                let params: Vec<_> = proc_block
-                    .params
+                let parameters = proc_block
+                    .parameters
                     .iter()
-                    .map(|arg| {
+                    .map(|(name, value)| {
                         json!({
-                            "name": arg.name.value,
-                            "value": rust_literal(&arg.value),
+                            "name": name,
+                            "value": rust_literal(&value)
                         })
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
 
                 blocks.push(json!({
                     "name": name,
                     "type": type_name,
-                    "params": params,
+                    "parameters": parameters,
                 }));
             }
         }
@@ -452,26 +454,6 @@ fn create_dir(path: impl AsRef<Path>) -> Result<(), Error> {
     let path = path.as_ref();
     std::fs::create_dir_all(path)
         .with_context(|| format!("Unable to create \"{}\"", path.display()))
-}
-
-fn jsonify_arg_value(arg: &ArgumentValue) -> Value {
-    match arg {
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::Integer(i),
-            ..
-        }) => Value::from(*i),
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::Float(f),
-            ..
-        }) => Value::from(*f),
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::String(s),
-            ..
-        }) => Value::from(s.as_str()),
-        ArgumentValue::List(list) => {
-            Value::Array(list.iter().map(|s| Value::from(s.as_str())).collect())
-        },
-    }
 }
 
 fn to_toml(

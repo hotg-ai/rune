@@ -1,13 +1,14 @@
 use crate::{
+    Diagnostics,
     ast::{
-        CapabilityInstruction, Ident, Instruction, ModelInstruction,
-        OutInstruction, ProcBlockInstruction, RunInstruction, Runefile,
+        Argument, ArgumentValue, CapabilityInstruction, Ident, Instruction,
+        ModelInstruction, OutInstruction, ProcBlockInstruction, RunInstruction,
+        Runefile,
     },
     hir::{
         HirId, Model, Pipeline, PipelineNode, Primitive, ProcBlock, Rune, Sink,
         Source, SourceKind, Type,
     },
-    Diagnostics,
 };
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -141,22 +142,16 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
     fn load_capability(&mut self, capability: &CapabilityInstruction) -> HirId {
         let kind = match capability.kind.value.as_str() {
-            "RAND" => {
-                // TODO: We should probably inspect the capability parameters
-                // and pull the relevant ones out into actual fields on the Rand
-                // variant. That way we aren't relying on the loosely-typed
-                // parameter map.
-                SourceKind::Random
-            },
+            "RAND" => SourceKind::Random,
             "ACCEL" => SourceKind::Accelerometer,
             "SOUND" => SourceKind::Sound,
             "IMAGE" => SourceKind::Image,
-            other => {
-                self.warn(
+            _ => {
+                self.error(
                     "This isn't one of the builtin capabilities",
                     capability.kind.span,
                 );
-                SourceKind::Other(other.to_string())
+                return HirId::ERROR;
             },
         };
 
@@ -168,7 +163,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             Source {
                 kind,
                 output_type,
-                parameters: capability.parameters.clone(),
+                parameters: args_to_parameters(&capability.parameters),
             },
         );
         self.rune.names.register(&capability.name.value, id);
@@ -326,7 +321,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             input: self.interpret_type(&proc_block.input_type),
             output: self.interpret_type(&proc_block.output_type),
             path: proc_block.path.clone(),
-            params: proc_block.params.clone(),
+            parameters: args_to_parameters(&proc_block.params),
         };
         self.rune.proc_blocks.insert(id, pb);
 
@@ -390,6 +385,18 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             |s| s.output_type == unknown,
         );
     }
+}
+
+fn args_to_parameters(
+    parameters: &[Argument],
+) -> HashMap<String, ArgumentValue> {
+    parameters
+        .iter()
+        .map(|arg| {
+            let key = arg.name.value.replace("-", "_");
+            (key, arg.value.clone())
+        })
+        .collect()
 }
 
 fn warn_on_unknown_type<'a, I, T, F, FileId>(
@@ -511,6 +518,8 @@ impl Builtins {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
     use crate::ast::{Argument, Ident, Literal, Path};
     use codespan::Span;
@@ -649,10 +658,28 @@ mod tests {
         let should_be = Source {
             kind: SourceKind::Random,
             output_type: i32_by_1_type,
-            parameters: capability.parameters.clone(),
+            parameters: args_to_parameters(&capability.parameters),
         };
         let source = &analyser.rune.sources[&id];
         assert_eq!(source, &should_be);
+    }
+
+    #[test]
+    fn kebab_case_arguments_are_converted_to_snake_case() {
+        let args: Vec<Argument> = vec![
+            "--oneword 1".parse().unwrap(),
+            "--kebab-case 1".parse().unwrap(),
+            "--snake_case 1".parse().unwrap(),
+        ];
+        let should_be: HashSet<_> = vec!["oneword", "kebab_case", "snake_case"]
+            .into_iter()
+            .collect();
+
+        let got = args_to_parameters(&args);
+
+        let argument_names: HashSet<_> =
+            got.keys().map(|s| s.as_str()).collect();
+        assert_eq!(argument_names, should_be);
     }
 
     #[test]

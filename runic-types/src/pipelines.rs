@@ -7,7 +7,11 @@ pub trait Source {
 
     fn generate(&mut self) -> Self::Output;
 
-    fn set_parameter(&mut self, key: &str, value: Value) -> &mut Self;
+    fn set_parameter(
+        &mut self,
+        key: &str,
+        value: impl Into<Value>,
+    ) -> &mut Self;
 }
 
 /// Process some data, transforming it from one form to another.
