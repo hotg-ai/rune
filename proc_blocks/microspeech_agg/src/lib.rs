@@ -8,8 +8,8 @@ extern crate std;
 use runic_types::Transform;
 use alloc::collections::VecDeque;
 
-/// Gesture Aggregator takes a list of confidences and returns the associated
-/// label of the most confident gesture so it identifies which gesture is
+/// Microspeech Aggregator takes a list of confidences and returns the associated
+/// label of the most confident microspeech so it identifies which microspeech is
 /// occuring.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MicrospeechAgg<const N: usize> {
@@ -55,22 +55,22 @@ impl<const N: usize> MicrospeechAgg<N> {
         }
     }
 
-    fn most_likely_gesture(&self) -> Option<usize> {
+    fn most_likely_microspeech(&self) -> Option<usize> {
         if self.history.is_empty() {
             return None;
         }
 
         (0..N)
-            .fold(None, |previous_most_likely, gesture_index| {
+            .fold(None, |previous_most_likely, microspeech_index| {
                 let sum: u8 =
-                    self.history.iter().map(|input| input[gesture_index]).sum();
+                    self.history.iter().map(|input| input[microspeech_index]).sum();
                 let avg = sum / self.history.len() as u8;
 
                 match previous_most_likely {
                     Some((_, previous_avg)) if previous_avg >= avg => {
                         previous_most_likely
                     },
-                    _ => Some((gesture_index, avg)),
+                    _ => Some((microspeech_index, avg)),
                 }
             })
             .map(|pair| pair.0)
@@ -85,11 +85,11 @@ impl<const N: usize> Transform<[u8; N]> for MicrospeechAgg<N> {
     type Output = &'static str;
 
     fn transform(&mut self, input: [u8; N]) -> Self::Output {
-        // This is a rust port of https://github.com/andriyadi/MagicWand-TFLite-ESP32/blob/00fd15f0861b27437236689ceb642a05cf5fb028/src/gesture_predictor.cpp#L35-L101
+        // This is a rust port of https://github.com/andriyadi/MagicWand-TFLite-ESP32/blob/00fd15f0861b27437236689ceb642a05cf5fb028/src/microspeech_predictor.cpp#L35-L101
 
         self.add_history(input);
-        let gesture_index = self.most_likely_gesture();
-        let label = self.label_for_index(gesture_index);
+        let microspeech_index = self.most_likely_microspeech();
+        let label = self.label_for_index(microspeech_index);
         self.countdown = self.countdown.saturating_sub(1);
 
         match label {
@@ -115,7 +115,7 @@ mod tests {
     fn it_works() {
         let input = [0, 255, 0, 0];
         let mut pb = MicrospeechAgg::new()
-            .with_labels(["unknown", "silence", "yes", "no"]);
+            .with_labels(["idk", "silence", "yes", "no"]);
 
         let out = pb.transform(input);
 
@@ -147,7 +147,7 @@ mod tests {
     fn empty_history_has_no_most_likely_ges() {
         let ges: MicrospeechAgg<42> = MicrospeechAgg::new();
 
-        let got = ges.most_likely_gesture();
+        let got = ges.most_likely_microspeech();
 
         assert!(got.is_none());
     }
@@ -157,7 +157,7 @@ mod tests {
         let mut ges = MicrospeechAgg::new();
         ges.add_history([0, 0, 0, 245, 0, 0]);
 
-        let got = ges.most_likely_gesture();
+        let got = ges.most_likely_microspeech();
 
         assert_eq!(got, Some(3));
     }
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn labels_for_valid_index() {
         let ges = MicrospeechAgg::new()
-            .with_labels(["unknown", "silence", "yes", "no"]);
+            .with_labels(["idk", "silence", "yes", "no"]);
 
         let got = ges.label_for_index(Some(2));
 
@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn labels_for_out_of_bounds_index() {
         let ges = MicrospeechAgg::new()
-            .with_labels(["unknown", "silence", "yes", "no"]);
+            .with_labels(["idk", "silence", "yes", "no"]);
 
         let got = ges.label_for_index(Some(5));
 
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn labels_for_no_index() {
         let ges = MicrospeechAgg::new()
-            .with_labels(["unknown", "silence", "yes", "no"]);
+            .with_labels(["idk", "silence", "yes", "no"]);
 
         let got = ges.label_for_index(None);
 
@@ -194,19 +194,19 @@ mod tests {
     #[test]
     fn throttling() {
         let mut ges = MicrospeechAgg::new()
-            .with_labels(["unknown", "silence", "yes", "no"])
+            .with_labels(["idk", "silence", "yes", "no"])
             .with_throttle_interval(3);
 
-        let got = ges.transform([0, 245, 0, 0]);
-        assert_eq!(got, "silence");
+        let got = ges.transform([128, 172, 190, 23]);
+        assert_eq!(got, "yes");
 
-        let got = ges.transform([0, 245, 0, 0]);
+        let got = ges.transform([128, 172, 190, 23]);
         assert_eq!(got, ges.unknown);
 
-        let got = ges.transform([0, 245, 0, 0]);
-        assert_eq!(got, ges.unknown);
+        // let got = ges.transform([128, 172, 190, 23]);
+        // assert_eq!(got, ges.unknown);
 
-        let got = ges.transform([0, 245, 0, 0]);
-        assert_eq!(got, "silence");
+        // let got = ges.transform([128, 172, 190, 23]);
+        // assert_eq!(got, "yes");
     }
 }
