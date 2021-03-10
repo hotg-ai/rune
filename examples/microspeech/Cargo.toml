@@ -1,0 +1,33 @@
+[package]
+name = "microspeech"
+version = "0.1.0"
+authors = ["The Rune Developers"]
+edition = "2018"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "lib.rs"
+
+[dependencies]
+
+wee_alloc = { version = "0.4.5" }
+
+once_cell = { default-features = false, version = "1.7.0" }
+
+runic-types = { path = "/Users/milind/GitHub/hotg-ai/rune/runic-types" }
+
+normalize = { path = "/Users/milind/GitHub/hotg-ai/rune/proc_blocks/normalize" }
+
+microspeech_agg = { path = "/Users/milind/GitHub/hotg-ai/rune/proc_blocks/microspeech_agg" }
+
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+opt-level = "s"
+codegen-units = 1
+lto = true
+
+[workspace]
