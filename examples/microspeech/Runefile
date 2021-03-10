@@ -6,8 +6,9 @@ PROC_BLOCK<I16[24000],U8[1960]> fft hotg-ai/rune#proc_blocks/fft
 
 MODEL<U8[1960],U8[4]> model ./model.tflite
 
-PROC_BLOCK<U8[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=unknown,silence,yes,no
+# PROC_BLOCK<U8[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=unknown,silence,yes,no
+PROC_BLOCK<U8[4], UTF8> microspeech_agg hotg-ai/rune#proc_blocks/microspeech_agg --labels=unknown,silence,yes,no
 
 OUT serial
 
-RUN audio fft model label serial
+RUN audio fft model microspeech_agg serial
