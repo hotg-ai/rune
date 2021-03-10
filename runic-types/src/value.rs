@@ -17,29 +17,35 @@ impl Value {
         [0; core::mem::size_of::<Value>()]
     }
 
-    pub fn from_le_bytes(ty: Type, bytes: &[u8]) -> Self {
+    pub fn from_le_bytes(ty: Type, bytes: &[u8]) -> Option<Self> {
         match ty {
-            Type::Byte => {
-                assert!(bytes.len() >= 1);
-                Value::Byte(bytes[0])
-            },
+            Type::Byte => bytes.get(0).copied().map(Value::Byte),
             Type::Short => {
-                let mut buffer = [0; core::mem::size_of::<i16>()];
-                let len = buffer.len();
-                buffer.copy_from_slice(&bytes[..len]);
-                Value::Short(i16::from_le_bytes(buffer))
+                const LEN: usize = core::mem::size_of::<i16>();
+
+                bytes.get(..LEN).map(|bytes| {
+                    let mut buffer = [0; LEN];
+                    buffer.copy_from_slice(bytes);
+                    Value::Short(i16::from_le_bytes(buffer))
+                })
             },
             Type::Integer => {
-                let mut buffer = [0; core::mem::size_of::<i32>()];
-                let len = buffer.len();
-                buffer.copy_from_slice(&bytes[..len]);
-                Value::Integer(i32::from_le_bytes(buffer))
+                const LEN: usize = core::mem::size_of::<i32>();
+
+                bytes.get(..LEN).map(|bytes| {
+                    let mut buffer = [0; LEN];
+                    buffer.copy_from_slice(bytes);
+                    Value::Integer(i32::from_le_bytes(buffer))
+                })
             },
             Type::Float => {
-                let mut buffer = [0; core::mem::size_of::<f32>()];
-                let len = buffer.len();
-                buffer.copy_from_slice(&bytes[..len]);
-                Value::Float(f32::from_le_bytes(buffer))
+                const LEN: usize = core::mem::size_of::<f32>();
+
+                bytes.get(..LEN).map(|bytes| {
+                    let mut buffer = [0; LEN];
+                    buffer.copy_from_slice(bytes);
+                    Value::Float(f32::from_le_bytes(buffer))
+                })
             },
         }
     }

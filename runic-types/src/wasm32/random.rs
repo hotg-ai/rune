@@ -1,4 +1,4 @@
-use crate::{wasm32::intrinsics, AsParamType, Source, CAPABILITY, Buffer, Value};
+use crate::{wasm32::intrinsics, AsType, Source, CAPABILITY, Buffer, Value};
 use core::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +21,7 @@ impl<B: Buffer> Random<B> {
                 key.len() as u32,
                 value.as_ptr(),
                 value.len() as u32,
-                i32::VALUE as u32,
+                i32::TYPE as u32,
             );
 
             Random {
