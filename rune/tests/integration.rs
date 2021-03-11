@@ -1,5 +1,7 @@
 use assert_cmd::Command;
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
+use std::io::Write;
 
 fn example_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -27,23 +29,36 @@ fn compile_sine() {
 }
 
 #[test]
-#[ignore = "We need to return a model's output, seed the RNG, then send it to the serial OUT"]
 fn run_sine() {
     let dir = sine_dir();
     let runefile = dir.join("Runefile");
 
+    // compile like normal
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("build").arg(&runefile).unwrap();
 
     let rune = dir.join("sine.rune");
 
+    // This is the value we want to take the sine of
+    let input: f32 = 0.8;
+
+    let mut tempfile = NamedTempFile::new().unwrap();
+    let data = input.to_le_bytes();
+    tempfile.write(&data).unwrap();
+
+    // then run the rune, making sure the RNG yields out value.
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run").arg(&rune);
+    cmd.arg("run")
+        .arg(&rune)
+        .arg("--capability")
+        .arg(format!("random:{}", tempfile.path().display()));
 
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("Output: [0.21078247]"));
+        // Note: sin(0.8) = 0.7173560909, but our model is kinda inaccurate so
+        // we hard-code the value it actually yields.
+        .stderr(predicates::str::contains("Serial -> [0.6972786]"));
 }
 
 #[test]
