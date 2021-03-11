@@ -94,11 +94,20 @@ impl Value {
 #[repr(u32)]
 #[non_exhaustive]
 pub enum Type {
-    Byte = 0,
-    Short = 1,
-    Integer = 2,
-    Float = 3,
-    /* Note: don't forget to update TryFrom if you add new variants!
+    /// A 32-bit signed integer.
+    Integer = 1,
+    /// A 32-bit floating point number.
+    Float = 2,
+    /// An 8-bit unsigned integer.
+    Byte = 5,
+    /// A 16-bit signed integer.
+    Short = 6,
+    /* Note: Enum discriminant are important here. We want to stay
+     * compatible with PARAM_TYPE so the mobile runtime isn't broken.
+     *
+     * https://github.com/hotg-ai/rune/blob/177ba2306bf03147aab88dc7f74ded1d8c7a926d/runic-types/src/lib.rs#L55-L60
+     *
+     * Don't forget to update TryFrom if you add new variants!
      *
      * We *could* use #[derive(FromPrimitive)] to automate things, but I'd
      * prefer not to add a proc-macro dependency to the crate that every
@@ -115,10 +124,10 @@ impl TryFrom<u32> for Type {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(Type::Byte),
-            1 => Ok(Type::Short),
-            2 => Ok(Type::Integer),
-            3 => Ok(Type::Float),
+            1 => Ok(Type::Integer),
+            2 => Ok(Type::Float),
+            5 => Ok(Type::Byte),
+            6 => Ok(Type::Short),
             _ => Err(()),
         }
     }
