@@ -1,10 +1,8 @@
 //! The *High-level Internal Representation*.
 
 use std::{collections::HashMap, path::PathBuf};
-
 use codespan::Span;
-
-use crate::ast::{Argument, Path};
+use crate::ast::{ArgumentValue, Path};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Rune {
@@ -121,7 +119,7 @@ impl Primitive {
 pub struct Source {
     pub kind: SourceKind,
     pub output_type: HirId,
-    pub parameters: Vec<Argument>,
+    pub parameters: HashMap<String, ArgumentValue>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,7 +213,7 @@ pub struct ProcBlock {
     pub input: HirId,
     pub output: HirId,
     pub path: Path,
-    pub params: Vec<Argument>,
+    pub parameters: HashMap<String, ArgumentValue>,
 }
 
 impl ProcBlock {

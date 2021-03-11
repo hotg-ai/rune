@@ -157,6 +157,15 @@ fn parse_argument(pair: Pair<Rule>) -> Argument {
     Argument { name, value, span }
 }
 
+impl FromStr for Argument {
+    type Err = Error<Rule>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        RunefileParser::parse(Rule::argument, s)
+            .map(|mut pairs| parse_argument(pairs.next().unwrap()))
+    }
+}
+
 fn parse_argument_name(pair: Pair<Rule>) -> Ident {
     let span = get_span(&pair);
     debug_assert_eq!(pair.as_rule(), Rule::arg_name);

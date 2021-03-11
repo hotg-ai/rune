@@ -1,9 +1,9 @@
-use crate::AsParamType;
+use crate::AsType;
 
 /// A generic buffer that can be used for transferring data between the Rune
 /// and the runtime.
 pub trait Buffer: Sized {
-    type Item: AsParamType;
+    type Item: AsType;
     const OVERALL_LENGTH: usize;
 
     fn zeroed() -> Self;

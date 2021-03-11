@@ -13,9 +13,11 @@ pub mod wasm32;
 
 mod buffer;
 mod pipelines;
+mod value;
 
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
+pub use value::{Value, Type, AsType};
 
 #[derive(Copy, Clone, Debug)]
 pub enum CAPABILITY {
@@ -51,27 +53,6 @@ impl CAPABILITY {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[allow(non_camel_case_types)]
-pub enum PARAM_TYPE {
-    INT = 1,
-    FLOAT = 2,
-    UTF8 = 3,
-    BINARY = 4,
-}
-
-impl PARAM_TYPE {
-    pub fn from_u32(value: u32) -> PARAM_TYPE {
-        match value {
-            1 => PARAM_TYPE::INT,
-            2 => PARAM_TYPE::FLOAT,
-            3 => PARAM_TYPE::UTF8,
-            4 => PARAM_TYPE::BINARY,
-            _ => PARAM_TYPE::BINARY,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
 pub enum OUTPUT {
     SERIAL = 1,
     BLE = 2,
@@ -89,26 +70,4 @@ impl OUTPUT {
             _ => OUTPUT::SERIAL,
         }
     }
-}
-
-/// A helper trait that lets us go from a type to its [`PARAM_TYPE`] equivalent.
-pub trait AsParamType: Sized {
-    /// The corresponding [`PARAM_TYPE`] variant.
-    const VALUE: PARAM_TYPE;
-}
-
-impl AsParamType for i32 {
-    const VALUE: PARAM_TYPE = PARAM_TYPE::INT;
-}
-
-impl AsParamType for f32 {
-    const VALUE: PARAM_TYPE = PARAM_TYPE::FLOAT;
-}
-
-impl AsParamType for i16 {
-    const VALUE: PARAM_TYPE = PARAM_TYPE::BINARY;
-}
-
-impl AsParamType for u8 {
-    const VALUE: PARAM_TYPE = PARAM_TYPE::BINARY;
 }

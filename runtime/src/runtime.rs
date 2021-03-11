@@ -1,16 +1,17 @@
 use crate::{
     Environment,
-    capability::{CapabilityParam, CapabilityRequest},
+    capability::{CapabilityRequest},
 };
 use anyhow::{Context as _, Error};
 use log::Level;
-use runic_types::{CAPABILITY, PARAM_TYPE};
+use runic_types::Value;
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
 };
 use std::{
     collections::HashMap,
+    convert::TryFrom,
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -76,7 +77,7 @@ impl Runtime {
         // We should be able to change the _call function's signature once
         // hotg-ai/rune#28 lands.
         call_func
-            .call(CAPABILITY::RAND as i32, PARAM_TYPE::FLOAT as i32, 2)
+            .call(0, 0, 0)
             .context("Unable to call the _call function")?;
 
         Ok(())
@@ -387,10 +388,19 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 .get_utf8_str(memory, key_len)
                 .unwrap_or_trap("Invalid key");
 
-            let value = value
+            let raw = value
                 .deref(memory, 0, value_len)
                 .unwrap_or_trap("Invalid value");
-            let value: &[u8] = std::mem::transmute(value);
+            let raw: &[u8] = std::mem::transmute(raw);
+
+            let ty = runic_types::Type::try_from(value_type)
+                .map_err(|_| Error::msg("Unknown type"))
+                .unwrap_or_trap(
+                    "Unable to determine the capability parameter value",
+                );
+
+            let value = Value::from_le_bytes(ty, raw)
+                .unwrap_or_trap("Unable to unmarshal the parameter value");
 
             let mut capabilities = s.caps.lock().unwrap();
             set_capability_parameter(
@@ -398,7 +408,6 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 &mut capabilities,
                 key,
                 value,
-                PARAM_TYPE::from_u32(value_type),
             )
             .unwrap_or_trap("Unable to set the capability parameter");
 
@@ -411,12 +420,9 @@ fn set_capability_parameter(
     id: u32,
     capabilities: &mut HashMap<u32, CapabilityRequest>,
     key: &str,
-    value: &[u8],
-    ty: PARAM_TYPE,
+    value: Value,
 ) -> Result<(), Error> {
     let request = capabilities.get_mut(&id).context("Invalid capability")?;
-    let value = CapabilityParam::from_raw(value.to_vec(), ty)
-        .context("Invalid capability parameter")?;
 
     log::debug!("Setting {}={:?} on capability {}", key, value, id);
     request.params.insert(key.to_string(), value);
@@ -551,7 +557,7 @@ impl<T> TrapExt<T> for Option<T> {
             Some(value) => value,
             None => {
                 let err = Error::msg(msg);
-                wasmer::raise_user_trap(err.into());
+                raise_user_trap(err.into());
             },
         }
     }
@@ -566,8 +572,12 @@ where
             Ok(value) => value,
             Err(e) => {
                 let err = e.context(msg);
-                wasmer::raise_user_trap(err.into())
+                raise_user_trap(err.into());
             },
         }
     }
+}
+
+unsafe fn raise_user_trap(error: Error) -> ! {
+    wasmer::raise_user_trap(error.into())
 }

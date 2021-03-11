@@ -18,6 +18,12 @@ static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
 pub extern "C" fn _manifest() -> u32 {
     {{#each capabilities~}}
     let mut {{name}} = {{type}}::default();
+    {{~#if parameters}}
+    {{name}}
+    {{~#each parameters}}
+        .set_parameter("{{name}}", {{value}})
+    {{~/each~}};
+    {{~/if~}}
     {{~/each~}}
 
     {{~#each models}}
@@ -26,7 +32,7 @@ pub extern "C" fn _manifest() -> u32 {
 
     {{~#each proc_blocks}}
     let mut {{name}} = {{type}}::default()
-    {{~#each params}}
+    {{~#each parameters}}
         .with_{{name}}({{value}})
     {{/each~}};
     {{~ /each~}}
