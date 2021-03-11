@@ -105,7 +105,7 @@ pub enum Type {
     /* Note: Enum discriminant are important here. We want to stay
      * compatible with PARAM_TYPE so the mobile runtime isn't broken.
      *
-     * https://github.com/hotg-ai/rune/blob/177ba2306bf03147aab88dc7f74ded1d8c7a926d/runic-types/src/lib.rs#L55-L60
+     * https://github.com/hotg-ai/runic_mobile/blob/94f9e72d6de8bd57c004952dc3ba31adc7603381/ios/Runner/hmr/hmr.hpp#L23-L29
      *
      * Don't forget to update TryFrom if you add new variants!
      *
