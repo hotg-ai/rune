@@ -1,0 +1,13 @@
+FROM runicos/base
+
+CAPABILITY<U8[96, 96]> image ACCEL -sampling_frequency_ms 500
+
+# Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/normalize" }
+# Output values 0...255
+PROC_BLOCK<U8[96, 96],f32[96, 96]> normalize hotg-ai/rune#proc_blocks/normalize
+
+MODEL<U8[96, 96],U8[3]> person_detection ./model.tflite
+
+OUT SERIAL
+
+RUN image normalize person_detection serial
