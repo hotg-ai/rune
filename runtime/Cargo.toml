@@ -11,6 +11,7 @@ anyhow = "1.0.38"
 image = "0.23.14"
 log = "0.4.14"
 rand = { version = "0.8.3", features = ["small_rng"] }
+rand_core = "0.6.2"
 runic-types = { path = "../runic-types" }
 tflite = "0.9.4"
 thiserror = "1.0.24"

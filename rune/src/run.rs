@@ -54,11 +54,33 @@ impl Run {
 
         for cap in &self.capabilities {
             match cap {
-                Capability::Random { seed } => {
+                Capability::RandomSeed { seed } => {
                     log::debug!("Setting the RNG's seed to {}", seed);
                     env.seed_rng(*seed);
                 },
+                Capability::RandomData { filename } => {
+                    log::debug!(
+                        "Loading some \"random\" data from \"{}\"",
+                        filename.display()
+                    );
+                    let random_bytes =
+                        std::fs::read(filename).with_context(|| {
+                            format!(
+                                "Unable to load random data from \"{}\"",
+                                filename.display()
+                            )
+                        })?;
+                    anyhow::ensure!(
+                        !random_bytes.is_empty(),
+                        "The random data file was empty"
+                    );
+                    env.set_random_data(random_bytes);
+                },
                 Capability::Accelerometer { filename } => {
+                    log::debug!(
+                        "Loading accelerator samples from \"{}\"",
+                        filename.display()
+                    );
                     let samples = load_accelerometer_data(filename)
                         .with_context(|| format!("Unable to load the accelerometer data from \"{}\"", filename.display()))?;
 
@@ -70,6 +92,10 @@ impl Run {
                     env.set_accelerometer_data(samples);
                 },
                 Capability::Image { filename } => {
+                    log::debug!(
+                        "Loading an image from \"{}\"",
+                        filename.display()
+                    );
                     let img = image::open(filename).with_context(|| {
                         format!("Unable to load \"{}\"", filename.display())
                     })?;
@@ -103,7 +129,8 @@ impl Run {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Capability {
-    Random { seed: u64 },
+    RandomSeed { seed: u64 },
+    RandomData { filename: PathBuf },
     Accelerometer { filename: PathBuf },
     Image { filename: PathBuf },
     Sound { filename: PathBuf },
@@ -119,10 +146,12 @@ impl FromStr for Capability {
 
         match key {
             "r" | "rand" | "random" => {
-                let seed = value
-                    .parse()
-                    .context("Unable to parse the seed as an integer")?;
-                Ok(Capability::Random { seed })
+                match value.parse() {
+                // it might be an integer seed
+                    Ok(seed) => Ok(Capability::RandomSeed { seed}),
+                // otherwise it's pointing us to a file containing "random" data
+                    Err(_) => Ok(Capability::RandomData { filename: PathBuf::from(value )})
+                }
             },
             "a" | "acc" | "accel" | "accelerometer" => {
                 Ok(Capability::Accelerometer {

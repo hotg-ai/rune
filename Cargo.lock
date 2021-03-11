@@ -1671,6 +1671,7 @@ dependencies = [
  "modulo",
  "once_cell",
  "rand",
+ "rand_core",
  "rune-codegen",
  "rune-syntax",
  "runic-types",
