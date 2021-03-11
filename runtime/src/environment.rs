@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Mutex};
+use std::{borrow::Cow, fmt::Debug, sync::Mutex};
 use log::Record;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use anyhow::{Context, Error};
@@ -38,9 +38,18 @@ pub trait Environment: Send + Sync + 'static {
 #[error("Not Supported")]
 pub struct NotSupportedError;
 
+/// Helper trait which lets us put multiple traits behind a single trait object.
+trait DebuggableRng: Debug + RngCore + Send + Sync + 'static {
+    fn clone_boxed(&self) -> Box<dyn DebuggableRng>;
+}
+
+impl<D: Debug + RngCore + Clone + Send + Sync + 'static> DebuggableRng for D {
+    fn clone_boxed(&self) -> Box<dyn DebuggableRng> { Box::new(self.clone()) }
+}
+
 #[derive(Debug)]
 pub struct DefaultEnvironment {
-    rng: Mutex<SmallRng>,
+    rng: Mutex<Box<dyn DebuggableRng>>,
     name: String,
     accelerometer_samples: Vec<[f32; 3]>,
     image: Option<RgbImage>,
@@ -57,7 +66,7 @@ impl DefaultEnvironment {
 
     pub fn with_seed(seed: [u8; 32]) -> Self {
         DefaultEnvironment {
-            rng: Mutex::new(SmallRng::from_seed(seed)),
+            rng: Mutex::new(Box::new(SmallRng::from_seed(seed))),
             name: String::from("current_rune"),
             accelerometer_samples: Vec::new(),
             sound: Vec::new(),
@@ -67,7 +76,11 @@ impl DefaultEnvironment {
 
     /// Reset the Random Number Generator's seed.
     pub fn seed_rng(&mut self, seed: u64) {
-        self.rng = Mutex::new(SmallRng::seed_from_u64(seed));
+        self.rng = Mutex::new(Box::new(SmallRng::seed_from_u64(seed)));
+    }
+
+    pub fn set_random_data(&mut self, random_data: Vec<u8>) {
+        self.rng = Mutex::new(Box::new(PhonyRng::new(random_data)));
     }
 
     pub fn set_accelerometer_data(&mut self, samples: Vec<[f32; 3]>) {
@@ -99,12 +112,42 @@ impl Clone for DefaultEnvironment {
         let rng = rng.lock().unwrap();
 
         DefaultEnvironment {
-            rng: Mutex::new(rng.clone()),
+            rng: Mutex::new(rng.clone_boxed()),
             name: name.clone(),
             image: image.clone(),
             sound: sound.clone(),
             accelerometer_samples: accelerometer_samples.clone(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PhonyRng {
+    data: std::iter::Cycle<std::vec::IntoIter<u8>>,
+}
+
+impl PhonyRng {
+    fn new(data: Vec<u8>) -> Self {
+        PhonyRng {
+            data: data.into_iter().cycle(),
+        }
+    }
+}
+
+impl RngCore for PhonyRng {
+    fn next_u32(&mut self) -> u32 { rand_core::impls::next_u32_via_fill(self) }
+
+    fn next_u64(&mut self) -> u64 { rand_core::impls::next_u64_via_fill(self) }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        for (src, dest) in self.data.by_ref().zip(dest) {
+            *dest = src;
+        }
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        self.fill_bytes(dest);
+        Ok(())
     }
 }
 
