@@ -1,8 +1,11 @@
 mod accelerometer;
+mod image;
 mod random;
 mod sound;
 
-pub use self::{accelerometer::Accelerometer, random::Random, sound::Sound};
+pub use self::{
+    accelerometer::Accelerometer, random::Random, sound::Sound, image::Image,
+};
 
 use anyhow::Error;
 use runic_types::{CAPABILITY, Type, Value};
