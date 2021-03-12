@@ -1,15 +1,14 @@
 FROM runicos/base
 
-CAPABILITY<U8[96, 96]> image IMAGE -sampling_frequency_ms 500
+# CAPABILITY<U8[96, 96, 3]> image IMAGE --sampling_frequency_ms 500 # This runs
+CAPABILITY<U8[96, 96]> image IMAGE --sampling_frequency_ms 500 # TODO: This does not run, currently: make it able to generate grayscale images
 
-# Dependency is { git = "https://github.com/hotg-ai/rune", path="proc_blocks/normalize" }
-# Output values 0...255
-PROC_BLOCK<U8[96, 96],f32[96, 96]> normalize hotg-ai/rune#proc_blocks/normalize
+# PROC_BLOCK<U8[96, 96],f32[96, 96]> normalize hotg-ai/rune#proc_blocks/normalize # TODO: Need a proc block with output values 0...255
 
 MODEL<U8[96, 96],U8[3]> person_detection ./model.tflite
 
-PROC_BLOCK<U8[4],UTF8> person_detection_agg hotg-ai/rune#proc_blocks/person_detection_agg --labels=unknown,silence,yes,no
+PROC_BLOCK<U8[3],UTF8> person_detection_agg hotg-ai/rune#proc_blocks/person_detection_agg --labels=unknown, person_prob, not_person_prob
 
 OUT SERIAL
 
-RUN image normalize person_detection person_detection_agg serial
+RUN image person_detection person_detection_agg serial
