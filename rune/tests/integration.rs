@@ -1,5 +1,4 @@
 use assert_cmd::Command;
-use predicates::prelude::*;
 use std::path::{Path, PathBuf};
 
 fn example_dir() -> PathBuf {
@@ -62,7 +61,6 @@ fn compile_gesture() {
 }
 
 #[test]
-#[ignore = "The ACCEL capability isn't implemented yet"]
 fn run_gesture() {
     let dir = gesture_dir();
     let runefile = dir.join("Runefile");
@@ -71,16 +69,18 @@ fn run_gesture() {
     cmd.arg("build").arg(&runefile).unwrap();
 
     let rune = dir.join("gesture.rune");
+    let example_wing = dir.join("example_ring.csv");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run").arg(&rune);
+    cmd.arg("run")
+        .arg(&rune)
+        .arg("--capability")
+        .arg(format!("accelerometer:{}", example_wing.display()));
 
-    // FIXME: We should probably check the output for some well-known string
-    // indicating success.
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::is_empty().not());
+        .stderr(predicates::str::contains("ring"));
 }
 
 #[test]
@@ -92,15 +92,13 @@ fn identify_yes_microspeech() {
     cmd.arg("build").arg(&runefile).unwrap();
 
     let rune = dir.join("microspeech.rune");
+    let wav = dir.join("data").join("yes_01d22d03_nohash_0.wav");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run").arg(&rune).arg(format!(
-        "--capability=sound:{}",
-        dir.join("data").join("yes_01d22d03_nohash_0.wav").display()
-    ));
+    cmd.arg("run")
+        .arg(&rune)
+        .arg(format!("--capability=sound:{}", wav.display()));
 
-    // FIXME: We should probably check the output for some well-known string
-    // indicating success.
     cmd.assert()
         .success()
         .code(0)
@@ -123,8 +121,6 @@ fn identify_no_microspeech() {
         dir.join("data").join("no_bf90a57a_nohash_1.wav").display()
     ));
 
-    // FIXME: We should probably check the output for some well-known string
-    // indicating success.
     cmd.assert()
         .success()
         .code(0)
