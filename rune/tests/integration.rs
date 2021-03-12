@@ -1,6 +1,6 @@
 use assert_cmd::Command;
 use std::path::{Path, PathBuf};
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempDir};
 use std::io::Write;
 
 fn example_dir() -> PathBuf {
@@ -15,29 +15,22 @@ fn gesture_dir() -> PathBuf { example_dir().join("gesture") }
 fn microspeech_dir() -> PathBuf { example_dir().join("microspeech") }
 
 #[test]
-fn compile_sine() {
-    let dir = sine_dir();
-    let runefile = dir.join("Runefile");
-
-    let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile);
-
-    cmd.assert().success().code(0);
-
-    let rune = dir.join("sine.rune");
-    assert!(rune.exists());
-}
-
-#[test]
-fn run_sine() {
-    let dir = sine_dir();
-    let runefile = dir.join("Runefile");
+fn sine() {
+    let build_dir = TempDir::new().unwrap();
+    let runefile = sine_dir().join("Runefile");
+    let rune = build_dir.path().join("sine.rune");
 
     // compile like normal
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile).unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .arg("--output")
+        .arg(&rune)
+        .arg("--cache-dir")
+        .arg(build_dir.path())
+        .unwrap();
 
-    let rune = dir.join("sine.rune");
+    assert!(rune.exists());
 
     // This is the value we want to take the sine of
     let input: f32 = 0.8;
@@ -62,29 +55,22 @@ fn run_sine() {
 }
 
 #[test]
-fn compile_gesture() {
-    let dir = gesture_dir();
-    let runefile = dir.join("Runefile");
+fn gesture() {
+    let gesture_dir = gesture_dir();
+    let runefile = gesture_dir.join("Runefile");
+    let build_dir = TempDir::new().unwrap();
+    let rune = build_dir.path().join("gesture.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile);
+    cmd.arg("build")
+        .arg(&runefile)
+        .arg("--output")
+        .arg(&rune)
+        .arg("--cache-dir")
+        .arg(build_dir.path())
+        .unwrap();
 
-    cmd.assert().success().code(0);
-
-    let rune = dir.join("gesture.rune");
-    assert!(rune.exists());
-}
-
-#[test]
-fn run_gesture() {
-    let dir = gesture_dir();
-    let runefile = dir.join("Runefile");
-
-    let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile).unwrap();
-
-    let rune = dir.join("gesture.rune");
-    let example_wing = dir.join("example_ring.csv");
+    let example_wing = gesture_dir.join("example_ring.csv");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run")
@@ -99,15 +85,24 @@ fn run_gesture() {
 }
 
 #[test]
-fn identify_yes_microspeech() {
-    let dir = microspeech_dir();
-    let runefile = dir.join("Runefile");
+fn yes_microspeech() {
+    let microspeech_dir = microspeech_dir();
+    let runefile = microspeech_dir.join("Runefile");
+    let build_dir = TempDir::new().unwrap();
+    let rune = build_dir.path().join("microspeech.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile).unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .arg("--output")
+        .arg(&rune)
+        .arg("--cache-dir")
+        .arg(build_dir.path())
+        .unwrap();
 
-    let rune = dir.join("microspeech.rune");
-    let wav = dir.join("data").join("yes_01d22d03_nohash_0.wav");
+    let wav = microspeech_dir
+        .join("data")
+        .join("yes_01d22d03_nohash_0.wav");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run")
@@ -121,20 +116,29 @@ fn identify_yes_microspeech() {
 }
 
 #[test]
-fn identify_no_microspeech() {
-    let dir = microspeech_dir();
-    let runefile = dir.join("Runefile");
+fn no_microspeech() {
+    let microspeech_dir = microspeech_dir();
+    let runefile = microspeech_dir.join("Runefile");
+    let build_dir = TempDir::new().unwrap();
+    let rune = build_dir.path().join("microspeech.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("build").arg(&runefile).unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .arg("--output")
+        .arg(&rune)
+        .arg("--cache-dir")
+        .arg(build_dir.path())
+        .unwrap();
 
-    let rune = dir.join("microspeech.rune");
+    let wav = microspeech_dir
+        .join("data")
+        .join("no_bf90a57a_nohash_1.wav");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run").arg(&rune).arg(format!(
-        "--capability=sound:{}",
-        dir.join("data").join("no_bf90a57a_nohash_1.wav").display()
-    ));
+    cmd.arg("run")
+        .arg(&rune)
+        .arg(format!("--capability=sound:{}", wav.display()));
 
     cmd.assert()
         .success()
