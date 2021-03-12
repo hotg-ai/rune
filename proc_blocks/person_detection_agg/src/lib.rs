@@ -8,9 +8,9 @@ extern crate std;
 use runic_types::Transform;
 use alloc::collections::VecDeque;
 
-/// Person Detection Aggregator takes a list of confidences and returns the associated
-/// label of the most confident person_detection so it identifies which person_detection is
-/// occuring.
+/// Person Detection Aggregator takes a list of confidences and returns the
+/// associated label of the most confident person_detection so it identifies
+/// which person_detection is occuring.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PersonDetectionAgg<const N: usize> {
     labels: [&'static str; N],
@@ -62,8 +62,11 @@ impl<const N: usize> PersonDetectionAgg<N> {
 
         (0..N)
             .fold(None, |previous_most_likely, person_detection_index| {
-                let sum: u8 =
-                    self.history.iter().map(|input| input[person_detection_index]).sum();
+                let sum: u8 = self
+                    .history
+                    .iter()
+                    .map(|input| input[person_detection_index])
+                    .sum();
                 let avg = sum / self.history.len() as u8;
 
                 match previous_most_likely {
@@ -113,13 +116,13 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let input = [0,0,1,0];
-        let mut pb =
-            PersonDetectionAgg::new().with_labels(["unknown", "silence", "yes", "no"]);
+        let input = [0, 0, 1, 0];
+        let mut pb = PersonDetectionAgg::new()
+            .with_labels(["unknown", "silence", "yes", "no"]);
 
         let out = pb.transform(input);
 
-        assert_eq!(out, "silence");
+        assert_eq!(out, "yes");
     }
 
     #[test]
@@ -127,7 +130,7 @@ mod tests {
         let mut ges = PersonDetectionAgg::new();
         assert!(ges.history.is_empty());
 
-        ges.add_history([0,0,1,0]);
+        ges.add_history([0, 0, 1, 0]);
         assert_eq!(ges.history.len(), 1);
     }
     #[test]
@@ -164,8 +167,8 @@ mod tests {
 
     #[test]
     fn labels_for_valid_index() {
-        let ges =
-            PersonDetectionAgg::new().with_labels(["unknown", "silence", "yes", "no"]);
+        let ges = PersonDetectionAgg::new()
+            .with_labels(["unknown", "silence", "yes", "no"]);
 
         let got = ges.label_for_index(Some(2));
 
@@ -173,8 +176,8 @@ mod tests {
     }
     #[test]
     fn labels_for_out_of_bounds_index() {
-        let ges =
-            PersonDetectionAgg::new().with_labels(["unknown", "silence", "yes", "no"]);
+        let ges = PersonDetectionAgg::new()
+            .with_labels(["unknown", "silence", "yes", "no"]);
 
         let got = ges.label_for_index(Some(5));
 
@@ -183,8 +186,8 @@ mod tests {
 
     #[test]
     fn labels_for_no_index() {
-        let ges =
-            PersonDetectionAgg::new().with_labels(["unknown", "silence", "yes", "no"]);
+        let ges = PersonDetectionAgg::new()
+            .with_labels(["unknown", "silence", "yes", "no"]);
 
         let got = ges.label_for_index(None);
 
@@ -197,16 +200,16 @@ mod tests {
             .with_labels(["unknown", "silence", "yes", "no"])
             .with_throttle_interval(3);
 
-        let got = ges.transform([0,0,1,0]);
+        let got = ges.transform([0, 0, 1, 0]);
         assert_eq!(got, "yes");
 
-        let got = ges.transform([0,0,1,0]);
+        let got = ges.transform([0, 0, 1, 0]);
         assert_eq!(got, ges.unknown);
 
-        let got = ges.transform([0,0,1,0]);
+        let got = ges.transform([0, 0, 1, 0]);
         assert_eq!(got, ges.unknown);
 
-        let got = ges.transform([0,0,1,0]);
+        let got = ges.transform([0, 0, 1, 0]);
         assert_eq!(got, "yes");
     }
 }
