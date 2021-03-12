@@ -1,8 +1,8 @@
 mod accelerometer;
 mod random;
+mod sound;
 
-pub use self::random::Random;
-pub use self::accelerometer::Accelerometer;
+pub use self::{accelerometer::Accelerometer, random::Random, sound::Sound};
 
 use anyhow::Error;
 use runic_types::{CAPABILITY, Type, Value};
@@ -48,6 +48,10 @@ pub enum ParameterError {
     },
     #[error("Expected a {:?} but found {:?}", expected, actual)]
     IncorrectType { expected: Type, actual: Type },
-    #[error("Unable to generate data")]
-    DataGenerationFailed(#[from] Error),
+}
+
+impl ParameterError {
+    pub fn unsupported(name: impl Into<String>) -> Self {
+        ParameterError::UnsupportedParameter { name: name.into() }
+    }
 }

@@ -21,8 +21,6 @@ impl<R: RngCore> Capability for Random<R> {
         name: &str,
         _value: runic_types::Value,
     ) -> Result<(), ParameterError> {
-        Err(ParameterError::UnsupportedParameter {
-            name: name.to_string(),
-        })
+        Err(ParameterError::unsupported(name))
     }
 }

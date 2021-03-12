@@ -1,7 +1,7 @@
 use anyhow::Error;
 use runic_types::{Value};
 
-use super::Capability;
+use super::{Capability, ParameterError};
 
 type Sample = [f32; 3];
 
@@ -65,10 +65,10 @@ impl Capability for Accelerometer {
 
     fn set_parameter(
         &mut self,
-        _name: &str,
+        name: &str,
         _value: Value,
-    ) -> Result<(), super::ParameterError> {
-        todo!()
+    ) -> Result<(), ParameterError> {
+        Err(ParameterError::unsupported(name))
     }
 }
 
