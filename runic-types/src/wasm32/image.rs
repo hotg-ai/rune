@@ -18,7 +18,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Default for Image<WIDTH, HEIGHT> {
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize> Source for Image<WIDTH, HEIGHT> {
-    type Output = [[[u8; 3]; HEIGHT]; WIDTH];
+    type Output = [[u8; HEIGHT]; WIDTH];
 
     fn generate(&mut self) -> Self::Output {
         let mut buffer = Self::Output::zeroed();
@@ -35,3 +35,22 @@ impl<const WIDTH: usize, const HEIGHT: usize> Source for Image<WIDTH, HEIGHT> {
         self
     }
 }
+
+// impl<const WIDTH: usize, const HEIGHT: usize> Source for Image<WIDTH, HEIGHT> {
+//    type Output = [[[u8; 3]; HEIGHT]; WIDTH];
+
+//    fn generate(&mut self) -> Self::Output {
+//        let mut buffer = Self::Output::zeroed();
+//        super::copy_capability_data_to_buffer(self.index, &mut buffer);
+//        buffer
+//    }
+
+//    fn set_parameter(
+//        &mut self,
+//        key: &str,
+//        value: impl Into<Value>,
+//    ) -> &mut Self {
+//        super::set_capability_parameter(self.index, key, value.into());
+//        self
+//    }
+//}
