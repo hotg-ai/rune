@@ -167,7 +167,15 @@ impl<const N: usize> Sound<N> {
 impl<const N: usize> Source for Sound<N> {
     type Output = [i16; N];
 
-    fn generate(&mut self) -> Self::Output { todo!() }
+    fn generate(&mut self) -> Self::Output {
+        let mut buffer = [0; N];
+
+        for (src, dest) in self.samples.iter().zip(&mut buffer) {
+            *dest = *src;
+        }
+
+        buffer
+    }
 
     fn set_parameter(
         &mut self,

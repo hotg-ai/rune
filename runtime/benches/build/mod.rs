@@ -84,7 +84,7 @@ fn gesture_runtime(wasm: &[u8], accelerometer_samples: &str) -> Runtime {
     Runtime::load(wasm, env).unwrap()
 }
 
-pub fn wing_gesture_runtime() -> Runtime {
+pub fn wing_gesture_runtime_release() -> Runtime {
     gesture_runtime(&GESTURE_RELEASE, WING)
 }
 
@@ -92,7 +92,7 @@ pub fn wing_gesture_runtime_debug() -> Runtime {
     gesture_runtime(&GESTURE_DEBUG, WING)
 }
 
-pub fn ring_gesture_runtime() -> Runtime {
+pub fn ring_gesture_runtime_release() -> Runtime {
     gesture_runtime(&GESTURE_RELEASE, RING)
 }
 
@@ -100,7 +100,7 @@ pub fn ring_gesture_runtime_debug() -> Runtime {
     gesture_runtime(&GESTURE_DEBUG, RING)
 }
 
-pub fn slope_gesture_runtime() -> Runtime {
+pub fn slope_gesture_runtime_release() -> Runtime {
     gesture_runtime(&GESTURE_RELEASE, SLOPE)
 }
 
@@ -108,7 +108,7 @@ pub fn slope_gesture_runtime_debug() -> Runtime {
     gesture_runtime(&GESTURE_DEBUG, SLOPE)
 }
 
-pub fn yes_microspeech_runtime() -> Runtime {
+pub fn yes_microspeech_runtime_release() -> Runtime {
     microspeech_runtime(&MICROSPEECH_RELEASE, YES)
 }
 

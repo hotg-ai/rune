@@ -10,10 +10,10 @@ use crate::{
     build::{
         GESTURE_DEBUG, GESTURE_RELEASE, GESTURE_RUNEFILE, MICROSPEECH_DEBUG,
         MICROSPEECH_RELEASE, MICROSPEECH_RUNEFILE, SINE_DEBUG, SINE_RELEASE,
-        SINE_RUNEFILE, compile, ring_gesture_runtime,
-        ring_gesture_runtime_debug, slope_gesture_runtime,
-        slope_gesture_runtime_debug, wing_gesture_runtime,
-        wing_gesture_runtime_debug, yes_microspeech_runtime,
+        SINE_RUNEFILE, compile, ring_gesture_runtime_release,
+        ring_gesture_runtime_debug, slope_gesture_runtime_release,
+        slope_gesture_runtime_debug, wing_gesture_runtime_release,
+        wing_gesture_runtime_debug, yes_microspeech_runtime_release,
     },
     manual_implementations::{ManualGesture, ManualMicrospeech, ManualSine},
 };
@@ -51,15 +51,15 @@ pub fn compile_times(c: &mut Criterion) {
         .bench_function("gesture-debug", |b| {
             b.iter(|| compile("gesture", GESTURE_RUNEFILE, false))
         })
-        .bench_function("gesture-debug", |b| {
+        .bench_function("gesture-release", |b| {
             b.iter(|| compile("gesture", GESTURE_RUNEFILE, true))
         })
         .bench_function("microspeech-debug", |b| {
             b.iter(|| compile("microspeech", MICROSPEECH_RUNEFILE, false))
         })
-        .bench_function("release-microspeech", |b| {
+        .bench_function("microspeech-release", |b| {
             b.iter(|| {
-                compile("microspeech-release", MICROSPEECH_RUNEFILE, true)
+                compile("microspeech", MICROSPEECH_RUNEFILE, true)
             })
         });
 
@@ -68,8 +68,6 @@ pub fn compile_times(c: &mut Criterion) {
 
 pub fn startup_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("startup");
-
-    group.measurement_time(Duration::from_secs(30));
 
     group
         .bench_function("sine-debug", |b| {
@@ -109,8 +107,6 @@ pub fn startup_times(c: &mut Criterion) {
 pub fn execute_sine_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-sine");
 
-    group.measurement_time(Duration::from_secs(30));
-
     group
         .bench_function("debug", |b| {
             b.iter_with_setup(
@@ -140,8 +136,6 @@ pub fn execute_sine_times(c: &mut Criterion) {
 pub fn execute_gesture_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-gesture");
 
-    group.measurement_time(Duration::from_secs(30));
-
     group
         .bench_function("wing-debug", |b| {
             b.iter_with_setup(wing_gesture_runtime_debug, |mut runtime| {
@@ -149,7 +143,7 @@ pub fn execute_gesture_times(c: &mut Criterion) {
             })
         })
         .bench_function("wing-release", |b| {
-            b.iter_with_setup(wing_gesture_runtime, |mut runtime| {
+            b.iter_with_setup(wing_gesture_runtime_release, |mut runtime| {
                 runtime.call()
             })
         })
@@ -162,7 +156,7 @@ pub fn execute_gesture_times(c: &mut Criterion) {
             })
         })
         .bench_function("ring-release", |b| {
-            b.iter_with_setup(ring_gesture_runtime, |mut runtime| {
+            b.iter_with_setup(ring_gesture_runtime_release, |mut runtime| {
                 runtime.call()
             })
         })
@@ -175,7 +169,7 @@ pub fn execute_gesture_times(c: &mut Criterion) {
             })
         })
         .bench_function("slope-release", |b| {
-            b.iter_with_setup(slope_gesture_runtime, |mut runtime| {
+            b.iter_with_setup(slope_gesture_runtime_release, |mut runtime| {
                 runtime.call()
             })
         })
@@ -191,8 +185,6 @@ pub fn execute_gesture_times(c: &mut Criterion) {
 pub fn execute_microspeech_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-microspeech");
 
-    group.measurement_time(Duration::from_secs(30));
-
     group
         .bench_function("debug", |b| {
             b.iter_with_setup(yes_microspeech_runtime_debug, |mut runtime| {
@@ -200,7 +192,7 @@ pub fn execute_microspeech_times(c: &mut Criterion) {
             })
         })
         .bench_function("release", |b| {
-            b.iter_with_setup(yes_microspeech_runtime, |mut runtime| {
+            b.iter_with_setup(yes_microspeech_runtime_release, |mut runtime| {
                 runtime.call()
             })
         })
