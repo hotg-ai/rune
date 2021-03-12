@@ -3,6 +3,8 @@
 
 use std::marker::PhantomData;
 
+use std::io::Cursor;
+use hound::WavReader;
 use anyhow::Error;
 use rand::{
     Rng, SeedableRng, distributions::Standard, prelude::Distribution,
@@ -108,6 +110,7 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Accelerometer<const N: usize> {
     samples: Vec<[f32; 3]>,
 }
@@ -132,6 +135,39 @@ impl<const N: usize> Source for Accelerometer<N> {
 
         buffer
     }
+
+    fn set_parameter(
+        &mut self,
+        _key: &str,
+        _value: impl Into<Value>,
+    ) -> &mut Self {
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Sound<const N: usize> {
+    samples: Vec<i16>,
+}
+
+impl<const N: usize> Sound<N> {
+    pub fn from_wav_data(wav_data: &[u8]) -> Result<Self, Error> {
+        let cursor = Cursor::new(wav_data);
+        let reader = WavReader::new(cursor).unwrap();
+
+        let samples = reader
+            .into_samples::<i16>()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        Ok(Sound { samples })
+    }
+}
+
+impl<const N: usize> Source for Sound<N> {
+    type Output = [i16; N];
+
+    fn generate(&mut self) -> Self::Output { todo!() }
 
     fn set_parameter(
         &mut self,

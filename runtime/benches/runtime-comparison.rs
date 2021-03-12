@@ -1,17 +1,21 @@
 mod build;
 mod manual_implementations;
 
+use std::time::Duration;
+
+use build::yes_microspeech_runtime_debug;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rune_runtime::{DefaultEnvironment, Runtime};
 use crate::{
     build::{
-        GESTURE_RUNEFILE, MICROSPEECH_RUNEFILE, SINE_DEBUG, compile,
+        GESTURE_DEBUG, GESTURE_RELEASE, GESTURE_RUNEFILE, MICROSPEECH_DEBUG,
+        MICROSPEECH_RELEASE, MICROSPEECH_RUNEFILE, SINE_DEBUG, SINE_RELEASE,
+        SINE_RUNEFILE, compile, ring_gesture_runtime,
         ring_gesture_runtime_debug, slope_gesture_runtime,
-        slope_gesture_runtime_debug, wing_gesture_runtime, GESTURE_DEBUG,
-        GESTURE_RELEASE, MICROSPEECH_DEBUG, MICROSPEECH_RELEASE, SINE_RELEASE,
-        SINE_RUNEFILE, ring_gesture_runtime, wing_gesture_runtime_debug,
+        slope_gesture_runtime_debug, wing_gesture_runtime,
+        wing_gesture_runtime_debug, yes_microspeech_runtime,
     },
-    manual_implementations::{ManualGesture, ManualSine},
+    manual_implementations::{ManualGesture, ManualMicrospeech, ManualSine},
 };
 
 fn main() {
@@ -26,13 +30,16 @@ criterion_group!(
     startup_times,
     execute_sine_times,
     execute_gesture_times,
+    execute_microspeech_times,
     compile_times,
 );
 
 pub fn compile_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("compile");
 
-    group.sample_size(10);
+    group
+        .sample_size(10)
+        .measurement_time(Duration::from_secs(60));
 
     group
         .bench_function("sine-debug", |b| {
@@ -62,7 +69,7 @@ pub fn compile_times(c: &mut Criterion) {
 pub fn startup_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("startup");
 
-    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(30));
 
     group
         .bench_function("sine-debug", |b| {
@@ -102,6 +109,8 @@ pub fn startup_times(c: &mut Criterion) {
 pub fn execute_sine_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-sine");
 
+    group.measurement_time(Duration::from_secs(30));
+
     group
         .bench_function("debug", |b| {
             b.iter_with_setup(
@@ -130,6 +139,8 @@ pub fn execute_sine_times(c: &mut Criterion) {
 
 pub fn execute_gesture_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-gesture");
+
+    group.measurement_time(Duration::from_secs(30));
 
     group
         .bench_function("wing-debug", |b| {
@@ -170,6 +181,31 @@ pub fn execute_gesture_times(c: &mut Criterion) {
         })
         .bench_function("slope-manual", |b| {
             b.iter_with_setup(ManualGesture::slope, |mut runtime| {
+                runtime.call()
+            })
+        });
+
+    group.finish();
+}
+
+pub fn execute_microspeech_times(c: &mut Criterion) {
+    let mut group = c.benchmark_group("execute-microspeech");
+
+    group.measurement_time(Duration::from_secs(30));
+
+    group
+        .bench_function("debug", |b| {
+            b.iter_with_setup(yes_microspeech_runtime_debug, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("release", |b| {
+            b.iter_with_setup(yes_microspeech_runtime, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("manual", |b| {
+            b.iter_with_setup(ManualMicrospeech::yes, |mut runtime| {
                 runtime.call()
             })
         });

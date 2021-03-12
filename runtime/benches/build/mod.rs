@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::{io::Cursor, path::Path};
+use hound::WavReader;
 use anyhow::Error;
 use once_cell::sync::Lazy;
 use rune_codegen::Compilation;
@@ -17,6 +18,10 @@ pub const RING: &str =
     include_str!("../../../examples/gesture/example_ring.csv");
 pub const SLOPE: &str =
     include_str!("../../../examples/gesture/example_slope.csv");
+
+pub const YES: &[u8] = include_bytes!(
+    "../../../examples/microspeech/data/yes_01d22d03_nohash_0.wav"
+);
 
 pub static SINE_DEBUG: Lazy<Vec<u8>> =
     Lazy::new(|| compile("sine", SINE_RUNEFILE, false));
@@ -101,4 +106,28 @@ pub fn slope_gesture_runtime() -> Runtime {
 
 pub fn slope_gesture_runtime_debug() -> Runtime {
     gesture_runtime(&GESTURE_DEBUG, SLOPE)
+}
+
+pub fn yes_microspeech_runtime() -> Runtime {
+    microspeech_runtime(&MICROSPEECH_RELEASE, YES)
+}
+
+pub fn yes_microspeech_runtime_debug() -> Runtime {
+    microspeech_runtime(&MICROSPEECH_DEBUG, YES)
+}
+
+fn microspeech_runtime(wasm: &[u8], wav_data: &[u8]) -> Runtime {
+    let mut env = DefaultEnvironment::default();
+
+    let cursor = Cursor::new(wav_data);
+    let reader = WavReader::new(cursor).unwrap();
+
+    let samples = reader
+        .into_samples::<i16>()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    env.set_sound(samples);
+
+    Runtime::load(wasm, env).unwrap()
 }

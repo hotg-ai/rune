@@ -1,19 +1,23 @@
 mod polyfills;
 
 use anyhow::Error;
-use polyfills::{Model, Random, Accelerometer};
+use ohv_label::OhvLabel;
+use fft::Fft;
+use polyfills::{Model, Random, Accelerometer, Sound};
 use runic_types::{Source, Transform};
 use modulo::Modulo;
 use rune_runtime::{DefaultEnvironment};
 use gesture_agg::GestureAgg;
 use normalize::Normalize;
 
-use crate::build::{RING, SLOPE, WING};
+use crate::build::{RING, SLOPE, WING, YES};
 
 const SINE_MODEL: &[u8] =
     include_bytes!("../../../examples/sine/sinemodel.tflite");
 const GESTURE_MODEL: &[u8] =
     include_bytes!("../../../examples/gesture/model.tflite");
+const MICROSPEECH_MODEL: &[u8] =
+    include_bytes!("../../../examples/microspeech/model.tflite");
 
 pub struct ManualSine {
     random: Random<[f32; 1]>,
@@ -79,5 +83,40 @@ impl ManualGesture {
         let data: [[f32; 3]; 128] = self.normalize.transform(data);
         let data: [f32; 4] = self.model.transform(data);
         self.gesture_agg.transform(data)
+    }
+}
+
+pub struct ManualMicrospeech {
+    audio: Sound<24000>,
+    fft: Fft,
+    model: Model<[u8; 1960], [u8; 4]>,
+    label: OhvLabel<4>,
+}
+
+impl ManualMicrospeech {
+    pub fn yes() -> Self { ManualMicrospeech::with_wav_data(YES).unwrap() }
+
+    pub fn with_wav_data(wav_data: &[u8]) -> Result<Self, Error> {
+        let audio = Sound::from_wav_data(wav_data)?;
+        let model = Model::load(MICROSPEECH_MODEL)?;
+        let fft = Fft::default();
+        let label = OhvLabel::default()
+            .with_labels(["unknown", "silence", "yes", "no"]);
+
+        Ok(ManualMicrospeech {
+            audio,
+            fft,
+            model,
+            label,
+        })
+    }
+
+    pub fn call(&mut self) -> &'static str {
+        let data: [i16; 24000] = self.audio.generate();
+        let data: [u8; 1960] = self.fft.transform(data);
+        let data: [u8; 4] = self.model.transform(data);
+        let data: &'static str = self.label.transform(data);
+
+        data
     }
 }
