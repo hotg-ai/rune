@@ -18,8 +18,21 @@ pub struct Run {
     repeats: usize,
     /// Pass information to a capability as `key:value` pairs.
     ///
-    /// Supported keys are `random` for seeding the random number generator
-    /// and `accelerometer` for providing accelerometer samples.
+    /// For example:
+    ///
+    /// - `random:42` seeds the random number generator with `42`
+    ///
+    /// - `random:random_bytes.bin` provides data to be returned by the random
+    ///   number generator
+    ///
+    /// - `accel:samples.csv` is a CSV file containing `[X, Y, Z]` vectors to
+    ///   be returned by the accelerometer
+    ///
+    /// - `sound:audio.wav` is a WAV file containing samples returned by the
+    ///   sound capability
+    ///
+    /// - `image:person.png` is an image file that will be returned by the
+    ///   image capability
     #[structopt(short, long = "capability")]
     capabilities: Vec<Capability>,
 }

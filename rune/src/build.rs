@@ -114,6 +114,15 @@ impl Build {
             return Ok(name.clone());
         }
 
+        if let Some(name) = self
+            .output
+            .as_ref()
+            .and_then(|p| p.file_stem())
+            .and_then(|s| s.to_str())
+        {
+            return Ok(name.to_string());
+        }
+
         let current_dir = self.current_directory()?;
 
         if let Some(name) = current_dir.file_name().and_then(|n| n.to_str()) {
