@@ -20,7 +20,9 @@ wasmer = "1.0.2"
 [dev-dependencies]
 criterion = "0.3.4"
 env_logger = "0.8.3"
+gesture_agg = { path = "../proc_blocks/gesture_agg" }
 modulo = { path = "../proc_blocks/modulo" }
+normalize = { path = "../proc_blocks/normalize" }
 once_cell = "1.7.2"
 rune-codegen = { path = "../codegen" }
 rune-syntax = { path = "../syntax" }

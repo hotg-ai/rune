@@ -1,14 +1,18 @@
+mod build;
+mod manual_implementations;
+
 use criterion::{criterion_group, criterion_main, Criterion};
-use runic_types::Transform;
-use tflite::{
-    FlatBufferModel, Interpreter, InterpreterBuilder,
-    ops::builtin::BuiltinOpResolver,
+use rune_runtime::{DefaultEnvironment, Runtime};
+use crate::{
+    build::{
+        GESTURE_RUNEFILE, MICROSPEECH_RUNEFILE, SINE_DEBUG, compile,
+        ring_gesture_runtime_debug, slope_gesture_runtime,
+        slope_gesture_runtime_debug, wing_gesture_runtime, GESTURE_DEBUG,
+        GESTURE_RELEASE, MICROSPEECH_DEBUG, MICROSPEECH_RELEASE, SINE_RELEASE,
+        SINE_RUNEFILE, ring_gesture_runtime, wing_gesture_runtime_debug,
+    },
+    manual_implementations::{ManualGesture, ManualSine},
 };
-use std::{convert::TryFrom, path::Path};
-use modulo::Modulo;
-use rune_syntax::{Diagnostics};
-use rune_codegen::Compilation;
-use rune_runtime::{DefaultEnvironment, Environment, Runtime};
 
 fn main() {
     env_logger::init();
@@ -19,218 +23,156 @@ fn main() {
 
 criterion_group!(
     benches,
-    execute_sine,
-    execute_gesture,
-    // compile_times,
-    runtime_startup
+    startup_times,
+    execute_sine_times,
+    execute_gesture_times,
+    compile_times,
 );
 
 pub fn compile_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("compile");
 
+    group.sample_size(10);
+
     group
-        .bench_function("debug-sine", |b| b.iter(|| compile_sine(false)))
-        .bench_function("release-sine", |b| b.iter(|| compile_sine(true)))
-        .bench_function("debug-gesture", |b| b.iter(|| compile_gesture(false)))
-        .bench_function("release-gesture", |b| {
-            b.iter(|| compile_gesture(true))
+        .bench_function("sine-debug", |b| {
+            b.iter(|| compile("sine", SINE_RUNEFILE, false))
+        })
+        .bench_function("sine-release", |b| {
+            b.iter(|| compile("sine", SINE_RUNEFILE, true))
+        })
+        .bench_function("gesture-debug", |b| {
+            b.iter(|| compile("gesture", GESTURE_RUNEFILE, false))
+        })
+        .bench_function("gesture-debug", |b| {
+            b.iter(|| compile("gesture", GESTURE_RUNEFILE, true))
+        })
+        .bench_function("microspeech-debug", |b| {
+            b.iter(|| compile("microspeech", MICROSPEECH_RUNEFILE, false))
+        })
+        .bench_function("release-microspeech", |b| {
+            b.iter(|| {
+                compile("microspeech-release", MICROSPEECH_RUNEFILE, true)
+            })
         });
 
     group.finish();
 }
 
-pub fn runtime_startup(c: &mut Criterion) {
+pub fn startup_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("startup");
 
-    let sine = compile_sine(true);
-    let gesture = compile_gesture(true);
-    let env = DefaultEnvironment::default();
+    group.sample_size(10);
 
     group
-        .bench_function("sine", |b| {
-            b.iter(|| Runtime::load(&sine, env.clone()).unwrap())
+        .bench_function("sine-debug", |b| {
+            b.iter_with_setup(DefaultEnvironment::default, |env| {
+                Runtime::load(&SINE_DEBUG, env).unwrap()
+            })
         })
-        .bench_function("gesture", |b| {
-            b.iter(|| Runtime::load(&gesture, env.clone()).unwrap())
+        .bench_function("sine-release", |b| {
+            b.iter_with_setup(DefaultEnvironment::default, |env| {
+                Runtime::load(&SINE_RELEASE, env).unwrap()
+            })
+        })
+        .bench_function("gesture-debug", |b| {
+            b.iter_with_setup(DefaultEnvironment::default, |env| {
+                Runtime::load(&GESTURE_DEBUG, env).unwrap()
+            })
+        })
+        .bench_function("gesture-release", |b| {
+            b.iter_with_setup(DefaultEnvironment::default, |env| {
+                Runtime::load(&GESTURE_RELEASE, env.clone()).unwrap()
+            })
+        })
+        .bench_function("microspeech-debug", |b| {
+            b.iter_with_setup(DefaultEnvironment::default, |env| {
+                Runtime::load(&MICROSPEECH_DEBUG, env.clone()).unwrap()
+            })
+        })
+        .bench_function("microspeech-release", |b| {
+            b.iter_with_setup(DefaultEnvironment::default, |env| {
+                Runtime::load(&MICROSPEECH_RELEASE, env.clone()).unwrap()
+            })
         });
 
     group.finish();
 }
 
-pub fn execute_sine(c: &mut Criterion) {
-    // Note: We reuse the same runtime across different benchmark calls here.
-    // Ideally we'd create a new runtime every time, but that's incredibly
-    // expensive.
-
+pub fn execute_sine_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute-sine");
 
-    let wasm = compile_sine(true);
-    let mut runtime =
-        Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("optimised-rune", |b| {
-        b.iter(|| runtime.call().unwrap())
-    });
-
-    let wasm = compile_sine(false);
-    let mut runtime =
-        Runtime::load(&wasm, DefaultEnvironment::default()).unwrap();
-    group.bench_function("debug-rune", |b| b.iter(|| runtime.call().unwrap()));
-
-    let mut manual = ManualSine::load();
-    group.bench_function("no-rune", |b| b.iter(|| manual.call()));
-
-    group.finish();
-}
-
-pub fn execute_gesture(c: &mut Criterion) {
-    let mut group = c.benchmark_group("execute-gesture");
-
-    let wasm = compile_gesture(true);
-    group.bench_function("optimised-rune", |b| {
-        b.iter_with_setup(
-            || gesture_runtime(&wasm, RING),
-            |mut runtime| runtime.call().unwrap(),
-        )
-    });
-
-    let wasm = compile_gesture(false);
-    group.bench_function("debug-rune", |b| {
-        b.iter_with_setup(
-            || gesture_runtime(&wasm, RING),
-            |mut runtime| runtime.call().unwrap(),
-        )
-    });
-
-    group.finish();
-}
-
-fn gesture_runtime(wasm: &[u8], accelerometer_samples: &str) -> Runtime {
-    let mut env = DefaultEnvironment::default();
-    env.set_accelerometer_data(load_csv(accelerometer_samples));
-
-    Runtime::load(wasm, env).unwrap()
-}
-
-const WING: &str = include_str!("../../examples/gesture/example_wing.csv");
-const RING: &str = include_str!("../../examples/gesture/example_ring.csv");
-const SLOPE: &str = include_str!("../../examples/gesture/example_slope.csv");
-
-pub fn gesture_recognition(c: &mut Criterion) {
-    let mut group = c.benchmark_group("gesture-recognition");
-
-    let wasm = compile_gesture(true);
-
     group
-        .bench_function("ring", |b| {
+        .bench_function("debug", |b| {
             b.iter_with_setup(
-                || gesture_runtime(&wasm, RING),
-                |mut runtime| runtime.call().unwrap(),
+                || {
+                    Runtime::load(&SINE_DEBUG, DefaultEnvironment::default())
+                        .unwrap()
+                },
+                |mut runtime| runtime.call(),
             )
         })
-        .bench_function("wing", |b| {
+        .bench_function("release", |b| {
             b.iter_with_setup(
-                || gesture_runtime(&wasm, WING),
-                |mut runtime| runtime.call().unwrap(),
+                || {
+                    Runtime::load(&SINE_RELEASE, DefaultEnvironment::default())
+                        .unwrap()
+                },
+                |mut runtime| runtime.call(),
             )
         })
-        .bench_function("slope", |b| {
-            b.iter_with_setup(
-                || gesture_runtime(&wasm, SLOPE),
-                |mut runtime| runtime.call().unwrap(),
-            )
+        .bench_function("handwritten", |b| {
+            b.iter_with_setup(ManualSine::load, |mut m| m.call())
         });
 
     group.finish();
 }
 
-fn load_csv(raw: &str) -> Vec<[f32; 3]> {
-    raw.lines()
-        .map(|line| {
-            line.split(",")
-                .map(|word| word.trim().parse::<f32>().unwrap())
-                .collect::<Vec<f32>>()
+pub fn execute_gesture_times(c: &mut Criterion) {
+    let mut group = c.benchmark_group("execute-gesture");
+
+    group
+        .bench_function("wing-debug", |b| {
+            b.iter_with_setup(wing_gesture_runtime_debug, |mut runtime| {
+                runtime.call()
+            })
         })
-        .filter_map(|samples| <[f32; 3]>::try_from(samples).ok())
-        .collect()
-}
+        .bench_function("wing-release", |b| {
+            b.iter_with_setup(wing_gesture_runtime, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("wing-manual", |b| {
+            b.iter_with_setup(ManualGesture::wing, |mut runtime| runtime.call())
+        })
+        .bench_function("ring-debug", |b| {
+            b.iter_with_setup(ring_gesture_runtime_debug, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("ring-release", |b| {
+            b.iter_with_setup(ring_gesture_runtime, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("ring-manual", |b| {
+            b.iter_with_setup(ManualGesture::ring, |mut runtime| runtime.call())
+        })
+        .bench_function("slope-debug", |b| {
+            b.iter_with_setup(slope_gesture_runtime_debug, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("slope-release", |b| {
+            b.iter_with_setup(slope_gesture_runtime, |mut runtime| {
+                runtime.call()
+            })
+        })
+        .bench_function("slope-manual", |b| {
+            b.iter_with_setup(ManualGesture::slope, |mut runtime| {
+                runtime.call()
+            })
+        });
 
-struct ManualSine {
-    env: DefaultEnvironment,
-    modulo: Modulo<f32>,
-    interpreter: Interpreter<'static, BuiltinOpResolver>,
-}
-
-impl ManualSine {
-    fn load() -> Self {
-        let env = DefaultEnvironment::default();
-        let modulo = Modulo::default().with_modulus(360.0);
-
-        let model = include_bytes!("../../examples/sine/sinemodel.tflite");
-
-        let model = FlatBufferModel::build_from_buffer(model.to_vec()).unwrap();
-        let resolver = BuiltinOpResolver::default();
-        let builder = InterpreterBuilder::new(model, resolver).unwrap();
-        let mut interpreter = builder.build().unwrap();
-        interpreter.allocate_tensors().unwrap();
-
-        ManualSine {
-            env,
-            modulo,
-            interpreter,
-        }
-    }
-
-    fn call(&mut self) -> f32 {
-        const SIZE_OF_FLOAT: usize = std::mem::size_of::<f32>();
-
-        let mut random_data = [0; SIZE_OF_FLOAT];
-        self.env.fill_random(&mut random_data).unwrap();
-        let within_360: f32 =
-            self.modulo.transform(f32::from_le_bytes(random_data));
-
-        let input_ix = self.interpreter.inputs()[0];
-        let buffer = self.interpreter.tensor_buffer_mut(input_ix).unwrap();
-        let raw = within_360.to_le_bytes();
-        buffer[..SIZE_OF_FLOAT].copy_from_slice(&raw);
-
-        let output_ix = self.interpreter.outputs()[0];
-        let buffer = self.interpreter.tensor_buffer(output_ix).unwrap();
-        let mut raw_float = [0; SIZE_OF_FLOAT];
-        raw_float.copy_from_slice(&buffer[..SIZE_OF_FLOAT]);
-
-        f32::from_le_bytes(raw_float)
-    }
-}
-
-fn compile_sine(optimized: bool) -> Vec<u8> {
-    let src = include_str!("../../examples/sine/Runefile");
-    compile("sine", src, optimized)
-}
-
-fn compile_gesture(optimized: bool) -> Vec<u8> {
-    let src = include_str!("../../examples/gesture/Runefile");
-    compile("gesture", src, optimized)
-}
-
-fn compile(name: &str, runefile: &str, optimized: bool) -> Vec<u8> {
-    let parsed = rune_syntax::parse(runefile).unwrap();
-    let mut diags = Diagnostics::new();
-    let rune = rune_syntax::analyse(0, &parsed, &mut diags);
-    assert!(!diags.has_errors());
-
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let sine_dir = repo_root.join("examples").join(name);
-
-    let working_dir = tempfile::tempdir().unwrap();
-
-    let compilation = Compilation {
-        name: String::from(name),
-        rune,
-        rune_project_dir: repo_root.to_path_buf(),
-        current_directory: sine_dir,
-        working_directory: working_dir.path().to_path_buf(),
-        optimized,
-    };
-
-    rune_codegen::generate(compilation).unwrap()
+    group.finish();
 }
