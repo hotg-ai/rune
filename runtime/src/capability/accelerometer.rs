@@ -8,16 +8,12 @@ type Sample = [f32; 3];
 #[derive(Clone, PartialEq)]
 pub struct Accelerometer {
     samples: Vec<Sample>,
-    next_sample: usize,
-    infinite: bool,
 }
 
 impl Accelerometer {
     pub fn new(samples: impl Into<Vec<Sample>>) -> Self {
         Accelerometer {
             samples: samples.into(),
-            next_sample: 0,
-            infinite: true,
         }
     }
 
@@ -39,8 +35,6 @@ impl Accelerometer {
 
         Ok(Accelerometer::new(samples))
     }
-
-    fn samples(&mut self) -> impl Iterator<Item = Sample> + '_ { Samples(self) }
 }
 
 impl Capability for Accelerometer {
@@ -52,9 +46,9 @@ impl Capability for Accelerometer {
         let chunk_size = std::mem::size_of::<Sample>();
         let mut bytes_written = 0;
 
-        for (chunk, sample) in buffer.chunks_mut(chunk_size).zip(self.samples())
+        for (chunk, sample) in buffer.chunks_mut(chunk_size).zip(&self.samples)
         {
-            let bytes = as_byte_array(&sample);
+            let bytes = as_byte_array(sample);
             chunk.copy_from_slice(bytes);
 
             bytes_written += chunk.len();
@@ -72,32 +66,6 @@ impl Capability for Accelerometer {
     }
 }
 
-#[derive(Debug)]
-struct Samples<'a>(&'a mut Accelerometer);
-
-impl<'a> Iterator for Samples<'a> {
-    type Item = Sample;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let Samples(Accelerometer {
-            infinite,
-            next_sample,
-            samples,
-        }) = self;
-
-        let sample = samples.get(*next_sample).copied()?;
-
-        *next_sample += 1;
-        if *infinite {
-            *next_sample %= samples.len();
-        }
-
-        dbg!(&*self);
-
-        Some(sample)
-    }
-}
-
 fn as_byte_array(floats: &[f32]) -> &[u8] {
     // Safety: It's always valid to reinterpret a float array as bytes.
     unsafe {
@@ -110,16 +78,10 @@ fn as_byte_array(floats: &[f32]) -> &[u8] {
 
 impl Debug for Accelerometer {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Accelerometer {
-            samples,
-            next_sample,
-            infinite,
-        } = self;
+        let Accelerometer { samples } = self;
 
         f.debug_struct("Accelerometer")
             .field("samples", &format_args!("({} samples)", samples.len()))
-            .field("next_sample", next_sample)
-            .field("infinite", infinite)
             .finish()
     }
 }
@@ -127,44 +89,38 @@ impl Debug for Accelerometer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::iter::FromIterator;
 
     #[test]
-    fn read_all_the_samples() {
+    fn read_some_samples() {
         let mut accel = Accelerometer::new(vec![
             [0.0, 1.0, 2.0],
             [1.0, 2.0, 3.0],
             [2.0, 3.0, 4.0],
         ]);
-        let mut buffer = [0; std::mem::size_of::<Sample>()];
+        let mut buffer = [0; std::mem::size_of::<Sample>() * 3];
 
-        let first = accel.generate(&mut buffer).unwrap();
-        assert_eq!(first, buffer.len());
-        assert_eq!(&buffer[..], as_byte_array(&accel.samples[0]));
-        assert_eq!(accel.next_sample, 1);
+        let bytes_written = accel.generate(&mut buffer).unwrap();
 
-        let second = accel.generate(&mut buffer).unwrap();
-        assert_eq!(second, buffer.len());
-        assert_eq!(&buffer[..], as_byte_array(&accel.samples[1]));
-        assert_eq!(accel.next_sample, 2);
-
-        let third = accel.generate(&mut buffer).unwrap();
-        assert_eq!(third, buffer.len());
-        assert_eq!(&buffer[..], as_byte_array(&accel.samples[2]));
-        // Note: It should wrap around by default
-        assert_eq!(accel.next_sample, 0);
+        assert_eq!(bytes_written, buffer.len());
+        let should_be: Vec<u8> = accel
+            .samples
+            .iter()
+            .flat_map(|sample| sample.iter())
+            .flat_map(|float| {
+                Vec::from_iter(float.to_ne_bytes().iter().copied())
+            })
+            .collect();
+        assert_eq!(&buffer[..], should_be);
     }
 
     #[test]
-    fn finite_samples() {
+    fn the_buffer_can_be_too_big() {
         let mut accel = Accelerometer::new(vec![[0.0, 1.0, 2.0]]);
-        accel.infinite = false;
-        let mut buffer = [0; std::mem::size_of::<Sample>()];
+        let mut buffer = [0; std::mem::size_of::<Sample>() * 2];
 
-        // the first call consumes all data
-        let _ = accel.generate(&mut buffer).unwrap();
-        // successive calls shouldn't yield anything
         let bytes_written = accel.generate(&mut buffer).unwrap();
 
-        assert_eq!(bytes_written, 0);
+        assert_eq!(bytes_written, std::mem::size_of::<Sample>());
     }
 }

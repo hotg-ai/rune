@@ -16,7 +16,6 @@ const DEFAULT_FREQUENCY: u32 = 16_000;
 #[derive(Clone)]
 pub struct Sound {
     samples: Vec<i16>,
-    next_index: usize,
     frequency: u32,
     duration: Duration,
 }
@@ -25,7 +24,6 @@ impl Sound {
     pub fn new(samples: Vec<i16>) -> Self {
         Sound {
             samples,
-            next_index: 0,
             frequency: DEFAULT_FREQUENCY,
             duration: Duration::from_secs(1),
         }
@@ -55,8 +53,6 @@ impl Sound {
 
         Ok(Sound::new(samples))
     }
-
-    fn samples(&mut self) -> impl Iterator<Item = i16> + '_ { Samples(self) }
 }
 
 impl Capability for Sound {
@@ -64,7 +60,7 @@ impl Capability for Sound {
         let chunk_size = std::mem::size_of::<i16>();
         let mut bytes_written = 0;
 
-        for (chunk, sample) in buffer.chunks_mut(chunk_size).zip(self.samples())
+        for (chunk, sample) in buffer.chunks_mut(chunk_size).zip(&self.samples)
         {
             let sample = sample.to_ne_bytes();
             chunk.copy_from_slice(&sample);
@@ -82,16 +78,16 @@ impl Capability for Sound {
     ) -> Result<(), ParameterError> {
         match name {
             "hz" | "frequency" => {
-                self.frequency = int_value_try_into(value)?;
+                self.frequency = try_from_int_value(value)?;
                 Ok(())
             },
             "sample_duration_ms" => {
-                let ms = int_value_try_into(value)?;
+                let ms = try_from_int_value(value)?;
                 self.duration = Duration::from_millis(ms);
                 Ok(())
             },
             "sample_duration" => {
-                let secs = int_value_try_into(value)?;
+                let secs = try_from_int_value(value)?;
                 self.duration = Duration::from_secs(secs);
                 Ok(())
             },
@@ -100,7 +96,7 @@ impl Capability for Sound {
     }
 }
 
-fn int_value_try_into<T>(value: Value) -> Result<T, ParameterError>
+fn try_from_int_value<T>(value: Value) -> Result<T, ParameterError>
 where
     T: TryFrom<i32>,
     T::Error: Into<Error>,
@@ -115,38 +111,16 @@ where
     })
 }
 
-struct Samples<'a>(&'a mut Sound);
-
-impl<'a> Iterator for Samples<'a> {
-    type Item = i16;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let Samples(Sound {
-            samples,
-            next_index,
-            ..
-        }) = self;
-
-        let sample = samples.get(*next_index)?;
-
-        *next_index = (*next_index + 1) % samples.len();
-
-        Some(*sample)
-    }
-}
-
 impl Debug for Sound {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let Sound {
             samples,
-            next_index,
             frequency,
             duration,
         } = self;
 
         f.debug_struct("Sound")
             .field("samples", &format_args!("({} samples)", samples.len()))
-            .field("next_index", next_index)
             .field("frequency", frequency)
             .field("duration", duration)
             .finish()
