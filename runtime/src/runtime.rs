@@ -9,7 +9,7 @@ use tflite::{
 use std::{
     collections::HashMap,
     convert::TryFrom,
-    fmt::{self, Display, Formatter},
+    fmt::{Debug, Display},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -17,7 +17,7 @@ use std::{
 };
 use wasmer::{
     Array, Function, ImportObject, Instance, LazyInit, Memory, Module,
-    NativeFunc, RuntimeError, Store, WasmPtr,
+    NativeFunc, Store, WasmPtr,
 };
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
@@ -69,7 +69,6 @@ impl Runtime {
             .context("Unable to load the _manifest function")?;
         manifest
             .call()
-            .map_err(recover_anyhow_error)
             .context("Unable to call the _manifest function")?;
 
         log::debug!("Loaded the Rune");
@@ -97,7 +96,6 @@ impl Runtime {
         // hotg-ai/rune#28 lands.
         call_func
             .call(0, 0, 0)
-            .map_err(recover_anyhow_error)
             .context("Unable to call the _call function")?;
 
         self.env.after_call();
@@ -682,32 +680,13 @@ where
             Ok(value) => value,
             Err(err) => {
                 raise_user_trap(err.into());
+            },
         }
     }
 }
 
-fn recover_anyhow_error(e: RuntimeError) -> Error {
-    match e.downcast::<WrappedError>() {
-        Ok(e) => e.0,
-        Err(other) => Error::new(other),
-    }
-}
-
-/// A temporary struct we can use when downcasting to recover the original
-/// [`Error`].
-#[derive(Debug)]
-struct WrappedError(Error);
-
-impl std::error::Error for WrappedError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.source()
-    }
-}
-
-impl Display for WrappedError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
+unsafe fn raise_user_trap(error: Error) -> ! {
+    wasmer::raise_user_trap(error.into())
 }
 
 fn set_max_log_level(instance: &Instance) -> Result<(), Error> {
