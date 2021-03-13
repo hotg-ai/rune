@@ -3,17 +3,14 @@ mod manual_implementations;
 
 use std::time::Duration;
 
-use build::yes_microspeech_runtime_debug;
+use build::EnvBuilder;
 use criterion::{criterion_group, criterion_main, Criterion};
-use rune_runtime::{DefaultEnvironment, Runtime};
+use rune_runtime::Runtime;
 use crate::{
     build::{
-        GESTURE_DEBUG, GESTURE_RELEASE, GESTURE_RUNEFILE, MICROSPEECH_DEBUG,
-        MICROSPEECH_RELEASE, MICROSPEECH_RUNEFILE, SINE_DEBUG, SINE_RELEASE,
-        SINE_RUNEFILE, compile, ring_gesture_runtime_release,
-        ring_gesture_runtime_debug, slope_gesture_runtime_release,
-        slope_gesture_runtime_debug, wing_gesture_runtime_release,
-        wing_gesture_runtime_debug, yes_microspeech_runtime_release,
+        RuntimeBuilder, GESTURE_DEBUG, GESTURE_RELEASE, GESTURE_RUNEFILE,
+        MICROSPEECH_DEBUG, MICROSPEECH_RELEASE, MICROSPEECH_RUNEFILE,
+        SINE_DEBUG, SINE_RELEASE, SINE_RUNEFILE, compile,
     },
     manual_implementations::{ManualGesture, ManualMicrospeech, ManualSine},
 };
@@ -69,34 +66,40 @@ pub fn startup_times(c: &mut Criterion) {
 
     group
         .bench_function("sine-debug", |b| {
-            b.iter_with_setup(DefaultEnvironment::default, |env| {
-                Runtime::load(&SINE_DEBUG, env).unwrap()
-            })
+            b.iter_with_setup(
+                || EnvBuilder::new().finish(),
+                |env| Runtime::load(&SINE_DEBUG, env).unwrap(),
+            )
         })
         .bench_function("sine-release", |b| {
-            b.iter_with_setup(DefaultEnvironment::default, |env| {
-                Runtime::load(&SINE_RELEASE, env).unwrap()
-            })
+            b.iter_with_setup(
+                || EnvBuilder::new().finish(),
+                |env| Runtime::load(&SINE_RELEASE, env).unwrap(),
+            )
         })
         .bench_function("gesture-debug", |b| {
-            b.iter_with_setup(DefaultEnvironment::default, |env| {
-                Runtime::load(&GESTURE_DEBUG, env).unwrap()
-            })
+            b.iter_with_setup(
+                || EnvBuilder::new().wing().finish(),
+                |env| Runtime::load(&GESTURE_DEBUG, env).unwrap(),
+            )
         })
         .bench_function("gesture-release", |b| {
-            b.iter_with_setup(DefaultEnvironment::default, |env| {
-                Runtime::load(&GESTURE_RELEASE, env.clone()).unwrap()
-            })
+            b.iter_with_setup(
+                || EnvBuilder::new().wing().finish(),
+                |env| Runtime::load(&GESTURE_RELEASE, env.clone()).unwrap(),
+            )
         })
         .bench_function("microspeech-debug", |b| {
-            b.iter_with_setup(DefaultEnvironment::default, |env| {
-                Runtime::load(&MICROSPEECH_DEBUG, env.clone()).unwrap()
-            })
+            b.iter_with_setup(
+                || EnvBuilder::new().yes().finish(),
+                |env| Runtime::load(&MICROSPEECH_DEBUG, env.clone()).unwrap(),
+            )
         })
         .bench_function("microspeech-release", |b| {
-            b.iter_with_setup(DefaultEnvironment::default, |env| {
-                Runtime::load(&MICROSPEECH_RELEASE, env.clone()).unwrap()
-            })
+            b.iter_with_setup(
+                || EnvBuilder::new().yes().finish(),
+                |env| Runtime::load(&MICROSPEECH_RELEASE, env.clone()).unwrap(),
+            )
         });
 
     group.finish();
@@ -108,19 +111,13 @@ pub fn execute_sine_times(c: &mut Criterion) {
     group
         .bench_function("debug", |b| {
             b.iter_with_setup(
-                || {
-                    Runtime::load(&SINE_DEBUG, DefaultEnvironment::default())
-                        .unwrap()
-                },
+                || RuntimeBuilder::sine().debug().finish(),
                 |mut runtime| runtime.call(),
             )
         })
         .bench_function("release", |b| {
             b.iter_with_setup(
-                || {
-                    Runtime::load(&SINE_RELEASE, DefaultEnvironment::default())
-                        .unwrap()
-                },
+                || RuntimeBuilder::sine().release().finish(),
                 |mut runtime| runtime.call(),
             )
         })
@@ -136,40 +133,46 @@ pub fn execute_gesture_times(c: &mut Criterion) {
 
     group
         .bench_function("wing-debug", |b| {
-            b.iter_with_setup(wing_gesture_runtime_debug, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::gesture().wing().debug().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("wing-release", |b| {
-            b.iter_with_setup(wing_gesture_runtime_release, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::gesture().wing().release().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("wing-manual", |b| {
             b.iter_with_setup(ManualGesture::wing, |mut runtime| runtime.call())
         })
         .bench_function("ring-debug", |b| {
-            b.iter_with_setup(ring_gesture_runtime_debug, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::gesture().ring().debug().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("ring-release", |b| {
-            b.iter_with_setup(ring_gesture_runtime_release, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::gesture().ring().release().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("ring-manual", |b| {
             b.iter_with_setup(ManualGesture::ring, |mut runtime| runtime.call())
         })
         .bench_function("slope-debug", |b| {
-            b.iter_with_setup(slope_gesture_runtime_debug, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::gesture().slope().debug().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("slope-release", |b| {
-            b.iter_with_setup(slope_gesture_runtime_release, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::gesture().slope().release().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("slope-manual", |b| {
             b.iter_with_setup(ManualGesture::slope, |mut runtime| {
@@ -185,14 +188,16 @@ pub fn execute_microspeech_times(c: &mut Criterion) {
 
     group
         .bench_function("debug", |b| {
-            b.iter_with_setup(yes_microspeech_runtime_debug, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::microspeech().debug().yes().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("release", |b| {
-            b.iter_with_setup(yes_microspeech_runtime_release, |mut runtime| {
-                runtime.call()
-            })
+            b.iter_with_setup(
+                || RuntimeBuilder::microspeech().release().yes().finish(),
+                |mut runtime| runtime.call(),
+            )
         })
         .bench_function("manual", |b| {
             b.iter_with_setup(ManualMicrospeech::yes, |mut runtime| {

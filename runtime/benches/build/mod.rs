@@ -77,57 +77,145 @@ pub fn load_csv(csv: &str) -> Result<Vec<[f32; 3]>, Error> {
     Ok(samples)
 }
 
-fn gesture_runtime(wasm: &[u8], accelerometer_samples: &str) -> Runtime {
-    let mut env = DefaultEnvironment::default();
-    env.set_accelerometer_data(load_csv(accelerometer_samples).unwrap());
-
-    Runtime::load(wasm, env).unwrap()
+#[derive(Default)]
+pub struct EnvBuilder {
+    env: DefaultEnvironment,
 }
 
-pub fn wing_gesture_runtime_release() -> Runtime {
-    gesture_runtime(&GESTURE_RELEASE, WING)
+impl EnvBuilder {
+    pub fn new() -> Self { EnvBuilder::default() }
+
+    pub fn with_sound(mut self, wav_data: &[u8]) -> Self {
+        let cursor = Cursor::new(wav_data);
+        let reader = WavReader::new(cursor).unwrap();
+
+        let samples = reader
+            .into_samples::<i16>()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        self.env.set_sound(samples);
+
+        self
+    }
+
+    pub fn yes(self) -> Self { self.with_sound(YES) }
+
+    pub fn with_accelerometer(mut self, csv: &str) -> Self {
+        let samples = load_csv(csv).unwrap();
+        self.env.set_accelerometer_data(samples);
+
+        self
+    }
+
+    pub fn wing(self) -> Self { self.with_accelerometer(WING) }
+
+    pub fn ring(self) -> Self { self.with_accelerometer(RING) }
+
+    pub fn slope(self) -> Self { self.with_accelerometer(SLOPE) }
+
+    pub fn finish(self) -> DefaultEnvironment { self.env }
 }
 
-pub fn wing_gesture_runtime_debug() -> Runtime {
-    gesture_runtime(&GESTURE_DEBUG, WING)
+pub struct RuntimeBuilder {
+    rune: Rune,
+    env: EnvBuilder,
 }
 
-pub fn ring_gesture_runtime_release() -> Runtime {
-    gesture_runtime(&GESTURE_RELEASE, RING)
+impl RuntimeBuilder {
+    pub fn gesture() -> Self {
+        RuntimeBuilder {
+            rune: Rune::Undecided {
+                debug: &*GESTURE_DEBUG,
+                release: &*GESTURE_RELEASE,
+            },
+            env: EnvBuilder::default(),
+        }
+    }
+
+    pub fn sine() -> Self {
+        RuntimeBuilder {
+            rune: Rune::Undecided {
+                debug: &*SINE_DEBUG,
+                release: &*SINE_RELEASE,
+            },
+            env: EnvBuilder::default(),
+        }
+    }
+
+    pub fn microspeech() -> Self {
+        RuntimeBuilder {
+            rune: Rune::Undecided {
+                debug: &*MICROSPEECH_DEBUG,
+                release: &*MICROSPEECH_RELEASE,
+            },
+            env: EnvBuilder::default(),
+        }
+    }
+
+    pub fn debug(mut self) -> Self {
+        match self.rune {
+            Rune::Undecided { debug, .. } => {
+                self.rune = Rune::Decided(debug);
+            },
+            _ => panic!("You can't decide debug/release twice"),
+        }
+
+        self
+    }
+
+    pub fn release(mut self) -> Self {
+        match self.rune {
+            Rune::Undecided { release, .. } => {
+                self.rune = Rune::Decided(release);
+            },
+            _ => panic!("You can't decide debug/release twice"),
+        }
+
+        self
+    }
+
+    pub fn ring(mut self) -> Self {
+        self.env = self.env.ring();
+        self
+    }
+
+    pub fn wing(mut self) -> Self {
+        self.env = self.env.wing();
+        self
+    }
+
+    pub fn slope(mut self) -> Self {
+        self.env = self.env.slope();
+        self
+    }
+
+    pub fn yes(mut self) -> Self {
+        self.env = self.env.yes();
+        self
+    }
+
+    pub fn finish(self) -> Runtime {
+        let RuntimeBuilder { rune, env } = self;
+
+        let wasm = match rune {
+            Rune::Undecided { .. } => {
+                panic!("Please choose between debug/release")
+            },
+            Rune::Decided(wasm) => wasm,
+        };
+
+        let env = env.finish();
+
+        Runtime::load(wasm, env).unwrap()
+    }
 }
 
-pub fn ring_gesture_runtime_debug() -> Runtime {
-    gesture_runtime(&GESTURE_DEBUG, RING)
-}
-
-pub fn slope_gesture_runtime_release() -> Runtime {
-    gesture_runtime(&GESTURE_RELEASE, SLOPE)
-}
-
-pub fn slope_gesture_runtime_debug() -> Runtime {
-    gesture_runtime(&GESTURE_DEBUG, SLOPE)
-}
-
-pub fn yes_microspeech_runtime_release() -> Runtime {
-    microspeech_runtime(&MICROSPEECH_RELEASE, YES)
-}
-
-pub fn yes_microspeech_runtime_debug() -> Runtime {
-    microspeech_runtime(&MICROSPEECH_DEBUG, YES)
-}
-
-fn microspeech_runtime(wasm: &[u8], wav_data: &[u8]) -> Runtime {
-    let mut env = DefaultEnvironment::default();
-
-    let cursor = Cursor::new(wav_data);
-    let reader = WavReader::new(cursor).unwrap();
-
-    let samples = reader
-        .into_samples::<i16>()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-
-    env.set_sound(samples);
-
-    Runtime::load(wasm, env).unwrap()
+#[derive(Debug, Copy, Clone)]
+enum Rune {
+    Undecided {
+        debug: &'static [u8],
+        release: &'static [u8],
+    },
+    Decided(&'static [u8]),
 }
