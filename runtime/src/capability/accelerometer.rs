@@ -8,12 +8,17 @@ type Sample = [f32; 3];
 #[derive(Clone, PartialEq)]
 pub struct Accelerometer {
     samples: Vec<Sample>,
+    desired_sample_count: usize,
 }
 
 impl Accelerometer {
     pub fn new(samples: impl Into<Vec<Sample>>) -> Self {
+        let samples = samples.into();
+        let desired_sample_count = samples.len();
+
         Accelerometer {
-            samples: samples.into(),
+            samples,
+            desired_sample_count,
         }
     }
 
@@ -46,8 +51,9 @@ impl Capability for Accelerometer {
         let chunk_size = std::mem::size_of::<Sample>();
         let mut bytes_written = 0;
 
-        for (chunk, sample) in buffer.chunks_mut(chunk_size).zip(&self.samples)
-        {
+        let samples = &self.samples[..self.desired_sample_count];
+
+        for (chunk, sample) in buffer.chunks_mut(chunk_size).zip(samples) {
             let bytes = as_byte_array(sample);
             chunk.copy_from_slice(bytes);
 
@@ -59,10 +65,28 @@ impl Capability for Accelerometer {
 
     fn set_parameter(
         &mut self,
-        _name: &str,
-        _value: Value,
+        name: &str,
+        value: Value,
     ) -> Result<(), ParameterError> {
-        Err(ParameterError::UnsupportedParameter)
+        match name {
+            "n" | "samples" => {
+                let desired_sample_count: usize =
+                    super::try_from_int_value(value)?;
+                if desired_sample_count > self.samples.len() {
+                    let reason = anyhow::anyhow!(
+                        "{} samples were requested but only {} are available",
+                        desired_sample_count,
+                        self.samples.len()
+                    );
+                    return Err(ParameterError::InvalidValue { value, reason });
+                }
+
+                self.desired_sample_count = desired_sample_count;
+
+                Ok(())
+            },
+            _ => Err(ParameterError::UnsupportedParameter),
+        }
     }
 }
 
@@ -78,10 +102,14 @@ fn as_byte_array(floats: &[f32]) -> &[u8] {
 
 impl Debug for Accelerometer {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Accelerometer { samples } = self;
+        let Accelerometer {
+            samples,
+            desired_sample_count,
+        } = self;
 
         f.debug_struct("Accelerometer")
             .field("samples", &format_args!("({} samples)", samples.len()))
+            .field("desired_sample_count", desired_sample_count)
             .finish()
     }
 }

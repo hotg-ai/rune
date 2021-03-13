@@ -10,6 +10,7 @@ pub use self::{
 use anyhow::Error;
 use runic_types::{InvalidConversionError, Value};
 use std::fmt::Debug;
+use std::convert::{TryFrom, TryInto};
 
 pub trait Capability: Send + Debug + 'static {
     /// Generate the desired input, writing it to the provided buffer and
@@ -35,4 +36,19 @@ pub enum ParameterError {
     },
     #[error("{}", _0)]
     IncorrectType(InvalidConversionError),
+}
+
+fn try_from_int_value<T>(value: Value) -> Result<T, ParameterError>
+where
+    T: TryFrom<i32>,
+    T::Error: Into<Error>,
+{
+    let integer: i32 = value
+        .try_into()
+        .map_err(|e| ParameterError::IncorrectType(e))?;
+
+    T::try_from(integer).map_err(|e| ParameterError::InvalidValue {
+        value,
+        reason: e.into(),
+    })
 }

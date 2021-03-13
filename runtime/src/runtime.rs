@@ -432,6 +432,14 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 .unwrap_or_trap("Unable to unmarshal the parameter value");
 
             let mut capabilities = s.caps.lock().unwrap();
+
+            log::debug!(
+                "Setting \"{}\" to {} on capability {}",
+                key,
+                value,
+                capability_id
+            );
+
             capabilities
                 .get_mut(&capability_id)
                 .unwrap_or_trap("Invalid capability ID")
@@ -496,14 +504,18 @@ fn invoke_capability(
     id: u32,
     dest: &mut [u8],
 ) -> Result<usize, Error> {
-    log::debug!("Getting capability {}", id);
     let cap = unsafe {
         capabilities
             .get_mut(&id)
             .unwrap_or_trap("Invalid capability")
     };
 
-    log::debug!("Invoking capability {} on a {}-byte buffer", id, dest.len());
+    log::debug!(
+        "Invoking capability {} ({:?}) on a {}-byte buffer",
+        id,
+        cap,
+        dest.len()
+    );
 
     cap.generate(dest)
 }

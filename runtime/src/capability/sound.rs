@@ -1,5 +1,4 @@
 use std::{
-    convert::{TryFrom, TryInto},
     fmt::{self, Debug, Formatter},
     fs::File,
     io::{Cursor, Read},
@@ -78,37 +77,22 @@ impl Capability for Sound {
     ) -> Result<(), ParameterError> {
         match name {
             "hz" | "frequency" => {
-                self.frequency = try_from_int_value(value)?;
+                self.frequency = super::try_from_int_value(value)?;
                 Ok(())
             },
             "sample_duration_ms" => {
-                let ms = try_from_int_value(value)?;
+                let ms = super::try_from_int_value(value)?;
                 self.duration = Duration::from_millis(ms);
                 Ok(())
             },
             "sample_duration" => {
-                let secs = try_from_int_value(value)?;
+                let secs = super::try_from_int_value(value)?;
                 self.duration = Duration::from_secs(secs);
                 Ok(())
             },
             _ => Err(ParameterError::UnsupportedParameter),
         }
     }
-}
-
-fn try_from_int_value<T>(value: Value) -> Result<T, ParameterError>
-where
-    T: TryFrom<i32>,
-    T::Error: Into<Error>,
-{
-    let integer: i32 = value
-        .try_into()
-        .map_err(|e| ParameterError::IncorrectType(e))?;
-
-    T::try_from(integer).map_err(|e| ParameterError::InvalidValue {
-        value,
-        reason: e.into(),
-    })
 }
 
 impl Debug for Sound {
