@@ -38,6 +38,17 @@ impl Runtime {
         let module = Module::new(&store, rune)
             .context("WebAssembly compilation failed")?;
 
+        Runtime::load_from_module(&module, &store, env)
+    }
+
+    pub fn load_from_module<E>(
+        module: &Module,
+        store: &Store,
+        env: E,
+    ) -> Result<Self, Error>
+    where
+        E: Environment + Send + Sync + 'static,
+    {
         let env: Arc<dyn Environment> = Arc::new(env);
         let imports = import_object(&store, Arc::clone(&env));
         log::debug!("Instantiating the WebAssembly module");
