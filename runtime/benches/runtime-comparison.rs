@@ -3,14 +3,17 @@ mod manual_implementations;
 
 use std::time::Duration;
 
-use build::EnvBuilder;
+use build::{EnvBuilder, SINE_DEBUG_MODULE};
 use criterion::{criterion_group, criterion_main, Criterion};
 use rune_runtime::Runtime;
+use wasmer::Store;
 use crate::{
     build::{
-        RuntimeBuilder, GESTURE_DEBUG, GESTURE_RELEASE, GESTURE_RUNEFILE,
-        MICROSPEECH_DEBUG, MICROSPEECH_RELEASE, MICROSPEECH_RUNEFILE,
-        SINE_DEBUG, SINE_RELEASE, SINE_RUNEFILE, compile,
+        GESTURE_DEBUG, GESTURE_DEBUG_MODULE, GESTURE_RELEASE,
+        GESTURE_RELEASE_MODULE, GESTURE_RUNEFILE, MICROSPEECH_DEBUG,
+        MICROSPEECH_DEBUG_MODULE, MICROSPEECH_RELEASE,
+        MICROSPEECH_RELEASE_MODULE, MICROSPEECH_RUNEFILE, RuntimeBuilder,
+        SINE_DEBUG, SINE_RELEASE, SINE_RELEASE_MODULE, SINE_RUNEFILE, compile,
     },
     manual_implementations::{ManualGesture, ManualMicrospeech, ManualSine},
 };
@@ -24,7 +27,8 @@ fn main() {
 
 criterion_group!(
     benches,
-    startup_times,
+    cold_startup_times,
+    cached_startup_times,
     execute_sine_times,
     execute_gesture_times,
     execute_microspeech_times,
@@ -61,7 +65,7 @@ pub fn compile_times(c: &mut Criterion) {
     group.finish();
 }
 
-pub fn startup_times(c: &mut Criterion) {
+pub fn cold_startup_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("startup");
 
     group
@@ -99,6 +103,92 @@ pub fn startup_times(c: &mut Criterion) {
             b.iter_with_setup(
                 || EnvBuilder::new().yes().finish(),
                 |env| Runtime::load(&MICROSPEECH_RELEASE, env.clone()).unwrap(),
+            )
+        });
+
+    group.finish();
+}
+
+pub fn cached_startup_times(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cached-startup");
+
+    group
+        .bench_function("sine-debug", |b| {
+            b.iter_with_setup(
+                || EnvBuilder::new().finish(),
+                |env| {
+                    Runtime::load_from_module(
+                        &SINE_DEBUG_MODULE,
+                        &Store::default(),
+                        env,
+                    )
+                    .unwrap()
+                },
+            )
+        })
+        .bench_function("sine-release", |b| {
+            b.iter_with_setup(
+                || EnvBuilder::new().finish(),
+                |env| {
+                    Runtime::load_from_module(
+                        &SINE_RELEASE_MODULE,
+                        &Store::default(),
+                        env,
+                    )
+                    .unwrap()
+                },
+            )
+        })
+        .bench_function("gesture-debug", |b| {
+            b.iter_with_setup(
+                || EnvBuilder::new().wing().finish(),
+                |env| {
+                    Runtime::load_from_module(
+                        &GESTURE_DEBUG_MODULE,
+                        &Store::default(),
+                        env,
+                    )
+                    .unwrap()
+                },
+            )
+        })
+        .bench_function("gesture-release", |b| {
+            b.iter_with_setup(
+                || EnvBuilder::new().wing().finish(),
+                |env| {
+                    Runtime::load_from_module(
+                        &GESTURE_RELEASE_MODULE,
+                        &Store::default(),
+                        env.clone(),
+                    )
+                    .unwrap()
+                },
+            )
+        })
+        .bench_function("microspeech-debug", |b| {
+            b.iter_with_setup(
+                || EnvBuilder::new().yes().finish(),
+                |env| {
+                    Runtime::load_from_module(
+                        &MICROSPEECH_DEBUG_MODULE,
+                        &Store::default(),
+                        env.clone(),
+                    )
+                    .unwrap()
+                },
+            )
+        })
+        .bench_function("microspeech-release", |b| {
+            b.iter_with_setup(
+                || EnvBuilder::new().yes().finish(),
+                |env| {
+                    Runtime::load_from_module(
+                        &MICROSPEECH_RELEASE_MODULE,
+                        &Store::default(),
+                        env.clone(),
+                    )
+                    .unwrap()
+                },
             )
         });
 

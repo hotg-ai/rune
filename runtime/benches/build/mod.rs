@@ -5,6 +5,7 @@ use once_cell::sync::Lazy;
 use rune_codegen::Compilation;
 use rune_runtime::{DefaultEnvironment, Runtime};
 use rune_syntax::Diagnostics;
+use wasmer::{Module, Store};
 
 pub const SINE_RUNEFILE: &str = include_str!("../../../examples/sine/Runefile");
 pub const GESTURE_RUNEFILE: &str =
@@ -35,6 +36,23 @@ pub static MICROSPEECH_DEBUG: Lazy<Vec<u8>> =
     Lazy::new(|| compile("microspeech", MICROSPEECH_RUNEFILE, false));
 pub static MICROSPEECH_RELEASE: Lazy<Vec<u8>> =
     Lazy::new(|| compile("microspeech", MICROSPEECH_RUNEFILE, true));
+
+pub static SINE_DEBUG_MODULE: Lazy<Module> = Lazy::new(|| module(&SINE_DEBUG));
+pub static SINE_RELEASE_MODULE: Lazy<Module> =
+    Lazy::new(|| module(&SINE_RELEASE));
+pub static GESTURE_DEBUG_MODULE: Lazy<Module> =
+    Lazy::new(|| module(&GESTURE_DEBUG));
+pub static GESTURE_RELEASE_MODULE: Lazy<Module> =
+    Lazy::new(|| module(&GESTURE_RELEASE));
+pub static MICROSPEECH_DEBUG_MODULE: Lazy<Module> =
+    Lazy::new(|| module(&MICROSPEECH_DEBUG));
+pub static MICROSPEECH_RELEASE_MODULE: Lazy<Module> =
+    Lazy::new(|| module(&MICROSPEECH_RELEASE));
+
+fn module(wasm: &[u8]) -> Module {
+    let store = Store::default();
+    Module::new(&store, wasm).unwrap()
+}
 
 pub fn compile(name: &str, runefile: &str, optimized: bool) -> Vec<u8> {
     let parsed = rune_syntax::parse(runefile).unwrap();
@@ -126,8 +144,8 @@ impl RuntimeBuilder {
     pub fn gesture() -> Self {
         RuntimeBuilder {
             rune: Rune::Undecided {
-                debug: &*GESTURE_DEBUG,
-                release: &*GESTURE_RELEASE,
+                debug: &GESTURE_DEBUG_MODULE,
+                release: &*GESTURE_RELEASE_MODULE,
             },
             env: EnvBuilder::default(),
         }
@@ -136,8 +154,8 @@ impl RuntimeBuilder {
     pub fn sine() -> Self {
         RuntimeBuilder {
             rune: Rune::Undecided {
-                debug: &*SINE_DEBUG,
-                release: &*SINE_RELEASE,
+                debug: &*SINE_DEBUG_MODULE,
+                release: &*SINE_RELEASE_MODULE,
             },
             env: EnvBuilder::default(),
         }
@@ -146,8 +164,8 @@ impl RuntimeBuilder {
     pub fn microspeech() -> Self {
         RuntimeBuilder {
             rune: Rune::Undecided {
-                debug: &*MICROSPEECH_DEBUG,
-                release: &*MICROSPEECH_RELEASE,
+                debug: &*MICROSPEECH_DEBUG_MODULE,
+                release: &*MICROSPEECH_RELEASE_MODULE,
             },
             env: EnvBuilder::default(),
         }
@@ -206,16 +224,17 @@ impl RuntimeBuilder {
         };
 
         let env = env.finish();
+        let store = Store::default();
 
-        Runtime::load(wasm, env).unwrap()
+        Runtime::load_from_module(wasm, &store, env).unwrap()
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 enum Rune {
     Undecided {
-        debug: &'static [u8],
-        release: &'static [u8],
+        debug: &'static Module,
+        release: &'static Module,
     },
-    Decided(&'static [u8]),
+    Decided(&'static Module),
 }
