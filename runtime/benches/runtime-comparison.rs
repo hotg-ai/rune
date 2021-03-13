@@ -58,9 +58,7 @@ pub fn compile_times(c: &mut Criterion) {
             b.iter(|| compile("microspeech", MICROSPEECH_RUNEFILE, false))
         })
         .bench_function("microspeech-release", |b| {
-            b.iter(|| {
-                compile("microspeech", MICROSPEECH_RUNEFILE, true)
-            })
+            b.iter(|| compile("microspeech", MICROSPEECH_RUNEFILE, true))
         });
 
     group.finish();

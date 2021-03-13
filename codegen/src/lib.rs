@@ -188,7 +188,7 @@ impl Generator {
             }
         }
 
-        log::debug!("Outputs: {:?}", outputs);
+        log::trace!("Outputs: {:?}", outputs);
 
         outputs
     }
@@ -221,7 +221,7 @@ impl Generator {
             }
         }
 
-        log::debug!("Capabilities: {:?}", capabilities);
+        log::trace!("Capabilities: {:?}", capabilities);
 
         capabilities
     }
@@ -302,7 +302,7 @@ impl Generator {
             .map(|s| serde_json::to_value(&s).unwrap())
             .collect();
 
-        log::debug!("Pipelines: {:?}", pipelines);
+        log::trace!("Pipelines: {:?}", pipelines);
 
         pipelines
     }

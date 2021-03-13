@@ -1,37 +1,35 @@
-use std::{borrow::Cow, fmt::Debug, sync::Mutex};
+use std::{fmt::Debug, sync::Mutex};
 use log::Record;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
-use anyhow::{Context, Error};
+use anyhow::Error;
 use image::RgbImage;
-use image::imageops::FilterType;
+use crate::capability::{Accelerometer, Capability, Image, Random, Sound};
 
 pub trait Environment: Send + Sync + 'static {
-    fn fill_random(&self, _buffer: &mut [u8]) -> Result<usize, Error> {
-        Err(Error::new(NotSupportedError))
-    }
+    /// A callback triggered at the start of every pipeline run.
+    fn before_call(&self) {}
 
-    fn fill_accelerometer(
-        &self,
-        _buffer: &mut [[f32; 3]],
-    ) -> Result<usize, Error> {
-        Err(Error::new(NotSupportedError))
-    }
-
-    fn fill_sound(&self, _buffer: &mut [i16]) -> Result<usize, Error> {
-        Err(Error::new(NotSupportedError))
-    }
-
-    /// Fill the provided buffer with RGB pixels.
-    fn fill_image(
-        &self,
-        _buffer: &mut [u8],
-        _width: u32,
-        _height: u32,
-    ) -> Result<usize, Error> {
-        Err(Error::new(NotSupportedError))
-    }
+    /// A callback triggered after every pipeline run, allowing the
+    /// [`Environment`] to do any necessary cleanup or synchronisation.
+    fn after_call(&self) {}
 
     fn log(&self, _msg: &str) {}
+
+    fn new_random(&self) -> Result<Box<dyn Capability>, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    fn new_accelerometer(&self) -> Result<Box<dyn Capability>, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    fn new_sound(&self) -> Result<Box<dyn Capability>, Error> {
+        Err(Error::new(NotSupportedError))
+    }
+
+    fn new_image(&self) -> Result<Box<dyn Capability>, Error> {
+        Err(Error::new(NotSupportedError))
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, thiserror::Error)]
@@ -152,74 +150,35 @@ impl RngCore for PhonyRng {
 }
 
 impl Environment for DefaultEnvironment {
-    fn fill_random(&self, buffer: &mut [u8]) -> Result<usize, Error> {
-        self.rng.lock().unwrap().fill_bytes(buffer);
+    fn new_random(&self) -> Result<Box<dyn Capability>, Error> {
+        let rng = self.rng.lock().unwrap().clone_boxed();
 
-        Ok(buffer.len())
+        Ok(Box::new(Random::new(rng)))
     }
 
-    fn fill_accelerometer(
-        &self,
-        buffer: &mut [[f32; 3]],
-    ) -> Result<usize, Error> {
+    fn new_accelerometer(&self) -> Result<Box<dyn Capability>, Error> {
         if self.accelerometer_samples.is_empty() {
             return Err(Error::new(NotSupportedError));
         }
 
-        let len = std::cmp::min(buffer.len(), self.accelerometer_samples.len());
-        buffer.copy_from_slice(&self.accelerometer_samples[..len]);
-
-        Ok(len)
+        Ok(Box::new(Accelerometer::new(
+            self.accelerometer_samples.clone(),
+        )))
     }
 
-    fn fill_image(
-        &self,
-        buffer: &mut [u8],
-        width: u32,
-        height: u32,
-    ) -> Result<usize, Error> {
-        let img = self.image.as_ref().ok_or(NotSupportedError)?;
-
-        let img = if width == img.width() && height == img.height() {
-            Cow::Borrowed(img)
-        } else if width == 0 && height == 0 {
-            // no dimensions provided, copy the current one across and hope for
-            // the best
-            Cow::Borrowed(img)
-        } else {
-            log::debug!(
-                "Resizing image from {:?} to {:?}",
-                img.dimensions(),
-                (width, height)
-            );
-
-            Cow::Owned(image::imageops::resize(
-                img,
-                width,
-                height,
-                FilterType::Nearest,
-            ))
-        };
-
-        let raw = img.as_flat_samples();
-        let raw = raw.image_slice().context("The image was malformed")?;
-
-        let len = std::cmp::min(raw.len(), buffer.len());
-        buffer[..len].copy_from_slice(&raw[..len]);
-
-        Ok(len)
+    fn new_image(&self) -> Result<Box<dyn Capability>, Error> {
+        match &self.image {
+            Some(image) => Ok(Box::new(Image::new(image.clone()))),
+            None => Err(Error::from(NotSupportedError)),
+        }
     }
 
-    fn fill_sound(&self, buffer: &mut [i16]) -> Result<usize, Error> {
+    fn new_sound(&self) -> Result<Box<dyn Capability>, Error> {
         if self.sound.is_empty() {
             return Err(Error::new(NotSupportedError));
         }
 
-        let len = std::cmp::min(self.sound.len(), buffer.len());
-
-        buffer[..len].copy_from_slice(&self.sound[..len]);
-
-        Ok(len)
+        Ok(Box::new(Sound::new(self.sound.clone())))
     }
 
     fn log(&self, msg: &str) {

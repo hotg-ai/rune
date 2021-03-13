@@ -1,4 +1,4 @@
-use crate::{wasm32::intrinsics, AsType, Source, CAPABILITY, Buffer, Value};
+use crate::{wasm32::intrinsics, Source, capabilities, Buffer, Value};
 use core::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,19 +10,8 @@ pub struct Random<B> {
 impl<B: Buffer> Random<B> {
     pub fn new() -> Self {
         unsafe {
-            let index = intrinsics::request_capability(CAPABILITY::RAND as u32);
-
-            // ask for the correct length
-            let key = "n";
-            let value = i32::to_le_bytes(B::OVERALL_LENGTH as i32);
-            intrinsics::request_capability_set_param(
-                index,
-                key.as_ptr(),
-                key.len() as u32,
-                value.as_ptr(),
-                value.len() as u32,
-                i32::TYPE as u32,
-            );
+            let index =
+                intrinsics::request_capability(capabilities::RAND as u32);
 
             Random {
                 index,

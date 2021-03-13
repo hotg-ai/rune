@@ -1,4 +1,4 @@
-use crate::{Source, wasm32::intrinsics, CAPABILITY, Buffer, Value};
+use crate::{Source, wasm32::intrinsics, capabilities, Buffer, Value};
 
 pub struct Accelerometer<const N: usize> {
     index: u32,
@@ -6,8 +6,9 @@ pub struct Accelerometer<const N: usize> {
 
 impl<const N: usize> Accelerometer<N> {
     pub fn new() -> Self {
-        let index =
-            unsafe { intrinsics::request_capability(CAPABILITY::ACCEL as u32) };
+        let index = unsafe {
+            intrinsics::request_capability(capabilities::ACCEL as u32)
+        };
 
         Accelerometer { index }
     }
@@ -26,7 +27,11 @@ impl<const N: usize> Source for Accelerometer<N> {
         buffer
     }
 
-    fn set_parameter(&mut self, key: &str, value: impl Into<Value>) -> &mut Self {
+    fn set_parameter(
+        &mut self,
+        key: &str,
+        value: impl Into<Value>,
+    ) -> &mut Self {
         super::set_capability_parameter(self.index, key, value.into());
         self
     }

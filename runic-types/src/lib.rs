@@ -17,36 +17,22 @@ mod value;
 
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
-pub use value::{Value, Type, AsType};
+pub use value::{Value, Type, AsType, InvalidConversionError};
 
-#[derive(Copy, Clone, Debug)]
-pub enum CAPABILITY {
-    RAND = 1,
-    SOUND = 2,
-    ACCEL = 3,
-    IMAGE = 4,
-    RAW = 5,
-}
+pub mod capabilities {
+    pub const RAND: u32 = 1;
+    pub const SOUND: u32 = 2;
+    pub const ACCEL: u32 = 3;
+    pub const IMAGE: u32 = 4;
+    pub const RAW: u32 = 5;
 
-impl CAPABILITY {
-    pub fn from_u32(value: u32) -> CAPABILITY {
+    pub fn from_str(value: &str) -> Option<u32> {
         match value {
-            1 => CAPABILITY::RAND,
-            2 => CAPABILITY::SOUND,
-            3 => CAPABILITY::ACCEL,
-            4 => CAPABILITY::IMAGE,
-            5 => CAPABILITY::RAW,
-            _ => CAPABILITY::RAW,
-        }
-    }
-
-    pub fn from_str(value: &str) -> Option<CAPABILITY> {
-        match value {
-            "RAND" => Some(CAPABILITY::RAND),
-            "SOUND" => Some(CAPABILITY::SOUND),
-            "ACCEL" => Some(CAPABILITY::ACCEL),
-            "IMAGE" => Some(CAPABILITY::IMAGE),
-            "RAW" => Some(CAPABILITY::RAW),
+            "RAND" => Some(RAND),
+            "SOUND" => Some(SOUND),
+            "ACCEL" => Some(ACCEL),
+            "IMAGE" => Some(IMAGE),
+            "RAW" => Some(RAW),
             _ => None,
         }
     }

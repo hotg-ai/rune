@@ -1,7 +1,4 @@
-use crate::{
-    Environment,
-    capability::{CapabilityRequest},
-};
+use crate::{Environment, capability::Capability};
 use anyhow::{Context as _, Error};
 use log::Level;
 use runic_types::Value;
@@ -12,6 +9,7 @@ use tflite::{
 use std::{
     collections::HashMap,
     convert::TryFrom,
+    fmt::{Debug, Display},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -23,10 +21,11 @@ use wasmer::{
 };
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
-type Capabilities = Arc<Mutex<HashMap<u32, CapabilityRequest>>>;
+type Capabilities = Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>;
 
 pub struct Runtime {
     instance: Instance,
+    env: Arc<dyn Environment>,
 }
 
 impl Runtime {
@@ -39,7 +38,8 @@ impl Runtime {
         let module = Module::new(&store, rune)
             .context("WebAssembly compilation failed")?;
 
-        let imports = import_object(&store, env);
+        let env: Arc<dyn Environment> = Arc::new(env);
+        let imports = import_object(&store, Arc::clone(&env));
         log::debug!("Instantiating the WebAssembly module");
 
         let instance =
@@ -57,11 +57,13 @@ impl Runtime {
 
         log::debug!("Loaded the Rune");
 
-        Ok(Runtime { instance })
+        Ok(Runtime { instance, env })
     }
 
     pub fn call(&mut self) -> Result<(), Error> {
         log::debug!("Running the rune");
+
+        self.env.before_call();
 
         let call_func: NativeFunc<(i32, i32, i32), i32> = self
             .instance
@@ -80,12 +82,13 @@ impl Runtime {
             .call(0, 0, 0)
             .context("Unable to call the _call function")?;
 
+        self.env.after_call();
+
         Ok(())
     }
 }
 
-fn import_object(store: &Store, env: impl Environment) -> ImportObject {
-    let env: Arc<dyn Environment> = Arc::new(env);
+fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
     let ids = Arc::new(Identifiers::new());
     let models = Arc::new(Mutex::new(HashMap::new()));
     let capabilities = Arc::new(Mutex::new(HashMap::new()));
@@ -95,7 +98,7 @@ fn import_object(store: &Store, env: impl Environment) -> ImportObject {
             "_debug" => log(Arc::clone(&env), store),
             "tfm_preload_model" => tfm_preload_model(Arc::clone(&ids), Arc::clone(&models), store),
             "tfm_model_invoke" => tfm_model_invoke(Arc::clone(&models), store),
-            "request_capability" => request_capability(Arc::clone(&ids), Arc::clone(&capabilities), store),
+            "request_capability" => request_capability(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&capabilities), store),
             "request_capability_set_param" => request_capability_set_param(Arc::clone(&capabilities), store),
             "request_provider_response" => request_provider_response(Arc::clone(&env), Arc::clone(&capabilities), store),
         },
@@ -302,7 +305,8 @@ fn invoke_model(
     let len = std::cmp::min(input.len(), buffer.len());
     buffer[..len].copy_from_slice(&input[..len]);
 
-    log::debug!("Model {} input: {:?}", model_index, &buffer[..len]);
+    log::debug!("Model {} received {} bytes", model_index, buffer.len());
+    log::trace!("Model {} input: {:?}", model_index, &buffer[..len]);
 
     model.invoke().context("Calling the model failed")?;
 
@@ -326,6 +330,7 @@ fn invoke_model(
 
 fn request_capability(
     ids: Arc<Identifiers>,
+    env: Arc<dyn Environment>,
     caps: Capabilities,
     store: &Store,
 ) -> Function {
@@ -333,6 +338,7 @@ fn request_capability(
     struct State {
         ids: Arc<Identifiers>,
         caps: Capabilities,
+        env: Arc<dyn Environment>,
         #[wasmer(export)]
         memory: LazyInit<Memory>,
     }
@@ -340,6 +346,7 @@ fn request_capability(
     let state = State {
         ids,
         caps,
+        env,
         memory: LazyInit::default(),
     };
 
@@ -347,13 +354,35 @@ fn request_capability(
         store,
         state,
         |s: &State, capability_type: u32| {
-            let cap = runic_types::CAPABILITY::from_u32(capability_type);
-            let request = CapabilityRequest::new(cap);
+            let cap = unsafe {
+                match capability_type {
+                    runic_types::capabilities::ACCEL => {
+                        s.env.new_accelerometer().unwrap_or_trap(
+                            "Unable to create a accelerometer capability",
+                        )
+                    },
+                    runic_types::capabilities::RAND => s
+                        .env
+                        .new_random()
+                        .unwrap_or_trap("Unable to create a random capability"),
+                    runic_types::capabilities::IMAGE => s
+                        .env
+                        .new_image()
+                        .unwrap_or_trap("Unable to create an image capability"),
+                    runic_types::capabilities::SOUND => s
+                        .env
+                        .new_sound()
+                        .unwrap_or_trap("Unable to create a sound capability"),
+                    _ => raise_user_trap(anyhow::anyhow!(
+                        "Unknown capability type, {}",
+                        capability_type
+                    )),
+                }
+            };
 
             let id = s.ids.next();
-            s.caps.lock().unwrap().insert(id, request);
-
-            log::debug!("Requested capability {:?} with ID {}", cap, id);
+            log::debug!("Capability {} = {:?}", id, cap);
+            s.caps.lock().unwrap().insert(id, cap);
 
             id
         },
@@ -403,31 +432,28 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 .unwrap_or_trap("Unable to unmarshal the parameter value");
 
             let mut capabilities = s.caps.lock().unwrap();
-            set_capability_parameter(
-                capability_id,
-                &mut capabilities,
+
+            log::debug!(
+                "Setting \"{}\" to {} on capability {}",
                 key,
                 value,
-            )
-            .unwrap_or_trap("Unable to set the capability parameter");
+                capability_id
+            );
+
+            capabilities
+                .get_mut(&capability_id)
+                .unwrap_or_trap("Invalid capability ID")
+                .set_parameter(key, value)
+                .unwrap_or_trap_with(|| {
+                    format!(
+                        "Unable to set capability {}'s \"{}\"",
+                        capability_id, key,
+                    )
+                });
 
             0_u32
         },
     )
-}
-
-fn set_capability_parameter(
-    id: u32,
-    capabilities: &mut HashMap<u32, CapabilityRequest>,
-    key: &str,
-    value: Value,
-) -> Result<(), Error> {
-    let request = capabilities.get_mut(&id).context("Invalid capability")?;
-
-    log::debug!("Setting {}={:?} on capability {}", key, value, id);
-    request.params.insert(key.to_string(), value);
-
-    Ok(())
 }
 
 fn request_provider_response(
@@ -464,13 +490,9 @@ fn request_provider_response(
 
             let mut capabilities = s.caps.lock().unwrap();
 
-            let bytes_written = invoke_capability(
-                &mut capabilities,
-                capability_id,
-                &*s.env,
-                buffer,
-            )
-            .unwrap_or_trap("Unable to invoke the capability");
+            let bytes_written =
+                invoke_capability(&mut capabilities, capability_id, buffer)
+                    .unwrap_or_trap("Unable to invoke the capability");
 
             bytes_written as i32
         },
@@ -478,85 +500,50 @@ fn request_provider_response(
 }
 
 fn invoke_capability(
-    capabilities: &mut HashMap<u32, CapabilityRequest>,
+    capabilities: &mut HashMap<u32, Box<dyn Capability>>,
     id: u32,
-    env: &dyn Environment,
     dest: &mut [u8],
 ) -> Result<usize, Error> {
-    log::debug!("Getting capability {}", id);
-    let cap =
-        unsafe { capabilities.get(&id).unwrap_or_trap("Invalid capability") };
+    let cap = unsafe {
+        capabilities
+            .get_mut(&id)
+            .unwrap_or_trap("Invalid capability")
+    };
 
     log::debug!(
         "Invoking capability {} ({:?}) on a {}-byte buffer",
         id,
-        cap.c_type,
+        cap,
         dest.len()
     );
 
-    match cap.c_type {
-        runic_types::CAPABILITY::RAND => {
-            env.fill_random(dest)
-                .context("Unable to get random bytes")?;
-
-            log::debug!("Rand: {:?}", dest);
-
-            Ok(dest.len())
-        },
-        runic_types::CAPABILITY::ACCEL => {
-            let buffer = unsafe {
-                // HACK: We've been given a byte array but accelerometer data
-                // comes as XYZ floats. Float arrays are POD types so it's okay
-                // to transmute them.
-                //
-                // This wouldn't be necessary if each capability had its own
-                // host function with a strongly typed signature.
-                let len = dest.len() / std::mem::size_of::<[f32; 3]>();
-                std::slice::from_raw_parts_mut(
-                    dest.as_mut_ptr() as *mut [f32; 3],
-                    len,
-                )
-            };
-            env.fill_accelerometer(buffer)
-                .context("Unable to fill the buffer with accelerometer data")
-        },
-        runic_types::CAPABILITY::IMAGE => env
-            .fill_image(dest, 0, 0)
-            .context("Unable to fill the buffer with image data"),
-        runic_types::CAPABILITY::SOUND => {
-            let buffer = unsafe {
-                // HACK: We've been given a byte array but audio data comes as
-                // PCM-encoded i16. Integer arrays are POD types so it's okay to
-                // transmute them.
-                //
-                // This wouldn't be necessary if each capability had its own
-                // host function with a strongly typed signature.
-                let len = dest.len() / std::mem::size_of::<i16>();
-                std::slice::from_raw_parts_mut(
-                    dest.as_mut_ptr() as *mut i16,
-                    len,
-                )
-            };
-            env.fill_sound(buffer)
-                .context("Unable to fill the buffer with sound data")
-        },
-        other => Err(anyhow::anyhow!(
-            "The {:?} capability isn't implemented",
-            other
-        )),
-    }
+    cap.generate(dest)
 }
 
 trait TrapExt<T> {
-    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T;
+    unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
+    where
+        F: FnOnce() -> D,
+        D: Display + Debug + Send + Sync + 'static;
+
+    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T
+    where
+        Self: Sized,
+    {
+        self.unwrap_or_trap_with(|| msg)
+    }
 }
 
 impl<T> TrapExt<T> for Option<T> {
-    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T {
+    unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
+    where
+        F: FnOnce() -> D,
+        D: Display + Debug + Send + Sync + 'static,
+    {
         match self {
             Some(value) => value,
             None => {
-                let err = Error::msg(msg);
+                let err = Error::msg(func());
                 raise_user_trap(err.into());
             },
         }
@@ -567,11 +554,14 @@ impl<T, E> TrapExt<T> for Result<T, E>
 where
     Result<T, E>: anyhow::Context<T, E>,
 {
-    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T {
-        match self.context(msg) {
+    unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
+    where
+        F: FnOnce() -> D,
+        D: Display + Debug + Send + Sync + 'static,
+    {
+        match self.with_context(func) {
             Ok(value) => value,
-            Err(e) => {
-                let err = e.context(msg);
+            Err(err) => {
                 raise_user_trap(err.into());
             },
         }

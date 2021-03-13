@@ -1,4 +1,4 @@
-use crate::{Source, wasm32::intrinsics, CAPABILITY, Buffer, Value};
+use crate::{Source, wasm32::intrinsics, capabilities, Buffer, Value};
 
 pub struct Image<const WIDTH: usize, const HEIGHT: usize> {
     index: u32,
@@ -6,8 +6,9 @@ pub struct Image<const WIDTH: usize, const HEIGHT: usize> {
 
 impl<const WIDTH: usize, const HEIGHT: usize> Image<WIDTH, HEIGHT> {
     pub fn new() -> Self {
-        let index =
-            unsafe { intrinsics::request_capability(CAPABILITY::IMAGE as u32) };
+        let index = unsafe {
+            intrinsics::request_capability(capabilities::IMAGE as u32)
+        };
 
         Image { index }
     }

@@ -1,4 +1,4 @@
-use core::convert::TryFrom;
+use core::{convert::TryFrom, fmt::Display, fmt, fmt::Formatter};
 
 /// A dynamically typed value that may be passed back and forth across the
 /// runtime.
@@ -90,6 +90,17 @@ impl Value {
     }
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Byte(b) => write!(f, "{}_u8", b),
+            Value::Short(s) => write!(f, "{}_i16", s),
+            Value::Integer(i) => write!(f, "{}_i32", i),
+            Value::Float(float) => write!(f, "{:.1}", float),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
 #[non_exhaustive]
@@ -158,12 +169,15 @@ macro_rules! impl_as_type {
             }
 
             impl TryFrom<Value> for $type {
-                type Error = ();
+                type Error = InvalidConversionError;
 
                 fn try_from(value: Value) -> Result<Self, Self::Error> {
                     match value {
                         Value::$variant(v) => Ok(v),
-                        _ => Err(())
+                        _ => Err(InvalidConversionError {
+                            value,
+                            target_type: Type::$variant,
+                        }),
                     }
                 }
             }
@@ -172,3 +186,21 @@ macro_rules! impl_as_type {
 }
 
 impl_as_type!(u8 => Byte, i16 => Short, i32 => Integer, f32 => Float);
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct InvalidConversionError {
+    pub value: Value,
+    pub target_type: Type,
+}
+
+impl Display for InvalidConversionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Unable to convert {} ({:?}) to a {:?}",
+            self.value,
+            self.value.ty(),
+            self.target_type
+        )
+    }
+}

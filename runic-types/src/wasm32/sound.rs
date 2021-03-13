@@ -1,4 +1,4 @@
-use crate::{Source, wasm32::intrinsics, CAPABILITY, Buffer, Value};
+use crate::{Source, wasm32::intrinsics, capabilities, Buffer, Value};
 
 pub struct Sound<const N: usize> {
     index: u32,
@@ -6,8 +6,9 @@ pub struct Sound<const N: usize> {
 
 impl<const N: usize> Sound<N> {
     pub fn new() -> Self {
-        let index =
-            unsafe { intrinsics::request_capability(CAPABILITY::SOUND as u32) };
+        let index = unsafe {
+            intrinsics::request_capability(capabilities::SOUND as u32)
+        };
 
         Sound { index }
     }
