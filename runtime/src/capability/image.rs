@@ -1,11 +1,15 @@
+use std::fmt::{self, Formatter, Debug};
 use anyhow::{Context, Error};
-use image::{RgbImage};
-
+use image::{GenericImageView, RgbImage};
 use super::{Capability, ParameterError};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Image {
     image: RgbImage,
+}
+
+impl Image {
+    pub fn new(image: RgbImage) -> Self { Image { image } }
 }
 
 impl Capability for Image {
@@ -27,4 +31,25 @@ impl Capability for Image {
     ) -> Result<(), ParameterError> {
         Err(ParameterError::unsupported(name))
     }
+}
+
+impl Debug for Image {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Image { image } = self;
+
+        let dims = image.dimensions();
+        let pixel = pixel_type_name(image);
+
+        f.debug_struct("Image")
+            .field("dimensions", &dims)
+            .field("pixel_type", &pixel)
+            .finish()
+    }
+}
+
+fn pixel_type_name<I>(_image: &I) -> &'static str
+where
+    I: GenericImageView,
+{
+    std::any::type_name::<I::Pixel>()
 }

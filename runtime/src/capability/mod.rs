@@ -8,25 +8,10 @@ pub use self::{
 };
 
 use anyhow::Error;
-use runic_types::{CAPABILITY, Type, Value};
-use std::collections::HashMap;
+use runic_types::{Type, Value};
+use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
-pub struct CapabilityRequest {
-    pub c_type: CAPABILITY,
-    pub params: HashMap<String, Value>,
-}
-
-impl CapabilityRequest {
-    pub fn new(c_type: CAPABILITY) -> CapabilityRequest {
-        return CapabilityRequest {
-            c_type,
-            params: HashMap::new(),
-        };
-    }
-}
-
-pub trait Capability {
+pub trait Capability: Send + Debug + 'static {
     /// Generate the desired input, writing it to the provided buffer and
     /// returning the number of bytes written.
     fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, Error>;

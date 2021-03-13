@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use rand::RngCore;
 
 use super::{Capability, ParameterError};
@@ -10,7 +12,7 @@ impl<R> Random<R> {
     pub const fn new(rng: R) -> Self { Random(rng) }
 }
 
-impl<R: RngCore> Capability for Random<R> {
+impl<R: RngCore + Debug + Send + 'static> Capability for Random<R> {
     fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, anyhow::Error> {
         self.0.try_fill_bytes(buffer)?;
         Ok(buffer.len())

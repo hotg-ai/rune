@@ -26,7 +26,7 @@ pub struct Random<T> {
 impl<T> Random<T> {
     pub fn from_env(env: &dyn Environment) -> Result<Self, Error> {
         let mut seed = <SmallRng as SeedableRng>::Seed::default();
-        env.fill_random(&mut seed)?;
+        env.new_random()?.generate(&mut seed)?;
 
         Ok(Random {
             rng: SmallRng::from_seed(seed),

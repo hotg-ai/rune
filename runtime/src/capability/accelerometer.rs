@@ -1,11 +1,11 @@
 use anyhow::Error;
 use runic_types::{Value};
-
+use std::fmt::{self, Formatter, Debug};
 use super::{Capability, ParameterError};
 
 type Sample = [f32; 3];
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Accelerometer {
     samples: Vec<Sample>,
     next_sample: usize,
@@ -105,6 +105,22 @@ fn as_byte_array(floats: &[f32]) -> &[u8] {
             floats.as_ptr().cast(),
             floats.len() * std::mem::size_of::<f32>(),
         )
+    }
+}
+
+impl Debug for Accelerometer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Accelerometer {
+            samples,
+            next_sample,
+            infinite,
+        } = self;
+
+        f.debug_struct("Accelerometer")
+            .field("samples", &format_args!("({} samples)", samples.len()))
+            .field("next_sample", next_sample)
+            .field("infinite", infinite)
+            .finish()
     }
 }
 

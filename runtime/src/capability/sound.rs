@@ -1,4 +1,5 @@
 use std::{
+    fmt::{self, Debug, Formatter},
     fs::File,
     io::{Cursor, Read},
     path::Path,
@@ -9,13 +10,20 @@ use hound::WavReader;
 
 use super::{Capability, ParameterError};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Sound {
     samples: Vec<i16>,
     next_index: usize,
 }
 
 impl Sound {
+    pub fn new(samples: Vec<i16>) -> Self {
+        Sound {
+            samples,
+            next_index: 0,
+        }
+    }
+
     pub fn from_wav_data(wav_data: &[u8]) -> Result<Self, Error> {
         let cursor = Cursor::new(wav_data);
         Sound::from_wav(cursor)
@@ -38,10 +46,7 @@ impl Sound {
             .into_samples::<i16>()
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(Sound {
-            samples,
-            next_index: 0,
-        })
+        Ok(Sound::new(samples))
     }
 
     fn samples(&mut self) -> impl Iterator<Item = i16> + '_ { Samples(self) }
@@ -88,5 +93,19 @@ impl<'a> Iterator for Samples<'a> {
         *next_index = (*next_index + 1) % samples.len();
 
         Some(*sample)
+    }
+}
+
+impl Debug for Sound {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Sound {
+            samples,
+            next_index,
+        } = self;
+
+        f.debug_struct("Sound")
+            .field("samples", &format_args!("({} samples)", samples.len()))
+            .field("next_index", next_index)
+            .finish()
     }
 }

@@ -1,6 +1,6 @@
 FROM runicos/base
 
-CAPABILITY<F32> rand RAND --n 1
+CAPABILITY<F32> rand RAND
 
 PROC_BLOCK<_,_> mod360 hotg-ai/rune#proc_blocks/modulo --modulus 360.0
 
