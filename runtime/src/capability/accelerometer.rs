@@ -65,10 +65,10 @@ impl Capability for Accelerometer {
 
     fn set_parameter(
         &mut self,
-        name: &str,
+        _name: &str,
         _value: Value,
     ) -> Result<(), ParameterError> {
-        Err(ParameterError::unsupported(name))
+        Err(ParameterError::UnsupportedParameter)
     }
 }
 

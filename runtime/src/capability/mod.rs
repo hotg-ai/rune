@@ -8,7 +8,7 @@ pub use self::{
 };
 
 use anyhow::Error;
-use runic_types::{Type, Value};
+use runic_types::{InvalidConversionError, Value};
 use std::fmt::Debug;
 
 pub trait Capability: Send + Debug + 'static {
@@ -25,21 +25,14 @@ pub trait Capability: Send + Debug + 'static {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParameterError {
-    #[error("The \"{}\" parameter isn't supported", name)]
-    UnsupportedParameter { name: String },
-    #[error("{:?} is an invalid value for \"{}\"", value, name)]
+    #[error("The parameter isn't supported")]
+    UnsupportedParameter,
+    #[error("{:?} is an invalid value", value)]
     InvalidValue {
-        name: String,
         value: Value,
         #[source]
         reason: Error,
     },
-    #[error("Expected a {:?} but found {:?}", expected, actual)]
-    IncorrectType { expected: Type, actual: Type },
-}
-
-impl ParameterError {
-    pub fn unsupported(name: impl Into<String>) -> Self {
-        ParameterError::UnsupportedParameter { name: name.into() }
-    }
+    #[error("{}", _0)]
+    IncorrectType(InvalidConversionError),
 }

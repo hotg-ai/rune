@@ -17,7 +17,7 @@ mod value;
 
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
-pub use value::{Value, Type, AsType};
+pub use value::{Value, Type, AsType, InvalidConversionError};
 
 pub mod capabilities {
     pub const RAND: u32 = 1;

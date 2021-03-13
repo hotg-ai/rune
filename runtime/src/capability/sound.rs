@@ -1,19 +1,24 @@
 use std::{
+    convert::{TryFrom, TryInto},
     fmt::{self, Debug, Formatter},
     fs::File,
     io::{Cursor, Read},
     path::Path,
+    time::Duration,
 };
-
 use anyhow::{Context, Error};
 use hound::WavReader;
-
+use runic_types::{Value};
 use super::{Capability, ParameterError};
+
+const DEFAULT_FREQUENCY: u32 = 16_000;
 
 #[derive(Clone)]
 pub struct Sound {
     samples: Vec<i16>,
     next_index: usize,
+    frequency: u32,
+    duration: Duration,
 }
 
 impl Sound {
@@ -21,6 +26,8 @@ impl Sound {
         Sound {
             samples,
             next_index: 0,
+            frequency: DEFAULT_FREQUENCY,
+            duration: Duration::from_secs(1),
         }
     }
 
@@ -71,10 +78,41 @@ impl Capability for Sound {
     fn set_parameter(
         &mut self,
         name: &str,
-        _value: runic_types::Value,
+        value: Value,
     ) -> Result<(), ParameterError> {
-        Err(ParameterError::unsupported(name))
+        match name {
+            "hz" | "frequency" => {
+                self.frequency = int_value_try_into(value)?;
+                Ok(())
+            },
+            "sample_duration_ms" => {
+                let ms = int_value_try_into(value)?;
+                self.duration = Duration::from_millis(ms);
+                Ok(())
+            },
+            "sample_duration" => {
+                let secs = int_value_try_into(value)?;
+                self.duration = Duration::from_secs(secs);
+                Ok(())
+            },
+            _ => Err(ParameterError::UnsupportedParameter),
+        }
     }
+}
+
+fn int_value_try_into<T>(value: Value) -> Result<T, ParameterError>
+where
+    T: TryFrom<i32>,
+    T::Error: Into<Error>,
+{
+    let integer: i32 = value
+        .try_into()
+        .map_err(|e| ParameterError::IncorrectType(e))?;
+
+    T::try_from(integer).map_err(|e| ParameterError::InvalidValue {
+        value,
+        reason: e.into(),
+    })
 }
 
 struct Samples<'a>(&'a mut Sound);
@@ -86,6 +124,7 @@ impl<'a> Iterator for Samples<'a> {
         let Samples(Sound {
             samples,
             next_index,
+            ..
         }) = self;
 
         let sample = samples.get(*next_index)?;
@@ -101,11 +140,15 @@ impl Debug for Sound {
         let Sound {
             samples,
             next_index,
+            frequency,
+            duration,
         } = self;
 
         f.debug_struct("Sound")
             .field("samples", &format_args!("({} samples)", samples.len()))
             .field("next_index", next_index)
+            .field("frequency", frequency)
+            .field("duration", duration)
             .finish()
     }
 }

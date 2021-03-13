@@ -1,7 +1,4 @@
-use crate::{
-    Environment,
-    capability::{Capability},
-};
+use crate::{Environment, capability::Capability};
 use anyhow::{Context as _, Error};
 use log::Level;
 use runic_types::Value;
@@ -12,6 +9,7 @@ use tflite::{
 use std::{
     collections::HashMap,
     convert::TryFrom,
+    fmt::{Debug, Display},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -27,6 +25,7 @@ type Capabilities = Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>;
 
 pub struct Runtime {
     instance: Instance,
+    env: Arc<dyn Environment>,
 }
 
 impl Runtime {
@@ -39,7 +38,8 @@ impl Runtime {
         let module = Module::new(&store, rune)
             .context("WebAssembly compilation failed")?;
 
-        let imports = import_object(&store, env);
+        let env: Arc<dyn Environment> = Arc::new(env);
+        let imports = import_object(&store, Arc::clone(&env));
         log::debug!("Instantiating the WebAssembly module");
 
         let instance =
@@ -57,11 +57,13 @@ impl Runtime {
 
         log::debug!("Loaded the Rune");
 
-        Ok(Runtime { instance })
+        Ok(Runtime { instance, env })
     }
 
     pub fn call(&mut self) -> Result<(), Error> {
         log::debug!("Running the rune");
+
+        self.env.before_call();
 
         let call_func: NativeFunc<(i32, i32, i32), i32> = self
             .instance
@@ -80,12 +82,13 @@ impl Runtime {
             .call(0, 0, 0)
             .context("Unable to call the _call function")?;
 
+        self.env.after_call();
+
         Ok(())
     }
 }
 
-fn import_object(store: &Store, env: impl Environment) -> ImportObject {
-    let env: Arc<dyn Environment> = Arc::new(env);
+fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
     let ids = Arc::new(Identifiers::new());
     let models = Arc::new(Mutex::new(HashMap::new()));
     let capabilities = Arc::new(Mutex::new(HashMap::new()));
@@ -302,7 +305,8 @@ fn invoke_model(
     let len = std::cmp::min(input.len(), buffer.len());
     buffer[..len].copy_from_slice(&input[..len]);
 
-    log::debug!("Model {} input: {:?}", model_index, &buffer[..len]);
+    log::debug!("Model {} received {} bytes", model_index, buffer.len());
+    log::trace!("Model {} input: {:?}", model_index, &buffer[..len]);
 
     model.invoke().context("Calling the model failed")?;
 
@@ -432,7 +436,12 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 .get_mut(&capability_id)
                 .unwrap_or_trap("Invalid capability ID")
                 .set_parameter(key, value)
-                .unwrap_or_trap("Unable to set the capability parameter");
+                .unwrap_or_trap_with(|| {
+                    format!(
+                        "Unable to set capability {}'s \"{}\"",
+                        capability_id, key,
+                    )
+                });
 
             0_u32
         },
@@ -500,15 +509,29 @@ fn invoke_capability(
 }
 
 trait TrapExt<T> {
-    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T;
+    unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
+    where
+        F: FnOnce() -> D,
+        D: Display + Debug + Send + Sync + 'static;
+
+    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T
+    where
+        Self: Sized,
+    {
+        self.unwrap_or_trap_with(|| msg)
+    }
 }
 
 impl<T> TrapExt<T> for Option<T> {
-    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T {
+    unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
+    where
+        F: FnOnce() -> D,
+        D: Display + Debug + Send + Sync + 'static,
+    {
         match self {
             Some(value) => value,
             None => {
-                let err = Error::msg(msg);
+                let err = Error::msg(func());
                 raise_user_trap(err.into());
             },
         }
@@ -519,11 +542,14 @@ impl<T, E> TrapExt<T> for Result<T, E>
 where
     Result<T, E>: anyhow::Context<T, E>,
 {
-    unsafe fn unwrap_or_trap(self, msg: &'static str) -> T {
-        match self.context(msg) {
+    unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
+    where
+        F: FnOnce() -> D,
+        D: Display + Debug + Send + Sync + 'static,
+    {
+        match self.with_context(func) {
             Ok(value) => value,
-            Err(e) => {
-                let err = e.context(msg);
+            Err(err) => {
                 raise_user_trap(err.into());
             },
         }

@@ -3,10 +3,18 @@ use log::Record;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use anyhow::Error;
 use image::RgbImage;
-
 use crate::capability::{Accelerometer, Capability, Image, Random, Sound};
 
 pub trait Environment: Send + Sync + 'static {
+    /// A callback triggered at the start of every pipeline run.
+    fn before_call(&self) {}
+
+    /// A callback triggered after every pipeline run, allowing the
+    /// [`Environment`] to do any necessary cleanup or synchronisation.
+    fn after_call(&self) {}
+
+    fn log(&self, _msg: &str) {}
+
     fn new_random(&self) -> Result<Box<dyn Capability>, Error> {
         Err(Error::new(NotSupportedError))
     }
@@ -22,8 +30,6 @@ pub trait Environment: Send + Sync + 'static {
     fn new_image(&self) -> Result<Box<dyn Capability>, Error> {
         Err(Error::new(NotSupportedError))
     }
-
-    fn log(&self, _msg: &str) {}
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, thiserror::Error)]

@@ -26,10 +26,10 @@ impl Capability for Image {
 
     fn set_parameter(
         &mut self,
-        name: &str,
+        _name: &str,
         _value: runic_types::Value,
     ) -> Result<(), ParameterError> {
-        Err(ParameterError::unsupported(name))
+        Err(ParameterError::UnsupportedParameter)
     }
 }
 
