@@ -56,7 +56,7 @@ extern "C" {
     ///
     /// See [`crate::outputs`] to find out which outputs are available. Invalid
     /// or unsupported parameters will trigger a trap and abort at runtime.
-    pub fn request_manifest_output(out_type: u32) -> u32;
+    pub fn request_output(out_type: u32) -> u32;
 
     /// Write the result of a pipeline to an output device.
     ///
