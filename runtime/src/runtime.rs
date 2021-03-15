@@ -1,7 +1,7 @@
-use crate::{Environment, capability::Capability};
+use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
 use log::Level;
-use runic_types::Value;
+use runic_types::{Value, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
@@ -22,6 +22,7 @@ use wasmer::{
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
 type Capabilities = Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>;
+type Outputs = Arc<Mutex<HashMap<u32, Box<dyn Output>>>>;
 
 pub struct Runtime {
     instance: Instance,
@@ -101,8 +102,9 @@ impl Runtime {
 
 fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
     let ids = Arc::new(Identifiers::new());
-    let models = Arc::new(Mutex::new(HashMap::new()));
-    let capabilities = Arc::new(Mutex::new(HashMap::new()));
+    let models = Models::default();
+    let capabilities = Capabilities::default();
+    let outputs = Outputs::default();
 
     wasmer::imports! {
         "env" => {
@@ -112,6 +114,7 @@ fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
             "request_capability" => request_capability(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&capabilities), store),
             "request_capability_set_param" => request_capability_set_param(Arc::clone(&capabilities), store),
             "request_provider_response" => request_provider_response(Arc::clone(&env), Arc::clone(&capabilities), store),
+            "request_output" => request_output(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&outputs), store),
         },
     }
 }
@@ -529,6 +532,47 @@ fn invoke_capability(
     );
 
     cap.generate(dest)
+}
+
+fn request_output(
+    ids: Arc<Identifiers>,
+    env: Arc<dyn Environment>,
+    outputs: Outputs,
+    store: &Store,
+) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        ids: Arc<Identifiers>,
+        env: Arc<dyn Environment>,
+        outputs: Outputs,
+    }
+
+    let state = State { outputs, ids, env };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, output_type: u32| unsafe {
+            match output_type {
+                outputs::SERIAL => {
+                    let output = s
+                        .env
+                        .new_serial()
+                        .unwrap_or_trap("Unable to create a new SERIAL output");
+                    let id = s.ids.next();
+
+                    log::debug!("Setting output {} to {:?}", id, output);
+                    s.outputs.lock().unwrap().insert(id, output);
+
+                    id
+                },
+                _ => raise_user_trap(anyhow::anyhow!(
+                    "Unknown output type: {}",
+                    output_type
+                )),
+            }
+        },
+    )
 }
 
 trait TrapExt<T> {
