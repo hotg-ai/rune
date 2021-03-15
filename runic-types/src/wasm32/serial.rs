@@ -1,22 +1,28 @@
-use crate::{wasm32::intrinsics, Sink, OUTPUT};
+use crate::{wasm32::intrinsics, Sink, OUTPUT, outputs};
 use core::fmt::Debug;
 
 #[derive(Debug, Default, PartialEq, Clone)]
 #[non_exhaustive]
-pub struct Serial {}
+pub struct Serial {
+    id: u32,
+}
 
 impl Serial {
     pub fn new() -> Self {
         unsafe {
-            intrinsics::request_manifest_output(OUTPUT::SERIAL as u32);
+            Serial {
+                id: intrinsics::request_manifest_output(outputs::SERIAL),
+            }
         }
-
-        Serial {}
     }
 }
 
-impl<T: Debug> Sink<T> for Serial {
+impl<T: Serialize> Sink<T> for Serial {
     fn consume(&mut self, input: T) {
-        crate::debug!("Serial -> {:?}", input);
+        let msg = serde_json::to_string(&input);
+
+        unsafe {
+
+        }
     }
 }

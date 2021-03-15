@@ -38,22 +38,10 @@ pub mod capabilities {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum OUTPUT {
-    SERIAL = 1,
-    BLE = 2,
-    PIN = 3,
-    WIFI = 4,
-}
-
-impl OUTPUT {
-    pub fn from_u32(value: u32) -> OUTPUT {
-        match value {
-            1 => OUTPUT::SERIAL,
-            2 => OUTPUT::BLE,
-            3 => OUTPUT::PIN,
-            4 => OUTPUT::WIFI,
-            _ => OUTPUT::SERIAL,
-        }
-    }
+pub mod outputs {
+    /// A serial device which consumes JSON-encoded data.
+    pub const SERIAL: u32 = 1;
+    pub const BLE: u32 = 2;
+    pub const PIN: u32 = 3;
+    pub const WIFI: u32 = 4;
 }
