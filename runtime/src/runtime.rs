@@ -113,8 +113,9 @@ fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
             "tfm_model_invoke" => tfm_model_invoke(Arc::clone(&models), store),
             "request_capability" => request_capability(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&capabilities), store),
             "request_capability_set_param" => request_capability_set_param(Arc::clone(&capabilities), store),
-            "request_provider_response" => request_provider_response(Arc::clone(&env), Arc::clone(&capabilities), store),
+            "request_provider_response" => request_provider_response(Arc::clone(&capabilities), store),
             "request_output" => request_output(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&outputs), store),
+            "consume_output" => consume_output(Arc::clone(&outputs), store),
         },
     }
 }
@@ -470,14 +471,9 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
     )
 }
 
-fn request_provider_response(
-    env: Arc<dyn Environment>,
-    caps: Capabilities,
-    store: &Store,
-) -> Function {
+fn request_provider_response(caps: Capabilities, store: &Store) -> Function {
     #[derive(Clone, wasmer::WasmerEnv)]
     struct State {
-        env: Arc<dyn Environment>,
         caps: Capabilities,
         #[wasmer(export)]
         memory: LazyInit<Memory>,
@@ -485,7 +481,6 @@ fn request_provider_response(
 
     let state = State {
         caps,
-        env,
         memory: LazyInit::default(),
     };
 
@@ -553,26 +548,75 @@ fn request_output(
         store,
         state,
         |s: &State, output_type: u32| unsafe {
-            match output_type {
-                outputs::SERIAL => {
-                    let output = s
-                        .env
-                        .new_serial()
-                        .unwrap_or_trap("Unable to create a new SERIAL output");
-                    let id = s.ids.next();
-
-                    log::debug!("Setting output {} to {:?}", id, output);
-                    s.outputs.lock().unwrap().insert(id, output);
-
-                    id
-                },
+            let output = match output_type {
+                outputs::SERIAL => s
+                    .env
+                    .new_serial()
+                    .unwrap_or_trap("Unable to create a new SERIAL output"),
                 _ => raise_user_trap(anyhow::anyhow!(
                     "Unknown output type: {}",
                     output_type
                 )),
-            }
+            };
+
+            let id = s.ids.next();
+            log::debug!("Output {} = {:?}", id, output);
+            s.outputs.lock().unwrap().insert(id, output);
+
+            id
         },
     )
+}
+
+fn consume_output(outputs: Outputs, store: &Store) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        outputs: Outputs,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        outputs,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, id: u32, input: WasmPtr<u8, Array>, len: u32| unsafe {
+            let memory = s.memory.get_unchecked();
+            let input = input
+                .deref(memory, 0, len)
+                .unwrap_or_trap("Bad buffer pointer");
+            let input: &[u8] = std::mem::transmute(input);
+
+            let mut outputs = s.outputs.lock().unwrap();
+
+            invoke_output(&mut outputs, id, input)
+                .unwrap_or_trap("Unable to invoke the output");
+
+            0_u32
+        },
+    )
+}
+
+fn invoke_output(
+    outputs: &mut HashMap<u32, Box<dyn Output>>,
+    id: u32,
+    input: &[u8],
+) -> Result<(), Error> {
+    let out = unsafe { outputs.get_mut(&id).unwrap_or_trap("Invalid output") };
+
+    log::debug!(
+        "Invoking output {} ({:?}) on a {}-byte buffer",
+        id,
+        out,
+        input.len()
+    );
+    log::trace!("Buffer: {:?}", input);
+
+    out.consume(input)
 }
 
 trait TrapExt<T> {

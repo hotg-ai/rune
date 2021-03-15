@@ -2,7 +2,7 @@ use crate::{wasm32::intrinsics, Sink, outputs};
 use serde::Serialize;
 use core::fmt::Debug;
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Serial {
     id: u32,
@@ -16,6 +16,10 @@ impl Serial {
             }
         }
     }
+}
+
+impl Default for Serial {
+    fn default() -> Self { Serial::new() }
 }
 
 impl<T: Serialize> Sink<T> for Serial {

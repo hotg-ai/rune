@@ -51,7 +51,7 @@ fn sine() {
         .code(0)
         // Note: sin(0.8) = 0.7173560909, but our model is kinda inaccurate so
         // we hard-code the value it actually yields.
-        .stderr(predicates::str::contains("Serial -> [0.6972786]"));
+        .stderr(predicates::str::contains("Serial: [0.6972786]"));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn yes_microspeech() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("Serial -> \"yes\""));
+        .stderr(predicates::str::contains("Serial: \"yes\""));
 }
 
 #[test]
@@ -143,5 +143,5 @@ fn no_microspeech() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("Serial -> \"no\""));
+        .stderr(predicates::str::contains("Serial: \"no\""));
 }

@@ -6,10 +6,9 @@ pub struct Serial {}
 
 impl Output for Serial {
     fn consume(&mut self, buffer: &[u8]) -> Result<(), Error> {
-        let deserialized = serde_json::from_slice(buffer)
-            .context("Unable to parse the data as JSON")?;
+        let json = std::str::from_utf8(buffer).context("Unable to parse the input as UTF-8")?;
 
-        log::info!("Serial: {:?}", deserialized);
+        log::info!("Serial: {}", json);
 
         Ok(())
     }
