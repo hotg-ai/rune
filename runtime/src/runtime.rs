@@ -1,7 +1,7 @@
-use crate::{Environment, capability::Capability};
+use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
 use log::Level;
-use runic_types::Value;
+use runic_types::{Value, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
@@ -22,6 +22,7 @@ use wasmer::{
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
 type Capabilities = Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>;
+type Outputs = Arc<Mutex<HashMap<u32, Box<dyn Output>>>>;
 
 pub struct Runtime {
     instance: Instance,
@@ -101,8 +102,9 @@ impl Runtime {
 
 fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
     let ids = Arc::new(Identifiers::new());
-    let models = Arc::new(Mutex::new(HashMap::new()));
-    let capabilities = Arc::new(Mutex::new(HashMap::new()));
+    let models = Models::default();
+    let capabilities = Capabilities::default();
+    let outputs = Outputs::default();
 
     wasmer::imports! {
         "env" => {
@@ -111,7 +113,9 @@ fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
             "tfm_model_invoke" => tfm_model_invoke(Arc::clone(&models), store),
             "request_capability" => request_capability(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&capabilities), store),
             "request_capability_set_param" => request_capability_set_param(Arc::clone(&capabilities), store),
-            "request_provider_response" => request_provider_response(Arc::clone(&env), Arc::clone(&capabilities), store),
+            "request_provider_response" => request_provider_response(Arc::clone(&capabilities), store),
+            "request_output" => request_output(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&outputs), store),
+            "consume_output" => consume_output(Arc::clone(&outputs), store),
         },
     }
 }
@@ -467,14 +471,9 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
     )
 }
 
-fn request_provider_response(
-    env: Arc<dyn Environment>,
-    caps: Capabilities,
-    store: &Store,
-) -> Function {
+fn request_provider_response(caps: Capabilities, store: &Store) -> Function {
     #[derive(Clone, wasmer::WasmerEnv)]
     struct State {
-        env: Arc<dyn Environment>,
         caps: Capabilities,
         #[wasmer(export)]
         memory: LazyInit<Memory>,
@@ -482,7 +481,6 @@ fn request_provider_response(
 
     let state = State {
         caps,
-        env,
         memory: LazyInit::default(),
     };
 
@@ -529,6 +527,96 @@ fn invoke_capability(
     );
 
     cap.generate(dest)
+}
+
+fn request_output(
+    ids: Arc<Identifiers>,
+    env: Arc<dyn Environment>,
+    outputs: Outputs,
+    store: &Store,
+) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        ids: Arc<Identifiers>,
+        env: Arc<dyn Environment>,
+        outputs: Outputs,
+    }
+
+    let state = State { outputs, ids, env };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, output_type: u32| unsafe {
+            let output = match output_type {
+                outputs::SERIAL => s
+                    .env
+                    .new_serial()
+                    .unwrap_or_trap("Unable to create a new SERIAL output"),
+                _ => raise_user_trap(anyhow::anyhow!(
+                    "Unknown output type: {}",
+                    output_type
+                )),
+            };
+
+            let id = s.ids.next();
+            log::debug!("Output {} = {:?}", id, output);
+            s.outputs.lock().unwrap().insert(id, output);
+
+            id
+        },
+    )
+}
+
+fn consume_output(outputs: Outputs, store: &Store) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        outputs: Outputs,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        outputs,
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, id: u32, input: WasmPtr<u8, Array>, len: u32| unsafe {
+            let memory = s.memory.get_unchecked();
+            let input = input
+                .deref(memory, 0, len)
+                .unwrap_or_trap("Bad buffer pointer");
+            let input: &[u8] = std::mem::transmute(input);
+
+            let mut outputs = s.outputs.lock().unwrap();
+
+            invoke_output(&mut outputs, id, input)
+                .unwrap_or_trap("Unable to invoke the output");
+
+            0_u32
+        },
+    )
+}
+
+fn invoke_output(
+    outputs: &mut HashMap<u32, Box<dyn Output>>,
+    id: u32,
+    input: &[u8],
+) -> Result<(), Error> {
+    let out = unsafe { outputs.get_mut(&id).unwrap_or_trap("Invalid output") };
+
+    log::debug!(
+        "Invoking output {} ({:?}) on a {}-byte buffer",
+        id,
+        out,
+        input.len()
+    );
+    log::trace!("Buffer: {:?}", input);
+
+    out.consume(input)
 }
 
 trait TrapExt<T> {

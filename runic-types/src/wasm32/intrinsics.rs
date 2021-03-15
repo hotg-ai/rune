@@ -52,10 +52,17 @@ extern "C" {
         value_type: u32,
     ) -> u32;
 
-    /// Direct the current pipeline's output to a particular location.
+    /// Ask the runtime to allocate a new output of the specified type.
     ///
-    /// See [`crate::OUTPUT`] to find out which outputs are available.
-    pub fn request_manifest_output(out_type: u32) -> u32;
+    /// See [`crate::outputs`] to find out which outputs are available. Invalid
+    /// or unsupported parameters will trigger a trap and abort at runtime.
+    pub fn request_output(out_type: u32) -> u32;
+
+    /// Write the result of a pipeline to an output device.
+    ///
+    /// The contents of the buffer are output-specific. Any errors will trigger
+    /// a a trap and abort at runtime.
+    pub fn consume_output(output_id: u32, buffer: *const u8, len: u32) -> u32;
 
     /// Ask a particular capability to fill the `buffer` with input.
     ///

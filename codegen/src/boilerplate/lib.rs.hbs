@@ -5,11 +5,7 @@
 
 extern crate alloc;
 
-#[allow(unused_imports)]
-use runic_types::{
-    wasm32::{intrinsics, Model, Random, Serial},
-    Source, Sink, Transform, debug,
-};
+use runic_types::{*, wasm32::*};
 use alloc::boxed::Box;
 
 static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
