@@ -1,7 +1,14 @@
 use anyhow::{Context, Error};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use walkdir::{DirEntry, WalkDir};
-use std::{ffi::OsStr, path::Path, process::Command};
+use std::{
+    ffi::OsStr,
+    fs::File,
+    io::{Seek, Write},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
+use zip::write::{ZipWriter, FileOptions};
 
 pub fn generate_release_artifacts() -> Result<(), Error> {
     log::info!("Generating release artifacts");
@@ -29,7 +36,96 @@ pub fn generate_release_artifacts() -> Result<(), Error> {
         .with_max_depth(1)
         .copy(project_root.join(""), &dist)?;
 
+    generate_archive(&cargo, &dist, &target)
+        .context("Unable to generate the zip archive")?;
+
     Ok(())
+}
+
+fn generate_archive(
+    cargo: &str,
+    dist: &Path,
+    target_dir: &Path,
+) -> Result<(), Error> {
+    let name = archive_name(cargo, target_dir)?;
+    log::info!("Writing the release archive to \"{}\"", name.display());
+
+    let f = File::create(&name).with_context(|| {
+        format!("Unable to open \"{}\" for writing", name.display())
+    })?;
+
+    let mut writer = ZipWriter::new(f);
+
+    for entry in WalkDir::new(dist).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        log::debug!("Adding \"{}\" to the archive", path.display());
+
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        add_entry_to_archive(&mut writer, dist, &entry).with_context(|| {
+            format!("Unable to add \"{}\" to the archive", path.display())
+        })?;
+    }
+
+    writer.finish()?;
+
+    Ok(())
+}
+
+fn add_entry_to_archive<W>(
+    writer: &mut ZipWriter<W>,
+    base: &Path,
+    entry: &DirEntry,
+) -> Result<(), Error>
+where
+    W: Write + Seek,
+{
+    let path = entry.path();
+    let name = path.strip_prefix(base)?;
+    writer.start_file(name.display().to_string(), FileOptions::default())?;
+
+    let mut reader = File::open(path)?;
+
+    std::io::copy(&mut reader, writer)?;
+    writer.flush()?;
+
+    Ok(())
+}
+
+fn archive_name(cargo: &str, target_dir: &Path) -> Result<PathBuf, Error> {
+    let mut cmd = Command::new(cargo);
+    cmd.arg("rustc")
+        .arg("--")
+        .arg("--version")
+        .arg("--verbose")
+        .stdout(Stdio::piped());
+
+    log::debug!("Executing {:?}", cmd);
+
+    let output = cmd.output().context("Unable to invoke cargo")?;
+
+    anyhow::ensure!(output.status.success(), "Cargo executed unsuccessfully");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    log::debug!("Stdout from rustc: \n{}", stdout.trim());
+
+    let target_triple = stdout
+        .lines()
+        .filter_map(|line| {
+            if line.contains("host") {
+                line.split(" ").skip(1).next()
+            } else {
+                None
+            }
+        })
+        .next()
+        .context("Unable to determine the target triple")?;
+
+    let name = format!("rune.{}.zip", target_triple.trim());
+
+    Ok(target_dir.join(name))
 }
 
 fn compile_example_runes(
