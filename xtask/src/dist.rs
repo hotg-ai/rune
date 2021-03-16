@@ -36,18 +36,14 @@ pub fn generate_release_artifacts() -> Result<(), Error> {
         .with_max_depth(1)
         .copy(project_root.join(""), &dist)?;
 
-    generate_archive(&cargo, &dist, &target)
+    generate_archive(&dist, &target)
         .context("Unable to generate the zip archive")?;
 
     Ok(())
 }
 
-fn generate_archive(
-    cargo: &str,
-    dist: &Path,
-    target_dir: &Path,
-) -> Result<(), Error> {
-    let name = archive_name(cargo, target_dir)?;
+fn generate_archive(dist: &Path, target_dir: &Path) -> Result<(), Error> {
+    let name = archive_name(target_dir)?;
     log::info!("Writing the release archive to \"{}\"", name.display());
 
     let f = File::create(&name).with_context(|| {
@@ -94,22 +90,25 @@ where
     Ok(())
 }
 
-fn archive_name(cargo: &str, target_dir: &Path) -> Result<PathBuf, Error> {
-    let mut cmd = Command::new(cargo);
-    cmd.arg("rustc")
-        .arg("--")
-        .arg("--version")
-        .arg("--verbose")
-        .stdout(Stdio::piped());
+fn archive_name(target_dir: &Path) -> Result<PathBuf, Error> {
+    let mut cmd = Command::new("rustc");
+    cmd.arg("--version").arg("--verbose");
 
     log::debug!("Executing {:?}", cmd);
 
-    let output = cmd.output().context("Unable to invoke cargo")?;
+    let output = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .output()
+        .context("Unable to invoke cargo")?;
 
-    anyhow::ensure!(output.status.success(), "Cargo executed unsuccessfully");
+    log::debug!("Output: {:?}", output);
+
+    if !output.status.success() {
+        anyhow::bail!("Rustc failed");
+    }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    log::debug!("Stdout from rustc: \n{}", stdout.trim());
 
     let target_triple = stdout
         .lines()
