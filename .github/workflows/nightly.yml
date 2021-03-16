@@ -37,7 +37,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
-        toolchain: stable
+        toolchain: nightly
     - name: Build
       run: cargo xtask dist
       env:
