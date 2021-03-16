@@ -16,7 +16,7 @@ async function runOnce() {
   const slug = process.env.GITHUB_REPOSITORY;
   const owner = slug.split('/')[0];
   const repo = slug.split('/')[1];
-  const sha = process.env.HEAD_SHA;
+  const sha = process.env.GITHUB_SHA;
 
   core.info(`files: ${files}`);
   core.info(`name: ${name}`);
@@ -42,11 +42,11 @@ async function runOnce() {
     try {
       core.info(`updating nightly tag`);
       await octokit.git.updateRef({
-          owner,
-          repo,
-          ref: 'tags/nightly',
-          sha,
-          force: true,
+        owner,
+        repo,
+        ref: 'tags/nightly',
+        sha,
+        force: true,
       });
     } catch (e) {
       console.log("ERROR: ", JSON.stringify(e, null, 2));
