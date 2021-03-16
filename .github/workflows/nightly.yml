@@ -60,17 +60,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
       - name: Fetch Pre-Compiled Binaries
         uses: actions/download-artifact@v2
         with:
           path: public
-
       - name: Print Artifacts
         run: ls -la public
       - name: Publish Release
-        uses: ./.github/actions/github-release
+        uses: johnwbyrd/update-release@v1
         with:
-          files: "public/*.zip"
-          name: nightly
+          files: public/*.zip
+          release: nightly
+          tag: nightly
           token: ${{ secrets.GITHUB_TOKEN }}
