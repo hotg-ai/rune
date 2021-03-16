@@ -102,7 +102,9 @@ impl From<tflite::context::TensorInfo> for TensorInfo {
         TensorInfo {
             name,
             dims,
-            element_kind: format!("{:?}", element_kind),
+            element_kind: format!("{:?}", element_kind)
+                .trim_start_matches("kTfLite")
+                .to_string(),
         }
     }
 }
