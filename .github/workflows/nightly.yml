@@ -33,20 +33,23 @@ jobs:
             artifact_name: "target/rune.*.zip"
             asset_name: rune-macos
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly
-    - name: Build
-      run: cargo xtask dist
-      env:
-        RUST_LOG: info,xtask=debug
-    - name: Upload binaries to release
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ matrix.asset_name }}
-        path: ${{ matrix.artifact_name }}
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Build
+        run: cargo xtask dist
+        env:
+          RUST_LOG: info,xtask=debug
+      - name: Upload binaries to release
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.artifact_name }}
 
   create-release:
     name: Create Nightly Release
