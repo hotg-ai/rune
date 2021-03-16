@@ -2490,5 +2490,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "devx-pre-commit",
+ "serde",
+ "serde_json",
  "structopt",
+ "tflite",
 ]
