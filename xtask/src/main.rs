@@ -1,10 +1,11 @@
 mod model_info;
+mod dist;
 
-use std::path::Path;
-
+use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
 use devx_pre_commit::PreCommitContext;
 use model_info::model_info;
+use env_logger::Env;
 use structopt::StructOpt;
 
 use crate::model_info::ModelInfo;
@@ -17,14 +18,21 @@ fn main() -> Result<(), Error> {
         return run_pre_commit_hook(&project_root);
     }
 
+    let env = Env::new().default_filter_or("xtask=info");
+    env_logger::builder().parse_env(env).init();
+
     let cmd = Command::from_args();
+
+    log::debug!("Running {:?}", cmd);
 
     match cmd {
         Command::InstallPreCommit => {
+            log::info!("Installing this binary as the pre-commit hook");
             devx_pre_commit::install_self_as_hook(&project_root)
                 .context("Unable to install the pre-commit hook")?;
         },
         Command::ModelInfo(m) => model_info(m)?,
+        Command::Dist => dist::generate_release_artifacts()?,
     }
 
     Ok(())
@@ -58,4 +66,18 @@ enum Command {
         about = "Load a TensorFlow Lite model and print information about it"
     )]
     ModelInfo(ModelInfo),
+    Dist,
+}
+
+fn project_root() -> Result<PathBuf, Error> {
+    let cwd = std::env::current_dir()
+        .context("Unable to determine the current directory")?;
+
+    for ancestor in cwd.ancestors() {
+        if ancestor.join(".git").exists() {
+            return Ok(ancestor.to_path_buf());
+        }
+    }
+
+    Err(Error::msg("Unable to find the project directory"))
 }
