@@ -1,5 +1,8 @@
 mod model_info;
 mod dist;
+mod bulk_copy;
+
+pub use bulk_copy::BulkCopy;
 
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
