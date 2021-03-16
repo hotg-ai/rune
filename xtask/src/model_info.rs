@@ -1,5 +1,6 @@
 use std::{
     fmt::{self, Display, Formatter},
+    io::Write,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -19,7 +20,7 @@ pub struct ModelInfo {
     #[structopt(
         short,
         long,
-        help = "The format to print output in",
+        help = "The format to print output in (supported: json, text)",
         default_value = "text",
         parse(try_from_str)
     )]
@@ -35,9 +36,10 @@ pub fn model_info(m: ModelInfo) -> Result<(), Error> {
     match m.format {
         Format::Text => print_info(&info),
         Format::Json => {
-            let stdout = std::io::stdout();
-            serde_json::to_writer_pretty(stdout, &info)
+            let mut stdout = std::io::stdout();
+            serde_json::to_writer_pretty(stdout.lock(), &info)
                 .context("Unable to print to stdout")?;
+            writeln!(stdout)?;
         },
     }
 
