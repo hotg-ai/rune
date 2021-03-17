@@ -141,7 +141,7 @@ impl Generator {
                 "name": "log",
                 "deps": {
                     "version": "0.4",
-                    "features": ["max_level_debug", "release_max_level_debug"]
+                    "features": ["max_level_debug", "release_max_level_info"]
                 }
             }),
         ];
@@ -555,7 +555,7 @@ mod tests {
         let got = as_inline_toml(&object);
         assert_eq!(
             got,
-            r#"{ default-features = false, version = "1.7.0", features = ["a", "b"] }"#
+            r#"{ default-features = false, features = ["a", "b"], version = "1.7.0" }"#
         );
 
         #[derive(serde::Deserialize)]

@@ -33,6 +33,14 @@ pub static ALLOCATOR: self::alloc::StatsAllocator<
 
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {
+    // Logging at the error level should result in a runtime trap. This way
+    // we get both a nice error message.
+    log::error!("{}", info);
+
+    // However, if we couldn't send the error log to the runtime (e.g. due to
+    // memory issues), we should still try to generate *some* error message
+    // and abort.
+
     // Safety: We need our own buffer for panic messages in case the allocator
     // is FUBAR. Runes are single-threaded, so we can guarantee we'll never
     // have aliased mutation.

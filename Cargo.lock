@@ -1696,6 +1696,7 @@ dependencies = [
  "rune-codegen",
  "rune-syntax",
  "runic-types",
+ "serde_json",
  "tempfile",
  "tflite",
  "thiserror",

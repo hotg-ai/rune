@@ -9,7 +9,6 @@ use runic_types::{*, wasm32::*};
 use alloc::boxed::Box;
 
 static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
-static LOGGER: Logger = Logger::new();
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {

@@ -1,4 +1,4 @@
-use log::{Log, Metadata, Record, Level, LevelFilter};
+use log::{Log, Metadata, Record};
 use alloc::string::ToString;
 use crate::{SerializableRecord, wasm32::intrinsics};
 
@@ -13,7 +13,9 @@ impl Logger {
 }
 
 impl Log for Logger {
-    fn enabled(&self, metadata: &Metadata<'_>) -> bool { true }
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+        metadata.level() <= log::max_level()
+    }
 
     fn log(&self, r: &Record<'_>) {
         if !self.enabled(r.metadata()) {

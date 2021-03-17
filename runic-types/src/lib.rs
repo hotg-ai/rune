@@ -15,7 +15,7 @@ mod pipelines;
 mod value;
 
 use alloc::borrow::Cow;
-use log::Level;
+use log::{Level, Record};
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
 pub use value::{Value, Type, AsType, InvalidConversionError};
@@ -48,12 +48,28 @@ pub mod outputs {
 }
 
 /// A serializable version of [`log::Record`].
-#[derive(Debug, serde::Serialize)]
-struct SerializableRecord<'a> {
-    level: Level,
-    message: Cow<'a, str>,
-    target: Cow<'a, str>,
-    module_path: Option<Cow<'a, str>>,
-    file: Option<Cow<'a, str>>,
-    line: Option<u32>,
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SerializableRecord<'a> {
+    pub level: Level,
+    pub message: Cow<'a, str>,
+    pub target: Cow<'a, str>,
+    pub module_path: Option<Cow<'a, str>>,
+    pub file: Option<Cow<'a, str>>,
+    pub line: Option<u32>,
+}
+
+impl<'a> SerializableRecord<'a> {
+    pub fn with_record<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&Record<'_>) -> R,
+    {
+        f(&Record::builder()
+            .level(self.level)
+            .args(format_args!("{}", self.message.as_ref()))
+            .target(self.target.as_ref())
+            .module_path(self.module_path.as_deref())
+            .file(self.file.as_deref())
+            .line(self.line)
+            .build())
+    }
 }

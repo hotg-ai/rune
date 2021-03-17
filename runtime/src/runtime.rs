@@ -1,7 +1,7 @@
 use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
-use log::Level;
-use runic_types::{Value, outputs};
+use log::{Level, Record};
+use runic_types::{SerializableRecord, Value, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
@@ -151,7 +151,21 @@ fn log(env: Arc<dyn Environment + 'static>, store: &Store) -> Function {
                 .get_utf8_str(memory, len)
                 .unwrap_or_trap("Bad message pointer");
 
-            s.env.log(msg);
+            match serde_json::from_str::<SerializableRecord>(msg) {
+                Ok(r) => {
+                    r.with_record(|record| s.env.log(record));
+
+                    if r.level == Level::Error {
+                        let cause = Error::msg(r.message.into_owned());
+                        raise_user_trap(
+                            cause.context("Aborting due to fatal error"),
+                        );
+                    }
+                },
+                Err(_) => s.env.log(
+                    &Record::builder().args(format_args!("{}", msg)).build(),
+                ),
+            }
 
             0_u32
         },
