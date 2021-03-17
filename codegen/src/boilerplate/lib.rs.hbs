@@ -13,7 +13,7 @@ static LOGGER: Logger = Logger::new();
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
-    let _ = log::set_logger(&Logger);
+    let _setup = SetupGuard::default();
 
     {{#each capabilities~}}
     let mut {{name}} = {{type}}::default();
@@ -41,6 +41,8 @@ pub extern "C" fn _manifest() -> u32 {
     {{~/each}}
 
     let pipeline = move || {
+        let _guard = PipelineGuard::default();
+
         {{#each pipeline~}}
         {{~#if first~}}
         let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();

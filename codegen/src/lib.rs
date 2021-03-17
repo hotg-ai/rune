@@ -137,7 +137,13 @@ impl Generator {
             json!({ "name": "wee_alloc", "deps": { "version": "0.4.5" }}),
             json!({ "name": "once_cell", "deps": { "version": "1.7.0", "default-features": false }}),
             json!({ "name": "runic-types", "deps": { "path": runic_types }}),
-            json!({ "name": "log", "deps": { "version": "0.4" }}),
+            json!({
+                "name": "log",
+                "deps": {
+                    "version": "0.4",
+                    "features": ["max_level_debug", "release_max_level_debug"]
+                }
+            }),
         ];
 
         for proc in self.rune.proc_blocks.values() {
@@ -483,7 +489,11 @@ fn as_inline_toml(value: &Value) -> String {
         Value::Array(arr) => {
             let mut buffer = String::new();
             buffer.push_str("[ ");
-            for item in arr {
+            for (i, item) in arr.iter().enumerate() {
+                if i > 0 {
+                    buffer.push_str(", ");
+                }
+
                 let item = as_inline_toml(item);
                 buffer.push_str(&item);
             }
@@ -539,10 +549,14 @@ mod tests {
         let object = json!({
             "default-features": false,
             "version": "1.7.0",
+            "features": ["a", "b"]
         });
 
         let got = as_inline_toml(&object);
-        assert_eq!(got, r#"{ default-features = false, version = "1.7.0" }"#);
+        assert_eq!(
+            got,
+            r#"{ default-features = false, version = "1.7.0", features = ["a", "b"] }"#
+        );
 
         #[derive(serde::Deserialize)]
         struct Document {

@@ -5,7 +5,6 @@
     feature(core_intrinsics, lang_items, alloc_error_handler)
 )]
 
-#[cfg(target_arch = "wasm32")]
 extern crate alloc;
 
 #[cfg(target_arch = "wasm32")]
@@ -15,6 +14,8 @@ mod buffer;
 mod pipelines;
 mod value;
 
+use alloc::borrow::Cow;
+use log::Level;
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
 pub use value::{Value, Type, AsType, InvalidConversionError};
@@ -44,4 +45,15 @@ pub mod outputs {
     pub const BLE: u32 = 2;
     pub const PIN: u32 = 3;
     pub const WIFI: u32 = 4;
+}
+
+/// A serializable version of [`log::Record`].
+#[derive(Debug, serde::Serialize)]
+struct SerializableRecord<'a> {
+    level: Level,
+    message: Cow<'a, str>,
+    target: Cow<'a, str>,
+    module_path: Option<Cow<'a, str>>,
+    file: Option<Cow<'a, str>>,
+    line: Option<u32>,
 }

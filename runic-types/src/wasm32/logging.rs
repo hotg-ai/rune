@@ -1,52 +1,37 @@
 use log::{Log, Metadata, Record, Level, LevelFilter};
-use alloc::vec::Vec;
-use core::{cell::RefCell, fmt::Write};
-use super::intrinsics;
+use alloc::string::ToString;
+use crate::{SerializableRecord, wasm32::intrinsics};
 
 /// An implementation of [`Log`] which uses [`intrinsics::_debug()`] to send
 /// log messages to the runtime.
 #[derive(Debug, Clone)]
-pub struct Logger {
-    filter: LevelFilter,
-}
+#[non_exhaustive]
+pub struct Logger {}
 
 impl Logger {
-    pub const fn new() -> Self {
-        if cfg!(debug_assertions) {
-            Logger::with_level_filter(LevelFilter::Debug)
-        } else {
-            Logger::with_level_filter(LevelFilter::Info)
-        }
-    }
-
-    pub const fn with_level_filter(filter: LevelFilter) -> Self {
-        Logger {
-            buffer: RefCell::new(Vec::with_capacity(1024)),
-            filter,
-        }
-    }
+    pub const fn new() -> Self { Logger {} }
 }
 
 impl Log for Logger {
-    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        metadata.level() <= self.filter
-    }
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool { true }
 
     fn log(&self, r: &Record<'_>) {
         if !self.enabled(r.metadata()) {
             return;
         }
 
+        let message = r.args().to_string();
+
         let record = SerializableRecord {
             level: r.level(),
-            message: r.args().to_string(),
-            target: r.target(),
-            module_path: r.module_path(),
-            file: r.file(),
+            message: message.into(),
+            target: r.target().into(),
+            module_path: r.module_path().map(Into::into),
+            file: r.file().map(Into::into),
             line: r.line(),
         };
 
-        match serde_json::to_string(record) {
+        match serde_json::to_string(&record) {
             Ok(buffer) => unsafe {
                 intrinsics::_debug(buffer.as_ptr(), buffer.len() as u32);
             },
@@ -59,14 +44,4 @@ impl Log for Logger {
     fn flush(&self) {
         // nothing to do here
     }
-}
-
-#[derive(Debug, serde::Serialize)]
-struct SerializableRecord<'a> {
-    level: Level,
-    message: &'a str,
-    target: &'a str,
-    module_path: Option<&'a str>,
-    file: Option<&'a str>,
-    line: Option<u32>,
 }

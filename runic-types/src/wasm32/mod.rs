@@ -1,5 +1,7 @@
-mod debug;
 mod accelerometer;
+pub mod alloc;
+mod debug;
+mod guards;
 mod image;
 pub mod intrinsics;
 mod logging;
@@ -10,6 +12,7 @@ mod sound;
 
 pub use accelerometer::Accelerometer;
 pub use image::Image;
+pub use guards::{SetupGuard, PipelineGuard};
 pub use model::Model;
 pub use random::Random;
 pub use serial::Serial;
@@ -22,7 +25,11 @@ use wee_alloc::WeeAlloc;
 use crate::{Buffer, Value};
 
 #[global_allocator]
-pub static ALLOC: WeeAlloc = WeeAlloc::INIT;
+pub static ALLOCATOR: self::alloc::StatsAllocator<
+    self::alloc::DebugAllocator<WeeAlloc<'static>>,
+> = self::alloc::StatsAllocator::new(self::alloc::DebugAllocator::new(
+    WeeAlloc::INIT,
+));
 
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {
@@ -31,7 +38,7 @@ fn on_panic(info: &PanicInfo) -> ! {
     // have aliased mutation.
     unsafe {
         static mut DEBUG_BUFFER: [u8; 1024] = [0; 1024];
-        let mut writer = BufWriter::new(&mut DEBUG_BUFFER);
+        let mut w = BufWriter::new(&mut DEBUG_BUFFER);
 
         if write!(w, "{}", info).is_ok() {
             w.flush();
