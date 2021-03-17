@@ -137,6 +137,7 @@ impl Generator {
             json!({ "name": "wee_alloc", "deps": { "version": "0.4.5" }}),
             json!({ "name": "once_cell", "deps": { "version": "1.7.0", "default-features": false }}),
             json!({ "name": "runic-types", "deps": { "path": runic_types }}),
+            json!({ "name": "log", "deps": { "version": "0.4" }}),
         ];
 
         for proc in self.rune.proc_blocks.values() {

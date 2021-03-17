@@ -9,9 +9,12 @@ use runic_types::{*, wasm32::*};
 use alloc::boxed::Box;
 
 static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
+static LOGGER: Logger = Logger::new();
 
 #[no_mangle]
 pub extern "C" fn _manifest() -> u32 {
+    let _ = log::set_logger(&Logger);
+
     {{#each capabilities~}}
     let mut {{name}} = {{type}}::default();
     {{~#if parameters}}
@@ -41,12 +44,12 @@ pub extern "C" fn _manifest() -> u32 {
         {{#each pipeline~}}
         {{~#if first~}}
         let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();
-        runic_types::debug!("{{name}} => {:?}", data);
+        log::debug!("{{name}} => {:?}", data);
         {{else}}{{#if last}}
         {{name}}.consume(data);
         {{~else~}}
         let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.transform(data);
-        runic_types::debug!("{{name}} => {:?}", data);
+        log::debug!("{{name}} => {:?}", data);
         {{/if}}{{/if~}}{{~/each}}
     };
 

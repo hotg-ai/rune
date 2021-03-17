@@ -1,5 +1,3 @@
-pub static mut DEBUG_BUFFER: [u8; 1024] = [0; 1024];
-
 #[derive(Debug)]
 pub struct BufWriter<'buf> {
     buffer: &'buf mut [u8],
@@ -42,27 +40,4 @@ impl<'buf> core::fmt::Write for BufWriter<'buf> {
 
         Ok(())
     }
-}
-
-#[macro_export]
-macro_rules! debug {
-    ($fmt:literal $(, $arg:expr)*) => {
-        {
-            use core::fmt::Write as _;
-            // SAFETY: This WebAssembly code will only ever be used by a single
-            // thread at a time.
-            #[allow(unused_unsafe)]
-            unsafe {
-                let mut buffer = $crate::wasm32::debug::BufWriter::new(&mut $crate::wasm32::debug::DEBUG_BUFFER);
-
-                if write!(buffer,
-                    concat!("[{}] ", $fmt),
-                    core::panic::Location::caller(),
-                    $($arg),*
-                ).is_ok() {
-                    buffer.flush();
-                }
-            }
-        }
-    };
 }

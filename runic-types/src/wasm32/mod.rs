@@ -1,21 +1,20 @@
+mod debug;
 mod accelerometer;
 mod image;
 pub mod intrinsics;
+mod logging;
 mod model;
 mod random;
 mod serial;
 mod sound;
 
-#[doc(hidden)] // only exposed so we can refer to the buffer and writer
-#[macro_use]
-pub mod debug;
-
-pub use model::Model;
-pub use random::Random;
-pub use sound::Sound;
-pub use serial::Serial;
 pub use accelerometer::Accelerometer;
 pub use image::Image;
+pub use model::Model;
+pub use random::Random;
+pub use serial::Serial;
+pub use sound::Sound;
+pub use logging::Logger;
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use debug::BufWriter;
@@ -27,9 +26,12 @@ pub static ALLOC: WeeAlloc = WeeAlloc::INIT;
 
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {
+    // Safety: We need our own buffer for panic messages in case the allocator
+    // is FUBAR. Runes are single-threaded, so we can guarantee we'll never
+    // have aliased mutation.
     unsafe {
-        let mut buffer = [0; 512];
-        let mut w = BufWriter::new(&mut buffer);
+        static mut DEBUG_BUFFER: [u8; 1024] = [0; 1024];
+        let mut writer = BufWriter::new(&mut DEBUG_BUFFER);
 
         if write!(w, "{}", info).is_ok() {
             w.flush();
@@ -41,7 +43,11 @@ fn on_panic(info: &PanicInfo) -> ! {
 
 #[alloc_error_handler]
 fn on_alloc_error(layout: Layout) -> ! {
-    panic!("memory allocation of {} bytes failed", layout.size())
+    panic!(
+        "memory allocation of {} bytes failed ({:?})",
+        layout.size(),
+        ALLOCATOR.stats()
+    );
 }
 
 fn copy_capability_data_to_buffer<B>(capability_id: u32, buffer: &mut B)
