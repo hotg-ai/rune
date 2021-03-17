@@ -1,6 +1,6 @@
 FROM runicos/base
 
-CAPABILITY<U8[96, 96, 3]> image IMAGE  #--sampling_frequency_ms 500 # This runs
+CAPABILITY<U8[96, 96]> image IMAGE  #--sampling_frequency_ms 500 # This runs
 #CAPABILITY<U8[96, 96]> image IMAGE --sampling_frequency_ms 500 # TODO: This does not run, currently: make it able to generate grayscale images
 
 # PROC_BLOCK<U8[96, 96],f32[96, 96]> normalize hotg-ai/rune#proc_blocks/normalize # TODO: Need a proc block with output values 0...255
