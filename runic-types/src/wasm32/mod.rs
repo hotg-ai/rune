@@ -39,7 +39,7 @@ use log::LevelFilter;
 /// - [`LevelFilter::Trace`] - 5
 #[no_mangle]
 pub static mut MAX_LOG_LEVEL: LevelFilter = if cfg!(debug_assertions) {
-    LevelFilter::Debug
+    LevelFilter::Trace
 } else {
     LevelFilter::Info
 };
