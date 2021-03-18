@@ -15,7 +15,7 @@ rand = { version = "0.8.3", features = ["small_rng"] }
 rand_core = "0.6.2"
 runic-types = { path = "../runic-types" }
 tempfile = "3.2.0"
-tflite = "0.9.4"
+tflite = { version = "0.9.4", features = ["debug_tflite"] }
 thiserror = "1.0.24"
 wasmer = "1.0.2"
 
