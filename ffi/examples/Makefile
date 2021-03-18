@@ -4,7 +4,7 @@ CXX_FLAGS := -g -std=c++20 -Wall
 RUST_FILES := $(wildcard ../**/*.rs)
 LIBS := -ldl -lpthread
 
-main: main.cpp rune.h librune_ffi.a
+main: main.cpp rune_sdk.hpp rune.h librune_ffi.a
 	$(CXX) $(CXX_FLAGS) main.cpp -o $@ librune_ffi.a $(LIBS)
 
 librune_ffi.a: $(RUST_FILES)

@@ -7,46 +7,41 @@
 #include <cassert>
 #include <string_view>
 #include "./rune.h"
+#include "./rune_sdk.hpp"
 
-void log(void *, const char *msg, int len)
+class RandomCapability : public rune::BaseCapability
 {
-    std::string_view message{msg, (size_t)len};
-    std::cout << message << std::endl;
-}
+    int generate(char *buffer, int len) override
+    {
+        // Fill the buffer with a well-known value
+        auto begin = (float *)buffer;
+        auto end = (float *)round_down((uintptr_t)(buffer + len), sizeof(float));
+        std::fill(begin, end, 42.0);
 
-uintptr_t round_down(uintptr_t n, uintptr_t m)
+        return len;
+    }
+};
+
+class SerialOutput : public rune::BaseOutput
 {
-    return (n / m) * m;
-}
+public:
+    int consume(const char *buffer, int len) override
+    {
+        std::string_view message{buffer, (size_t)len};
 
-int make_random(void *, Capability *cap)
+        std::cout << "Serial: " << message << std::endl;
+        return len;
+    }
+};
+
+class DummyEnvironment : public rune::BaseEnvironment
 {
-    *cap = {
-        .user_data = nullptr,
-        .generate = [](void *, char *buffer, int len) {
-            // Fill the buffer with a well-known value
-            auto begin = (float *)buffer;
-            auto end = (float *)round_down((uintptr_t)(buffer + len), sizeof(float));
-            std::fill(begin, end, 42.0);
+public:
+    rune::BaseCapability *random() override { return new RandomCapability{}; }
+    rune::BaseOutput *serial() override { return new SerialOutput{}; }
+};
 
-            return len; },
-        .set_parameter = [](void *, const char *, int, const char *, int, Type) { return 1; },
-        .destroy = nullptr,
-    };
-    return 0;
-}
-
-int make_serial(void *, Output *out)
-{
-    *out = {
-        .user_data = nullptr,
-        .consume = [](void *d, const char *b, int l) { log(d, b, l); return 0; },
-        .destroy = nullptr,
-    };
-    return 0;
-}
-
-void print_error(Error *error, std::string_view preamble)
+void print_error(rune::Error *error, std::string_view preamble)
 {
     const char *msg = rune_error_msg(error);
     std::cerr << preamble << ": " << msg << std::endl;
@@ -77,27 +72,19 @@ int main(int argc, char **argv)
                   std::istream_iterator<uint8_t>{file},
                   std::istream_iterator<uint8_t>{});
 
-    Callbacks cb{
-        .user_data = nullptr,
-        .log = log,
-        .random = make_random,
-        .accelerometer = nullptr,
-        .image = nullptr,
-        .serial = make_serial,
-        .destroy = nullptr,
-    };
+    auto cb = rune::make_callbacks(DummyEnvironment{});
 
-    auto result = rune_runtime_load(buffer.data(), buffer.size(), cb);
+    auto result = rune::rune_runtime_load(buffer.data(), buffer.size(), cb);
 
-    Runtime *runtime;
+    rune::Runtime *runtime;
 
     switch (result.tag)
     {
-    case RuntimeResult_Tag::Ok:
-        runtime = result.ok;
+    case rune::RuntimeResult::Tag::Ok:
+        runtime = result.ok._0;
         break;
-    case RuntimeResult_Tag::Err:
-        print_error(result.err, "Unable to load the runtime");
+    case rune::RuntimeResult::Tag::Err:
+        print_error(result.err._0, "Unable to load the runtime");
         return 1;
 
     default:

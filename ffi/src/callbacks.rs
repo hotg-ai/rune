@@ -41,6 +41,9 @@ pub struct Callbacks {
     /// Initialize a capability vtable which yields images.
     pub image:
         Option<unsafe extern "C" fn(*mut c_void, *mut Capability) -> c_int>,
+    /// Initialize a capability vtable which yields 16-bit PCM audio.
+    pub sound:
+        Option<unsafe extern "C" fn(*mut c_void, *mut Capability) -> c_int>,
     /// Initialize the serial output vtable.
     pub serial: Option<unsafe extern "C" fn(*mut c_void, *mut Output) -> c_int>,
     /// A destructor for the cleaning up the user data when the module is
