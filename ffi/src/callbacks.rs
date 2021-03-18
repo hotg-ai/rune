@@ -3,7 +3,7 @@ use std::{
     os::raw::{c_char, c_int},
 };
 
-use crate::capability::Capability;
+use crate::{Output, capability::Capability};
 
 /// A vtable providing the Rune with functions for interacting with its
 /// environment.
@@ -32,6 +32,8 @@ pub struct Callbacks {
     /// Initialize a capability vtable which yields images.
     pub image:
         Option<unsafe extern "C" fn(*mut c_void, *mut Capability) -> c_int>,
+    /// Initialize the serial output vtable.
+    pub serial: Option<unsafe extern "C" fn(*mut c_void, *mut Output) -> c_int>,
     /// A destructor for the cleaning up the user data when the module is
     /// unloaded.
     pub destroy: Option<unsafe extern "C" fn(*mut c_void)>,

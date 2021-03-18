@@ -1,6 +1,6 @@
 RUST_FLAGS := --release
 TARGET_DIR := ../../target/release
-CXX_FLAGS := -g -std=c++20
+CXX_FLAGS := -g -std=c++20 -Wall
 RUST_FILES := $(wildcard ../**/*.rs)
 LIBS := -ldl -lpthread
 

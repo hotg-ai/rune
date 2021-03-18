@@ -3,10 +3,12 @@
 mod callbacks;
 mod capability;
 mod environment;
+mod output;
 
 pub use callbacks::Callbacks;
 pub use capability::Capability;
 use environment::Environment;
+pub use output::Output;
 
 use std::{
     os::raw::{c_char, c_int},

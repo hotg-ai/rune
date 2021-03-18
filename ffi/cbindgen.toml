@@ -9,3 +9,7 @@ item_types = ["enums", "structs", "opaque", "functions"]
 
 [fn]
 must_use = "[[nodiscard]]"
+
+[parse]
+parse_deps = true
+include = ["runic-types"]

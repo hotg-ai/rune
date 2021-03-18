@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
@@ -7,20 +8,42 @@
 #include <string_view>
 #include "./rune.h"
 
-void log(void *data, const char *msg, int len)
+void log(void *, const char *msg, int len)
 {
     std::string_view message{msg, (size_t)len};
     std::cout << message << std::endl;
 }
 
-int fill_random(void *data, char *buffer, int len)
+uintptr_t round_down(uintptr_t n, uintptr_t m)
 {
-    for (int i = 0; i < len; i++)
-    {
-        buffer[i] = rand();
-    }
+    return (n / m) * m;
+}
 
-    return len;
+int make_random(void *, Capability *cap)
+{
+    *cap = {
+        .user_data = nullptr,
+        .generate = [](void *, char *buffer, int len) {
+            // Fill the buffer with a well-known value
+            auto begin = (float *)buffer;
+            auto end = (float *)round_down((uintptr_t)(buffer + len), sizeof(float));
+            std::fill(begin, end, 42.0);
+
+            return len; },
+        .set_parameter = [](void *, const char *, int, const char *, int, Type) { return 1; },
+        .destroy = nullptr,
+    };
+    return 0;
+}
+
+int make_serial(void *, Output *out)
+{
+    *out = {
+        .user_data = nullptr,
+        .consume = [](void *d, const char *b, int l) { log(d, b, l); return 0; },
+        .destroy = nullptr,
+    };
+    return 0;
 }
 
 void print_error(Error *error, std::string_view preamble)
@@ -40,8 +63,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    auto wasm = argv[1];
-
     std::ifstream file{argv[1], std::ios::binary};
     file.unsetf(std::ios::skipws);
 
@@ -56,12 +77,17 @@ int main(int argc, char **argv)
                   std::istream_iterator<uint8_t>{file},
                   std::istream_iterator<uint8_t>{});
 
-    Environment env{
+    Callbacks cb{
+        .user_data = nullptr,
         .log = log,
-        .fill_random = fill_random,
+        .random = make_random,
+        .accelerometer = nullptr,
+        .image = nullptr,
+        .serial = make_serial,
+        .destroy = nullptr,
     };
 
-    auto result = rune_runtime_load(buffer.data(), buffer.size(), env);
+    auto result = rune_runtime_load(buffer.data(), buffer.size(), cb);
 
     Runtime *runtime;
 

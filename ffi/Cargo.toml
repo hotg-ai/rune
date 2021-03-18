@@ -10,8 +10,14 @@ edition = "2018"
 anyhow = "1.0.38"
 env_logger = "0.8.3"
 libc = "0.2.87"
+rune-codegen = { path = "../codegen" }
 rune-runtime = { path = "../runtime" }
+rune-syntax = { path = "../syntax" }
 runic-types = { path = "../runic-types" }
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dev-dependencies]
+cbindgen = "0.18.0"
+tempfile = "3.2.0"

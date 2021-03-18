@@ -5,7 +5,7 @@ use std::{
 };
 use anyhow::{Context, Error};
 use libc::c_void;
-use rune_runtime::capability::Capability;
+use rune_runtime::{capability::Capability, outputs::Output};
 use crate::Callbacks;
 
 #[derive(Clone)]
@@ -39,6 +39,32 @@ impl Environment {
             }
         }
     }
+
+    fn get_output<F>(
+        &self,
+        get_constructor: F,
+    ) -> Result<Box<dyn Output>, Error>
+    where
+        F: FnOnce(
+            &Callbacks,
+        ) -> Option<
+            unsafe extern "C" fn(*mut c_void, *mut crate::Output) -> c_int,
+        >,
+    {
+        let cb = self.0.lock().unwrap();
+
+        let constructor = get_constructor(&cb).context("Not Supported")?;
+
+        unsafe {
+            let mut out = MaybeUninit::uninit();
+
+            if constructor(cb.user_data, out.as_mut_ptr()) == 0 {
+                Ok(Box::new(out.assume_init()))
+            } else {
+                Err(Error::msg("Not Supported"))
+            }
+        }
+    }
 }
 
 impl rune_runtime::Environment for Environment {
@@ -62,5 +88,9 @@ impl rune_runtime::Environment for Environment {
 
     fn new_image(&self) -> Result<Box<dyn Capability>, Error> {
         self.get_capability(|cb| cb.image)
+    }
+
+    fn new_serial(&self) -> Result<Box<dyn Output>, Error> {
+        self.get_output(|cb| cb.serial)
     }
 }

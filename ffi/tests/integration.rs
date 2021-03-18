@@ -1,0 +1,74 @@
+use std::{path::Path, process::Command};
+use tempfile::TempDir;
+use rune_syntax::Diagnostics;
+use rune_codegen::Compilation;
+
+#[test]
+fn execute_cpp_example() {
+    let temp = TempDir::new().unwrap();
+    let temp = temp.into_path();
+
+    let ffi_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let rune_project_dir = ffi_dir.parent().unwrap().to_path_buf();
+    let header = temp.join("rune.h");
+    let executable = temp.join("main");
+    let rune = temp.join("test.rune");
+    let lib = rune_project_dir
+        .join("target")
+        .join("debug")
+        .join("librune_ffi.a");
+
+    // First, generate the header file for our bindings
+    cbindgen::generate(ffi_dir).unwrap().write_to_file(&header);
+
+    // make sure the library was built
+    let status = Command::new("cargo")
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(ffi_dir.join("Cargo.toml"))
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    // Note: We may want to use something like cmake so this is more likely
+    // to work on other platforms.
+    let compiler =
+        std::env::var("CXX").unwrap_or_else(|_| String::from("clang++"));
+    let status = Command::new(compiler)
+        .arg("-g")
+        .arg("-std=c++20")
+        .arg("-Wall")
+        .arg("-o")
+        .arg(&executable)
+        .arg(ffi_dir.join("examples").join("main.cpp"))
+        .arg(&lib)
+        .arg("-ldl")
+        .arg("-lpthread")
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    // Compile a Runefile
+    let runefile = r"
+            FROM runicos/base
+            CAPABILITY<u8[8]> random RAND
+            OUT serial
+            RUN random serial";
+    let parsed = rune_syntax::parse(runefile).unwrap();
+    let mut diags = Diagnostics::new();
+    let analysed = rune_syntax::analyse((), &parsed, &mut diags);
+    assert!(!diags.has_errors());
+    let c = Compilation {
+        name: String::from("test"),
+        rune: analysed,
+        working_directory: temp.join("rust"),
+        current_directory: ffi_dir.to_path_buf(),
+        rune_project_dir,
+        optimized: false,
+    };
+    let compiled = rune_codegen::generate(c).unwrap();
+    // and write it to the temporary directory
+    std::fs::write(rune, &compiled).unwrap();
+
+    panic!("{}", temp.display());
+}
