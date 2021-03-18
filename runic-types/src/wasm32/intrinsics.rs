@@ -37,7 +37,8 @@ extern "C" {
     /// Request a capability with a particular type, yielding a unique handle
     /// that can be used to refer to the capability later on.
     ///
-    /// See [`crate::CAPABILITY`] to find out which capabilities are available.
+    /// See [`crate::capabilities`] to find out which capabilities are
+    /// available.
     pub fn request_capability(capability_type: u32) -> u32;
 
     /// Set a capability parameter by name.

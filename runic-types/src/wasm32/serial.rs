@@ -24,8 +24,10 @@ impl Default for Serial {
 
 impl<T: Serialize> Sink<T> for Serial {
     fn consume(&mut self, input: T) {
-        let msg = serde_json::to_string(&input)
+        let mut buffer = [0; 8192];
+        let bytes_written = serde_json_core::to_slice(&input, &mut buffer)
             .expect("Unable to serialize the data as JSON");
+        let msg = &buffer[..bytes_written];
 
         unsafe {
             intrinsics::consume_output(self.id, msg.as_ptr(), msg.len() as u32);

@@ -51,7 +51,7 @@ fn sine() {
         .code(0)
         // Note: sin(0.8) = 0.7173560909, but our model is kinda inaccurate so
         // we hard-code the value it actually yields.
-        .stderr(predicates::str::contains("Serial: [0.6972786]"));
+        .stderr(predicates::str::contains("Serial: [6.972786e-1]"));
 }
 
 #[test]

@@ -5,16 +5,19 @@
     feature(core_intrinsics, lang_items, alloc_error_handler)
 )]
 
-#[cfg(target_arch = "wasm32")]
 extern crate alloc;
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm32;
 
+mod buf_writer;
 mod buffer;
 mod pipelines;
 mod value;
 
+use alloc::borrow::Cow;
+pub use buf_writer::BufWriter;
+use log::{Level, Record};
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;
 pub use value::{Value, Type, AsType, InvalidConversionError};
@@ -44,4 +47,31 @@ pub mod outputs {
     pub const BLE: u32 = 2;
     pub const PIN: u32 = 3;
     pub const WIFI: u32 = 4;
+}
+
+/// A serializable version of [`log::Record`].
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SerializableRecord<'a> {
+    pub level: Level,
+    pub message: Cow<'a, str>,
+    pub target: Cow<'a, str>,
+    pub module_path: Option<Cow<'a, str>>,
+    pub file: Option<Cow<'a, str>>,
+    pub line: Option<u32>,
+}
+
+impl<'a> SerializableRecord<'a> {
+    pub fn with_record<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&Record<'_>) -> R,
+    {
+        f(&Record::builder()
+            .level(self.level)
+            .args(format_args!("{}", self.message.as_ref()))
+            .target(self.target.as_ref())
+            .module_path(self.module_path.as_deref())
+            .file(self.file.as_deref())
+            .line(self.line)
+            .build())
+    }
 }

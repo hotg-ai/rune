@@ -16,7 +16,7 @@ pub trait Environment: Send + Sync + 'static {
     /// [`Environment`] to do any necessary cleanup or synchronisation.
     fn after_call(&self) {}
 
-    fn log(&self, _msg: &str) {}
+    fn log(&self, _record: &Record<'_>) {}
 
     fn new_random(&self) -> Result<Box<dyn Capability>, Error> {
         Err(Error::new(NotSupportedError))
@@ -192,14 +192,5 @@ impl Environment for DefaultEnvironment {
         Ok(Box::new(Serial::default()))
     }
 
-    fn log(&self, msg: &str) {
-        // TODO: Update the _debug() function to take a file name and line
-        // number.
-        log::logger().log(
-            &Record::builder()
-                .module_path(Some(&self.name))
-                .args(format_args!("{}", msg))
-                .build(),
-        );
-    }
+    fn log(&self, record: &Record<'_>) { log::logger().log(record); }
 }

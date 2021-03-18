@@ -1,14 +1,14 @@
 use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
-use log::Level;
-use runic_types::{Value, outputs};
+use log::{Level, Record};
+use runic_types::{SerializableRecord, Value, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
 };
 use std::{
     collections::HashMap,
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     fmt::{Debug, Display},
     sync::{
         Arc, Mutex,
@@ -56,6 +56,10 @@ impl Runtime {
 
         let instance =
             Instance::new(&module, &imports).context("Instantiation failed")?;
+
+        if let Err(e) = set_max_log_level(&instance) {
+            log::warn!("Unable to set the log level: {:?}", e);
+        }
 
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
@@ -151,7 +155,21 @@ fn log(env: Arc<dyn Environment + 'static>, store: &Store) -> Function {
                 .get_utf8_str(memory, len)
                 .unwrap_or_trap("Bad message pointer");
 
-            s.env.log(msg);
+            match serde_json::from_str::<SerializableRecord>(msg) {
+                Ok(r) => {
+                    r.with_record(|record| s.env.log(record));
+
+                    if r.level == Level::Error {
+                        let cause = Error::msg(r.message.into_owned());
+                        raise_user_trap(
+                            cause.context("Aborting due to fatal error"),
+                        );
+                    }
+                },
+                Err(_) => s.env.log(
+                    &Record::builder().args(format_args!("{}", msg)).build(),
+                ),
+            }
 
             0_u32
         },
@@ -669,4 +687,30 @@ where
 
 unsafe fn raise_user_trap(error: Error) -> ! {
     wasmer::raise_user_trap(error.into())
+}
+
+fn set_max_log_level(instance: &Instance) -> Result<(), Error> {
+    let global = instance
+        .exports
+        .get_global("MAX_LOG_LEVEL")
+        .context("Unable to find the MAX_LOG_LEVEL global")?;
+
+    let index: u32 = global
+        .get()
+        .try_into()
+        .map_err(Error::msg)
+        .context("The MAX_LOG_LEVEL variable wasn't an integer")?;
+    let ptr: WasmPtr<u32> = WasmPtr::new(index);
+
+    let memory = instance
+        .exports
+        .get_memory("memory")
+        .context("Unable to find the main memory")?;
+
+    let cell = ptr.deref(memory).context("Incorrect MAX_LOG_LEVEL index")?;
+
+    let level = log::max_level();
+    log::debug!("Setting the MAX_LOG_LEVEL inside the Rune to {:?}", level);
+    cell.set(level as u32);
+    Ok(())
 }
