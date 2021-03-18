@@ -1720,6 +1720,7 @@ dependencies = [
  "handlebars",
  "heck",
  "log",
+ "once_cell",
  "rune-syntax",
  "serde",
  "serde_json",

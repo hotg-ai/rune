@@ -12,6 +12,17 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+use once_cell::sync::Lazy;
+
+static REQUIRED_DEPENDENCIES: Lazy<Vec<Value>> = Lazy::new(|| {
+    vec![json!({
+        "name": "log",
+        "deps": {
+            "version": "0.4",
+            "features": ["max_level_debug", "release_max_level_info"]
+        }
+    })]
+});
 
 #[derive(Debug)]
 pub struct Compilation {
@@ -131,27 +142,25 @@ impl Generator {
         Ok(())
     }
 
-    fn render_cargo_toml(&self) -> Result<(), Error> {
+    fn dependencies(&self) -> Vec<Value> {
         let runic_types = self.rune_project_dir.join("runic-types");
-        let mut dependencies = vec![
-            json!({ "name": "wee_alloc", "deps": { "version": "0.4.5" }}),
-            json!({ "name": "once_cell", "deps": { "version": "1.7.0", "default-features": false }}),
-            json!({ "name": "runic-types", "deps": { "path": runic_types }}),
-            json!({
-                "name": "log",
-                "deps": {
-                    "version": "0.4",
-                    "features": ["max_level_debug", "release_max_level_info"]
-                }
-            }),
-        ];
+        let mut dependencies = REQUIRED_DEPENDENCIES.clone();
+
+        dependencies.push(
+            json!({ "name": "runic-types", "deps": { "path": runic_types } }),
+        );
 
         for proc in self.rune.proc_blocks.values() {
             dependencies.push(dependency_info(proc, &self.rune_project_dir));
         }
 
-        let ctx = json!({ "name": self.name, "dependencies": dependencies });
+        dependencies
+    }
 
+    fn render_cargo_toml(&self) -> Result<(), Error> {
+        let dependencies = self.dependencies();
+
+        let ctx = json!({ "name": self.name, "dependencies": dependencies });
         self.render_to(self.dest.join("Cargo.toml"), "Cargo.toml", &ctx)?;
 
         Ok(())
