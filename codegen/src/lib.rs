@@ -497,7 +497,7 @@ fn as_inline_toml(value: &Value) -> String {
         Value::String(s) => format!("{:?}", s),
         Value::Array(arr) => {
             let mut buffer = String::new();
-            buffer.push_str("[ ");
+            buffer.push_str("[");
             for (i, item) in arr.iter().enumerate() {
                 if i > 0 {
                     buffer.push_str(", ");
@@ -506,7 +506,7 @@ fn as_inline_toml(value: &Value) -> String {
                 let item = as_inline_toml(item);
                 buffer.push_str(&item);
             }
-            buffer.push_str(" ]");
+            buffer.push_str("]");
 
             buffer
         },
