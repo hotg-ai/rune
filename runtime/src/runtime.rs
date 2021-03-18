@@ -57,6 +57,12 @@ impl Runtime {
         let instance =
             Instance::new(&module, &imports).context("Instantiation failed")?;
 
+        if let Ok(global) = instance.exports.get_global("MAX_LOG_LEVEL") {
+            global
+                .set(wasmer::Value::from(log::max_level() as u32))
+                .context("Unable to propagate the max log level to the Rune")?;
+        }
+
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
         let manifest: NativeFunc<(), i32> = instance

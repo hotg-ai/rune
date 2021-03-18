@@ -3,7 +3,6 @@ use super::{
     alloc::{Region, DebugAllocator, StatsAllocator},
     Logger,
 };
-use log::LevelFilter;
 use alloc::alloc::GlobalAlloc;
 use wee_alloc::WeeAlloc;
 
@@ -18,7 +17,12 @@ impl<'a, T: GlobalAlloc> SetupGuard<'a, T> {
     pub fn new(stats: &'a StatsAllocator<T>) -> Self {
         static LOGGER: Logger = Logger::new();
 
-        log::set_max_level(LevelFilter::Debug);
+        // Safety: The runtime won't try to change Rune memory while Rune code
+        // is running, and Runes are single-threaded so there is no risk of
+        // aliased mutation. The `MAX_LOG_LEVEL` docs also state that if
+        // modifying it from the outside, the variable should always have a
+        // valid value.
+        log::set_max_level(unsafe { super::MAX_LOG_LEVEL });
         log::set_logger(&LOGGER).unwrap();
 
         SetupGuard {
