@@ -10,11 +10,13 @@ extern crate alloc;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm32;
 
+mod buf_writer;
 mod buffer;
 mod pipelines;
 mod value;
 
 use alloc::borrow::Cow;
+pub use buf_writer::BufWriter;
 use log::{Level, Record};
 pub use pipelines::{Sink, Source, Transform};
 pub use buffer::Buffer;

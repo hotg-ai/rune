@@ -12,19 +12,15 @@ impl<'buf> BufWriter<'buf> {
         }
     }
 
-    pub fn written(&self) -> &[u8] { &self.buffer[..self.bytes_written] }
+    pub fn written(self) -> &'buf [u8] {
+        let BufWriter {
+            buffer,
+            bytes_written,
+        } = self;
+        &buffer[..bytes_written]
+    }
 
     fn rest(&mut self) -> &mut [u8] { &mut self.buffer[self.bytes_written..] }
-
-    pub fn flush(&mut self) {
-        let msg = self.written();
-
-        unsafe {
-            crate::wasm32::intrinsics::_debug(msg.as_ptr(), msg.len() as u32);
-        }
-
-        self.bytes_written = 0;
-    }
 }
 
 impl<'buf> core::fmt::Write for BufWriter<'buf> {
