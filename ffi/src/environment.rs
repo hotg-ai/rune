@@ -5,6 +5,7 @@ use std::{
 };
 use anyhow::{Context, Error};
 use libc::c_void;
+use log::Record;
 use rune_runtime::{capability::Capability, outputs::Output};
 use crate::Callbacks;
 
@@ -68,12 +69,22 @@ impl Environment {
 }
 
 impl rune_runtime::Environment for Environment {
-    fn log(&self, msg: &str) {
+    fn log(&self, record: &Record) {
         let cb = self.0.lock().unwrap();
 
         if let Some(log) = cb.log {
+            let msg = record.args().to_string();
+            let target = record.target();
+
             unsafe {
-                log(cb.user_data, msg.as_ptr().cast(), msg.len() as c_int);
+                log(
+                    cb.user_data,
+                    record.level() as c_int,
+                    target.as_ptr().cast(),
+                    target.len() as c_int,
+                    msg.as_ptr().cast(),
+                    msg.len() as c_int,
+                );
             }
         }
     }

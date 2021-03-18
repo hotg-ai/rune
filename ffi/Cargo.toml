@@ -10,6 +10,7 @@ edition = "2018"
 anyhow = "1.0.38"
 env_logger = "0.8.3"
 libc = "0.2.87"
+log = "0.4.14"
 rune-codegen = { path = "../codegen" }
 rune-runtime = { path = "../runtime" }
 rune-syntax = { path = "../syntax" }

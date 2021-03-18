@@ -19,7 +19,16 @@ pub struct Callbacks {
     /// calls.
     pub user_data: *mut c_void,
     /// Log a message.
-    pub log: Option<unsafe extern "C" fn(*mut c_void, *const c_char, c_int)>,
+    pub log: Option<
+        unsafe extern "C" fn(
+            *mut c_void,
+            c_int,
+            *const c_char,
+            c_int,
+            *const c_char,
+            c_int,
+        ),
+    >,
     /// Initialize a capability vtable which produces random data.
     pub random:
         Option<unsafe extern "C" fn(*mut c_void, *mut Capability) -> c_int>,

@@ -1,6 +1,6 @@
 use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
-use log::Level;
+use log::{Record, Level};
 use runic_types::{SerializableRecord, Value, Type, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
@@ -8,7 +8,7 @@ use tflite::{
 };
 use std::{
     collections::HashMap,
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     fmt::{Debug, Display},
     sync::{
         Arc, Mutex,
@@ -686,7 +686,7 @@ where
 }
 
 unsafe fn raise_user_trap(error: Error) -> ! {
-    wasmer::raise_user_trap(error.into())
+    wasmer::raise_user_trap(error.into());
 }
 
 fn set_max_log_level(instance: &Instance) -> Result<(), Error> {

@@ -1837,6 +1837,7 @@ dependencies = [
  "cbindgen",
  "env_logger 0.8.3",
  "libc",
+ "log",
  "rune-codegen",
  "rune-runtime",
  "rune-syntax",
