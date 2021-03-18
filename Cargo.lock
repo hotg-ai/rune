@@ -1818,6 +1818,7 @@ dependencies = [
  "env_logger 0.8.3",
  "libc",
  "rune-runtime",
+ "runic-types",
 ]
 
 [[package]]

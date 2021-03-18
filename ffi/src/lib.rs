@@ -1,8 +1,12 @@
 //! Foreign Function Interface to the Rune Runtime.
 
+mod callbacks;
+mod capability;
 mod environment;
 
-pub use environment::Environment;
+pub use callbacks::Callbacks;
+pub use capability::Capability;
+use environment::Environment;
 
 use std::{
     os::raw::{c_char, c_int},
@@ -24,9 +28,10 @@ pub struct Runtime(rune_runtime::Runtime);
 pub unsafe extern "C" fn rune_runtime_load(
     wasm: *const u8,
     len: c_int,
-    env: Environment,
+    callbacks: Callbacks,
 ) -> RuntimeResult {
     let wasm = std::slice::from_raw_parts(wasm, len as usize);
+    let env = Environment::new(callbacks);
 
     match rune_runtime::Runtime::load(wasm, env) {
         Ok(r) => RuntimeResult::Ok(Box::into_raw(Box::new(Runtime(r)))),

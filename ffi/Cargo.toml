@@ -11,6 +11,7 @@ anyhow = "1.0.38"
 env_logger = "0.8.3"
 libc = "0.2.87"
 rune-runtime = { path = "../runtime" }
+runic-types = { path = "../runic-types" }
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
