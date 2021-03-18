@@ -8,7 +8,7 @@ use tflite::{
 };
 use std::{
     collections::HashMap,
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     fmt::{Debug, Display},
     sync::{
         Arc, Mutex,
@@ -57,10 +57,8 @@ impl Runtime {
         let instance =
             Instance::new(&module, &imports).context("Instantiation failed")?;
 
-        if let Ok(global) = instance.exports.get_global("MAX_LOG_LEVEL") {
-            global
-                .set(wasmer::Value::from(log::max_level() as u32))
-                .context("Unable to propagate the max log level to the Rune")?;
+        if let Err(e) = set_max_log_level(&instance) {
+            log::warn!("Unable to set the log level: {:?}", e);
         }
 
         // TODO: Rename the _manifest() method to _start() so it gets
@@ -689,4 +687,30 @@ where
 
 unsafe fn raise_user_trap(error: Error) -> ! {
     wasmer::raise_user_trap(error.into())
+}
+
+fn set_max_log_level(instance: &Instance) -> Result<(), Error> {
+    let global = instance
+        .exports
+        .get_global("MAX_LOG_LEVEL")
+        .context("Unable to find the MAX_LOG_LEVEL global")?;
+
+    let index: u32 = global
+        .get()
+        .try_into()
+        .map_err(Error::msg)
+        .context("The MAX_LOG_LEVEL variable wasn't an integer")?;
+    let ptr: WasmPtr<u32> = WasmPtr::new(index);
+
+    let memory = instance
+        .exports
+        .get_memory("memory")
+        .context("Unable to find the main memory")?;
+
+    let cell = ptr.deref(memory).context("Incorrect MAX_LOG_LEVEL index")?;
+
+    let level = log::max_level();
+    log::debug!("Setting the MAX_LOG_LEVEL inside the Rune to {:?}", level);
+    cell.set(level as u32);
+    Ok(())
 }

@@ -31,12 +31,12 @@ use log::LevelFilter;
 /// If changing the log level using the runtime, this value must *exactly* match
 /// up with the [`LevelFilter`] discriminants used by the `log` crate:
 ///
-/// - `LevelFilter::Off` - `0`
-/// - `LevelFilter::Error` - `1`
-/// - `LevelFilter::Warn` - `2`
-/// - `LevelFilter::Info` - `3`
-/// - `LevelFilter::Debug` - `4`
-/// - `LevelFilter::Trace` - `5`
+/// - [`LevelFilter::Off`] - 0
+/// - [`LevelFilter::Error`] - 1
+/// - [`LevelFilter::Warn`] - 2
+/// - [`LevelFilter::Info`] - 3
+/// - [`LevelFilter::Debug`] - 4
+/// - [`LevelFilter::Trace`] - 5
 #[no_mangle]
 pub static mut MAX_LOG_LEVEL: LevelFilter = if cfg!(debug_assertions) {
     LevelFilter::Debug
