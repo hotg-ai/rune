@@ -48,7 +48,7 @@ impl Fft {
 }
 
 impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
-    type Output = [u8; 1960];
+    type Output = [i8; 1960];
 
     fn transform(&mut self, input: [i16; N]) -> Self::Output {
         // Build the spectrogram computation engine
@@ -67,10 +67,10 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
         let max_value =
             result_f32.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
 
-        let res: Vec<u8> = result_f32
+        let res: Vec<i8> = result_f32
             .into_iter()
-            .map(|freq| 255.0 * (freq - min_value) / (max_value - min_value))
-            .map(|freq| freq as u8)
+            .map(|freq| 255.0 * (freq - min_value) / (max_value - min_value) - 128.0)
+            .map(|freq| freq as i8)
             .collect();
         let mut out = [0; 1960];
 

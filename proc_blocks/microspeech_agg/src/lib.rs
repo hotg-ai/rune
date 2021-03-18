@@ -14,7 +14,7 @@ use alloc::collections::VecDeque;
 #[derive(Debug, Clone, PartialEq)]
 pub struct MicrospeechAgg<const N: usize> {
     labels: [&'static str; N],
-    history: VecDeque<[u8; N]>,
+    history: VecDeque<[i8; N]>,
     max_capacity: usize,
     unknown: &'static str,
     throttle_interval: usize,
@@ -47,7 +47,7 @@ impl<const N: usize> MicrospeechAgg<N> {
         }
     }
 
-    fn add_history(&mut self, input: [u8; N]) {
+    fn add_history(&mut self, input: [i8; N]) {
         self.history.push_back(input);
 
         while self.history.len() > self.max_capacity {
@@ -62,9 +62,9 @@ impl<const N: usize> MicrospeechAgg<N> {
 
         (0..N)
             .fold(None, |previous_most_likely, microspeech_index| {
-                let sum: u8 =
+                let sum: i8 =
                     self.history.iter().map(|input| input[microspeech_index]).sum();
-                let avg = sum / self.history.len() as u8;
+                let avg = sum / self.history.len() as i8;
 
                 match previous_most_likely {
                     Some((_, previous_avg)) if previous_avg >= avg => {
@@ -81,10 +81,10 @@ impl<const N: usize> MicrospeechAgg<N> {
     }
 }
 
-impl<const N: usize> Transform<[u8; N]> for MicrospeechAgg<N> {
+impl<const N: usize> Transform<[i8; N]> for MicrospeechAgg<N> {
     type Output = &'static str;
 
-    fn transform(&mut self, input: [u8; N]) -> Self::Output {
+    fn transform(&mut self, input: [i8; N]) -> Self::Output {
         // This is a rust port of https://github.com/andriyadi/MagicWand-TFLite-ESP32/blob/00fd15f0861b27437236689ceb642a05cf5fb028/src/microspeech_predictor.cpp#L35-L101
 
         self.add_history(input);

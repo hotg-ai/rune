@@ -112,3 +112,7 @@ impl AsParamType for i16 {
 impl AsParamType for u8 {
     const VALUE: PARAM_TYPE = PARAM_TYPE::BINARY;
 }
+
+impl AsParamType for i8 {
+    const VALUE: PARAM_TYPE = PARAM_TYPE::BINARY;
+}
