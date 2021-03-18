@@ -1,8 +1,13 @@
+mod model_info;
+
 use std::path::Path;
 
 use anyhow::{Context, Error};
 use devx_pre_commit::PreCommitContext;
+use model_info::model_info;
 use structopt::StructOpt;
+
+use crate::model_info::ModelInfo;
 
 fn main() -> Result<(), Error> {
     let project_root = devx_pre_commit::locate_project_root()
@@ -19,6 +24,7 @@ fn main() -> Result<(), Error> {
             devx_pre_commit::install_self_as_hook(&project_root)
                 .context("Unable to install the pre-commit hook")?;
         },
+        Command::ModelInfo(m) => model_info(m)?,
     }
 
     Ok(())
@@ -47,4 +53,9 @@ enum Command {
         about = "Install the common pre-commit hook"
     )]
     InstallPreCommit,
+    #[structopt(
+        name = "model-info",
+        about = "Load a TensorFlow Lite model and print information about it"
+    )]
+    ModelInfo(ModelInfo),
 }
