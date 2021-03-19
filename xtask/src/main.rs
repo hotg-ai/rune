@@ -1,6 +1,6 @@
-mod model_info;
-mod dist;
 mod bulk_copy;
+mod dist;
+mod model_info;
 
 pub use bulk_copy::BulkCopy;
 
@@ -69,6 +69,7 @@ enum Command {
         about = "Load a TensorFlow Lite model and print information about it"
     )]
     ModelInfo(ModelInfo),
+    #[structopt(name = "dist", about = "Generate a release bundle")]
     Dist,
 }
 

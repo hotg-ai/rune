@@ -1,7 +1,7 @@
 pub mod capability;
 mod environment;
-mod runtime;
 pub mod outputs;
+mod runtime;
 
 pub use environment::{DefaultEnvironment, Environment};
 pub use runtime::Runtime;
