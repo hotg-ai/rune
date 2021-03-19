@@ -1,0 +1,13 @@
+FROM runicos/base
+
+CAPABILITY<F32[128, 3]> accelerometer ACCEL -n 128
+
+PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
+
+MODEL<f32[128, 3],f32[4]> gesture ./model.tflite
+
+PROC_BLOCK<f32[64], UTF8> gesture_agg hotg-ai/rune#proc_blocks/gesture_agg --labels=Wing,Ring,Slope,Unknown
+
+OUT SERIAL
+
+RUN accelerometer normalize gesture gesture_agg serial
