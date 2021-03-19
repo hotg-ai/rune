@@ -41,6 +41,8 @@ fn execute_cpp_example() {
         .arg("-g")
         .arg("-std=c++20")
         .arg("-Wall")
+        .arg("-I")
+        .arg(temp)
         .arg("-o")
         .arg(&executable)
         .arg(ffi_dir.join("examples").join("main.cpp"))

@@ -6,7 +6,7 @@
 #include <iterator>
 #include <cassert>
 #include <string_view>
-#include "./rune.h"
+#include "rune.h"
 #include "./rune_sdk.hpp"
 
 class RandomCapability : public rune::BaseCapability
