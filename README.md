@@ -14,9 +14,9 @@
          <td>Nightly</td>
          <td>
             <li><a href="https://storage.cloud.google.com/rune-registry.appspot.com/nightly/rune.x86_64-unknown-linux-gnu.zip?authuser=1">
-               Linux (<code>x86_64-pc-windows-msvc</code>)
+               Linux (<code>x86_64-unknown-linux-gnu</code>)
             </a></li>
-            <li>Windows (<code>x86_64-unknown-linux-gnu</code>)</li>
+            <li>Windows (<code>x86_64-pc-windows-msvc</code>)</li>
             <li>Mac (<code>x86_64-apple-darwin</code>)</li>
             <li>iOS (<code>x86_64-apple-ios</code>)</li>
          </td>
