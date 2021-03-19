@@ -3,10 +3,6 @@ name: Nightly
 on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
-  push:
-    branches:
-    - master
-  pull_request:
 
 env:
   # Only run this action if it was scheduled and there were commits within the
