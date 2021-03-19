@@ -7,7 +7,7 @@ use rune_codegen::Compilation;
 use rune_syntax::Diagnostics;
 use std::{
     env::current_dir,
-    path::{PathBuf},
+    path::{Path, PathBuf},
 };
 use once_cell::sync::Lazy;
 
@@ -20,8 +20,8 @@ pub struct Build {
     #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
     /// The directory to use when caching builds.
-    #[structopt(long, env, default_value = &**DEFAULT_CACHE_DIR)]
-    cache_dir: PathBuf,
+    #[structopt(long, env)]
+    cache_dir: Option<PathBuf>,
     /// The directory that all paths are resolved relative to (Defaults to the
     /// Runefile's directory)
     #[structopt(short, long, env)]
@@ -65,7 +65,9 @@ impl Build {
         let current_directory = self.current_directory()?;
         let name = self.name()?;
 
-        let working_directory = self.cache_dir.join(&name);
+        let working_directory = self
+            .cache_dir
+            .unwrap_or_else(|| Path::new(&*DEFAULT_CACHE_DIR).join(&name));
         let dest = self.output.unwrap_or_else(|| {
             current_directory.join(&name).with_extension("rune")
         });

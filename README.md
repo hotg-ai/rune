@@ -2,18 +2,44 @@
 
 [![Continuous integration](https://github.com/hotg-ai/rune/actions/workflows/main.yml/badge.svg)](https://github.com/hotg-ai/rune/actions/workflows/main.yml)
 
-Rune is a containerization technology for deploying TinyML applications to extremely constraint devices.
+<table>
+   <thead>
+      <tr>
+         <th>Release</th>
+         <th>Download</th>
+      </tr>
+   </thead>
+   <tbody>
+      <tr>
+         <td>Nightly</td>
+         <td>
+            <li><a href="https://storage.cloud.google.com/rune-registry.appspot.com/nightly/rune.x86_64-unknown-linux-gnu.zip?authuser=1">
+               Linux (<code>x86_64-unknown-linux-gnu</code>)
+            </a></li>
+            <li>Windows (<code>x86_64-pc-windows-msvc</code>)</li>
+            <li>Mac (<code>x86_64-apple-darwin</code>)</li>
+            <li>iOS (<code>x86_64-apple-ios</code>)</li>
+         </td>
+         </tr>
+   </tbody>
+</table>
 
-# Deps
+Rune is a containerization technology for deploying TinyML applications to
+extremely constraint devices.
 
-1. rustup install nightly
-2. brew install binaryen
-2. rustup target add wasm32-unknown-unknown
+## Getting Started
 
+To start building your own Runes you will first need:
 
-## Runefile
+- [The Rust compiler](https://rustup.rs/)
+- The WebAssembly target (`rustup target add wasm32-unknown-unknown`)
+- The `rune` command-line tool
 
-A `Runefile` is similar to `Dockerfile` in that it is a text document that defines capabilities, processing blocks, feature transformation, models and model outputs to assemble the `Rune`.
+### Runefile
+
+A `Runefile` is similar to `Dockerfile` in that it is a text document that
+defines capabilities, processing blocks, feature transformation, models and
+model outputs to assemble the `Rune`.
 
 A simplistic example of this is would be:
 
