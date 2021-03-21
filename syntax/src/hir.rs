@@ -1,23 +1,27 @@
 //! The *High-level Internal Representation*.
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    convert::{TryFrom, TryInto},
+    path::PathBuf,
+};
 use codespan::Span;
 use crate::ast::{ArgumentValue, Path};
+use petgraph::graph::{DiGraph, IndexType, NodeIndex};
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone)]
 pub struct Rune {
     pub base_image: Option<Path>,
-    pub sinks: HashMap<HirId, Sink>,
-    pub sources: HashMap<HirId, Source>,
-    pub models: HashMap<HirId, Model>,
-    pub types: HashMap<HirId, Type>,
+    pub graph: DiGraph<Stage, Edge>,
     pub pipelines: HashMap<HirId, Pipeline>,
-    pub proc_blocks: HashMap<HirId, ProcBlock>,
+    pub types: HashMap<HirId, Type>,
     pub names: NameTable,
     pub spans: HashMap<HirId, Span>,
+    pub nodes_to_hir_id: HashMap<NodeIndex, HirId>,
+    pub hir_id_to_nodes: HashMap<HirId, NodeIndex>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct HirId(u32);
 
 impl HirId {
@@ -28,9 +32,16 @@ impl HirId {
     pub(crate) fn next(self) -> Self { HirId(self.0 + 1) }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Sink {
-    Serial,
+impl Default for HirId {
+    fn default() -> Self { HirId::ERROR }
+}
+
+unsafe impl IndexType for HirId {
+    fn new(x: usize) -> Self { HirId(x.try_into().unwrap()) }
+
+    fn index(&self) -> usize { self.0.try_into().unwrap() }
+
+    fn max() -> Self { HirId(u32::max_value()) }
 }
 
 /// A table mapping names to [`HirId`]s.
@@ -62,9 +73,86 @@ impl NameTable {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Stage {
+    Source(Source),
+    Sink(Sink),
+    Model(Model),
+    ProcBlock(ProcBlock),
+}
+
+impl From<Sink> for Stage {
+    fn from(s: Sink) -> Self { Stage::Sink(s) }
+}
+
+impl TryFrom<Stage> for Sink {
+    type Error = ();
+
+    fn try_from(stage: Stage) -> Result<Self, Self::Error> {
+        match stage {
+            Stage::Sink(s) => Ok(s),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<Source> for Stage {
+    fn from(s: Source) -> Self { Stage::Source(s) }
+}
+
+impl TryFrom<Stage> for Source {
+    type Error = ();
+
+    fn try_from(stage: Stage) -> Result<Self, Self::Error> {
+        match stage {
+            Stage::Source(s) => Ok(s),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<Model> for Stage {
+    fn from(m: Model) -> Self { Stage::Model(m) }
+}
+
+impl TryFrom<Stage> for Model {
+    type Error = ();
+
+    fn try_from(stage: Stage) -> Result<Self, Self::Error> {
+        match stage {
+            Stage::Model(m) => Ok(m),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<ProcBlock> for Stage {
+    fn from(p: ProcBlock) -> Self { Stage::ProcBlock(p) }
+}
+
+impl TryFrom<Stage> for ProcBlock {
+    type Error = ();
+
+    fn try_from(stage: Stage) -> Result<Self, Self::Error> {
+        match stage {
+            Stage::ProcBlock(pb) => Ok(pb),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Sink {
+    pub kind: SinkKind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SinkKind {
+    Serial,
+    Other(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Model {
-    pub input: HirId,
-    pub output: HirId,
     pub model_file: PathBuf,
 }
 
@@ -118,7 +206,6 @@ impl Primitive {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Source {
     pub kind: SourceKind,
-    pub output_type: HirId,
     pub parameters: HashMap<String, ArgumentValue>,
 }
 
@@ -132,86 +219,7 @@ pub enum SourceKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Pipeline {
-    /// A linked list representing a pipeline.
-    ///
-    /// Note: We use a linked list to make sure it is impossible to create an
-    /// illogical pipeline (e.g. with a sink in the middle) and so you can
-    /// later include some sort of "merge" node for joining two
-    /// sub-pipelines.
-    pub last_step: PipelineNode,
-}
-
-impl Pipeline {
-    /// Iterate over each step in the pipeline.
-    pub fn iter(&self) -> impl Iterator<Item = &PipelineNode> + '_ {
-        let mut current_node = Some(&self.last_step);
-        let mut nodes = Vec::new();
-
-        while let Some(node) = current_node.take() {
-            nodes.push(node);
-            current_node = node.previous();
-        }
-
-        nodes.into_iter().rev()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum PipelineNode {
-    Source {
-        source: HirId,
-        output_type: HirId,
-    },
-    Model {
-        model: HirId,
-        previous: Box<PipelineNode>,
-        output_type: HirId,
-    },
-    ProcBlock {
-        proc_block: HirId,
-        previous: Box<PipelineNode>,
-        output_type: HirId,
-    },
-    Sink {
-        sink: HirId,
-        previous: Box<PipelineNode>,
-    },
-}
-
-impl PipelineNode {
-    pub fn previous(&self) -> Option<&PipelineNode> {
-        match self {
-            PipelineNode::Source { .. } => None,
-            PipelineNode::Model { previous, .. } => Some(&**previous),
-            PipelineNode::ProcBlock { previous, .. } => Some(&**previous),
-            PipelineNode::Sink { previous, .. } => Some(&**previous),
-        }
-    }
-
-    pub fn id(&self) -> HirId {
-        match self {
-            PipelineNode::Source { source: id, .. }
-            | PipelineNode::Model { model: id, .. }
-            | PipelineNode::ProcBlock { proc_block: id, .. }
-            | PipelineNode::Sink { sink: id, .. } => *id,
-        }
-    }
-
-    pub fn output_type(&self) -> Option<HirId> {
-        match self {
-            PipelineNode::Source { output_type, .. }
-            | PipelineNode::Model { output_type, .. }
-            | PipelineNode::ProcBlock { output_type, .. } => Some(*output_type),
-            PipelineNode::Sink { .. } => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct ProcBlock {
-    pub input: HirId,
-    pub output: HirId,
     pub path: Path,
     pub parameters: HashMap<String, ArgumentValue>,
 }
@@ -224,4 +232,15 @@ impl ProcBlock {
 
         &full_name[start_of_name..]
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pipeline {
+    /// The edges associated with this pipeline.
+    pub edges: HashSet<HirId>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Edge {
+    pub ty: HirId,
 }

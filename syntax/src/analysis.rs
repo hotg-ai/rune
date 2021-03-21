@@ -1,17 +1,14 @@
-use crate::{
-    Diagnostics,
-    ast::{
+use crate::{Diagnostics, ast::{
         Argument, ArgumentValue, CapabilityInstruction, Ident, Instruction,
         ModelInstruction, OutInstruction, ProcBlockInstruction, RunInstruction,
         Runefile,
-    },
-    hir::{
-        HirId, Model, Pipeline, PipelineNode, Primitive, ProcBlock, Rune, Sink,
-        Source, SourceKind, Type,
-    },
-};
+    }, hir::{Edge, HirId, Model, Pipeline, Primitive, ProcBlock, Rune, Sink, Source, SourceKind, Stage, Type}};
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use petgraph::{
+    graph::{IndexType, NodeIndex},
+    visit::EdgeRef,
+};
 use std::{collections::HashMap, path::PathBuf};
 
 pub fn analyse<FileId: Copy>(
@@ -34,6 +31,9 @@ struct Analyser<'diag, FileId> {
     rune: Rune,
     ids: HirIds,
     builtins: Builtins,
+    stages: HashMap<HirId, NodeIndex>,
+    input_types: HashMap<NodeIndex, HirId>,
+    output_types: HashMap<NodeIndex, HirId>,
 }
 
 impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
@@ -50,6 +50,9 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             rune,
             ids,
             builtins,
+            stages: HashMap::new(),
+            input_types: HashMap::new(),
+            output_types: HashMap::new(),
         }
     }
 
@@ -128,15 +131,17 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     }
 
     fn load_model(&mut self, model: &ModelInstruction) -> HirId {
-        let hir = Model {
-            input: self.interpret_type(&model.input_type),
-            output: self.interpret_type(&model.output_type),
+        let (id, node_ix) = self.add_stage(Model {
             model_file: PathBuf::from(&model.file),
-        };
-        let id = self.ids.next();
+        });
+
         self.rune.spans.insert(id, model.span);
-        self.rune.models.insert(id, hir);
         self.rune.names.register(&model.name.value, id);
+
+        let input_type = self.interpret_type(&model.input_type);
+        self.input_types.insert(node_ix, input_type);
+        let output_type = self.interpret_type(&model.output_type);
+        self.output_types.insert(node_ix, output_type);
         id
     }
 
@@ -155,18 +160,16 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             },
         };
 
-        let id = self.ids.next();
+        let (id, node_ix) = self.add_stage(Source {
+            kind,
+            parameters: args_to_parameters(&capability.parameters),
+        });
+
         self.rune.spans.insert(id, capability.span);
-        let output_type = self.interpret_type(&capability.output_type);
-        self.rune.sources.insert(
-            id,
-            Source {
-                kind,
-                output_type,
-                parameters: args_to_parameters(&capability.parameters),
-            },
-        );
         self.rune.names.register(&capability.name.value, id);
+
+        let output_type = self.interpret_type(&capability.output_type);
+        self.output_types.insert(node_ix, output_type);
 
         id
     }
@@ -248,82 +251,51 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     }
 
     fn load_run(&mut self, run: &RunInstruction) -> HirId {
-        let (first, rest) = match run.steps.as_slice() {
-            [f, r @ ..] => (f, r),
-            [] => {
-                self.error("A RUN instruction can't be empty", run.span);
-                return HirId::ERROR;
-            },
-        };
+        let steps: Vec<_> =
+            run.steps.iter().map(|name| self.get_named(name)).collect();
 
-        let source = self.get_named(first);
-
-        let mut pipeline_node = match self.rune.sources.get(&source) {
-            Some(s) => PipelineNode::Source {
-                source,
-                output_type: s.output_type,
-            },
-            None => {
-                self.error(
-                    "RUN instructions must start with a CAPABILITY",
-                    first.span,
-                );
-                return HirId::ERROR;
-            },
-        };
-
-        for step in rest {
-            let id = self.get_named(step);
-            if id.is_error() {
-                // it's a dodgy name, we may as well bail.
-                return HirId::ERROR;
-            }
-
-            if let Some(model) = self.rune.models.get(&id) {
-                pipeline_node = PipelineNode::Model {
-                    model: id,
-                    previous: Box::new(pipeline_node),
-                    output_type: model.output,
-                };
-            } else if let Some(proc_block) = self.rune.proc_blocks.get(&id) {
-                pipeline_node = PipelineNode::ProcBlock {
-                    proc_block: id,
-                    previous: Box::new(pipeline_node),
-                    output_type: proc_block.output,
-                };
-            } else if self.rune.sinks.contains_key(&id) {
-                pipeline_node = PipelineNode::Sink {
-                    sink: id,
-                    previous: Box::new(pipeline_node),
-                };
-            } else {
-                self.error("Unknown pipeline node type", step.span);
-                return HirId::ERROR;
-            }
+        if steps.iter().any(|id| id.is_error()) {
+            // One of the steps was unknown so it doesn't make sense to keep
+            // going.
+            return HirId::ERROR;
+        } else if steps.is_empty() {
+            self.error("A RUN instruction can't be empty", run.span);
+            return HirId::ERROR;
         }
 
-        let pipeline = Pipeline {
-            last_step: pipeline_node,
-        };
+        for window in steps.windows(2) {
+            let previous_id = self.rune.hir_id_to_nodes[&window[0]];
+            let next_id = self.rune.hir_id_to_nodes[&window[1]];
+            self.rune.graph.add_edge(previous_id, next_id, Edge {
+                ty: self.builtins.unknown_type,
+            });
+        }
+
         let id = self.ids.next();
-        self.rune.spans.insert(id, run.span);
-        self.rune.pipelines.insert(id, pipeline);
+        self.rune.pipelines.insert(
+            id,
+            Pipeline {
+                edges: steps.into_iter().collect(),
+            },
+        );
+
+        // TODO: Update the Runefile syntax so we can name a pipeline
 
         id
     }
 
     fn load_proc_block(&mut self, proc_block: &ProcBlockInstruction) -> HirId {
-        let id = self.ids.next();
+        let (id, node_ix) = self.add_stage(ProcBlock {
+            path: proc_block.path.clone(),
+            parameters: args_to_parameters(&proc_block.params),
+        });
         self.rune.names.register(&proc_block.name.value, id);
         self.rune.spans.insert(id, proc_block.span);
 
-        let pb = ProcBlock {
-            input: self.interpret_type(&proc_block.input_type),
-            output: self.interpret_type(&proc_block.output_type),
-            path: proc_block.path.clone(),
-            parameters: args_to_parameters(&proc_block.params),
-        };
-        self.rune.proc_blocks.insert(id, pb);
+        let input_type = self.interpret_type(&proc_block.input_type);
+        self.input_types.insert(node_ix, input_type);
+        let output_type = self.interpret_type(&proc_block.output_type);
+        self.output_types.insert(node_ix, output_type);
 
         id
     }
@@ -331,10 +303,13 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     fn load_out(&mut self, out: &OutInstruction) -> HirId {
         match out.out_type.value.as_str() {
             "SERIAL" | "serial" => {
-                let id = self.ids.next();
+                let (id, node_ix) = self.add_stage(Sink {
+                    kind: crate::hir::SinkKind::Serial,
+                });
                 self.rune.spans.insert(id, out.span);
-                self.rune.sinks.insert(id, Sink::Serial);
                 self.rune.names.register("serial", id);
+
+                self.input_types.insert(node_ix, self.builtins.unknown_type);
 
                 id
             },
@@ -346,6 +321,16 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         }
     }
 
+    fn add_stage(&mut self, stage: impl Into<Stage>) -> (HirId, NodeIndex) {
+        let id = self.ids.next();
+        let node_ix = self.rune.graph.add_node(stage.into());
+
+        self.rune.nodes_to_hir_id.insert(node_ix, id);
+        self.rune.hir_id_to_nodes.insert(id, node_ix);
+
+        (id, node_ix)
+    }
+
     fn infer_types(&mut self) {
         // TODO: Go through each pipeline and try to figure out what the
         // input/output type at each stage should be.
@@ -355,35 +340,41 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         // types or are unable to make any more progress.
         //
         // For now, let's just emit a warning.
+        self.warn_on_unknown_type();
+    }
 
-        let unknown = self.builtins.unknown_type;
+    fn warn_on_unknown_type(&mut self) {
+        let graph = &self.rune.graph;
 
-        let msg = "Unable to infer the input or output type.";
+        let edges_with_incomplete_type: Vec<_> = graph
+            .edge_references()
+            .filter(|e| e.weight().ty == self.builtins.unknown_type)
+            .collect();
 
-        warn_on_unknown_type(
-            &mut self.diags,
-            &self.rune.spans,
-            self.file_id,
-            &self.rune.models,
-            msg,
-            |m| m.input == unknown || m.output == unknown,
-        );
-        warn_on_unknown_type(
-            &mut self.diags,
-            &self.rune.spans,
-            self.file_id,
-            &self.rune.proc_blocks,
-            msg,
-            |p| p.input == unknown || p.output == unknown,
-        );
-        warn_on_unknown_type(
-            &mut self.diags,
-            &self.rune.spans,
-            self.file_id,
-            &self.rune.sources,
-            msg,
-            |s| s.output_type == unknown,
-        );
+        for edge in edges_with_incomplete_type {
+            let (prev, next) = graph.edge_endpoints(edge.id()).unwrap();
+            let mut diag = Diagnostic::warning()
+                .with_message("Unable to determine the type")
+                .with_notes(vec![String::from(
+                    "See <https://github.com/hotg-ai/rune/issues/33>",
+                )]);
+
+            let prev = HirId::new(prev.index());
+            if let Some(span) = self.rune.spans.get(&prev) {
+                diag =
+                    diag.with_labels(vec![Label::primary(self.file_id, *span)
+                        .with_message("Consider specifying this output type")]);
+            }
+
+            let next = HirId::new(next.index());
+            if let Some(span) = self.rune.spans.get(&next) {
+                diag =
+                    diag.with_labels(vec![Label::primary(self.file_id, *span)
+                        .with_message("Consider specifying this intput type")]);
+            }
+
+            self.diags.push(diag);
+        }
     }
 }
 
@@ -397,37 +388,6 @@ fn args_to_parameters(
             (key, arg.value.clone())
         })
         .collect()
-}
-
-fn warn_on_unknown_type<'a, I, T, F, FileId>(
-    diags: &mut Diagnostics<FileId>,
-    spans: &HashMap<HirId, Span>,
-    file_id: FileId,
-    items: I,
-    msg: &str,
-    mut filter: F,
-) where
-    I: IntoIterator<Item = (&'a HirId, &'a T)> + 'a,
-    T: 'a,
-    F: FnMut(&T) -> bool,
-    FileId: Copy,
-{
-    for (id, value) in items {
-        if filter(value) {
-            let mut diag =
-                Diagnostic::warning().with_message(msg).with_notes(vec![
-                    String::from(
-                        "See <https://github.com/hotg-ai/rune/issues/33>",
-                    ),
-                ]);
-
-            if let Some(span) = spans.get(id) {
-                diag = diag.with_labels(vec![Label::primary(file_id, *span)]);
-            }
-
-            diags.push(diag);
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -518,10 +478,13 @@ impl Builtins {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, convert::TryInto};
 
     use super::*;
-    use crate::ast::{Argument, Ident, Literal, Path};
+    use crate::{
+        ast::{Argument, Ident, Literal, Path},
+        hir::SinkKind,
+    };
     use codespan::Span;
 
     fn setup_analyser(diags: &mut Diagnostics<()>) -> Analyser<'_, ()> {
@@ -586,7 +549,7 @@ mod tests {
         let got = analyse(id, &runefile, &mut diags);
 
         assert!(diags.has_errors());
-        assert!(got.sinks.is_empty());
+        assert_eq!(got.graph.node_count(), 0);
     }
 
     #[test]
@@ -601,9 +564,15 @@ mod tests {
         let id = analyser.load_out(&out);
 
         assert!(!analyser.diags.has_errors());
-        assert_eq!(analyser.rune.sinks.len(), 1);
-        assert_eq!(analyser.rune.sinks.get(&id), Some(&Sink::Serial));
+        let rune = &analyser.rune;
+        assert_eq!(rune.graph.node_count(), 1);
+        let node_ix = analyser.rune.hir_id_to_nodes[&id];
+        let should_be = Stage::Sink(Sink {
+            kind: crate::hir::SinkKind::Serial,
+        });
+        assert_eq!(rune.graph.node_weight(node_ix), Some(&should_be));
         assert_eq!(analyser.rune.names.get_name(id), Some("serial"));
+        assert!(analyser.rune.nodes_to_hir_id.get(&node_ix).is_some());
     }
 
     #[test]
@@ -624,7 +593,9 @@ mod tests {
         assert!(!analyser.diags.has_errors());
         assert!(!id.is_error());
         assert_eq!(analyser.rune.names.get_name(id), Some("sine"));
-        assert!(analyser.rune.models.contains_key(&id));
+        let node_ix = analyser.rune.hir_id_to_nodes[&id];
+        assert!(analyser.rune.graph.node_weight(node_ix).is_some());
+        assert!(analyser.rune.nodes_to_hir_id.get(&node_ix).is_some());
     }
 
     #[test]
@@ -655,12 +626,13 @@ mod tests {
             underlying_type: analyser.builtins.i32,
             dimensions: vec![1],
         });
-        let should_be = Source {
+        let node_ix = analyser.rune.hir_id_to_nodes[&id];
+        assert_eq!(analyser.output_types[&node_ix], i32_by_1_type);
+        let should_be = Stage::Source(Source {
             kind: SourceKind::Random,
-            output_type: i32_by_1_type,
             parameters: args_to_parameters(&capability.parameters),
-        };
-        let source = &analyser.rune.sources[&id];
+        });
+        let source = analyser.rune.graph.node_weight(node_ix).unwrap();
         assert_eq!(source, &should_be);
     }
 
@@ -705,7 +677,9 @@ mod tests {
             let id = analyser.load_capability(&capability);
 
             assert!(analyser.diags.is_empty(), "{:?}", analyser.diags);
-            let got = &analyser.rune.sources[&id];
+            let node_ix = analyser.rune.hir_id_to_nodes[&id];
+            let got = &analyser.rune.graph[node_ix];
+            let got: Source = got.clone().try_into().unwrap();
             assert_eq!(got.kind, should_be);
         }
     }
@@ -810,5 +784,38 @@ mod tests {
             analyser.rune.types[&got],
             Type::Primitive(Primitive::String),
         );
+    }
+
+    #[test]
+    fn one_linear_pipeline() {
+        let mut diags = Diagnostics::new();
+        let mut analyser = setup_analyser(&mut diags);
+        // Make sure we already know about our stages
+        let (first_id, first_ix) = analyser.add_stage(Source {
+            kind: SourceKind::Random,
+            parameters: HashMap::new(),
+        });
+        analyser.rune.names.register("first", first_id);
+        let (second_id, second_ix) = analyser.add_stage(Sink {
+            kind: SinkKind::Serial,
+        });
+        analyser.rune.names.register("second", second_id);
+        // the instruction
+        let run = RunInstruction {
+            steps: vec![Ident::dangling("first"), Ident::dangling("second")],
+            span: Span::default(),
+        };
+
+        let pipeline_id = analyser.load_run(&run);
+
+        // it should have added a new edge to our graph
+        let edge_ix =
+            analyser.rune.graph.find_edge(first_ix, second_ix).unwrap();
+        let edge = analyser.rune.graph.edge_weight(edge_ix).unwrap();
+        assert_eq!(edge.ty, analyser.builtins.unknown_type);
+        // and also registered a pipeline
+        let pipeline = &analyser.rune.pipelines[&pipeline_id];
+        assert!(pipeline.edges.contains(&first_id));
+        assert!(pipeline.edges.contains(&second_id));
     }
 }
