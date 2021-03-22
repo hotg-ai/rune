@@ -5,12 +5,18 @@ use std::fmt::{self, Display, Formatter};
 use codespan::Span;
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Runefile {
     pub instructions: Vec<Instruction>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "type")
+)]
 pub enum Instruction {
     From(FromInstruction),
     Model(ModelInstruction),
@@ -62,12 +68,18 @@ impl From<OutInstruction> for Instruction {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct FromInstruction {
     pub image: Path,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct ModelInstruction {
     pub name: Ident,
     pub file: String,
@@ -78,6 +90,7 @@ pub struct ModelInstruction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ident {
     pub value: String,
     pub span: Span,
@@ -99,6 +112,11 @@ impl Ident {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct CapabilityInstruction {
     pub kind: Ident,
     pub name: Ident,
@@ -108,6 +126,7 @@ pub struct CapabilityInstruction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Type {
     pub kind: TypeKind,
     pub span: Span,
@@ -131,6 +150,11 @@ impl Type {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "type")
+)]
 pub enum TypeKind {
     Inferred,
     Named(Ident),
@@ -141,12 +165,22 @@ pub enum TypeKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct RunInstruction {
     pub steps: Vec<Ident>,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct ProcBlockInstruction {
     pub path: Path,
     pub input_type: Type,
@@ -157,12 +191,22 @@ pub struct ProcBlockInstruction {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct OutInstruction {
     pub out_type: Ident,
     pub span: Span,
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct Literal {
     pub kind: LiteralKind,
     pub span: Span,
@@ -178,6 +222,11 @@ impl Literal {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "type", content = "value")
+)]
 pub enum LiteralKind {
     Integer(i64),
     Float(f64),
@@ -201,6 +250,7 @@ impl From<String> for LiteralKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Argument {
     pub name: Ident,
     pub value: ArgumentValue,
@@ -232,6 +282,11 @@ impl Argument {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", untagged)
+)]
 pub enum ArgumentValue {
     Literal(Literal),
     List(Vec<String>),
@@ -248,6 +303,11 @@ pub enum ArgumentValue {
 ///   repositories with multiple relevant items because it lets you specify
 ///   which directory the specified item is in.
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct Path {
     pub base: String,
     pub sub_path: Option<String>,

@@ -283,7 +283,7 @@ impl Generator {
         let mut stages = Vec::new();
 
         for node in nodes {
-            let id = self.rune.nodes_to_hir_id[&node];
+            let id = self.rune.node_index_to_hir_id[&node];
             let name = self
                 .rune
                 .names
@@ -293,7 +293,7 @@ impl Generator {
                 .edges_directed(node, Direction::Incoming)
                 .filter_map(|edge| {
                     let node_ix = edge.source();
-                    let id = self.rune.nodes_to_hir_id.get(&node_ix)?;
+                    let id = self.rune.node_index_to_hir_id.get(&node_ix)?;
                     self.rune.names.get_name(*id)
                 })
                 .next();
@@ -302,9 +302,9 @@ impl Generator {
                 .edges_directed(node, Direction::Outgoing)
                 .filter_map(|edge| {
                     let node_ix = edge.target();
-                    let type_id = edge.weight().ty;
+                    let type_id = edge.weight().type_id;
                     let ty = self.rune.types.get(&type_id)?;
-                    let id = self.rune.nodes_to_hir_id.get(&node_ix)?;
+                    let id = self.rune.node_index_to_hir_id.get(&node_ix)?;
                     let name = self.rune.names.get_name(*id)?;
 
                     Some((ty.rust_type_name(&self.rune.types).ok(), Some(name)))

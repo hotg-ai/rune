@@ -271,13 +271,13 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         }
 
         for window in steps.windows(2) {
-            let previous_id = self.rune.hir_id_to_nodes[&window[0]];
-            let next_id = self.rune.hir_id_to_nodes[&window[1]];
+            let previous_id = self.rune.hir_id_to_node_index[&window[0]];
+            let next_id = self.rune.hir_id_to_node_index[&window[1]];
             self.rune.graph.add_edge(
                 previous_id,
                 next_id,
                 Edge {
-                    ty: self.builtins.unknown_type,
+                    type_id: self.builtins.unknown_type,
                 },
             );
         }
@@ -336,8 +336,8 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         let id = self.ids.next();
         let node_ix = self.rune.graph.add_node(stage.into());
 
-        self.rune.nodes_to_hir_id.insert(node_ix, id);
-        self.rune.hir_id_to_nodes.insert(id, node_ix);
+        self.rune.node_index_to_hir_id.insert(node_ix, id);
+        self.rune.hir_id_to_node_index.insert(id, node_ix);
 
         (id, node_ix)
     }
@@ -369,7 +369,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
         let edges_with_incomplete_type: Vec<_> = graph
             .edge_references()
-            .filter(|e| e.weight().ty == self.builtins.unknown_type)
+            .filter(|e| e.weight().type_id == self.builtins.unknown_type)
             .collect();
 
         for edge in edges_with_incomplete_type {
@@ -587,13 +587,13 @@ mod tests {
         assert!(!analyser.diags.has_errors());
         let rune = &analyser.rune;
         assert_eq!(rune.graph.node_count(), 1);
-        let node_ix = analyser.rune.hir_id_to_nodes[&id];
+        let node_ix = analyser.rune.hir_id_to_node_index[&id];
         let should_be = Stage::Sink(Sink {
             kind: crate::hir::SinkKind::Serial,
         });
         assert_eq!(rune.graph.node_weight(node_ix), Some(&should_be));
         assert_eq!(analyser.rune.names.get_name(id), Some("serial"));
-        assert!(analyser.rune.nodes_to_hir_id.get(&node_ix).is_some());
+        assert!(analyser.rune.node_index_to_hir_id.get(&node_ix).is_some());
     }
 
     #[test]
@@ -614,9 +614,9 @@ mod tests {
         assert!(!analyser.diags.has_errors());
         assert!(!id.is_error());
         assert_eq!(analyser.rune.names.get_name(id), Some("sine"));
-        let node_ix = analyser.rune.hir_id_to_nodes[&id];
+        let node_ix = analyser.rune.hir_id_to_node_index[&id];
         assert!(analyser.rune.graph.node_weight(node_ix).is_some());
-        assert!(analyser.rune.nodes_to_hir_id.get(&node_ix).is_some());
+        assert!(analyser.rune.node_index_to_hir_id.get(&node_ix).is_some());
     }
 
     #[test]
@@ -647,7 +647,7 @@ mod tests {
             underlying_type: analyser.builtins.i32,
             dimensions: vec![1],
         });
-        let node_ix = analyser.rune.hir_id_to_nodes[&id];
+        let node_ix = analyser.rune.hir_id_to_node_index[&id];
         assert_eq!(analyser.output_types[&node_ix], i32_by_1_type);
         let should_be = Stage::Source(Source {
             kind: SourceKind::Random,
@@ -698,7 +698,7 @@ mod tests {
             let id = analyser.load_capability(&capability);
 
             assert!(analyser.diags.is_empty(), "{:?}", analyser.diags);
-            let node_ix = analyser.rune.hir_id_to_nodes[&id];
+            let node_ix = analyser.rune.hir_id_to_node_index[&id];
             let got = &analyser.rune.graph[node_ix];
             let got: Source = got.clone().try_into().unwrap();
             assert_eq!(got.kind, should_be);
@@ -833,7 +833,7 @@ mod tests {
         let edge_ix =
             analyser.rune.graph.find_edge(first_ix, second_ix).unwrap();
         let edge = analyser.rune.graph.edge_weight(edge_ix).unwrap();
-        assert_eq!(edge.ty, analyser.builtins.unknown_type);
+        assert_eq!(edge.type_id, analyser.builtins.unknown_type);
         // and also registered a pipeline
         let pipeline = &analyser.rune.pipelines[&pipeline_id];
         assert!(pipeline.edges.contains(&first_id));
