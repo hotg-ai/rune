@@ -52,7 +52,7 @@ namespace rune
                 "DEBUG",
                 "TRACE",
             };
-            const char *level_name = 1 <= level || level <= 5 ? level_names[level] : "INFO ";
+            const char *level_name = 1 <= level && level <= 5 ? level_names[level] : "INFO ";
 
             std::cout << "[" << level_name << " " << target << "] " << message << std::endl;
         }

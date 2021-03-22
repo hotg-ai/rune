@@ -2677,6 +2677,7 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cbindgen",
  "devx-pre-commit",
  "env_logger 0.8.3",
  "globset",

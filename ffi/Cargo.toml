@@ -17,6 +17,7 @@ rune-syntax = { path = "../syntax" }
 runic-types = { path = "../runic-types" }
 
 [lib]
+name = "rune"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dev-dependencies]

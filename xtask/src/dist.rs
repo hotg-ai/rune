@@ -25,6 +25,11 @@ pub fn generate_release_artifacts() -> Result<(), Error> {
 
     compile_rune_binary(&cargo, &workspace_cargo_toml, &dist, &target)
         .context("Unable to compile binaries")?;
+    if let Err(e) = strip_binaries(&dist) {
+        log::warn!("Unable to strip the binaries: {}", e);
+    }
+    generate_ffi_header(&project_root, &dist)
+        .context("Unable to generate the header file")?;
 
     compile_example_runes(&cargo, &project_root, &dist)
         .context("Unable to compile example runes")?;
@@ -38,6 +43,76 @@ pub fn generate_release_artifacts() -> Result<(), Error> {
 
     generate_archive(&dist, &target)
         .context("Unable to generate the zip archive")?;
+
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn strip_binaries(dist: &Path) -> Result<(), Error> {
+    // Windows puts all debug info in a PDB file, so there's nothing to strip
+    Ok(())
+}
+
+#[cfg(unix)]
+fn strip_binaries(dist: &Path) -> Result<(), Error> {
+    log::debug!("Stripping binaries");
+
+    for entry in dist
+        .read_dir()
+        .context("Unable to read the dist/ directory")?
+    {
+        let entry = entry?;
+        let path = entry.path();
+
+        if !is_strippable(&path) {
+            continue;
+        }
+
+        let mut cmd = Command::new("strip");
+        cmd.arg(&path);
+        log::debug!("Executing {:?}", cmd);
+
+        let status = cmd
+            .current_dir(&dist)
+            .status()
+            .context("Unable to execute `strip`")?;
+
+        anyhow::ensure!(
+            status.success(),
+            "The `strip` command finished unsuccessfully"
+        );
+    }
+
+    Ok(())
+}
+
+fn is_strippable(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+
+    let ext = match path.extension() {
+        Some(ext) => ext,
+        // It's probably an executable
+        None => return true,
+    };
+
+    let ext = match ext.to_str() {
+        Some(ext) => ext.to_lowercase(),
+        // non-ascii extension
+        None => return false,
+    };
+
+    let whitelist = &["a", "exe", "dll", "so"];
+
+    whitelist.contains(&ext.as_str())
+}
+
+fn generate_ffi_header(project_root: &Path, dist: &Path) -> Result<(), Error> {
+    let ffi_dir = project_root.join("ffi");
+    let header = dist.join("rune.h");
+    log::debug!("Writing FFI headers at \"{}\"", header.display());
+    cbindgen::generate(&ffi_dir)?.write_to_file(&header);
 
     Ok(())
 }
@@ -232,20 +307,17 @@ fn compile_rune_binary(
     log::debug!("Executing {:?}", cmd);
     anyhow::ensure!(status.success(), "`cargo build` failed");
 
-    let mut executable = target_dir.join("release").join("rune");
-
-    if cfg!(windows) {
-        executable.set_extension("exe");
-    }
-    let executable_destination = dist.join(executable.file_name().unwrap());
-    log::debug!(
-        "Copying \"{}\" to \"{}\"",
-        executable.display(),
-        executable_destination.display()
-    );
-
-    std::fs::copy(&executable, &executable_destination)
-        .context("Unable to copy rune binary into the dist directory")?;
+    BulkCopy::new(&[
+        "**/rune",
+        "**/rune.exe",
+        "**/*.a",
+        "**/*.so",
+        "**/*.dylib",
+        "**/*.dll",
+    ])?
+    .with_max_depth(1)
+    .copy(target_dir.join("release"), dist)
+    .context("Unable to copy pre-compiled binaries into the dist directory")?;
 
     Ok(())
 }

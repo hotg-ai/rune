@@ -21,7 +21,7 @@ fn main() -> Result<(), Error> {
         return run_pre_commit_hook(&project_root);
     }
 
-    let env = Env::new().default_filter_or("xtask=info");
+    let env = Env::new().default_filter_or("info,cbindgen=warn");
     env_logger::builder().parse_env(env).init();
 
     let cmd = Command::from_args();
