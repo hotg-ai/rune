@@ -1,6 +1,6 @@
 [package]
 name = "rune"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Kartik Thakore <kartik@thakore.ai>", "Akshay Sharma <akshay@sharma.ai>", "Michael-F-Bryan <consulting@michaelfbryan.com>"]
 edition = "2018"
 license = "Apache 2.0"
