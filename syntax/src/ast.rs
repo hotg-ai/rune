@@ -1,5 +1,7 @@
 //! The *Abstract Syntax Tree* for a Runefile.
 
+use std::fmt::{self, Display, Formatter};
+
 use codespan::Span;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -266,5 +268,26 @@ impl Path {
             version: version.into(),
             span,
         }
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Path {
+            base,
+            sub_path,
+            version,
+            ..
+        } = self;
+
+        write!(f, "{}", base)?;
+        if let Some(sub) = sub_path {
+            write!(f, "#{}", sub)?;
+        }
+        if let Some(version) = version {
+            write!(f, "@{}", version)?;
+        }
+
+        Ok(())
     }
 }

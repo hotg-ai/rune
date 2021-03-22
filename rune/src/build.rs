@@ -4,7 +4,7 @@ use codespan_reporting::{
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use rune_codegen::Compilation;
-use rune_syntax::Diagnostics;
+use rune_syntax::{Diagnostics, hir::Rune};
 use std::{
     env::current_dir,
     path::{Path, PathBuf},
@@ -36,31 +36,7 @@ pub struct Build {
 
 impl Build {
     pub fn execute(self, color: ColorChoice) -> Result<(), Error> {
-        let src =
-            std::fs::read_to_string(&self.runefile).with_context(|| {
-                format!("Unable to read \"{}\"", self.runefile.display())
-            })?;
-
-        let mut files = SimpleFiles::new();
-        let id = files.add(self.runefile.display().to_string(), &src);
-
-        log::debug!("Parsing \"{}\"", self.runefile.display());
-        let parsed = rune_syntax::parse(&src).unwrap();
-
-        let mut diags = Diagnostics::new();
-        let rune = rune_syntax::analyse(id, &parsed, &mut diags);
-
-        let mut writer = StandardStream::stdout(color);
-        let config = Config::default();
-
-        for diag in &diags {
-            codespan_reporting::term::emit(&mut writer, &config, &files, diag)
-                .context("Unable to print the diagnostic")?;
-        }
-
-        if diags.has_errors() {
-            anyhow::bail!("Aborting compilation due to errors.");
-        }
+        let rune = analyze(&self.runefile, color)?;
 
         let current_directory = self.current_directory()?;
         let name = self.name()?;
@@ -154,3 +130,35 @@ static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
 
     cache_dir.join("runes").to_string_lossy().into_owned()
 });
+
+pub(crate) fn analyze(
+    runefile: &Path,
+    color: ColorChoice,
+) -> Result<Rune, Error> {
+    let src = std::fs::read_to_string(runefile).with_context(|| {
+        format!("Unable to read \"{}\"", runefile.display())
+    })?;
+
+    let mut files = SimpleFiles::new();
+    let id = files.add(runefile.display().to_string(), &src);
+
+    log::debug!("Parsing \"{}\"", runefile.display());
+    let parsed = rune_syntax::parse(&src).unwrap();
+
+    let mut diags = Diagnostics::new();
+    let rune = rune_syntax::analyse(id, &parsed, &mut diags);
+
+    let mut writer = StandardStream::stdout(color);
+    let config = Config::default();
+
+    for diag in &diags {
+        codespan_reporting::term::emit(&mut writer, &config, &files, diag)
+            .context("Unable to print the diagnostic")?;
+    }
+
+    if diags.has_errors() {
+        anyhow::bail!("Aborting compilation due to errors.");
+    }
+
+    Ok(rune)
+}
