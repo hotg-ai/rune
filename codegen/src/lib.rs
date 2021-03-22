@@ -3,7 +3,7 @@ use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{HirId, Rune, SinkKind, SourceKind, Type},
+    hir::{Rune, SinkKind, SourceKind},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -302,11 +302,12 @@ impl Generator {
                 .edges_directed(node, Direction::Outgoing)
                 .filter_map(|edge| {
                     let node_ix = edge.target();
-                    let ty = edge.weight().ty;
+                    let type_id = edge.weight().ty;
+                    let ty = self.rune.types.get(&type_id)?;
                     let id = self.rune.nodes_to_hir_id.get(&node_ix)?;
                     let name = self.rune.names.get_name(*id)?;
 
-                    Some((self.rust_type_name(ty), Some(name)))
+                    Some((ty.rust_type_name(&self.rune.types).ok(), Some(name)))
                 })
                 .next()
                 .unwrap_or_default();
@@ -325,34 +326,6 @@ impl Generator {
             .into_iter()
             .map(|s| serde_json::to_value(s).unwrap())
             .collect()
-    }
-
-    fn rust_type_name(&self, id: HirId) -> Option<String> {
-        let ty = self.rune.types.get(&id)?;
-
-        match ty {
-            Type::Primitive(p) => Some(p.rust_name().to_string()),
-            Type::Buffer {
-                underlying_type,
-                dimensions,
-            } => self.rust_array_type_name(*underlying_type, dimensions),
-            Type::Any | Type::Unknown => None,
-        }
-    }
-
-    fn rust_array_type_name(
-        &self,
-        underlying_type: HirId,
-        dimensions: &[usize],
-    ) -> Option<String> {
-        match dimensions.split_first() {
-            Some((dim, rest)) => {
-                let inner = self.rust_array_type_name(underlying_type, rest)?;
-
-                Some(format!("[{}; {}]", inner, dim))
-            },
-            None => self.rust_type_name(underlying_type),
-        }
     }
 
     fn render_to(

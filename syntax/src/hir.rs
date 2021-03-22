@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     convert::{TryFrom, TryInto},
+    io::{Error, ErrorKind, Write},
     ops::Index,
     path::PathBuf,
 };
@@ -237,6 +238,67 @@ pub enum Type {
     },
     /// This can be *any* type.
     Any,
+}
+
+impl Type {
+    pub fn rust_type_name(
+        &self,
+        types: &HashMap<HirId, Type>,
+    ) -> Result<String, Error> {
+        let mut buffer = Vec::new();
+        self.write_rust_type_name(&mut buffer, types)?;
+        let name = String::from_utf8(buffer)
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
+
+        Ok(name)
+    }
+
+    fn write_rust_type_name<W: Write>(
+        &self,
+        w: &mut W,
+        types: &HashMap<HirId, Type>,
+    ) -> Result<(), Error> {
+        match self {
+            Type::Primitive(p) => write!(w, "{}", p.rust_name()),
+            Type::Buffer {
+                underlying_type,
+                dimensions,
+            } => write_rust_array_type_name(
+                w,
+                *underlying_type,
+                dimensions,
+                types,
+            ),
+            Type::Any | Type::Unknown => Err(Error::new(
+                ErrorKind::Other,
+                "The concrete type isn't known",
+            )),
+        }
+    }
+}
+
+fn write_rust_array_type_name<W: Write>(
+    w: &mut W,
+    underlying_type: HirId,
+    dimensions: &[usize],
+    types: &HashMap<HirId, Type>,
+) -> Result<(), Error> {
+    match dimensions.split_first() {
+        Some((dim, rest)) => {
+            write!(w, "[")?;
+            write_rust_array_type_name(w, underlying_type, rest, types)?;
+
+            write!(w, " {}]", dim)?;
+            Ok(())
+        },
+        None => {
+            let ty = types
+                .get(&underlying_type)
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Unknown type"))?;
+            ty.write_rust_type_name(w, types)?;
+            Ok(())
+        },
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

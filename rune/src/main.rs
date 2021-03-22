@@ -1,13 +1,15 @@
 mod build;
+mod graph;
 mod run;
 
 use std::str::FromStr;
-use build::Build;
+use crate::build::Build;
 use anyhow::Error;
 use codespan_reporting::term::termcolor;
 use structopt::StructOpt;
 use env_logger::{Env, WriteStyle};
-use run::Run;
+use crate::run::Run;
+use crate::graph::Graph;
 
 const DEFAULT_RUST_LOG: &str = concat!(
     "info,",
@@ -31,6 +33,7 @@ fn main() -> Result<(), Error> {
     match cmd {
         Cmd::Build(build) => build.execute(colour.into()),
         Cmd::Run(run) => run.execute(),
+        Cmd::Graph(graph) => graph.execute(colour.into()),
     }
 }
 
@@ -94,4 +97,6 @@ enum Cmd {
     Build(Build),
     /// Run a rune.
     Run(Run),
+    /// Parse a Runefile and generate a DOT graph showing the pipelines inside.
+    Graph(Graph),
 }

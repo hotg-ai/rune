@@ -1778,6 +1778,7 @@ dependencies = [
  "image",
  "log",
  "once_cell",
+ "petgraph",
  "predicates",
  "rune-codegen",
  "rune-runtime",
