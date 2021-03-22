@@ -292,7 +292,7 @@ impl Generator {
             let previous = graph
                 .edges_directed(node, Direction::Incoming)
                 .filter_map(|edge| {
-                    let node_ix = edge.target();
+                    let node_ix = edge.source();
                     let id = self.rune.nodes_to_hir_id.get(&node_ix)?;
                     self.rune.names.get_name(*id)
                 })
@@ -319,8 +319,6 @@ impl Generator {
                 output_type,
             });
         }
-
-        dbg!(&stages);
 
         stages
             .into_iter()
