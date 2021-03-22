@@ -288,7 +288,7 @@ fn write_rust_array_type_name<W: Write>(
             write!(w, "[")?;
             write_rust_array_type_name(w, underlying_type, rest, types)?;
 
-            write!(w, " {}]", dim)?;
+            write!(w, "; {}]", dim)?;
             Ok(())
         },
         None => {

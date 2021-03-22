@@ -6,3 +6,6 @@ examples/.DS_Store
 .DS_Store
 .vscode/
 *.rune
+*.dot
+*.svg
+*.png

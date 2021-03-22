@@ -1,8 +1,15 @@
-use crate::{Diagnostics, ast::{
+use crate::{
+    Diagnostics,
+    ast::{
         Argument, ArgumentValue, CapabilityInstruction, Ident, Instruction,
         ModelInstruction, OutInstruction, ProcBlockInstruction, RunInstruction,
         Runefile,
-    }, hir::{Edge, HirId, Model, Pipeline, Primitive, ProcBlock, Rune, Sink, Source, SourceKind, Stage, Type}};
+    },
+    hir::{
+        Edge, HirId, Model, Pipeline, Primitive, ProcBlock, Rune, Sink, Source,
+        SourceKind, Stage, Type,
+    },
+};
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use petgraph::{
@@ -266,9 +273,13 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
         for window in steps.windows(2) {
             let previous_id = self.rune.hir_id_to_nodes[&window[0]];
             let next_id = self.rune.hir_id_to_nodes[&window[1]];
-            self.rune.graph.add_edge(previous_id, next_id, Edge {
-                ty: self.builtins.unknown_type,
-            });
+            self.rune.graph.add_edge(
+                previous_id,
+                next_id,
+                Edge {
+                    ty: self.builtins.unknown_type,
+                },
+            );
         }
 
         let id = self.ids.next();
@@ -332,14 +343,24 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     }
 
     fn infer_types(&mut self) {
-        // TODO: Go through each pipeline and try to figure out what the
-        // input/output type at each stage should be.
-        //
-        // This will be a bit like a fixed-point iteration, where you keep
-        // running inference in a loop until you've either inferred all the
-        // types or are unable to make any more progress.
-        //
-        // For now, let's just emit a warning.
+        let Analyser {
+            diags,
+            file_id,
+            rune: Rune { graph, types, .. },
+            input_types,
+            output_types,
+            ..
+        } = self;
+
+        crate::type_inference::infer(
+            graph,
+            input_types,
+            output_types,
+            types,
+            *file_id,
+            *diags,
+        );
+
         self.warn_on_unknown_type();
     }
 
