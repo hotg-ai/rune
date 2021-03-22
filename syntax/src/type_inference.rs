@@ -35,6 +35,6 @@ pub(crate) fn infer<FileId: Copy>(
     // TODO: Check for duplicates
     for (edge_ix, type_id) in known {
         let edge = graph.edge_weight_mut(edge_ix).unwrap();
-        edge.ty = type_id;
+        edge.type_id = type_id;
     }
 }

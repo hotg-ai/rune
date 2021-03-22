@@ -329,6 +329,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3362992a0d9f1dd7c3d0e89e0ab2bb540b7a95fea8cd798090e758fda2899b5e"
 dependencies = [
  "codespan-reporting",
+ "serde",
 ]
 
 [[package]]
@@ -337,6 +338,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
+ "serde",
  "termcolor",
  "unicode-width",
 ]
@@ -1460,6 +1462,8 @@ checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
 dependencies = [
  "fixedbitset",
  "indexmap",
+ "serde",
+ "serde_derive",
 ]
 
 [[package]]
@@ -1784,6 +1788,7 @@ dependencies = [
  "rune-runtime",
  "rune-syntax",
  "runic-types",
+ "serde_json",
  "structopt",
  "tempfile",
 ]
@@ -1843,6 +1848,7 @@ dependencies = [
  "pest_derive",
  "petgraph",
  "pretty_assertions",
+ "serde",
 ]
 
 [[package]]

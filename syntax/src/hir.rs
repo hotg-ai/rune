@@ -15,6 +15,11 @@ use petgraph::{
 };
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct Rune {
     pub base_image: Option<Path>,
     pub graph: DiGraph<Stage, Edge>,
@@ -22,8 +27,8 @@ pub struct Rune {
     pub types: HashMap<HirId, Type>,
     pub names: NameTable,
     pub spans: HashMap<HirId, Span>,
-    pub nodes_to_hir_id: HashMap<NodeIndex, HirId>,
-    pub hir_id_to_nodes: HashMap<HirId, NodeIndex>,
+    pub node_index_to_hir_id: HashMap<NodeIndex, HirId>,
+    pub hir_id_to_node_index: HashMap<HirId, NodeIndex>,
 }
 
 impl Rune {
@@ -31,7 +36,7 @@ impl Rune {
         &self,
     ) -> impl Iterator<Item = (HirId, NodeIndex, &Stage)> + '_ {
         self.graph.node_references().map(move |(n, stage)| {
-            let h = self.nodes_to_hir_id[&n];
+            let h = self.node_index_to_hir_id[&n];
             (h, n, stage)
         })
     }
@@ -74,6 +79,11 @@ impl Rune {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct HirId(u32);
 
 impl HirId {
@@ -98,6 +108,11 @@ unsafe impl IndexType for HirId {
 
 /// A table mapping names to [`HirId`]s.
 #[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct NameTable {
     name_to_id: HashMap<String, HirId>,
     id_to_name: HashMap<HirId, String>,
@@ -143,6 +158,11 @@ impl<'a> Index<&'a str> for NameTable {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "type")
+)]
 pub enum Stage {
     Source(Source),
     Sink(Sink),
@@ -211,22 +231,38 @@ impl TryFrom<Stage> for ProcBlock {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sink {
     pub kind: SinkKind,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "type")
+)]
 pub enum SinkKind {
     Serial,
     Other(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct Model {
     pub model_file: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", untagged)
+)]
 pub enum Type {
     Primitive(Primitive),
     /// The concrete type isn't yet known.
@@ -302,6 +338,11 @@ fn write_rust_array_type_name<W: Write>(
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub enum Primitive {
     U8,
     I8,
@@ -335,12 +376,18 @@ impl Primitive {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Source {
     pub kind: SourceKind,
     pub parameters: HashMap<String, ArgumentValue>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case", tag = "type")
+)]
 pub enum SourceKind {
     Random,
     Accelerometer,
@@ -350,6 +397,11 @@ pub enum SourceKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serde-1",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "kebab-case")
+)]
 pub struct ProcBlock {
     pub path: Path,
     pub parameters: HashMap<String, ArgumentValue>,
@@ -366,12 +418,14 @@ impl ProcBlock {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Pipeline {
     /// The edges associated with this pipeline.
     pub edges: HashSet<HirId>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
 pub struct Edge {
-    pub ty: HirId,
+    pub type_id: HirId,
 }
