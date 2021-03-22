@@ -19,7 +19,7 @@ fn execute_cpp_example() {
     let lib = rune_project_dir
         .join("target")
         .join("debug")
-        .join("librune_ffi.a");
+        .join("librune.a");
 
     // First, generate the header file for our bindings
     cbindgen::generate(ffi_dir).unwrap().write_to_file(&header);
