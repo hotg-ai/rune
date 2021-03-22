@@ -1,7 +1,7 @@
 use crate::{Environment, capability::Capability, outputs::Output};
 use anyhow::{Context as _, Error};
-use log::{Level, Record};
-use runic_types::{SerializableRecord, Value, outputs};
+use log::{Record, Level};
+use runic_types::{SerializableRecord, Value, Type, outputs};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
@@ -455,7 +455,7 @@ fn request_capability_set_param(caps: Capabilities, store: &Store) -> Function {
                 .unwrap_or_trap("Invalid value");
             let raw: &[u8] = std::mem::transmute(raw);
 
-            let ty = runic_types::Type::try_from(value_type)
+            let ty = Type::try_from(value_type)
                 .map_err(|_| Error::msg("Unknown type"))
                 .unwrap_or_trap(
                     "Unable to determine the capability parameter value",
@@ -686,7 +686,7 @@ where
 }
 
 unsafe fn raise_user_trap(error: Error) -> ! {
-    wasmer::raise_user_trap(error.into())
+    wasmer::raise_user_trap(error.into());
 }
 
 fn set_max_log_level(instance: &Instance) -> Result<(), Error> {

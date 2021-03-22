@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "codegen",
+    "ffi",
     "proc_blocks/*",
     "rune",
     "runic-types",
@@ -9,3 +10,6 @@ members = [
     "xtask"
 ]
 exclude = [ "examples/*" ]
+
+[profile.release]
+debug = true
