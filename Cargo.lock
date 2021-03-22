@@ -1796,6 +1796,7 @@ dependencies = [
  "heck",
  "log",
  "once_cell",
+ "petgraph",
  "rune-syntax",
  "serde",
  "serde_json",

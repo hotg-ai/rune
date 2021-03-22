@@ -3,11 +3,15 @@
 use std::{
     collections::{HashMap, HashSet},
     convert::{TryFrom, TryInto},
+    ops::Index,
     path::PathBuf,
 };
 use codespan::Span;
 use crate::ast::{ArgumentValue, Path};
-use petgraph::graph::{DiGraph, IndexType, NodeIndex};
+use petgraph::{
+    graph::{DiGraph, IndexType, NodeIndex},
+    visit::IntoNodeReferences,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct Rune {
@@ -19,6 +23,53 @@ pub struct Rune {
     pub spans: HashMap<HirId, Span>,
     pub nodes_to_hir_id: HashMap<NodeIndex, HirId>,
     pub hir_id_to_nodes: HashMap<HirId, NodeIndex>,
+}
+
+impl Rune {
+    pub fn stages(
+        &self,
+    ) -> impl Iterator<Item = (HirId, NodeIndex, &Stage)> + '_ {
+        self.graph.node_references().map(move |(n, stage)| {
+            let h = self.nodes_to_hir_id[&n];
+            (h, n, stage)
+        })
+    }
+
+    pub fn proc_blocks(
+        &self,
+    ) -> impl Iterator<Item = (HirId, NodeIndex, &ProcBlock)> + '_ {
+        self.stages().filter_map(|(h, n, stage)| match stage {
+            Stage::ProcBlock(pb) => Some((h, n, pb)),
+            _ => None,
+        })
+    }
+
+    pub fn models(
+        &self,
+    ) -> impl Iterator<Item = (HirId, NodeIndex, &Model)> + '_ {
+        self.stages().filter_map(|(h, n, stage)| match stage {
+            Stage::Model(m) => Some((h, n, m)),
+            _ => None,
+        })
+    }
+
+    pub fn sinks(
+        &self,
+    ) -> impl Iterator<Item = (HirId, NodeIndex, &Sink)> + '_ {
+        self.stages().filter_map(|(h, n, stage)| match stage {
+            Stage::Sink(s) => Some((h, n, s)),
+            _ => None,
+        })
+    }
+
+    pub fn sources(
+        &self,
+    ) -> impl Iterator<Item = (HirId, NodeIndex, &Source)> + '_ {
+        self.stages().filter_map(|(h, n, stage)| match stage {
+            Stage::Source(s) => Some((h, n, s)),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -69,6 +120,24 @@ impl NameTable {
 
     pub fn get_id(&self, name: &str) -> Option<HirId> {
         self.name_to_id.get(name).copied()
+    }
+}
+
+impl Index<HirId> for NameTable {
+    type Output = str;
+
+    #[track_caller]
+    fn index(&self, index: HirId) -> &Self::Output {
+        self.get_name(index).unwrap()
+    }
+}
+
+impl<'a> Index<&'a str> for NameTable {
+    type Output = HirId;
+
+    #[track_caller]
+    fn index(&self, index: &'a str) -> &Self::Output {
+        self.name_to_id.get(index).unwrap()
     }
 }
 

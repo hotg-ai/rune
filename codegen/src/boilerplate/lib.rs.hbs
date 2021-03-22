@@ -43,15 +43,15 @@ pub extern "C" fn _manifest() -> u32 {
         let _guard = PipelineGuard::default();
 
         {{#each pipeline~}}
-        {{~#if first~}}
-        let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();
-        log::debug!("{{name}} => {:?}", data);
-        {{else}}{{#if last}}
-        {{name}}.consume(data);
-        {{~else~}}
-        let data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.transform(data);
-        log::debug!("{{name}} => {:?}", data);
-        {{/if}}{{/if~}}{{~/each}}
+        {{~#if (and previous next)~}}
+        let {{name}}_data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.transform({{previous}}_data);
+        log::debug!("{{name}} => {:?}", {{name}}_data);
+        {{~else~}}{{#if not next}}
+        let {{name}}_data{{#if output_type}}: {{output_type}}{{/if}} = {{name}}.generate();
+        log::debug!("{{name}} => {:?}", {{name}}_data);
+        {{else}}{{#if not next}}
+        {{name}}.consume({{previous}}_data);
+        {{/if}}{{/if}}{{/if~}}{{~/each}}
     };
 
     unsafe {

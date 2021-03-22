@@ -3,7 +3,7 @@ use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{HirId, Rune, Sink, SourceKind, Type},
+    hir::{HirId, Rune, SinkKind, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -11,8 +11,10 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::Command,
+    unimplemented,
 };
 use once_cell::sync::Lazy;
+use petgraph::{Direction, visit::EdgeRef};
 
 static REQUIRED_DEPENDENCIES: Lazy<Vec<Value>> = Lazy::new(|| {
     vec![json!({
@@ -150,7 +152,7 @@ impl Generator {
             json!({ "name": "runic-types", "deps": { "path": runic_types } }),
         );
 
-        for proc in self.rune.proc_blocks.values() {
+        for (_, _, proc) in self.rune.proc_blocks() {
             dependencies.push(dependency_info(proc, &self.rune_project_dir));
         }
 
@@ -172,7 +174,7 @@ impl Generator {
             "capabilities": self.capabilities(),
             "proc_blocks": self.proc_blocks(),
             "outputs": self.outputs(),
-            "pipeline": self.pipeline(),
+            "pipeline": self.pipeline_stages(),
         });
         self.render_to(self.dest.join("lib.rs"), "lib.rs", &ctx)?;
 
@@ -181,9 +183,8 @@ impl Generator {
 
     fn models(&self) -> Vec<Value> {
         self.rune
-            .models
-            .keys()
-            .filter_map(|&id| self.rune.names.get_name(id))
+            .models()
+            .filter_map(|(id, _, _)| self.rune.names.get_name(id))
             .map(Value::from)
             .collect()
     }
@@ -191,10 +192,11 @@ impl Generator {
     fn outputs(&self) -> Vec<Value> {
         let mut outputs = Vec::new();
 
-        for (&id, sink) in &self.rune.sinks {
+        for (id, _, sink) in self.rune.sinks() {
             if let Some(name) = self.rune.names.get_name(id) {
-                let type_name = match sink {
-                    Sink::Serial => "Serial",
+                let type_name = match sink.kind {
+                    SinkKind::Serial => "Serial",
+                    _ => unimplemented!(),
                 };
 
                 outputs.push(json!({
@@ -212,7 +214,7 @@ impl Generator {
     fn capabilities(&self) -> Vec<Value> {
         let mut capabilities = Vec::new();
 
-        for (&id, source) in &self.rune.sources {
+        for (id, _, source) in self.rune.sources() {
             if let Some(name) = self.rune.names.get_name(id) {
                 let type_name = match &source.kind {
                     SourceKind::Random => "runic_types::wasm32::Random",
@@ -245,7 +247,7 @@ impl Generator {
     fn proc_blocks(&self) -> Vec<Value> {
         let mut blocks = Vec::new();
 
-        for (&id, proc_block) in &self.rune.proc_blocks {
+        for (id, _, proc_block) in self.rune.proc_blocks() {
             if let Some(name) = self.rune.names.get_name(id) {
                 let module_name = proc_block.name();
                 let type_name =
@@ -273,54 +275,56 @@ impl Generator {
         blocks
     }
 
-    fn pipeline(&self) -> Vec<Value> {
-        #[derive(serde::Serialize)]
-        struct Stage<'a> {
-            name: &'a str,
-            first: bool,
-            last: bool,
-            output_type: Option<String>,
-        }
-
-        let pipeline = self
-            .rune
-            .pipelines
-            .values()
-            .next()
-            .expect("There should be at least one pipeline");
+    fn pipeline_stages(&self) -> Vec<Value> {
+        let graph = &self.rune.graph;
+        let nodes = petgraph::algo::toposort(graph, None)
+            .expect("The analyser ensures our pipeline graph is acyclic");
 
         let mut stages = Vec::new();
 
-        for node in pipeline.iter() {
+        for node in nodes {
+            let id = self.rune.nodes_to_hir_id[&node];
             let name = self
                 .rune
                 .names
-                .get_name(node.id())
-                .expect("All pipeline nodes have names");
+                .get_name(id)
+                .expect("All stages must be named");
+            let previous = graph
+                .edges_directed(node, Direction::Incoming)
+                .filter_map(|edge| {
+                    let node_ix = edge.target();
+                    let id = self.rune.nodes_to_hir_id.get(&node_ix)?;
+                    self.rune.names.get_name(*id)
+                })
+                .next();
 
-            let output_type =
-                node.output_type().and_then(|t| self.rust_type_name(t));
+            let (output_type, next) = graph
+                .edges_directed(node, Direction::Outgoing)
+                .filter_map(|edge| {
+                    let node_ix = edge.target();
+                    let ty = edge.weight().ty;
+                    let id = self.rune.nodes_to_hir_id.get(&node_ix)?;
+                    let name = self.rune.names.get_name(*id)?;
+
+                    Some((self.rust_type_name(ty), Some(name)))
+                })
+                .next()
+                .unwrap_or_default();
 
             stages.push(Stage {
                 name,
+                previous,
+                next,
                 output_type,
-                first: false,
-                last: false,
             });
         }
 
-        assert!(stages.len() >= 2);
-        stages.first_mut().unwrap().first = true;
-        stages.last_mut().unwrap().last = true;
+        dbg!(&stages);
 
-        let pipelines: Vec<_> = stages
+        stages
             .into_iter()
-            .map(|s| serde_json::to_value(&s).unwrap())
-            .collect();
-
-        log::trace!("Pipelines: {:?}", pipelines);
-
-        pipelines
+            .map(|s| serde_json::to_value(s).unwrap())
+            .collect()
     }
 
     fn rust_type_name(&self, id: HirId) -> Option<String> {
@@ -372,7 +376,7 @@ impl Generator {
     }
 
     fn render_models(&self) -> Result<(), Error> {
-        for (&id, model) in &self.rune.models {
+        for (id, _, model) in self.rune.models() {
             let name = self
                 .rune
                 .names
@@ -528,6 +532,14 @@ fn as_inline_toml(value: &Value) -> String {
             buffer
         },
     }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct Stage<'a> {
+    name: &'a str,
+    previous: Option<&'a str>,
+    next: Option<&'a str>,
+    output_type: Option<String>,
 }
 
 #[cfg(test)]
