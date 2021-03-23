@@ -48,6 +48,7 @@ pub static mut MAX_LOG_LEVEL: LevelFilter = if cfg!(debug_assertions) {
 pub static ALLOCATOR: StatsAllocator<DebugAllocator<WeeAlloc<'static>>> =
     StatsAllocator::new(DebugAllocator::new(WeeAlloc::INIT));
 
+#[cfg(not(test))]
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {
     static mut PANICKING: bool = false;
@@ -87,6 +88,7 @@ fn on_panic(info: &PanicInfo) -> ! {
     }
 }
 
+#[cfg(not(test))]
 #[alloc_error_handler]
 fn on_alloc_error(layout: Layout) -> ! {
     panic!(
