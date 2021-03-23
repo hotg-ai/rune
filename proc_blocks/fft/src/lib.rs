@@ -8,7 +8,7 @@ extern crate alloc;
 extern crate std;
 
 use core::f64::consts::PI;
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use num_complex::Complex;
 use runic_types::Transform;
 
@@ -21,12 +21,14 @@ const DEFAULT_SAMPLE_RATE: u32 = 16_000;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fft<const N: usize> {
     sample_rate: u32,
+    preallocated_buffers: Buffer,
 }
 
 impl<const N: usize> Fft<N> {
     pub fn new() -> Self {
         Fft {
             sample_rate: DEFAULT_SAMPLE_RATE,
+            preallocated_buffers: Buffer::new(N),
         }
     }
 
@@ -49,8 +51,23 @@ where
     type Output = [i8; N];
 
     fn transform(&mut self, input: A) -> Self::Output {
-        let spectrum =
-            Spectrum::from_samples(input.as_ref(), self.sample_rate as f64);
+        let Buffer {
+            samples,
+            output_a,
+            output_b,
+        } = &mut self.preallocated_buffers;
+
+        samples.clear();
+        for sample in input.as_ref() {
+            samples.push(Complex::new(*sample as f64, 0.0));
+        }
+
+        let spectrum = Spectrum::from_samples(
+            samples,
+            self.sample_rate as f64,
+            output_a,
+            output_b,
+        );
 
         let mut output = [0.0; N];
 
@@ -71,6 +88,23 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct Buffer {
+    samples: Vec<Complex<f64>>,
+    output_a: Vec<Complex<f64>>,
+    output_b: Vec<Complex<f64>>,
+}
+
+impl Buffer {
+    fn new(output_size: usize) -> Self {
+        Buffer {
+            samples: Vec::new(),
+            output_a: alloc::vec![Complex::default(); output_size],
+            output_b: alloc::vec![Complex::default(); output_size],
+        }
+    }
+}
+
 fn min_max(items: &[f64]) -> (f64, f64) {
     items.iter().copied().fold(
         (core::f64::INFINITY, core::f64::NEG_INFINITY),
@@ -79,23 +113,20 @@ fn min_max(items: &[f64]) -> (f64, f64) {
 }
 
 #[derive(Debug)]
-struct Spectrum {
-    bins: Box<[Complex<f64>]>,
+struct Spectrum<'a> {
+    bins: &'a [Complex<f64>],
     sample_rate: f64,
 }
 
-impl Spectrum {
-    fn from_samples(samples: &[i16], sample_rate: f64) -> Self {
-        let input: Vec<_> = samples
-            .iter()
-            .map(|&sample| Complex {
-                re: sample as f64,
-                im: 1.0,
-            })
-            .collect();
-
+impl<'a> Spectrum<'a> {
+    fn from_samples(
+        samples: &[Complex<f64>],
+        sample_rate: f64,
+        output_a: &'a mut Vec<Complex<f64>>,
+        output_b: &'a mut Vec<Complex<f64>>,
+    ) -> Self {
         Spectrum {
-            bins: fft(&input).into_boxed_slice(),
+            bins: fft(&samples, output_a, output_b),
             sample_rate: sample_rate as f64,
         }
     }
@@ -125,23 +156,33 @@ impl Spectrum {
     }
 }
 
-/// A Fast Fourier Transform implementation copied from [Rosetta Code][rc].
+/// A Fast Fourier Transform implementation copied from [Rosetta Code][rc],
+/// modified to avoid allocating memory.
 ///
 /// [rc]: https://rosettacode.org/wiki/Fast_Fourier_transform#Rust
-pub fn fft(input: &[Complex<f64>]) -> Vec<Complex<f64>> {
+pub fn fft<'a>(
+    input: &[Complex<f64>],
+    buf_a: &'a mut Vec<Complex<f64>>,
+    buf_b: &'a mut Vec<Complex<f64>>,
+) -> &'a mut [Complex<f64>] {
     // round n (length) up to a power of 2:
     let n = input.len().next_power_of_two();
 
-    // pad with zeros
-    let mut buf_a = alloc::vec![Complex::default(); n];
+    // clear the previous buffer
+    buf_a.clear();
+    buf_a.reserve(n);
     // copy the input into a buffer
-    buf_a[..input.len()].copy_from_slice(input);
-    // alternate between buf_a and buf_b to avoid allocating a new vector each
-    // time
-    let mut buf_b = buf_a.clone();
-    fft_recursive(&mut buf_a, &mut buf_b, n, 1);
+    buf_a.extend_from_slice(input);
+    // pad out the rest with zeroes
+    buf_a.extend(core::iter::repeat(Complex::default()).take(n - input.len()));
 
-    for element in &mut buf_a {
+    // then copy it across to our second buffer
+    buf_b.clear();
+    buf_b.extend_from_slice(&buf_a);
+
+    fft_recursive(buf_a, buf_b, n, 1);
+
+    for element in buf_a.iter_mut() {
         *element /= n as f64;
     }
 
@@ -181,8 +222,10 @@ mod tests {
         let mut input = [Complex::new(0.0, 0.0); 8];
         input[0] = Complex::new(1.000, 0.000);
         let should_be = [Complex::new(0.125, 0.0); 8];
+        let mut a = Vec::new();
+        let mut b = Vec::new();
 
-        let got = fft(&input);
+        let got = fft(&input, &mut a, &mut b);
 
         assert_eq!(got, should_be);
     }
@@ -201,8 +244,10 @@ mod tests {
             Complex::new(0.000, 0.125),
             Complex::new(0.088, 0.088),
         ];
+        let mut a = Vec::new();
+        let mut b = Vec::new();
 
-        let got = fft(&input);
+        let got = fft(&input, &mut a, &mut b);
 
         println!("{:?}", got);
         assert!(
@@ -225,8 +270,10 @@ mod tests {
     fn all_zeroes() {
         let input = [Complex::new(0.0, 0.0); 8];
         let should_be = [Complex::new(0.0, 0.0); 8];
+        let mut a = Vec::new();
+        let mut b = Vec::new();
 
-        let got = fft(&input);
+        let got = fft(&input, &mut a, &mut b);
 
         assert_eq!(got, should_be);
     }
