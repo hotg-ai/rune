@@ -88,7 +88,7 @@ impl ManualGesture {
 
 pub struct ManualMicrospeech {
     audio: Sound<24000>,
-    fft: Fft,
+    fft: Fft<1960>,
     model: Model<[u8; 1960], [u8; 4]>,
     label: OhvLabel<4>,
 }
@@ -113,7 +113,7 @@ impl ManualMicrospeech {
 
     pub fn call(&mut self) -> &'static str {
         let data: [i16; 24000] = self.audio.generate();
-        let data: [u8; 1960] = self.fft.transform(data);
+        let data: [i8; 1960] = self.fft.transform(data);
         let data: [u8; 4] = self.model.transform(data);
         let data: &'static str = self.label.transform(data);
 

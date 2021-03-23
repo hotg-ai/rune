@@ -1,3 +1,4 @@
+#![feature(array_map)]
 #![no_std]
 
 extern crate alloc;
@@ -45,7 +46,7 @@ impl<A, const N: usize> Transform<A> for Fft<N>
 where
     A: AsRef<[i16]>,
 {
-    type Output = [f32; N];
+    type Output = [i8; N];
 
     fn transform(&mut self, input: A) -> Self::Output {
         let spectrum =
@@ -54,12 +55,27 @@ where
         let mut output = [0.0; N];
 
         for i in 0..N {
-            let value = spectrum.lookup_frequency(i as f64);
-            output[i] = value as f32;
+            output[i] = spectrum.lookup_frequency(i as f64);
         }
 
-        output
+        // normalize and convert to i8
+        let (min, max) = min_max(&output);
+        let range = max - min;
+
+        output.map(|value| {
+            // scale to [-1, 1]
+            let normalized = (value - min) * 2.0 / range;
+            // then map to [-255, 255]
+            libm::round(normalized * (i8::max_value() as f64)) as i8
+        })
     }
+}
+
+fn min_max(items: &[f64]) -> (f64, f64) {
+    items.iter().copied().fold(
+        (core::f64::INFINITY, core::f64::NEG_INFINITY),
+        |(min, max), value| (f64::min(min, value), f64::max(max, value)),
+    )
 }
 
 #[derive(Debug)]
@@ -225,13 +241,13 @@ mod tests {
         // we sampled at 360 Hz and have 360 samples => 1 Hz sine wave
         let mut fft = Fft::default().with_sample_rate(360);
 
-        let got: [f32; 32] = fft.transform(&input);
+        let got: [i8; 32] = fft.transform(&input);
 
         let (peak_frequency, _value) = got
             .iter()
             .copied()
             .enumerate()
-            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+            .max_by_key(|(_, value)| *value)
             .unwrap();
         let expected_frequency = input.len() / fft.sample_rate as usize;
         assert_eq!(peak_frequency, expected_frequency);

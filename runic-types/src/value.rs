@@ -5,6 +5,7 @@ use core::{convert::TryFrom, fmt::Display, fmt, fmt::Formatter};
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum Value {
+    SignedByte(i8),
     Byte(u8),
     Short(i16),
     Integer(i32),
@@ -20,6 +21,10 @@ impl Value {
     pub fn from_le_bytes(ty: Type, bytes: &[u8]) -> Option<Self> {
         match ty {
             Type::Byte => bytes.get(0).copied().map(Value::Byte),
+            Type::SignedByte => {
+                let buffer = [*bytes.get(0)?];
+                Some(Value::SignedByte(i8::from_le_bytes(buffer)))
+            },
             Type::Short => {
                 const LEN: usize = core::mem::size_of::<i16>();
 
@@ -62,6 +67,11 @@ impl Value {
                 buffer[0] = b;
                 1
             },
+            Value::SignedByte(b) => {
+                let bytes = b.to_be_bytes();
+                buffer[0] = bytes[0];
+                1
+            },
             Value::Short(short) => {
                 let bytes = short.to_le_bytes();
                 buffer[..bytes.len()].copy_from_slice(&bytes);
@@ -86,6 +96,7 @@ impl Value {
             Value::Short(_) => Type::Short,
             Value::Integer(_) => Type::Integer,
             Value::Float(_) => Type::Float,
+            Value::SignedByte(_) => Type::SignedByte,
         }
     }
 }
@@ -97,6 +108,7 @@ impl Display for Value {
             Value::Short(s) => write!(f, "{}_i16", s),
             Value::Integer(i) => write!(f, "{}_i32", i),
             Value::Float(float) => write!(f, "{:.1}", float),
+            Value::SignedByte(b) => write!(f, "{}_i8", b),
         }
     }
 }
@@ -113,6 +125,8 @@ pub enum Type {
     Byte = 5,
     /// A 16-bit signed integer.
     Short = 6,
+    /// A 16-bit signed integer.
+    SignedByte = 7,
     /* Note: Enum discriminant are important here. We want to stay
      * compatible with PARAM_TYPE so the mobile runtime isn't broken.
      *
@@ -185,7 +199,13 @@ macro_rules! impl_as_type {
     }
 }
 
-impl_as_type!(u8 => Byte, i16 => Short, i32 => Integer, f32 => Float);
+impl_as_type! {
+    u8 => Byte,
+    i16 => Short,
+    i32 => Integer,
+    f32 => Float,
+    i8 => SignedByte,
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct InvalidConversionError {
