@@ -69,10 +69,6 @@ impl Runtime {
         let instance =
             Instance::new(&module, &imports).context("Instantiation failed")?;
 
-        if let Err(e) = set_max_log_level(&instance) {
-            log::warn!("Unable to set the log level: {:?}", e);
-        }
-
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
         let manifest: NativeFunc<(), i32> = instance
@@ -769,7 +765,7 @@ unsafe fn raise_user_trap(error: Error) -> ! {
     wasmer::raise_user_trap(error.into());
 }
 
-fn set_max_log_level(instance: &Instance) -> Result<(), Error> {
+fn _set_max_log_level(instance: &Instance) -> Result<(), Error> {
     let global = instance
         .exports
         .get_global("MAX_LOG_LEVEL")

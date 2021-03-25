@@ -15,7 +15,7 @@ impl<A> Allocator<A> {
 unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         let ptr = self.0.alloc(layout);
-        log::trace!(
+        log::debug!(
             "Alloc {:p}, layout = {:?}, stats = {:?}",
             ptr,
             layout,
@@ -28,7 +28,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-        log::trace!(
+        log::debug!(
             "Free {:p}, layout = {:?}, stats = {:?}",
             ptr,
             layout,
@@ -47,7 +47,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
     ) -> *mut u8 {
         let new_ptr = self.0.realloc(ptr, layout, new_size);
 
-        log::trace!(
+        log::debug!(
             "Realloc {:p} to {} bytes at {:p}, layout = {:?}, stats = {:?}",
             ptr,
             new_size,
@@ -73,6 +73,10 @@ impl<A> DerefMut for Allocator<A> {
 }
 
 fn backtrace(msg: &str) {
+    if !log::log_enabled!(log::Level::Debug) {
+        return;
+    }
+
     unsafe {
         intrinsics::log_backtrace(msg.as_ptr(), msg.len() as u32);
     }
