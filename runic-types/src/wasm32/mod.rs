@@ -8,6 +8,7 @@ mod model;
 mod random;
 mod serial;
 mod sound;
+mod stats_allocator;
 
 pub use accelerometer::Accelerometer;
 pub use image::Image;
@@ -21,7 +22,7 @@ pub use logging::Logger;
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use wee_alloc::WeeAlloc;
 use crate::{Buffer, Value, BufWriter};
-use self::alloc::{DebugAllocator, StatsAllocator};
+use self::alloc::Allocator;
 use log::LevelFilter;
 
 /// A well-known symbol the runtime can modify to alter the maximum log level.
@@ -45,8 +46,8 @@ pub static mut MAX_LOG_LEVEL: LevelFilter = if cfg!(debug_assertions) {
 };
 
 #[global_allocator]
-pub static ALLOCATOR: StatsAllocator<DebugAllocator<WeeAlloc<'static>>> =
-    StatsAllocator::new(DebugAllocator::new(WeeAlloc::INIT));
+pub static ALLOCATOR: Allocator<WeeAlloc<'static>> =
+    Allocator::new(WeeAlloc::INIT);
 
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {

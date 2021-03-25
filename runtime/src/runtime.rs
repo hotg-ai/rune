@@ -9,7 +9,7 @@ use tflite::{
 use std::{
     collections::HashMap,
     convert::{TryFrom, TryInto},
-    fmt::{Debug, Display},
+    fmt::{self, Debug, Display, Formatter},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -18,7 +18,7 @@ use std::{
 use wasmer::{
     Array, BaseTunables, Cranelift, CraneliftOptLevel, Engine, Function,
     ImportObject, Instance, JIT, LazyInit, Memory, Module, NativeFunc, Pages,
-    Store, WASM_MIN_PAGES, WasmPtr,
+    RuntimeError, Store, WASM_MIN_PAGES, WasmPtr,
 };
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
@@ -132,6 +132,7 @@ fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
             "request_provider_response" => request_provider_response(Arc::clone(&capabilities), store),
             "request_output" => request_output(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&outputs), store),
             "consume_output" => consume_output(Arc::clone(&outputs), store),
+            "log_backtrace" => log_backtrace(store),
         },
     }
 }
@@ -647,6 +648,73 @@ fn invoke_output(
     log::trace!("Buffer: {:?}", input);
 
     out.consume(input)
+}
+
+fn log_backtrace(store: &Store) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, msg: WasmPtr<u8, Array>, len: u32| unsafe {
+            let msg = msg
+                .get_utf8_str(s.memory.get_unchecked(), len)
+                .unwrap_or_trap("Bad message pointer");
+
+            let bt = WebAssemblyBacktrace::capture();
+            log::debug!("{} Backtrace\n{}", msg, bt);
+        },
+    )
+}
+
+#[derive(Debug)]
+struct WebAssemblyBacktrace {
+    err: RuntimeError,
+}
+
+impl WebAssemblyBacktrace {
+    pub fn capture() -> Self {
+        let err = RuntimeError::new("");
+        assert!(!err.trace().is_empty());
+        WebAssemblyBacktrace { err }
+    }
+}
+
+impl Display for WebAssemblyBacktrace {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for (i, frame) in self.err.trace().iter().enumerate() {
+            if i > 0 {
+                writeln!(f)?;
+                write!(f, "    at ")?;
+            }
+
+            let name = frame.module_name();
+            let func_index = frame.func_index();
+            match frame.function_name() {
+                Some(name) => match rustc_demangle::try_demangle(name) {
+                    Ok(name) => write!(f, "{}", name)?,
+                    Err(_) => write!(f, "{}", name)?,
+                },
+                None => write!(f, "<unnamed>")?,
+            }
+            write!(
+                f,
+                " ({}[{}]:0x{:x})",
+                name,
+                func_index,
+                frame.module_offset()
+            )?;
+        }
+        Ok(())
+    }
 }
 
 trait TrapExt<T> {

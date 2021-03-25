@@ -1866,6 +1866,7 @@ dependencies = [
  "rune-codegen",
  "rune-syntax",
  "runic-types",
+ "rustc-demangle",
  "serde_json",
  "tempfile",
  "tflite",

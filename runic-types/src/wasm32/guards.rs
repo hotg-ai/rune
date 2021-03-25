@@ -1,20 +1,41 @@
 use super::{
     ALLOCATOR,
-    alloc::{Region, DebugAllocator, StatsAllocator},
+    stats_allocator::Stats,
     Logger,
 };
-use alloc::alloc::GlobalAlloc;
-use wee_alloc::WeeAlloc;
+
+#[derive(Debug, Clone, PartialEq)]
+struct AllocationLogger {
+    label: &'static str,
+    initial: Stats,
+}
+
+impl AllocationLogger {
+    const fn new(label: &'static str, initial_stats: Stats) -> Self {
+        AllocationLogger {
+            label,
+            initial: initial_stats,
+        }
+    }
+}
+
+impl Drop for AllocationLogger {
+    fn drop(&mut self) {
+        let current = ALLOCATOR.stats();
+        let delta = current - self.initial;
+        log::debug!("{} {:?}", self.label, delta);
+    }
+}
 
 /// A guard type which should be alive for the duration of the setup process,
 /// letting `runic-types` run code at the start and end.
 #[derive(Debug)]
-pub struct SetupGuard<'a, T: GlobalAlloc> {
-    region: Region<'a, T>,
+pub struct SetupGuard {
+    log: AllocationLogger,
 }
 
-impl<'a, T: GlobalAlloc> SetupGuard<'a, T> {
-    pub fn new(stats: &'a StatsAllocator<T>) -> Self {
+impl SetupGuard {
+    pub fn new() -> Self {
         static LOGGER: Logger = Logger::new();
 
         // Safety: The runtime won't try to change Rune memory while Rune code
@@ -26,44 +47,30 @@ impl<'a, T: GlobalAlloc> SetupGuard<'a, T> {
         log::set_logger(&LOGGER).unwrap();
 
         SetupGuard {
-            region: Region::new(stats),
+            log: AllocationLogger::new("Setup", ALLOCATOR.stats()),
         }
     }
 }
 
-impl Default for SetupGuard<'static, DebugAllocator<WeeAlloc<'static>>> {
-    fn default() -> Self { SetupGuard::new(&ALLOCATOR) }
-}
-
-impl<'a, T: GlobalAlloc> Drop for SetupGuard<'a, T> {
-    fn drop(&mut self) {
-        let stats = self.region.change_and_reset();
-        log::debug!("Allocations during startup: {:?}", stats);
-    }
+impl Default for SetupGuard {
+    fn default() -> Self { SetupGuard::new() }
 }
 
 /// A guard type which should be alive for the duration of a single pipeline
 /// run, letting `runic-types` run code as necessary.
 #[derive(Debug)]
-pub struct PipelineGuard<'a, T: GlobalAlloc> {
-    region: Region<'a, T>,
+pub struct PipelineGuard {
+    log: AllocationLogger,
 }
 
-impl<'a, T: GlobalAlloc> PipelineGuard<'a, T> {
-    pub fn new(stats: &'a StatsAllocator<T>) -> Self {
+impl PipelineGuard {
+    pub fn new() -> Self {
         PipelineGuard {
-            region: Region::new(stats),
+            log: AllocationLogger::new("Pipeline", ALLOCATOR.stats()),
         }
     }
 }
 
-impl Default for PipelineGuard<'static, DebugAllocator<WeeAlloc<'static>>> {
-    fn default() -> Self { PipelineGuard::new(&ALLOCATOR) }
-}
-
-impl<'a, T: GlobalAlloc> Drop for PipelineGuard<'a, T> {
-    fn drop(&mut self) {
-        let stats = self.region.change_and_reset();
-        log::debug!("Allocations during pipeline run: {:?}", stats);
-    }
+impl Default for PipelineGuard {
+    fn default() -> Self { PipelineGuard::new() }
 }
