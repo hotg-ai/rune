@@ -87,8 +87,8 @@ impl Generator {
         // Note: all these templates are within our control, so any error here
         // is the developer's fault.
         hbs.register_template_string(
-            ".cargo/config",
-            include_str!("./boilerplate/cargo_config.hbs"),
+            ".cargo/config.toml",
+            include_str!("./boilerplate/config.toml.hbs"),
         )
         .unwrap();
         hbs.register_template_string(
@@ -133,8 +133,8 @@ impl Generator {
     fn render(&self) -> Result<(), Error> {
         self.render_to(
             self.dest.join(".cargo").join("config"),
-            ".cargo/config",
-            &json!(null),
+            ".cargo/config.toml",
+            &json!({"optimized": self.optimized}),
         )?;
 
         self.render_cargo_toml()?;

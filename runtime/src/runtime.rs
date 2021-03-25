@@ -8,8 +8,8 @@ use tflite::{
 };
 use std::{
     collections::HashMap,
-    convert::{TryFrom, TryInto},
-    fmt::{Debug, Display},
+    convert::TryFrom,
+    fmt::{self, Debug, Display, Formatter},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -17,7 +17,7 @@ use std::{
 };
 use wasmer::{
     Array, Function, ImportObject, Instance, LazyInit, Memory, Module,
-    NativeFunc, Store, WasmPtr,
+    NativeFunc, RuntimeError, Store, WasmPtr,
 };
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
@@ -35,7 +35,9 @@ impl Runtime {
         E: Environment + Send + Sync + 'static,
     {
         log::debug!("Compiling the WebAssembly to native code");
+
         let store = Store::default();
+
         let module = Module::new(&store, rune)
             .context("WebAssembly compilation failed")?;
 
@@ -56,10 +58,6 @@ impl Runtime {
 
         let instance =
             Instance::new(&module, &imports).context("Instantiation failed")?;
-
-        if let Err(e) = set_max_log_level(&instance) {
-            log::warn!("Unable to set the log level: {:?}", e);
-        }
 
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
@@ -120,6 +118,7 @@ fn import_object(store: &Store, env: Arc<dyn Environment>) -> ImportObject {
             "request_provider_response" => request_provider_response(Arc::clone(&capabilities), store),
             "request_output" => request_output(Arc::clone(&ids), Arc::clone(&env), Arc::clone(&outputs), store),
             "consume_output" => consume_output(Arc::clone(&outputs), store),
+            "log_backtrace" => log_backtrace(store),
         },
     }
 }
@@ -637,6 +636,73 @@ fn invoke_output(
     out.consume(input)
 }
 
+fn log_backtrace(store: &Store) -> Function {
+    #[derive(Clone, wasmer::WasmerEnv)]
+    struct State {
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let state = State {
+        memory: LazyInit::default(),
+    };
+
+    Function::new_native_with_env(
+        store,
+        state,
+        |s: &State, msg: WasmPtr<u8, Array>, len: u32| unsafe {
+            let msg = msg
+                .get_utf8_str(s.memory.get_unchecked(), len)
+                .unwrap_or_trap("Bad message pointer");
+
+            let bt = WebAssemblyBacktrace::capture();
+            log::debug!("{} Backtrace\n{}", msg, bt);
+        },
+    )
+}
+
+#[derive(Debug)]
+struct WebAssemblyBacktrace {
+    err: RuntimeError,
+}
+
+impl WebAssemblyBacktrace {
+    pub fn capture() -> Self {
+        let err = RuntimeError::new("");
+        assert!(!err.trace().is_empty());
+        WebAssemblyBacktrace { err }
+    }
+}
+
+impl Display for WebAssemblyBacktrace {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for (i, frame) in self.err.trace().iter().enumerate() {
+            if i > 0 {
+                writeln!(f)?;
+                write!(f, "    at ")?;
+            }
+
+            let name = frame.module_name();
+            let func_index = frame.func_index();
+            match frame.function_name() {
+                Some(name) => match rustc_demangle::try_demangle(name) {
+                    Ok(name) => write!(f, "{}", name)?,
+                    Err(_) => write!(f, "{}", name)?,
+                },
+                None => write!(f, "<unnamed>")?,
+            }
+            write!(
+                f,
+                " ({}[{}]:0x{:x})",
+                name,
+                func_index,
+                frame.module_offset()
+            )?;
+        }
+        Ok(())
+    }
+}
+
 trait TrapExt<T> {
     unsafe fn unwrap_or_trap_with<F, D>(self, func: F) -> T
     where
@@ -687,30 +753,4 @@ where
 
 unsafe fn raise_user_trap(error: Error) -> ! {
     wasmer::raise_user_trap(error.into());
-}
-
-fn set_max_log_level(instance: &Instance) -> Result<(), Error> {
-    let global = instance
-        .exports
-        .get_global("MAX_LOG_LEVEL")
-        .context("Unable to find the MAX_LOG_LEVEL global")?;
-
-    let index: u32 = global
-        .get()
-        .try_into()
-        .map_err(Error::msg)
-        .context("The MAX_LOG_LEVEL variable wasn't an integer")?;
-    let ptr: WasmPtr<u32> = WasmPtr::new(index);
-
-    let memory = instance
-        .exports
-        .get_memory("memory")
-        .context("Unable to find the main memory")?;
-
-    let cell = ptr.deref(memory).context("Incorrect MAX_LOG_LEVEL index")?;
-
-    let level = log::max_level();
-    log::debug!("Setting the MAX_LOG_LEVEL inside the Rune to {:?}", level);
-    cell.set(level as u32);
-    Ok(())
 }
