@@ -16,9 +16,8 @@ use std::{
     },
 };
 use wasmer::{
-    Array, BaseTunables, Cranelift, CraneliftOptLevel, Engine, Function,
-    ImportObject, Instance, JIT, LazyInit, Memory, Module, NativeFunc, Pages,
-    RuntimeError, Store, WASM_MIN_PAGES, WasmPtr,
+    Array, Function, ImportObject, Instance, LazyInit, Memory, Module,
+    NativeFunc, RuntimeError, Store, WasmPtr,
 };
 
 type Models = Arc<Mutex<HashMap<u32, Interpreter<'static, BuiltinOpResolver>>>>;
@@ -37,16 +36,7 @@ impl Runtime {
     {
         log::debug!("Compiling the WebAssembly to native code");
 
-        // we want control over memory usage so we'll need to instantiate the
-        // compiler and store manually.
-        let mut config = Cranelift::default();
-        config.enable_simd(true).opt_level(CraneliftOptLevel::Speed);
-        let engine = JIT::new(config).engine();
-        let tunables = BaseTunables {
-            static_memory_bound: Pages(WASM_MIN_PAGES as u32),
-            ..BaseTunables::for_target(engine.target())
-        };
-        let store = Store::new_with_tunables(&engine, tunables);
+        let store = Store::default();
 
         let module = Module::new(&store, rune)
             .context("WebAssembly compilation failed")?;
