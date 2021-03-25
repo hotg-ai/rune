@@ -1,7 +1,7 @@
 FROM runicos/base
 
-CAPABILITY<I16[16000]> audio SOUND --hz 16000 --sample-duration-ms 1000
-PROC_BLOCK<I16[16000],U8[1960]> fft hotg-ai/rune#proc_blocks/fft
+CAPABILITY<I16[24000]> audio SOUND --hz 16000 --sample-duration-ms 1000
+PROC_BLOCK<I16[24000],U8[1960]> fft hotg-ai/rune#proc_blocks/fft
 
 
 MODEL<U8[1960],U8[4]> model ./model.tflite
