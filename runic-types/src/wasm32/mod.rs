@@ -22,28 +22,7 @@ pub use logging::Logger;
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
 use crate::{Buffer, Value, BufWriter};
 use self::alloc::Allocator;
-use log::LevelFilter;
 use dlmalloc::GlobalDlmalloc;
-
-/// A well-known symbol the runtime can modify to alter the maximum log level.
-///
-/// # Safety
-///
-/// If changing the log level using the runtime, this value must *exactly* match
-/// up with the [`LevelFilter`] discriminants used by the `log` crate:
-///
-/// - [`LevelFilter::Off`] - 0
-/// - [`LevelFilter::Error`] - 1
-/// - [`LevelFilter::Warn`] - 2
-/// - [`LevelFilter::Info`] - 3
-/// - [`LevelFilter::Debug`] - 4
-/// - [`LevelFilter::Trace`] - 5
-#[no_mangle]
-pub static mut MAX_LOG_LEVEL: LevelFilter = if cfg!(debug_assertions) {
-    LevelFilter::Trace
-} else {
-    LevelFilter::Info
-};
 
 #[global_allocator]
 pub static ALLOCATOR: Allocator<GlobalDlmalloc> =

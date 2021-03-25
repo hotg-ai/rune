@@ -8,7 +8,7 @@ use tflite::{
 };
 use std::{
     collections::HashMap,
-    convert::{TryFrom, TryInto},
+    convert::TryFrom,
     fmt::{self, Debug, Display, Formatter},
     sync::{
         Arc, Mutex,
@@ -753,30 +753,4 @@ where
 
 unsafe fn raise_user_trap(error: Error) -> ! {
     wasmer::raise_user_trap(error.into());
-}
-
-fn _set_max_log_level(instance: &Instance) -> Result<(), Error> {
-    let global = instance
-        .exports
-        .get_global("MAX_LOG_LEVEL")
-        .context("Unable to find the MAX_LOG_LEVEL global")?;
-
-    let index: u32 = global
-        .get()
-        .try_into()
-        .map_err(Error::msg)
-        .context("The MAX_LOG_LEVEL variable wasn't an integer")?;
-    let ptr: WasmPtr<u32> = WasmPtr::new(index);
-
-    let memory = instance
-        .exports
-        .get_memory("memory")
-        .context("Unable to find the main memory")?;
-
-    let cell = ptr.deref(memory).context("Incorrect MAX_LOG_LEVEL index")?;
-
-    let level = log::max_level();
-    log::debug!("Setting the MAX_LOG_LEVEL inside the Rune to {:?}", level);
-    cell.set(level as u32);
-    Ok(())
 }

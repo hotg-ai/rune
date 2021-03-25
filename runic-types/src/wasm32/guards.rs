@@ -1,8 +1,4 @@
-use super::{
-    ALLOCATOR,
-    stats_allocator::Stats,
-    Logger,
-};
+use super::{ALLOCATOR, stats_allocator::Stats, Logger};
 
 #[derive(Debug, Clone, PartialEq)]
 struct AllocationLogger {
@@ -37,13 +33,6 @@ pub struct SetupGuard {
 impl SetupGuard {
     pub fn new() -> Self {
         static LOGGER: Logger = Logger::new();
-
-        // Safety: The runtime won't try to change Rune memory while Rune code
-        // is running, and Runes are single-threaded so there is no risk of
-        // aliased mutation. The `MAX_LOG_LEVEL` docs also state that if
-        // modifying it from the outside, the variable should always have a
-        // valid value.
-        log::set_max_level(unsafe { super::MAX_LOG_LEVEL });
         log::set_logger(&LOGGER).unwrap();
 
         SetupGuard {
