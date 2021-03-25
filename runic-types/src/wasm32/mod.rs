@@ -20,10 +20,10 @@ pub use sound::Sound;
 pub use logging::Logger;
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use wee_alloc::WeeAlloc;
 use crate::{Buffer, Value, BufWriter};
 use self::alloc::Allocator;
 use log::LevelFilter;
+use dlmalloc::GlobalDlmalloc;
 
 /// A well-known symbol the runtime can modify to alter the maximum log level.
 ///
@@ -46,8 +46,8 @@ pub static mut MAX_LOG_LEVEL: LevelFilter = if cfg!(debug_assertions) {
 };
 
 #[global_allocator]
-pub static ALLOCATOR: Allocator<WeeAlloc<'static>> =
-    Allocator::new(WeeAlloc::INIT);
+pub static ALLOCATOR: Allocator<GlobalDlmalloc> =
+    Allocator::new(GlobalDlmalloc);
 
 #[panic_handler]
 fn on_panic(info: &PanicInfo) -> ! {

@@ -719,6 +719,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlmalloc"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "332570860c2edf2d57914987bf9e24835425f75825086b6ba7d1e6a3e4f1f254"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1220,12 +1229,6 @@ checksum = "157b4208e3059a8f9e78d559edc658e13df41410cb3ae03979c83130067fdd87"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "memory_units"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "miniz_oxide"
@@ -1891,10 +1894,10 @@ dependencies = [
 name = "runic-types"
 version = "0.1.0"
 dependencies = [
+ "dlmalloc",
  "log",
  "serde",
  "serde-json-core",
- "wee_alloc",
 ]
 
 [[package]]
@@ -2603,18 +2606,6 @@ checksum = "59fe19d70f5dacc03f6e46777213facae5ac3801575d56ca6cbd4c93dcd12310"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "wee_alloc"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbb3b5a6b2bb17cb6ad44a2e68a43e8d2722c997da10e928665c72ec6c0a0b8e"
-dependencies = [
- "cfg-if 0.1.10",
- "libc",
- "memory_units",
- "winapi",
 ]
 
 [[package]]
