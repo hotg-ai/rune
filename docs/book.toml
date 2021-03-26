@@ -1,0 +1,10 @@
+[book]
+authors = ["The Rune Developers"]
+src = "."
+title = "Rune Internal Docs"
+
+[build]
+build-dir = "../target/internal-docs"
+
+[output.html]
+default-theme = "rust"
