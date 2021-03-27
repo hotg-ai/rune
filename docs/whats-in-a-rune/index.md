@@ -4,7 +4,7 @@ So you've just discovered this new technology called *Rune* and are excited
 to use it in your project, but you don't really know what it does or how to use
 it?
 
-(TODO: Flesh out the intro a bit)
+**(TODO: Flesh out the intro a bit with more flowery content)**
 
 Before we can dive into the nuts and bolts of Runes and Runefiles, there's one
 very important question that needs to be asked.
@@ -48,8 +48,8 @@ so Rune comes with several built-in facilities specific to ML.
 
 > in a way which is portable
 
-The magic behind Runes is that they get compiled to a WebAssembly library which
-is loaded by a WebAssembly runtime for execution.
+The magic behind Runes is that they get compiled to a WebAssembly library
+which is loaded by a WebAssembly runtime for execution.
 
 This means any platform which can run WebAssembly can run a Rune. You can
 call a Rune from JavaScript in the browser, integrate it into a mobile app,
@@ -70,9 +70,7 @@ and concurrency bugs found in other systems languages.
 
 ## Designing a Pipeline
 
-To explore the main concepts in a Rune we are going to walk through the design
-process for an application that accepts snippets of audio and tries to
-recognise some hard-coded words.
+To explore the main concepts in a Rune we are going to walk through the design process for an application that accepts snippets of audio and tries to recognise some hard-coded words.
 
 This pipeline will:
 
@@ -157,15 +155,52 @@ This *Proc Block* accepts the 24000-element array of signed 16-bit integers
 from before and outputs a 1960-element array of 8-bit unsigned integers.
 
 Similar to the *Capability* directive, after the label (`fft`) there is an
-argument specifying which type of *Proc Block* to use.
+argument specifying which type of *Proc Block* to use. However, unlike the
+simple `SOUND` identifier we have a more complicated thing called a *Path*.
+
+A *Path* tells `cargo` (the Rust package manager) exactly where to find the
+*Proc Block's* code and which version to use. It can accept a wide range of
+inputs, including
+
+- `fft` - the name of a crate on [crates.io][crates], defaulting to the latest
+  version
+- `fft@1.0` - version 1.0 of the `fft` crate on crates.io
+- `hotg-ai/fft` - the default crate in the `hotg-ai/fft` repository on GitHub
+- `hotg-ai/rune#proc_blocks/fft` - the crate inside `proc_blocks/fft/` in the
+  `hotg-ai/fft` GitHub repository
+- `https://github.com/hotg-ai/rune@v1.0#proc_blocks/fft` - the crate inside
+  `proc_blocks/fft/` in the provided git repository, checking out the `v1.0`
+  revision
+
+*Proc Blocks* can also accept optional arguments using the same syntax as
+*Capabilities*.
 
 ## The *"MODEL"* Directive
+
+The most important part of any machine learning application is running a model
+on your data. Let's look at the `MODEL` directive from our Runefile to see how
+that works.
 
 ```
 MODEL<U8[1960], U8[4]> model ./model.tflite
 ```
 
+Just like *Proc Blocks* and *Capabilities*, the *Model* directive starts off
+with the `MODEL` keyword followed by the type and dimensions of its inputs
+and outputs.
+
+We give it a label of `model` and tell Rune to use the `model.tflite` model
+in the same directory as the Runefile. This is the path to an existing
+[*TensorFlow Lite*][tfl] model that you may have trained earlier.
+
 ## The *"OUT"* Directive
+
+Arguably the most important part of all this data processing is making sure the
+data goes *somewhere* so it can be consumed by something else (e.g. a mobile
+app or embedded device).
+
+The directive itself is rather simple, you declare a `SERIAL` output by simply
+writing
 
 ```
 OUT serial
@@ -173,6 +208,24 @@ OUT serial
 
 ## The *"RUN"* Directive
 
+Up until now we've only been declaring the different processing stages in our
+Runefile, but the `RUN` directive is what ties everything together.
+
+You simply write `RUN` then each stage's label in the order they should be
+executed.
+
 ```
-RUN main audio fft model label serial
+RUN audio fft model label serial
 ```
+
+The system is even smart enough to detect when you've tried to connect
+incompatible stages (imagine stage A generates a 1024-element array of
+floats, but stage B only accepts integers) and will fail the build with a
+build error.
+
+## Conclusion
+
+**(TODO: figure out how to tie this all up and deliver purpose/value to the reader)**
+
+[crates]: https://crates.io/
+[tfl]: https://www.tensorflow.org/lite
