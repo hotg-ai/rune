@@ -21,7 +21,8 @@ pub struct Graph {
         long,
         parse(try_from_str),
         help = "The format to print the graph in",
-        possible_values = &["dot", "json"]
+        possible_values = &["dot", "json"],
+        default_value = "dot"
     )]
     format: Format,
     #[structopt(
@@ -81,17 +82,29 @@ fn dot_graph(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
             .and_then(|id| rune.names.get_name(*id))
             .unwrap_or("<anon>");
 
-        let formatted = match stage {
+        match stage {
             Stage::ProcBlock(pb) => {
-                format!("{}: ProcBlock({})", name, pb.path)
+                format!(
+                    "label=\"{}: {}\", fillcolor=lightgoldenrod1,style=filled",
+                    name, pb.path
+                )
             },
             Stage::Model(m) => {
-                format!("{}: Model({})", name, m.model_file.display())
+                format!(
+                    "label=\"{}: {}\", fillcolor=\"#FF6F00\",style=filled",
+                    name,
+                    m.model_file.display()
+                )
             },
-            Stage::Source(s) => format!("{}: {:?}", name, s.kind),
-            Stage::Sink(s) => format!("{}: {:?}", name, s.kind),
-        };
-        format!("label = \"{}\"", formatted)
+            Stage::Source(s) => format!(
+                "label=\"{}: {:?}\", fillcolor=seagreen2, style=filled",
+                name, s.kind
+            ),
+            Stage::Sink(s) => format!(
+                "label=\"{}: {:?}\", fillcolor=crimson, fontcolor=white, style=filled",
+                name, s.kind
+            ),
+        }
     };
 
     let dot = Dot::with_attr_getters(
