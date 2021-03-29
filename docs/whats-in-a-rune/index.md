@@ -1,13 +1,14 @@
 # What's in a Rune?
 
 So you've just discovered this new technology called *Rune* and are excited
-to use it in your project, but you don't really know what it does or how to use
-it?
+to use it in your project, but you don't really know what it does or how to
+use it?
 
-**(TODO: Flesh out the intro a bit with more flowery content)**
+If so, this is probably the article for you! Let's explore the concepts and
+abstractions that Rune is built on.
 
-Before we can dive into the nuts and bolts of Runes and Runefiles, there's one
-very important question that needs to be asked.
+Before we can dive into the nuts and bolts of Runes and Runefiles, there's
+one very important question that needs to be asked...
 
 ## What Problem Does It Solve?
 
@@ -26,9 +27,9 @@ There's a lot to unpack here, so let's step through bit by bit.
 
 > a technology for specifying how data should be processed
 
-The main purpose of a Rune is to give machine learning engineers and
-developers a way to declare how data should be transformed using a high
-level, declarative language.
+The main purpose of a Rune is to give developers in the fields of machine
+learning and data processing a way to declare how data should be transformed
+using a high level, declarative language.
 
 Instead of needing to write code that manipulates data or needs to interface
 with complex third party libraries for receiving inputs, you write a Runefile
@@ -140,6 +141,18 @@ provide 1500 ms of audio data sampled at 16 kHz. On the phone you could
 imagine recording 1.5 seconds of data using the microphone, resampling the
 audio if necessary to provide the appropriate number of samples.
 
+There are several capabilities available, with their parameters and behaviour
+documented in more detail in the `runic-types` crate's API docs. The
+capabilities that are currently supported are:
+
+- `RAND` - Generate a buffer full of random data
+- `SOUND` - Pulse-Code Modulated 16-bit audio
+- `ACCEL` - The X, Y, and Z components of the device's accelerometer
+- `IMAGE` - An image with a particular size
+
+See the tutorial on [creating a custom *Image*][custom-image] for tips on
+implementing an existing capability or creating your own.
+
 ## The *"PROC_BLOCK"* Directive
 
 You'll often need to do pre- and post-processing of data, and for these we
@@ -175,6 +188,18 @@ inputs, including
 *Proc Blocks* can also accept optional arguments using the same syntax as
 *Capabilities*.
 
+The built-in *Proc Blocks* are in [the `proc-blocks/` folder][pb] of the `rune`
+repo, with some commonly used *Proc Blocks* being:
+
+- `fft` - Apply the Fast Fourier Transform to 16-bit PCM audio samples
+- `modulo` - Apply the modulo operation to every element in the buffer
+- `normalize` - scale each element in the provided buffer to the range `[0, 1]`
+- `ohv_label` - Given a list of labels and a list of confidences, get the label
+  that corresponds to the highest confidence
+
+As *Proc Blocks* are just normal Rust crates; see the tutorial on [creating a
+*Proc Block*](custom-proc-block) for a guide on writing your own.
+
 ## The *"MODEL"* Directive
 
 The most important part of any machine learning application is running a model
@@ -191,7 +216,14 @@ and outputs.
 
 We give it a label of `model` and tell Rune to use the `model.tflite` model
 in the same directory as the Runefile. This is the path to an existing
-[*TensorFlow Lite*][tfl] model that you may have trained earlier.
+[*TensorFlow Lite*][tfl] model that a machine learning engineer may have
+trained earlier.
+
+At a minimum, all platforms should support *TensorFlow Lite*, but the exact
+list of supported model formats will change depending on how the model is
+executed (some can be run directly inside WebAssembly, while others may ask
+the runtime to execute the model directly on the host - meaning it may only run
+on certain platforms).
 
 ## The *"OUT"* Directive
 
@@ -205,6 +237,9 @@ writing
 ```
 OUT serial
 ```
+
+The `SERIAL` output sends the data to the host as JSON so it may be written
+to a serial connection or UI.
 
 ## The *"RUN"* Directive
 
@@ -225,7 +260,11 @@ build error.
 
 ## Conclusion
 
-**(TODO: figure out how to tie this all up and deliver purpose/value to the reader)**
+While we didn't write any code in this article, hopefully you'll have a better
+understanding of how a Rune works and what they are capable of.
 
 [crates]: https://crates.io/
 [tfl]: https://www.tensorflow.org/lite
+[pb]: https://github.com/hotg-ai/rune/tree/master/proc_blocks
+[custom-image]: #
+[custom-proc-block]: #
