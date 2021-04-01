@@ -1,3 +1,0 @@
-[alias]
-xtask = "run --package xtask --bin xtask --release --quiet --"
-rune = "run --package rune --release --quiet --"
