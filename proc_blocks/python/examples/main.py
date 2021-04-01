@@ -22,18 +22,19 @@ def use_normalize():
 def use_fft():
     # Create our FFT analyser with a sample rate of 360Hz
     fft = Fft(360)
-    # Make a sine wave with a 360-sample period (i.e. 1Hz) and an amplitude of
+    # Make a sine wave with a 180-sample period (i.e. 2Hz) and an amplitude of
     # 100, rounded to the nearest integer
-    samples = [round(math.sin(i) * 100) for i in range(0, 128)]
+    samples = [round(math.sin(i * 2) * 100) for i in range(0, 1960)]
     # Calculate the spectrum
     spectrum = fft(samples)
     # And print the results
-    print(spectrum[:10])
+    n = 10
+    print(f"First {n} frequencies: {spectrum[:n]}")
 
 
 def main():
     use_normalize()
-    # use_fft()
+    use_fft()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import unittest
-from proc_blocks import Normalize
+import math
+from proc_blocks import Normalize, Fft
 
 
 class NormalizeTests(unittest.TestCase):
@@ -32,3 +33,16 @@ class NormalizeTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             norm(src)
+
+
+class FftTest(unittest.TestCase):
+    def test_constructor(self):
+        _ = Fft(360)
+
+    def test_calculate_spectrum(self):
+        fft = Fft(360)
+        samples = [round(math.sin(i * 2) * 100) for i in range(0, 1960)]
+
+        spectrum = fft(samples)
+
+        self.assertEqual(1960, len(spectrum))

@@ -8,7 +8,7 @@ use sonogram::SpecOptionsBuilder;
 
 pub use runic_types::{Transform};
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Fft {
     pub sample_rate: u32,
     pub bins: usize,
@@ -20,7 +20,7 @@ const DEFAULT_BINS: usize = 256;
 const DEFAULT_WINDOW_OVERLAP: f32 = 6.0 / 10.0;
 
 impl Fft {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Fft {
             sample_rate: DEFAULT_SAMPLE_RATE,
             bins: DEFAULT_BINS,
@@ -77,6 +77,10 @@ impl Fft {
 
         return out;
     }
+}
+
+impl Default for Fft {
+    fn default() -> Self { Fft::new() }
 }
 
 impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {

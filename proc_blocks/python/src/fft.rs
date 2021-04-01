@@ -17,10 +17,7 @@ impl Fft {
     #[new]
     pub fn new(sample_rate: u32) -> Self {
         Fft {
-            inner: UnderlyingFft {
-                sample_rate,
-                ..Default::default()
-            },
+            inner: UnderlyingFft::new().with_sample_rate(sample_rate),
         }
     }
 
@@ -36,19 +33,12 @@ impl Fft {
     pub fn call(&mut self, py: Python, iter: &PyAny) -> PyResult<PyObject> {
         let mut input = Vec::new();
 
-        eprintln!("Converting inputs");
-
         for value in iter.iter()? {
             let value: i16 = value?.extract()?;
-            eprintln!("{}", value);
             input.push(value);
         }
 
-        eprintln!("Received {} inputs", input.len());
-
         let spectrum = self.inner.clone().transform(input.as_slice());
-
-        eprintln!("Converting the response to a Python object");
 
         Ok(spectrum.to_object(py))
     }

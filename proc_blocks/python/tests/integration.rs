@@ -5,41 +5,44 @@ use std::{
 };
 
 fn main() {
-    let original_path = std::env::var("PATH").unwrap_or_default();
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let virtual_env = manifest_dir.join("env");
-    let path = format!("{}:{}", virtual_env.display(), original_path);
+    let runner = Runner::from_env();
+    let venv = runner.virtual_env.as_os_str();
 
-    let state = State {
-        manifest_dir,
-        original_path,
-        virtual_env,
-        path,
-    };
+    runner.python("venv", &[venv]);
+    runner.python("pip", &["install", "maturin"]);
+    runner.maturin(&["develop"]);
 
-    let venv = state.virtual_env.as_os_str();
-
-    state.python_cmd("venv", &[venv]);
-    state.python_cmd("pip", &["install", "maturin"]);
-    state.run(Command::new("maturin").arg("develop"));
-
-    let tests = state
+    let tests = runner
         .manifest_dir
         .join("tests")
         .join("integration_tests.py");
-    state.python_cmd("unittest", &["--verbose".as_ref(), tests.as_os_str()]);
+    runner.python("unittest", &["--verbose".as_ref(), tests.as_os_str()]);
 }
 
 #[derive(Debug)]
-struct State {
+struct Runner {
     manifest_dir: &'static Path,
     original_path: String,
     virtual_env: PathBuf,
     path: String,
 }
 
-impl State {
-    fn python_cmd<S>(&self, module: &str, args: &[S])
+impl Runner {
+    fn from_env() -> Self {
+        let original_path = std::env::var("PATH").unwrap_or_default();
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let virtual_env = manifest_dir.join("env");
+        let path = format!("{}:{}", virtual_env.display(), original_path);
+
+        Runner {
+            manifest_dir,
+            original_path,
+            virtual_env,
+            path,
+        }
+    }
+
+    fn python<S>(&self, module: &str, args: &[S])
     where
         S: AsRef<OsStr>,
     {
@@ -54,6 +57,17 @@ impl State {
 
         let mut cmd = Command::new(python);
         cmd.arg("-m").arg(module).args(args);
+
+        self.run(&mut cmd);
+    }
+
+    fn maturin<S>(&self, args: &[S])
+    where
+        S: AsRef<OsStr>,
+    {
+        let maturin = self.virtual_env.join("bin").join("maturin");
+        let mut cmd = Command::new(maturin);
+        cmd.args(args);
 
         self.run(&mut cmd);
     }
