@@ -6,7 +6,7 @@ use fft::Fft;
 use polyfills::{Model, Random, Accelerometer, Sound};
 use runic_types::{Source, Transform};
 use modulo::Modulo;
-use rune_runtime::{DefaultEnvironment};
+use rune_wasmer_runtime::{DefaultEnvironment};
 use gesture_agg::GestureAgg;
 use normalize::Normalize;
 

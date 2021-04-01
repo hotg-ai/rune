@@ -21,7 +21,7 @@ pub enum RuntimeResult {
 }
 
 /// A handle to the Rune runtime.
-pub struct Runtime(rune_runtime::Runtime);
+pub struct Runtime(rune_wasmer_runtime::Runtime);
 
 /// Load a new Rune from its WebAssembly, using the provided `Environment` to
 /// interact with the outside world.
@@ -35,7 +35,7 @@ pub unsafe extern "C" fn rune_runtime_load(
     let wasm = std::slice::from_raw_parts(wasm, len as usize);
     let env = Environment::new(callbacks);
 
-    match rune_runtime::Runtime::load(wasm, env) {
+    match rune_wasmer_runtime::Runtime::load(wasm, env) {
         Ok(r) => RuntimeResult::Ok(Box::into_raw(Box::new(Runtime(r)))),
         Err(e) => RuntimeResult::Err(Box::into_raw(Box::new(Error(e)))),
     }

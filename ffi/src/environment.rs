@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Error};
 use libc::c_void;
 use log::Record;
-use rune_runtime::{capability::Capability, outputs::Output};
+use rune_wasmer_runtime::{capability::Capability, outputs::Output};
 use crate::Callbacks;
 
 #[derive(Clone)]
@@ -68,7 +68,7 @@ impl Environment {
     }
 }
 
-impl rune_runtime::Environment for Environment {
+impl rune_wasmer_runtime::Environment for Environment {
     fn log(&self, record: &Record) {
         let cb = self.0.lock().unwrap();
 

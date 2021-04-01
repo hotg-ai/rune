@@ -1980,8 +1980,8 @@ dependencies = [
  "petgraph",
  "predicates",
  "rune-codegen",
- "rune-runtime",
  "rune-syntax",
+ "rune-wasmer-runtime",
  "runic-types",
  "serde_json",
  "structopt",
@@ -2015,14 +2015,27 @@ dependencies = [
  "libc",
  "log",
  "rune-codegen",
- "rune-runtime",
  "rune-syntax",
+ "rune-wasmer-runtime",
  "runic-types",
  "tempfile",
 ]
 
 [[package]]
-name = "rune-runtime"
+name = "rune-syntax"
+version = "0.1.0"
+dependencies = [
+ "codespan",
+ "codespan-reporting",
+ "pest",
+ "pest_derive",
+ "petgraph",
+ "pretty_assertions",
+ "serde",
+]
+
+[[package]]
+name = "rune-wasmer-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2048,19 +2061,6 @@ dependencies = [
  "tflite",
  "thiserror",
  "wasmer",
-]
-
-[[package]]
-name = "rune-syntax"
-version = "0.1.0"
-dependencies = [
- "codespan",
- "codespan-reporting",
- "pest",
- "pest_derive",
- "petgraph",
- "pretty_assertions",
- "serde",
 ]
 
 [[package]]

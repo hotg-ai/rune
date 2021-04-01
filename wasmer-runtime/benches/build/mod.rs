@@ -3,7 +3,7 @@ use hound::WavReader;
 use anyhow::Error;
 use once_cell::sync::Lazy;
 use rune_codegen::Compilation;
-use rune_runtime::{DefaultEnvironment, Runtime};
+use rune_wasmer_runtime::{DefaultEnvironment, Runtime};
 use rune_syntax::Diagnostics;
 use wasmer::{Module, Store};
 

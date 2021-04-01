@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use build::{EnvBuilder, SINE_DEBUG_MODULE};
 use criterion::{criterion_group, criterion_main, Criterion};
-use rune_runtime::Runtime;
+use rune_wasmer_runtime::Runtime;
 use wasmer::Store;
 use crate::{
     build::{

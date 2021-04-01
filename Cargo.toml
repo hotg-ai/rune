@@ -5,7 +5,7 @@ members = [
     "proc_blocks/*",
     "rune",
     "runic-types",
-    "runtime",
+    "wasmer-runtime",
     "syntax",
     "xtask"
 ]

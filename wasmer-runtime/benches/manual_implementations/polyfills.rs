@@ -10,7 +10,7 @@ use rand::{
     Rng, SeedableRng, distributions::Standard, prelude::Distribution,
     rngs::SmallRng,
 };
-use rune_runtime::Environment;
+use rune_wasmer_runtime::Environment;
 use runic_types::{Buffer, Source, Transform, Value};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,

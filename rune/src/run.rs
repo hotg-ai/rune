@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use hound::WavReader;
 use log;
-use rune_runtime::{DefaultEnvironment, Runtime};
+use rune_wasmer_runtime::{DefaultEnvironment, Runtime};
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {
