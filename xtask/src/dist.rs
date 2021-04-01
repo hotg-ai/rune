@@ -2,7 +2,7 @@ use crate::BulkCopy;
 use anyhow::{Context, Error};
 use walkdir::{DirEntry, WalkDir};
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs::File,
     io::{Seek, Write},
     path::{Path, PathBuf},
@@ -40,6 +40,9 @@ pub fn generate_release_artifacts() -> Result<(), Error> {
     BulkCopy::new(&["*.md"])?
         .with_max_depth(1)
         .copy(project_root.join(""), &dist)?;
+
+    generate_python_bindings(&project_root, &dist)
+        .context("Unable to generate the Python bindings")?;
 
     generate_archive(&dist, &target)
         .context("Unable to generate the zip archive")?;
@@ -302,6 +305,7 @@ fn compile_rune_binary(
         .arg("--release")
         .arg("--manifest-path")
         .arg(&workspace_cargo_toml);
+    log::debug!("Executing {:?}", cmd);
     let status = cmd.status().context("Unable to invoke `cargo`")?;
 
     log::debug!("Executing {:?}", cmd);
@@ -336,4 +340,107 @@ fn clear_directory<P: AsRef<Path>>(directory: P) -> Result<(), Error> {
     std::fs::create_dir_all(directory)?;
 
     Ok(())
+}
+
+fn generate_python_bindings(
+    project_root: &Path,
+    dist: &Path,
+) -> Result<(), Error> {
+    log::info!("Generating Python bindings to the proc blocks");
+    let venv = VirtualEnv::new(project_root)?;
+
+    venv.python("venv", &[&venv.env_dir])
+        .context("Unable to initialize the virtual environment")?;
+    venv.python("pip", &["install", "maturin"])
+        .context("Unable to make sure `maturin` is installed")?;
+
+    let wheel_dir = dist.join("wheels");
+
+    venv.maturin(&[
+        "build".as_ref(),
+        "--release".as_ref(),
+        "--strip".as_ref(),
+        "--no-sdist".as_ref(),
+        "--out".as_ref(),
+        wheel_dir.as_os_str(),
+    ])
+    .context("Unable to compile the Python wheels")?;
+
+    Ok(())
+}
+
+struct VirtualEnv {
+    python_bindings_dir: PathBuf,
+    env_dir: PathBuf,
+    path: OsString,
+}
+
+impl VirtualEnv {
+    fn new(project_root: &Path) -> Result<VirtualEnv, Error> {
+        let python_bindings_dir =
+            project_root.join("proc_blocks").join("python");
+        let env_dir = python_bindings_dir.join("env");
+
+        let path = match std::env::var_os("PATH") {
+            Some(p) => {
+                let paths = std::iter::once(env_dir.clone())
+                    .chain(std::env::split_paths(&p));
+
+                std::env::join_paths(paths)
+                    .context("Unable to construct the PATH variable")?
+            },
+            None => env_dir.clone().into_os_string(),
+        };
+
+        Ok(VirtualEnv {
+            python_bindings_dir,
+            env_dir,
+            path,
+        })
+    }
+
+    fn python<S>(&self, module: &str, args: &[S]) -> Result<(), Error>
+    where
+        S: AsRef<OsStr>,
+    {
+        let python = if self.env_dir.exists() {
+            self.env_dir.join("bin").join("python3").into_os_string()
+        } else {
+            OsString::from("python3")
+        };
+
+        let mut cmd = Command::new(python);
+        cmd.arg("-m").arg(module).args(args);
+
+        self.run(&mut cmd)
+    }
+
+    fn maturin<S>(&self, args: &[S]) -> Result<(), Error>
+    where
+        S: AsRef<OsStr>,
+    {
+        let maturin = self.env_dir.join("bin").join("maturin");
+        let mut cmd = Command::new(maturin);
+        cmd.args(args);
+
+        self.run(&mut cmd)
+    }
+
+    fn run(&self, cmd: &mut Command) -> Result<(), Error> {
+        cmd.env("VIRTUAL_ENV", &self.env_dir)
+            .env("PATH", &self.path)
+            .current_dir(&self.python_bindings_dir);
+
+        log::debug!("Executing {:?}", cmd);
+
+        let status = cmd.status().context("Unable to invoke the command")?;
+
+        anyhow::ensure!(
+            status.success(),
+            "The command failed with exit code {}",
+            status.code().unwrap_or(1)
+        );
+
+        Ok(())
+    }
 }

@@ -8,10 +8,11 @@ use sonogram::SpecOptionsBuilder;
 
 pub use runic_types::{Transform};
 
+#[derive(Clone, PartialEq)]
 pub struct Fft {
-    sample_rate: u32,
-    bins: usize,
-    window_overlap: f32,
+    pub sample_rate: u32,
+    pub bins: usize,
+    pub window_overlap: f32,
 }
 
 const DEFAULT_SAMPLE_RATE: u32 = 16000;
@@ -19,7 +20,7 @@ const DEFAULT_BINS: usize = 256;
 const DEFAULT_WINDOW_OVERLAP: f32 = 6.0 / 10.0;
 
 impl Fft {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Fft {
             sample_rate: DEFAULT_SAMPLE_RATE,
             bins: DEFAULT_BINS,
@@ -45,15 +46,11 @@ impl Fft {
             ..self
         }
     }
-}
 
-impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
-    type Output = [u8; 1960];
-
-    fn transform(&mut self, input: [i16; N]) -> Self::Output {
+    fn transform_inner(&mut self, input: Vec<i16>) -> [u8; 1960] {
         // Build the spectrogram computation engine
         let mut spectrograph = SpecOptionsBuilder::new(49, 40)
-        .load_data_from_memory(input.to_vec(), self.sample_rate)
+        .load_data_from_memory(input, self.sample_rate)
         //.unwrap()
         .build();
 
@@ -79,6 +76,26 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
         }
 
         return out;
+    }
+}
+
+impl Default for Fft {
+    fn default() -> Self { Fft::new() }
+}
+
+impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
+    type Output = [u8; 1960];
+
+    fn transform(&mut self, input: [i16; N]) -> Self::Output {
+        self.transform_inner(input.to_vec())
+    }
+}
+
+impl<'a> runic_types::Transform<&'a [i16]> for Fft {
+    type Output = [u8; 1960];
+
+    fn transform(&mut self, input: &'a [i16]) -> Self::Output {
+        self.transform_inner(input.to_vec())
     }
 }
 

@@ -1,0 +1,24 @@
+[package]
+name = "proc-blocks"
+version = "0.1.0"
+authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "proc_blocks"
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fft = { path = "../fft" }
+normalize = { path = "../normalize" }
+pyo3 = { version = "0.13.2", features = ["extension-module"] }
+runic-types = { path = "../../runic-types" }
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+harness = false

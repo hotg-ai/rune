@@ -10,6 +10,21 @@ use core::{
 };
 use runic_types::{Transform, Buffer};
 
+pub fn normalize<T>(input: &mut [T])
+where
+    T: PartialOrd + Div<Output = T> + Sub<Output = T> + Copy,
+{
+    if let Some((min, max)) = min_max(input.iter()) {
+        if min != max {
+            let range = max - min;
+
+            for item in input {
+                *item = (*item - min) / range;
+            }
+        }
+    }
+}
+
 /// Normalize the input to the range `[0, 1]`.
 pub struct Normalize<B> {
     _type: PhantomData<fn(B) -> B>,
@@ -23,16 +38,7 @@ where
     type Output = B;
 
     fn transform(&mut self, mut input: B) -> B {
-        if let Some((min, max)) = min_max(input.as_slice()) {
-            if min != max {
-                let range = max - min;
-
-                for item in input.as_mut_slice() {
-                    *item = (*item - min) / range;
-                }
-            }
-        }
-
+        normalize(input.as_mut_slice());
         input
     }
 }
