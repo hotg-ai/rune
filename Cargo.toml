@@ -5,9 +5,11 @@ members = [
     "proc_blocks/*",
     "rune",
     "runic-types",
-    "wasmer-runtime",
+    "runtime",
     "syntax",
-    "xtask"
+    "xtask",
+    "wasmer-runtime",
+    "wasmer-runtime2",
 ]
 exclude = [ "examples/*" ]
 

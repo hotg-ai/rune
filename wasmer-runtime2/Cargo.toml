@@ -1,0 +1,14 @@
+[package]
+name = "wasmer-runtime2"
+version = "0.1.0"
+authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.40"
+log = "0.4.14"
+rune-runtime = { path = "../runtime" }
+runic-types = { path = "../runic-types" }
+wasmer = "1.0.2"
