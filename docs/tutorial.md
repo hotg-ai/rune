@@ -8,8 +8,15 @@ You will need to install rust on your device. You can follow their [offical docu
 
 The next step is to have the required dependencies installed. Run the following commands in your terminal.
 
+<<<<<<< HEAD
 1. `rustup install nightly` if you already have nightly installed, make sure you are running the latest version with `rustup update nightly`
 2. `rustup target add wasm32-unknown-unknown`
+=======
+1. `rustup install nightly`
+2. `rustup default nightly`
+3. `rustup target add wasm32-unknown-unknown`
+4. `brew install binaryen`
+>>>>>>> 0ce60b28593bfb4b5f24d8b4ac6b73729423d2ef
 
 ## Creating a Project
 
