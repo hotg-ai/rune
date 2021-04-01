@@ -49,6 +49,7 @@ There are 3 Directives that can be called. The data input and output needs to be
 
 Each of these has an `{Input}` and `{Output}` which follow the following format:
       `{Data Type}[array]` i.e. `f32[128, 3]`
+
 The next step in the creation of the Runefile is to name each of the directives by changing `{label_#}`. The label of each stage will be used to execute them in the final `RUN` directive.
 
 The `CAPABILITY` directive processes the initial data according to what is required. We currently support
@@ -57,7 +58,6 @@ The `CAPABILITY` directive processes the initial data according to what is requi
 - SOUND (consumes sound)
 - ACCEL (consumes x, y, z data from the accelerometer)
 - IMAGE (consumes an image of x, y )
-- IMAGE (consumes an image of  x, y)
 
 The `PROC_BLOCK` directive allows for pre- and post-processing of the data. For example, if the model needs the data to be normalized to values between 0 and 1, you can create a `PROC_BLOCK` to perform this pre processing.
 
@@ -91,7 +91,7 @@ RUN accelerometer normalize gesture gesture_agg serial
 
 >CAPABILITY will process incoming data into a floating point `128 * 3` array.
 
->Procedural Blocks are used to do things to the data. The normalize PROC_BLOCK is used to compress the incoming data between 0 and 1.
+>The normalize PROC_BLOCK is used to compress the incoming data between 0 and 1.
 
 >The data is then run through the tflite MODEL producing an output of 4 floating point numbers with different levels of confidence of the model (i.e. `[0.0, 1.0, 0.0, 0.0]`).
 
