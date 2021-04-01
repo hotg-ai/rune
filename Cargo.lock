@@ -1710,6 +1710,7 @@ name = "proc-blocks"
 version = "0.1.0"
 dependencies = [
  "fft",
+ "normalize",
  "pyo3",
  "runic-types",
 ]

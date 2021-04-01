@@ -1,6 +1,5 @@
 use pyo3::{
     PyAny, PyObject, PyResult, Python, ToPyObject,
-    exceptions::PyException,
     prelude::{pyclass, pymethods},
 };
 use ::fft::Fft as UnderlyingFft;

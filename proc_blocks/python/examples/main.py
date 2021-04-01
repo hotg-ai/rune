@@ -1,12 +1,22 @@
 import math
+import random
 
 try:
-    from proc_blocks import Fft
+    from proc_blocks import Fft, Normalize
 except Exception as e:
     print(
         "ERROR: Unable to import the native module. You may need to install it or run `maturin develop`"
     )
     raise e
+
+
+def use_normalize():
+    norm = Normalize()
+    # Create some random data
+    data = [round(random.uniform(-100, 100)) for i in range(0, 5)]
+    print("Original:", data)
+    normalized = norm(data)
+    print("Normalized:", normalized)
 
 
 def use_fft():
@@ -22,7 +32,8 @@ def use_fft():
 
 
 def main():
-    use_fft()
+    use_normalize()
+    # use_fft()
 
 
 if __name__ == "__main__":
