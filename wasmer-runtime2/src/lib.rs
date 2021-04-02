@@ -1,10 +1,13 @@
 use std::collections::HashMap;
-
 use anyhow::{Context, Error};
-use rune_runtime::{Image, Signature, WasmValue};
-use wasmer::{Exports, Function, Instance, Module, NativeFunc, Store, Val};
+use rune_runtime::{Image, Signature, WasmType, WasmValue};
+use wasmer::{
+    Exports, Function, Instance, Module, NativeFunc, RuntimeError, Store, Val,
+};
 use wasmer::ImportObject;
+use wasmer_vm::Trap;
 
+#[derive(Debug)]
 pub struct Runtime {
     instance: Instance,
 }
@@ -103,22 +106,65 @@ impl<'s> rune_runtime::Registrar for Registrar<'s> {
                 self.store,
                 signature_to_wasmer(f.signature()),
                 move |args| {
-                    let converted: Vec<_> =
-                        args.iter().map(wasmer_to_value).collect();
-                    let ret = f.call(&converted).unwrap_or_else(|e| unsafe {
-                        wasmer::raise_user_trap(e.into())
-                    });
-
-                    Ok(ret.into_iter().map(value_to_wasmer).collect())
+                    let converted = args
+                        .iter()
+                        .map(wasmer_to_value)
+                        .collect::<Result<Vec<WasmValue>, RuntimeError>>()?;
+                    f.call(&converted)
+                        .map(|ret| {
+                            ret.into_iter().map(value_to_wasmer).collect()
+                        })
+                        .map_err(|e| {
+                            RuntimeError::from_trap(Trap::new_from_user(
+                                e.into(),
+                            ))
+                        })
                 },
             ),
         );
     }
 }
 
-fn signature_to_wasmer(_signature: &Signature) -> wasmer::FunctionType {
-    todo!()
+fn signature_to_wasmer(signature: &Signature) -> wasmer::FunctionType {
+    let params: Vec<_> = signature
+        .parameters()
+        .iter()
+        .copied()
+        .map(rune_type_to_wasmer_type)
+        .collect();
+    let returns: Vec<_> = signature
+        .returns()
+        .iter()
+        .copied()
+        .map(rune_type_to_wasmer_type)
+        .collect();
+
+    wasmer::FunctionType::new(params, returns)
 }
 
-fn wasmer_to_value(_v: &Val) -> WasmValue { todo!() }
-fn value_to_wasmer(_value: WasmValue) -> Val { todo!() }
+fn rune_type_to_wasmer_type(ty: WasmType) -> wasmer::Type {
+    match ty {
+        WasmType::F32 => wasmer::Type::F32,
+        WasmType::F64 => wasmer::Type::F64,
+        WasmType::I32 => wasmer::Type::I32,
+        WasmType::I64 => wasmer::Type::I64,
+    }
+}
+
+fn wasmer_to_value(v: &Val) -> Result<WasmValue, RuntimeError> {
+    match v {
+        Val::I32(int) => Ok(WasmValue::I32(*int)),
+        Val::I64(long) => Ok(WasmValue::I64(*long)),
+        Val::F32(int) => Ok(WasmValue::F32(*int)),
+        Val::F64(int) => Ok(WasmValue::F64(*int)),
+        _ => Err(RuntimeError::new("Unsupported wasm type")),
+    }
+}
+fn value_to_wasmer(value: WasmValue) -> Val {
+    match value {
+        WasmValue::F32(float) => Val::from(float),
+        WasmValue::F64(double) => Val::from(double),
+        WasmValue::I32(int) => Val::from(int),
+        WasmValue::I64(long) => Val::from(long),
+    }
+}

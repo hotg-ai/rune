@@ -2743,7 +2743,10 @@ dependencies = [
  "log",
  "rune-runtime",
  "runic-types",
+ "tempfile",
  "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
