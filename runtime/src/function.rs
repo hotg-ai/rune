@@ -1,6 +1,34 @@
 use anyhow::{Context, Error};
 use crate::{WasmType, WasmValue};
+use std::convert::{Infallible, TryFrom, TryInto};
 
+/// Contextual information passed to a host function.
+pub trait CallContext {
+    /// Get immutable access to some WebAssembly memory.
+    fn memory(&self, address: u32, len: u32) -> Result<&[u8], Error>;
+
+    /// Get mutable access to some WebAssembly memory.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure there are no other references to the returned
+    /// memory until the slice is dropped.
+    unsafe fn memory_mut(
+        &self,
+        address: u32,
+        len: u32,
+    ) -> Result<&mut [u8], Error>;
+
+    /// Read a UTF-8 string from WebAssembly memory.
+    fn utf8_str(&self, address: u32, len: u32) -> Result<&str, Error> {
+        let data = self.memory(address, len)?;
+        let s = std::str::from_utf8(data)?;
+
+        Ok(s)
+    }
+}
+
+/// The signature for a WebAssembly function.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Signature {
     parameters: &'static [WasmType],
@@ -17,7 +45,7 @@ impl Signature {
 pub struct Function {
     signature: Signature,
     func: Box<
-        dyn Fn(&[WasmValue]) -> Result<Vec<WasmValue>, Error>
+        dyn Fn(&dyn CallContext, &[WasmValue]) -> Result<Vec<WasmValue>, Error>
             + Send
             + Sync
             + 'static,
@@ -25,9 +53,13 @@ pub struct Function {
 }
 
 impl Function {
+    /// Create a new [`Function`] from a compatible Rust closure.
     pub fn new<F, Args, Rets>(closure: F) -> Self
     where
-        F: Fn(Args) -> Result<Rets, Error> + Sync + Send + 'static,
+        F: Fn(&dyn CallContext, Args) -> Result<Rets, Error>
+            + Sync
+            + Send
+            + 'static,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -36,11 +68,13 @@ impl Function {
             returns: Rets::TYPES,
         };
         let func = Box::new(
-            move |args: &[WasmValue]| -> Result<Vec<WasmValue>, Error> {
+            move |ctx: &dyn CallContext,
+                  args: &[WasmValue]|
+                  -> Result<Vec<WasmValue>, Error> {
                 let args = Args::from_values(args)
                     .context("Unable to unpack the arguments")?;
 
-                let returns = closure(args)?;
+                let returns = closure(ctx, args)?;
                 Ok(returns.into_values())
             },
         );
@@ -48,10 +82,16 @@ impl Function {
         Function { signature, func }
     }
 
+    /// Get the function's signature.
     pub fn signature(&self) -> &Signature { &self.signature }
 
-    pub fn call(&self, args: &[WasmValue]) -> Result<Vec<WasmValue>, Error> {
-        (self.func)(args)
+    /// Invoke the function.
+    pub fn call(
+        &self,
+        ctx: &dyn CallContext,
+        args: &[WasmValue],
+    ) -> Result<Vec<WasmValue>, Error> {
+        (self.func)(ctx, args)
     }
 }
 
@@ -91,6 +131,12 @@ pub enum FromValuesError {
         expected: WasmType,
         actual: WasmValue,
     },
+    #[error("Invalid integer value")]
+    BadIntegerValue(#[from] std::num::TryFromIntError),
+}
+
+impl From<Infallible> for FromValuesError {
+    fn from(v: Infallible) -> Self { match v {} }
 }
 
 macro_rules! impl_wasm_type_list {
@@ -147,11 +193,11 @@ macro_rules! impl_to_from_wasm_type {
                 const WASM_TYPE: WasmType = WasmType::$variant;
 
                 fn to_value(self) -> WasmValue {
-                    WasmValue::$variant(self)
+                    WasmValue::$variant(self.try_into().unwrap())
                 }
                 fn from_value(v: WasmValue) -> Option<Self> {
                     match v {
-                        WasmValue::$variant(value) => Some(value),
+                        WasmValue::$variant(value) => <$type>::try_from(value).ok(),
                         _ => None,
                     }
                 }
@@ -164,7 +210,10 @@ macro_rules! impl_to_from_wasm_type {
 
                 fn from_values(values: &[WasmValue]) -> Result<Self, FromValuesError> {
                     match values {
-                        [WasmValue::$variant(value)] => Ok(*value),
+                        [WasmValue::$variant(value)] => {
+                            let value: $type = (*value).try_into()?;
+                            Ok(value)
+                        },
                         [other] => Err(FromValuesError::IncorrectType {
                             index: 0,
                             expected: WasmType::$variant,
@@ -194,7 +243,7 @@ impl_wasm_type_list!(A, B, C, D, E, F, G, H, I);
 impl_wasm_type_list!(A, B, C, D, E, F, G, H, I, J);
 impl_wasm_type_list!(A, B, C, D, E, F, G, H, I, J, K);
 
-impl_to_from_wasm_type!(I32 => i32, I64 => i64, F32 => f32, F64 => f64);
+impl_to_from_wasm_type!(I32 => u32, I32 => i32, I64 => i64, F32 => f32, F64 => f64);
 
 #[cfg(test)]
 mod tests {

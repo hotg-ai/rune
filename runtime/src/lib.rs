@@ -5,7 +5,9 @@ pub mod common_capabilities;
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
 
-pub use function::{Function, Signature, FromValuesError, WasmTypeList};
+pub use function::{
+    Function, Signature, FromValuesError, WasmTypeList, CallContext,
+};
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};

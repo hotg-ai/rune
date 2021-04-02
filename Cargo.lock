@@ -2087,6 +2087,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "runicos-base"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "rune-runtime",
+ "runic-types",
+ "serde_json",
+]
+
+[[package]]
 name = "rust-argon2"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

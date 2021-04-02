@@ -52,7 +52,7 @@ impl Image for Tracked {
     fn initialize_imports(self, registrar: &mut dyn Registrar) {
         let handle = Arc::clone(&self.calls);
 
-        let func = Function::new(move |()| {
+        let func = Function::new(move |_, ()| {
             handle.fetch_add(1, Ordering::SeqCst);
             Ok(())
         });

@@ -2,6 +2,7 @@
 members = [
     "codegen",
     "ffi",
+    "images/*",
     "proc_blocks/*",
     "rune",
     "runic-types",
