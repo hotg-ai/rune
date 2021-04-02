@@ -1,10 +1,14 @@
+mod function;
+
 #[cfg(feature = "builtins")]
 pub mod common_capabilities;
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
 
+pub use function::{Function, Signature, FromValuesError, WasmTypeList};
+
 use anyhow::Error;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Display, Formatter};
 use runic_types::{InvalidConversionError, Value};
 
 /// A primitive type that can be passed between host and WebAssembly guest.
@@ -14,6 +18,17 @@ pub enum WasmValue {
     F64(f64),
     I32(i32),
     I64(i64),
+}
+
+impl Display for WasmValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            WasmValue::F32(float) => write!(f, "{}_f32", float),
+            WasmValue::F64(double) => write!(f, "{}_f64", double),
+            WasmValue::I32(int) => write!(f, "{}_i32", int),
+            WasmValue::I64(long) => write!(f, "{}_i64", long),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
@@ -35,20 +50,8 @@ pub trait Registrar {
         &mut self,
         namespace: &str,
         name: &str,
-        signature: Signature,
-        f: Box<
-            dyn Fn(&[WasmValue]) -> Result<Vec<WasmValue>, Error>
-                + Send
-                + Sync
-                + 'static,
-        >,
+        function: Function,
     );
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Signature {
-    pub parameters: Vec<WasmType>,
-    pub returns: Vec<WasmType>,
 }
 
 /// Something a Rune can send output to.

@@ -94,24 +94,18 @@ impl<'s> rune_runtime::Registrar for Registrar<'s> {
         &mut self,
         namespace: &str,
         name: &str,
-        signature: Signature,
-        f: Box<
-            dyn Fn(&[WasmValue]) -> Result<Vec<WasmValue>, Error>
-                + Send
-                + Sync
-                + 'static,
-        >,
+        f: rune_runtime::Function,
     ) {
         let ns = self.namespaces.entry(namespace.to_string()).or_default();
         ns.insert(
             name,
             Function::new(
                 self.store,
-                signature_to_wasmer(signature),
+                signature_to_wasmer(f.signature()),
                 move |args| {
                     let converted: Vec<_> =
                         args.iter().map(wasmer_to_value).collect();
-                    let ret = f(&converted).unwrap_or_else(|e| unsafe {
+                    let ret = f.call(&converted).unwrap_or_else(|e| unsafe {
                         wasmer::raise_user_trap(e.into())
                     });
 
@@ -122,7 +116,7 @@ impl<'s> rune_runtime::Registrar for Registrar<'s> {
     }
 }
 
-fn signature_to_wasmer(_signature: Signature) -> wasmer::FunctionType {
+fn signature_to_wasmer(_signature: &Signature) -> wasmer::FunctionType {
     todo!()
 }
 

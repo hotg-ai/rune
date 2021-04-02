@@ -26,8 +26,6 @@ fn sine() {
         .arg(&runefile)
         .arg("--output")
         .arg(&rune)
-        .arg("--cache-dir")
-        .arg(build_dir.path())
         .unwrap();
 
     assert!(rune.exists());
@@ -66,8 +64,6 @@ fn gesture() {
         .arg(&runefile)
         .arg("--output")
         .arg(&rune)
-        .arg("--cache-dir")
-        .arg(build_dir.path())
         .unwrap();
 
     let example_wing = gesture_dir.join("example_ring.csv");
@@ -96,8 +92,6 @@ fn yes_microspeech() {
         .arg(&runefile)
         .arg("--output")
         .arg(&rune)
-        .arg("--cache-dir")
-        .arg(build_dir.path())
         .unwrap();
 
     let wav = microspeech_dir
@@ -127,8 +121,6 @@ fn no_microspeech() {
         .arg(&runefile)
         .arg("--output")
         .arg(&rune)
-        .arg("--cache-dir")
-        .arg(build_dir.path())
         .unwrap();
 
     let wav = microspeech_dir
