@@ -23,7 +23,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: Install wasm32 target
-        run: rustup target add wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
       - name: Install cargo-criterion
         uses: actions-rs/install@v0.1
         with:
