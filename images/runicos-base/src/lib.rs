@@ -1,30 +1,81 @@
 use std::{
     collections::HashMap,
+    convert::TryFrom,
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
     },
 };
 use log::{Level, Record};
-use rune_runtime::{CallContext, Function, Image, Output, Registrar};
+use rune_runtime::{CallContext, Capability, Function, Image, Output, Registrar};
 use anyhow::{Context, Error};
-use runic_types::SerializableRecord;
+use runic_types::{SerializableRecord, Type, Value};
 
 type OutputFactory =
     dyn Fn() -> Result<Box<dyn Output>, Error> + Send + Sync + 'static;
-type LogFunc =
-    dyn Fn(&log::Record) -> Result<(), Error> + Sync + Send + 'static;
+type CapabilityFactory =
+    dyn Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static;
+type LogFunc = dyn Fn(&Record) -> Result<(), Error> + Sync + Send + 'static;
 
 #[derive(Clone)]
 pub struct BaseImage {
     serial: Arc<OutputFactory>,
+    rand: Arc<CapabilityFactory>,
     log: Arc<LogFunc>,
+}
+
+impl BaseImage {
+    pub fn new() -> Self { BaseImage::default() }
+
+    pub fn with_log<F>(self, log_func: F) -> Self
+    where
+        F: Fn(&Record) -> Result<(), Error> + Sync + Send + 'static,
+    {
+        BaseImage {
+            log: Arc::new(log_func),
+            ..self
+        }
+    }
+
+    pub fn with_rand<F>(self, rand: F) -> Self
+    where
+        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
+    {
+        BaseImage {
+            rand: Arc::new(rand),
+            ..self
+        }
+    }
+
+    pub fn with_serial<F>(self, serial: F) -> Self
+    where
+        F: Fn() -> Result<Box<dyn Output>, Error> + Send + Sync + 'static,
+    {
+        BaseImage {
+            serial: Arc::new(serial),
+            ..self
+        }
+    }
+}
+
+impl Default for BaseImage {
+    fn default() -> Self {
+        BaseImage {
+            serial: Arc::new(|| anyhow::bail!("Unsupported")),
+            rand: Arc::new(|| anyhow::bail!("Unsupported")),
+            log: Arc::new(|record| {
+                log::logger().log(record);
+                Ok(())
+            }),
+        }
+    }
 }
 
 impl Image for BaseImage {
     fn initialize_imports(self, registrar: &mut dyn Registrar) {
         let ids = Identifiers::default();
         let outputs = Arc::new(Mutex::new(HashMap::new()));
+        let capabilities = Arc::new(Mutex::new(HashMap::new()));
 
         registrar.register_function("env", "_debug", log(&self.log));
 
@@ -41,18 +92,25 @@ impl Image for BaseImage {
             "consume_output",
             consume_output(&outputs),
         );
-    }
-}
 
-impl Default for BaseImage {
-    fn default() -> Self {
-        BaseImage {
-            serial: Arc::new(|| anyhow::bail!("Unsupported")),
-            log: Arc::new(|record| {
-                log::logger().log(record);
-                Ok(())
-            }),
-        }
+        let capability_factories = Capabilities {
+            rand: Arc::clone(&self.rand),
+        };
+        registrar.register_function(
+            "env",
+            "request_capability",
+            request_capability(&ids, &capabilities, capability_factories),
+        );
+        registrar.register_function(
+            "env",
+            "request_capability_set_param",
+            request_capability_set_param(&capabilities),
+        );
+        registrar.register_function(
+            "env",
+            "request_provider_response",
+            request_provider_response(&capabilities),
+        );
     }
 }
 
@@ -129,6 +187,96 @@ fn request_output(
 
         Ok(())
     })
+}
+
+struct Capabilities {
+    rand: Arc<CapabilityFactory>,
+}
+
+fn request_capability(
+    ids: &Identifiers,
+    capabilities: &Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
+    factories: Capabilities,
+) -> Function {
+    let ids = ids.clone();
+    let capabilities = Arc::clone(capabilities);
+
+    Function::new(move |_, capability_type: u32| {
+        let cap = match capability_type {
+            runic_types::capabilities::RAND => (factories.rand)()?,
+            _ => anyhow::bail!("Unknown capability type: {}", capability_type),
+        };
+
+        let id = ids.next();
+        capabilities.lock().unwrap().insert(id, cap);
+        Ok(())
+    })
+}
+
+fn request_capability_set_param(
+    capabilities: &Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
+) -> Function {
+    let capabilities = Arc::clone(capabilities);
+
+    Function::new(
+        move |ctx,
+              (
+            capability_id,
+            key_ptr,
+            key_len,
+            value_ptr,
+            value_len,
+            value_type,
+        ): (u32, u32, u32, u32, u32, u32)| {
+            let mut capabilities = capabilities.lock().unwrap();
+            let capability = capabilities
+                .get_mut(&capability_id)
+                .context("Unknown capability")?;
+
+            let key = ctx
+                .utf8_str(key_ptr, key_len)
+                .context("Unable to read the key")?;
+            let value = ctx
+                .memory(value_ptr, value_len)
+                .context("Unable to read the value")?;
+
+            let value_type = Type::try_from(value_type)
+                .map_err(|_| Error::msg("Invalid value type"))?;
+            let value = Value::from_le_bytes(value_type, value)
+                .context("Unable to unmarshal the value")?;
+
+            capability
+                .set_parameter(key, value)
+                .context("Unable to set the parameter")?;
+
+            Ok(())
+        },
+    )
+}
+
+fn request_provider_response(
+    capabilities: &Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
+) -> Function {
+    let capabilities = Arc::clone(capabilities);
+
+    Function::new(
+        move |ctx, (buffer, buffer_len, capability_id): (u32, u32, u32)| {
+            let mut capabilities = capabilities.lock().unwrap();
+            let capability = capabilities
+                .get_mut(&capability_id)
+                .context("Unknown capability")?;
+
+            unsafe {
+                let buffer = ctx
+                    .memory_mut(buffer, buffer_len)
+                    .context("Unable to read the buffer")?;
+
+                capability.generate(buffer)?;
+            }
+
+            Ok(())
+        },
+    )
 }
 
 #[cfg(test)]
