@@ -1,6 +1,9 @@
 use anyhow::{Context, Error};
 use crate::{WasmType, WasmValue};
-use std::convert::{Infallible, TryFrom, TryInto};
+use std::{
+    convert::{Infallible, TryFrom, TryInto},
+    fmt::{self, Debug, Formatter},
+};
 
 /// Contextual information passed to a host function.
 pub trait CallContext {
@@ -95,6 +98,17 @@ impl Function {
     }
 }
 
+impl Debug for Function {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Function { signature, func: _ } = self;
+
+        f.debug_struct("Function")
+            .field("signature", signature)
+            .field("func", &"<elided>")
+            .finish()
+    }
+}
+
 /// A list of WebAssembly types, typically used for function arguments or return
 /// values.
 pub trait WasmTypeList: Sized {
@@ -139,6 +153,11 @@ impl From<Infallible> for FromValuesError {
     fn from(v: Infallible) -> Self { match v {} }
 }
 
+macro_rules! count {
+    () => { 0 };
+    ($item:tt $(, $rest:tt)*) => { 1 + count!($($rest),*) };
+}
+
 macro_rules! impl_wasm_type_list {
     ($($letters:ident),* $(,)?) => {
         impl<$($letters),*> WasmTypeList for ($($letters,)*)
@@ -179,7 +198,10 @@ macro_rules! impl_wasm_type_list {
 
                         Ok(($($letters,)*))
                     },
-                    _ => todo!(),
+                    _ => Err(FromValuesError::IncorrectArity{
+                        expected: count!($($letters),*),
+                        actual: values.len(),
+                    }),
                 }
             }
         }

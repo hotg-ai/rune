@@ -9,3 +9,4 @@ examples/.DS_Store
 *.dot
 *.svg
 *.png
+tarpaulin-report.html
