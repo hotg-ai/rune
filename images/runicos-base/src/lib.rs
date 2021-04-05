@@ -16,12 +16,15 @@ type OutputFactory =
 type CapabilityFactory =
     dyn Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static;
 type LogFunc = dyn Fn(&Record) -> Result<(), Error> + Sync + Send + 'static;
+type ModelFactory =
+    dyn Fn(&[u8]) -> Result<Box<dyn Model>, Error> + Send + Sync + 'static;
 
 #[derive(Clone)]
 pub struct BaseImage {
     serial: Arc<OutputFactory>,
     rand: Arc<CapabilityFactory>,
     log: Arc<LogFunc>,
+    model: Arc<ModelFactory>,
 }
 
 impl BaseImage {
@@ -56,6 +59,16 @@ impl BaseImage {
             ..self
         }
     }
+
+    pub fn with_model<F>(self, model: F) -> Self
+    where
+        F: Fn(&[u8]) -> Result<Box<dyn Model>, Error> + Send + Sync + 'static,
+    {
+        BaseImage {
+            model: Arc::new(model),
+            ..self
+        }
+    }
 }
 
 impl Default for BaseImage {
@@ -63,6 +76,7 @@ impl Default for BaseImage {
         BaseImage {
             serial: Arc::new(|| anyhow::bail!("Unsupported")),
             rand: Arc::new(|| anyhow::bail!("Unsupported")),
+            model: Arc::new(|_| anyhow::bail!("Unsupported")),
             log: Arc::new(|record| {
                 log::logger().log(record);
                 Ok(())
@@ -76,6 +90,7 @@ impl Image for BaseImage {
         let ids = Identifiers::default();
         let outputs = Arc::new(Mutex::new(HashMap::new()));
         let capabilities = Arc::new(Mutex::new(HashMap::new()));
+        let models = Arc::new(Mutex::new(HashMap::new()));
 
         registrar.register_function("env", "_debug", log(&self.log));
 
@@ -110,6 +125,17 @@ impl Image for BaseImage {
             "env",
             "request_provider_response",
             request_provider_response(&capabilities),
+        );
+
+        registrar.register_function(
+            "env",
+            "tfm_preload_model",
+            tfm_preload_model(&ids, &models, &self.model),
+        );
+        registrar.register_function(
+            "env",
+            "tfm_model_invoke",
+            tfm_model_invoke(&models),
         );
     }
 }
@@ -279,6 +305,80 @@ fn request_provider_response(
     )
 }
 
+pub trait Model: Send + Sync + 'static {
+    fn infer(&mut self, input: &[u8], buffer: &mut [u8]) -> Result<(), Error>;
+}
+
+fn tfm_preload_model(
+    ids: &Identifiers,
+    models: &Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
+    constructor: &Arc<ModelFactory>,
+) -> Function {
+    let ids = ids.clone();
+    let models = Arc::clone(models);
+    let constructor = Arc::clone(constructor);
+
+    Function::new(
+        move |ctx,
+         (
+        model,
+        model_len,
+        _inputs,
+        _outputs,
+): (
+            u32,
+            u32,
+            u32,
+            u32,
+        )| {
+            let model = ctx.memory(model, model_len)
+            .context("Invalid model buffer")?;
+            let model = constructor(model).context("Unable to create the model")?;
+
+            let mut models = models.lock().unwrap();
+            let id = ids.next();
+            models.insert(id, model);
+
+            Ok(id)
+        },
+    )
+}
+
+fn tfm_model_invoke(
+    models: &Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
+) -> Function {
+    let models = Arc::clone(models);
+
+    Function::new(
+        move |ctx,
+              (model_id, input, input_len, output, output_len): (
+            u32,
+            u32,
+            u32,
+            u32,
+            u32,
+        )| {
+            let mut models = models.lock().unwrap();
+            let model = models.get_mut(&model_id).context("Invalid model")?;
+
+            let input = ctx
+                .memory(input, input_len)
+                .context("Invalid input buffer")?;
+
+            let output = unsafe {
+                ctx.memory_mut(output, output_len)
+                    .context("Invalid output buffer")?
+            };
+
+            model
+                .infer(input, output)
+                .context("Unable to execute the model")?;
+
+            Ok(())
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::{cell::UnsafeCell, collections::HashSet};
@@ -426,8 +526,13 @@ mod tests {
         let got = registrar.keys();
         let should_be: HashSet<_> = vec![
             ("env", "_debug"),
-            ("env", "request_output"),
             ("env", "consume_output"),
+            ("env", "request_capability_set_param"),
+            ("env", "request_capability"),
+            ("env", "request_output"),
+            ("env", "request_provider_response"),
+            ("env", "tfm_model_invoke"),
+            ("env", "tfm_preload_model"),
         ]
         .into_iter()
         .collect();
