@@ -3,7 +3,7 @@ use std::{
     os::raw::{c_char, c_int, c_void},
 };
 use anyhow::Error;
-use rune_runtime::capability::ParameterError;
+use rune_runtime::ParameterError;
 use runic_types::{Type, Value};
 
 /// An object which can be used to pass input from the outside world into the
@@ -44,7 +44,7 @@ pub struct Capability {
     pub destroy: Option<unsafe extern "C" fn(*mut c_void)>,
 }
 
-impl rune_runtime::capability::Capability for Capability {
+impl rune_runtime::Capability for Capability {
     fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
         let gen = self.generate.ok_or(ParameterError::UnsupportedParameter)?;
 

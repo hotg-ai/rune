@@ -29,6 +29,7 @@ fn execute_cpp_example() {
         .arg("build")
         .arg("--manifest-path")
         .arg(ffi_dir.join("Cargo.toml"))
+        .arg("--quiet")
         .status()
         .unwrap();
     assert!(status.success());

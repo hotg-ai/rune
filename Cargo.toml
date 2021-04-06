@@ -2,12 +2,14 @@
 members = [
     "codegen",
     "ffi",
+    "images/*",
     "proc_blocks/*",
     "rune",
     "runic-types",
     "runtime",
     "syntax",
-    "xtask"
+    "xtask",
+    "wasmer-runtime",
 ]
 exclude = [ "examples/*" ]
 

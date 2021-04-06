@@ -1,5 +1,5 @@
 [package]
-name = "rune-ffi"
+name = "rune-wasmer-runtime"
 version = "0.1.0"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
@@ -7,21 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.38"
-env_logger = "0.8.3"
-libc = "0.2.87"
+anyhow = "1.0.40"
 log = "0.4.14"
-rune-codegen = { path = "../codegen" }
 rune-runtime = { path = "../runtime" }
-rune-wasmer-runtime = { path = "../wasmer-runtime" }
-rune-syntax = { path = "../syntax" }
 runic-types = { path = "../runic-types" }
-runicos-base = { path = "../images/runicos-base" }
-
-[lib]
-name = "rune"
-crate-type = ["cdylib", "staticlib", "rlib"]
+wasmer = "1.0.2"
+wasmer-types = "1.0.2"
+wasmer-vm = "1.0.2"
 
 [dev-dependencies]
-cbindgen = "0.18.0"
 tempfile = "3.2.0"

@@ -8,7 +8,7 @@ use std::{
 use anyhow::{Context, Error};
 use hound::WavReader;
 use runic_types::{Value};
-use super::{Capability, ParameterError};
+use crate::{Capability, ParameterError};
 
 const DEFAULT_FREQUENCY: u32 = 16_000;
 

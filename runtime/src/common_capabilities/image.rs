@@ -1,7 +1,7 @@
 use std::fmt::{self, Formatter, Debug};
 use anyhow::{Context, Error};
 use image::{GenericImageView, RgbImage};
-use super::{Capability, ParameterError};
+use crate::{Capability, ParameterError};
 
 #[derive(Clone)]
 pub struct Image {

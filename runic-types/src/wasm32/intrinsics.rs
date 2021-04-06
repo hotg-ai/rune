@@ -73,7 +73,4 @@ extern "C" {
         buffer_len: u32,
         capability_id: u32,
     ) -> u32;
-
-    /// Ask the runtime to log a backtrace at this instruction.
-    pub fn log_backtrace(msg: *const u8, msg_len: u32);
 }

@@ -351,8 +351,11 @@ fn generate_python_bindings(
 
     venv.python("venv", &[&venv.env_dir])
         .context("Unable to initialize the virtual environment")?;
-    venv.python("pip", &["install", "maturin"])
-        .context("Unable to make sure `maturin` is installed")?;
+    venv.python(
+        "pip",
+        &["install", "maturin", "--disable-pip-version-check"],
+    )
+    .context("Unable to make sure `maturin` is installed")?;
 
     let wheel_dir = dist.join("wheels");
 

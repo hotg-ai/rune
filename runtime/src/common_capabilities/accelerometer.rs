@@ -1,7 +1,7 @@
 use anyhow::Error;
 use runic_types::{Value};
 use std::fmt::{self, Formatter, Debug};
-use super::{Capability, ParameterError};
+use crate::{Capability, ParameterError};
 
 type Sample = [f32; 3];
 
@@ -40,6 +40,8 @@ impl Accelerometer {
 
         Ok(Accelerometer::new(samples))
     }
+
+    pub fn samples(&self) -> &[Sample] { &self.samples }
 }
 
 impl Capability for Accelerometer {
