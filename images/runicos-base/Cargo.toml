@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.40"
 log = "0.4.14"
-rune-runtime = { path = "../../runtime" }
+rune-runtime = { path = "../../runtime", features = ["builtins"] }
 runic-types = { path = "../../runic-types" }
 serde_json = { version = "1" }
 tflite = { version = "0.9.5", optional = true }

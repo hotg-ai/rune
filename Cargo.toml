@@ -10,7 +10,6 @@ members = [
     "syntax",
     "xtask",
     "wasmer-runtime",
-    "wasmer-runtime2",
 ]
 exclude = [ "examples/*" ]
 

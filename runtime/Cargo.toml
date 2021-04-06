@@ -18,4 +18,4 @@ thiserror = "1.0.24"
 
 [features]
 default = ["builtins"]
-builtins = ["hound", "image", "rand"]
+builtins = ["hound", "image", "rand", "rand/small_rng"]

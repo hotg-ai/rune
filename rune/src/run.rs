@@ -3,7 +3,7 @@ use anyhow::{Context, Error};
 use hound::WavReader;
 use log;
 use rune_runtime::common_capabilities::{Accelerometer, Image, Random, Sound};
-use rune_wasmer_runtime2::Runtime;
+use rune_wasmer_runtime::Runtime;
 use runicos_base::BaseImage;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]

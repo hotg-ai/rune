@@ -7,33 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.38"
-hound = "3.4.0"
-image = "0.23.14"
+anyhow = "1.0.40"
 log = "0.4.14"
-rand = { version = "0.8.3", features = ["small_rng"] }
-rand_core = "0.6.2"
+rune-runtime = { path = "../runtime" }
 runic-types = { path = "../runic-types" }
-rustc-demangle = "0.1.18"
-serde_json = "1.0.64"
-tempfile = "3.2.0"
-tflite = { version = "0.9.4", features = ["debug_tflite"] }
-thiserror = "1.0.24"
 wasmer = "1.0.2"
+wasmer-types = "1.0.2"
+wasmer-vm = "1.0.2"
 
 [dev-dependencies]
-criterion = "0.3.4"
-env_logger = "0.8.3"
-fft = { path = "../proc_blocks/fft" }
-gesture_agg = { path = "../proc_blocks/gesture_agg" }
-hound = "3.4.0"
-modulo = { path = "../proc_blocks/modulo" }
-normalize = { path = "../proc_blocks/normalize" }
-ohv_label = { path = "../proc_blocks/ohv_label" }
-once_cell = "1.7.2"
-rune-codegen = { path = "../codegen" }
-rune-syntax = { path = "../syntax" }
-
-[[bench]]
-name = "runtime-comparison"
-harness = false
+tempfile = "3.2.0"

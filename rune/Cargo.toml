@@ -23,7 +23,7 @@ rune-syntax = { path = "../syntax", features = ["serde-1"] }
 runic-types = { path = "../runic-types" }
 serde_json = "1.0.64"
 structopt = "0.3.21"
-rune-wasmer-runtime2 = { path = "../wasmer-runtime2" }
+rune-wasmer-runtime = { path = "../wasmer-runtime" }
 rune-runtime = { path = "../runtime" }
 runicos-base = { path = "../images/runicos-base" }
 rand = "0.8.3"
