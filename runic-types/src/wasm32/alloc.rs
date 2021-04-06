@@ -3,7 +3,7 @@ use core::{
     alloc::Layout,
     ops::{Deref, DerefMut},
 };
-use crate::wasm32::{intrinsics, stats_allocator::StatsAllocator};
+use crate::wasm32::stats_allocator::StatsAllocator;
 
 #[derive(Debug, Default)]
 pub struct Allocator<A>(StatsAllocator<A>);
@@ -22,8 +22,6 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
             self.0.stats()
         );
 
-        backtrace("Alloc");
-
         ptr
     }
 
@@ -34,7 +32,6 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
             layout,
             self.0.stats()
         );
-        backtrace("Free");
 
         self.0.dealloc(ptr, layout);
     }
@@ -56,8 +53,6 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
             self.0.stats(),
         );
 
-        backtrace("Realloc");
-
         new_ptr
     }
 }
@@ -70,14 +65,4 @@ impl<A> Deref for Allocator<A> {
 
 impl<A> DerefMut for Allocator<A> {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
-}
-
-fn backtrace(msg: &str) {
-    if !log::log_enabled!(log::Level::Debug) {
-        return;
-    }
-
-    unsafe {
-        intrinsics::log_backtrace(msg.as_ptr(), msg.len() as u32);
-    }
 }

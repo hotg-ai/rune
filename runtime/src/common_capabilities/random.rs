@@ -11,6 +11,8 @@ impl<R> Random<R> {
 }
 
 impl Random<SmallRng> {
+    pub fn from_os() -> Self { Random::new(SmallRng::from_entropy()) }
+
     pub fn seeded(seed: u64) -> Self {
         Random::new(SmallRng::seed_from_u64(seed))
     }

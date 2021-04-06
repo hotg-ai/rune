@@ -7,7 +7,10 @@ use std::{
     },
 };
 use log::{Level, Record};
-use rune_runtime::{CallContext, Capability, Function, Image, Output, Registrar};
+use rune_runtime::{
+    CallContext, Capability, Function, Image, Output, Registrar,
+    common_capabilities::Random,
+};
 use anyhow::{Context, Error};
 use runic_types::{SerializableRecord, Type, Value};
 
@@ -93,11 +96,17 @@ impl BaseImage {
 impl Default for BaseImage {
     fn default() -> Self {
         BaseImage {
-            accelerometer: Arc::new(|| anyhow::bail!("Unsupported")),
-            image: Arc::new(|| anyhow::bail!("Unsupported")),
-            rand: Arc::new(|| anyhow::bail!("Unsupported")),
+            accelerometer: Arc::new(|| {
+                anyhow::bail!("The accelerometer capability is not supported")
+            }),
+            image: Arc::new(|| {
+                anyhow::bail!("The image capability is not supported")
+            }),
+            rand: Arc::new(initialize_rand),
             serial: Arc::new(initialize_serial_output),
-            sound: Arc::new(|| anyhow::bail!("Unsupported")),
+            sound: Arc::new(|| {
+                anyhow::bail!("The sound capability is not supported")
+            }),
             model: Arc::new(initialize_model),
             log: Arc::new(|record| {
                 log::logger().log(record);
@@ -504,7 +513,7 @@ impl Model
 
 #[cfg(not(feature = "tflite"))]
 fn initialize_model(raw: &[u8]) -> Result<Box<dyn Model>, Error> {
-    anyhow::bail!("Unsupported")
+    anyhow::bail!("Models are not supported")
 }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
@@ -523,6 +532,10 @@ impl Output for SerialOutput {
 
 fn initialize_serial_output() -> Result<Box<dyn Output>, Error> {
     Ok(Box::new(SerialOutput::default()))
+}
+
+fn initialize_rand() -> Result<Box<dyn Capability>, Error> {
+    Ok(Box::new(Random::from_os()))
 }
 
 #[cfg(test)]
