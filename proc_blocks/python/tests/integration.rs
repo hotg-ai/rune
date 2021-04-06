@@ -9,7 +9,10 @@ fn main() {
     let venv = runner.virtual_env.as_os_str();
 
     runner.python("venv", &[venv]);
-    runner.python("pip", &["install", "maturin", "--disable-pip-version-check"]);
+    runner.python(
+        "pip",
+        &["install", "maturin", "--disable-pip-version-check"],
+    );
     runner.maturin(&["develop"]);
 
     let tests = runner

@@ -14,6 +14,12 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    pub fn load(wasm: &[u8], image: impl Image) -> Result<Self, Error> {
+        let store = Store::default();
+        let module = Module::new(&store, wasm)?;
+        Runtime::load_from_module(&module, &store, image)
+    }
+
     pub fn load_from_module(
         module: &Module,
         store: &Store,

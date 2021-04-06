@@ -1979,10 +1979,13 @@ dependencies = [
  "once_cell",
  "petgraph",
  "predicates",
+ "rand",
  "rune-codegen",
+ "rune-runtime",
  "rune-syntax",
- "rune-wasmer-runtime",
+ "rune-wasmer-runtime2",
  "runic-types",
+ "runicos-base",
  "serde_json",
  "structopt",
  "tempfile",
@@ -2074,6 +2077,20 @@ dependencies = [
  "tflite",
  "thiserror",
  "wasmer",
+]
+
+[[package]]
+name = "rune-wasmer-runtime2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "rune-runtime",
+ "runic-types",
+ "tempfile",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2744,20 +2761,6 @@ dependencies = [
  "thiserror",
  "wasmer-compiler",
  "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-runtime2"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "log",
- "rune-runtime",
- "runic-types",
- "tempfile",
- "wasmer",
- "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]

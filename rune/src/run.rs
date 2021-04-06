@@ -1,13 +1,10 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{fs::File, path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use hound::WavReader;
 use log;
-use rune_wasmer_runtime::{DefaultEnvironment, Runtime};
+use rune_runtime::common_capabilities::{Accelerometer, Image, Random, Sound};
+use rune_wasmer_runtime2::Runtime;
+use runicos_base::BaseImage;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {
@@ -58,86 +55,93 @@ impl Run {
         Ok(())
     }
 
-    fn env(&self) -> Result<DefaultEnvironment, Error> {
-        let mut env = DefaultEnvironment::default();
+    fn env(&self) -> Result<BaseImage, Error> {
+        initialize_image(&self.capabilities)
+    }
+}
 
-        if let Some(name) = self.name() {
-            env.set_name(name);
-        }
+fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
+    let mut env = BaseImage::default();
 
-        for cap in &self.capabilities {
-            match cap {
-                Capability::RandomSeed { seed } => {
-                    log::debug!("Setting the RNG's seed to {}", seed);
-                    env.seed_rng(*seed);
-                },
-                Capability::RandomData { filename } => {
-                    log::debug!(
-                        "Loading some \"random\" data from \"{}\"",
-                        filename.display()
-                    );
-                    let random_bytes =
-                        std::fs::read(filename).with_context(|| {
-                            format!(
-                                "Unable to load random data from \"{}\"",
-                                filename.display()
-                            )
-                        })?;
-                    anyhow::ensure!(
-                        !random_bytes.is_empty(),
-                        "The random data file was empty"
-                    );
-                    env.set_random_data(random_bytes);
-                },
-                Capability::Accelerometer { filename } => {
-                    log::debug!(
-                        "Loading accelerator samples from \"{}\"",
-                        filename.display()
-                    );
-                    let samples = load_accelerometer_data(filename)
-                        .with_context(|| format!("Unable to load the accelerometer data from \"{}\"", filename.display()))?;
-
-                    log::debug!(
-                        "Loaded {} accelerometer samples from \"{}\"",
-                        samples.len(),
-                        filename.display()
-                    );
-                    env.set_accelerometer_data(samples);
-                },
-                Capability::Image { filename } => {
-                    log::debug!(
-                        "Loading an image from \"{}\"",
-                        filename.display()
-                    );
-                    let img = image::open(filename).with_context(|| {
-                        format!("Unable to load \"{}\"", filename.display())
-                    })?;
-                    env.set_image(img.to_rgb8());
-                },
-                Capability::Sound { filename } => {
-                    let f = File::open(filename).with_context(|| {
+    for cap in capabilities {
+        match cap {
+            Capability::RandomSeed { seed } => {
+                log::debug!("Setting the RNG's seed to {}", seed);
+                let seed = *seed;
+                env.with_rand(move || Ok(Box::new(Random::seeded(seed))));
+            },
+            Capability::RandomData { filename } => {
+                log::debug!(
+                    "Loading some \"random\" data from \"{}\"",
+                    filename.display()
+                );
+                let random_bytes =
+                    std::fs::read(filename).with_context(|| {
                         format!(
-                            "Unable to open \"{}\" for reading",
+                            "Unable to load random data from \"{}\"",
                             filename.display()
                         )
                     })?;
-                    let reader = WavReader::new(f)
-                        .context("Unable to read the WAV file's header")?;
+                anyhow::ensure!(
+                    !random_bytes.is_empty(),
+                    "The random data file was empty"
+                );
+                env.with_rand(move || {
+                    Ok(Box::new(Random::with_repeated_data(
+                        random_bytes.clone(),
+                    )))
+                });
+            },
+            Capability::Accelerometer { filename } => {
+                log::debug!(
+                    "Loading accelerator samples from \"{}\"",
+                    filename.display()
+                );
+                let csv =
+                    std::fs::read_to_string(filename).with_context(|| {
+                        format!("Unable to read \"{}\"", filename.display())
+                    })?;
 
-                    let samples = reader
-                        .into_samples::<i16>()
-                        .collect::<Result<Vec<_>, _>>()
-                        .context("Unable to parse the WAV file's samples")?;
+                let acc = Accelerometer::from_csv(&csv)
+                    .context("Unable to parse the samples")?;
+                log::debug!(
+                    "Loaded {} accelerometer samples from \"{}\"",
+                    acc.samples().len(),
+                    filename.display()
+                );
+                env.with_accelerometer(move || Ok(Box::new(acc.clone())));
+            },
+            Capability::Image { filename } => {
+                log::debug!("Loading an image from \"{}\"", filename.display());
+                let img = image::open(filename).with_context(|| {
+                    format!("Unable to load \"{}\"", filename.display())
+                })?;
+                let img = img.to_rgb8();
+                env.with_image(move || Ok(Box::new(Image::new(img.clone()))));
+            },
+            Capability::Sound { filename } => {
+                let f = File::open(filename).with_context(|| {
+                    format!(
+                        "Unable to open \"{}\" for reading",
+                        filename.display()
+                    )
+                })?;
+                let reader = WavReader::new(f)
+                    .context("Unable to read the WAV file's header")?;
 
-                    env.set_sound(samples);
-                },
-            }
+                let samples = reader
+                    .into_samples::<i16>()
+                    .collect::<Result<Vec<_>, _>>()
+                    .context("Unable to parse the WAV file's samples")?;
+
+                env.with_sound(move || {
+                    Ok(Box::new(Sound::new(samples.clone())))
+                });
+            },
         }
-
-        Ok(env)
     }
 
-    fn name(&self) -> Option<&str> { self.rune.file_stem()?.to_str() }
+    Ok(env)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -183,50 +187,4 @@ impl FromStr for Capability {
             ),
         }
     }
-}
-
-fn load_accelerometer_data(
-    path: impl AsRef<Path>,
-) -> Result<Vec<[f32; 3]>, Error> {
-    let path = path.as_ref();
-
-    let f = File::open(path)?;
-    let reader = BufReader::new(f);
-
-    let mut samples = Vec::new();
-    let mut line_no = 1;
-
-    let p = |word: &str, line: usize| {
-        word.trim().parse::<f32>().with_context(|| {
-            format!("Unable to parse \"{}\" as a float on line {}", word, line)
-        })
-    };
-
-    for line in reader.lines() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let words: Vec<_> = line.split(",").collect();
-
-        match words.as_slice() {
-            [first, second, third] => {
-                samples.push([
-                    p(*first, line_no)?,
-                    p(*second, line_no)?,
-                    p(*third, line_no)?,
-                ]);
-            },
-            _ => anyhow::bail!(
-                "Expected a CSV with 3 columns, but line {} has {}",
-                line_no,
-                words.len(),
-            ),
-        }
-
-        line_no += 1;
-    }
-
-    Ok(samples)
 }

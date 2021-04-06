@@ -40,6 +40,8 @@ impl Accelerometer {
 
         Ok(Accelerometer::new(samples))
     }
+
+    pub fn samples(&self) -> &[Sample] { &self.samples }
 }
 
 impl Capability for Accelerometer {

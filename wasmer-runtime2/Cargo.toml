@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-runtime2"
+name = "rune-wasmer-runtime2"
 version = "0.1.0"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
