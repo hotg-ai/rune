@@ -2112,6 +2112,7 @@ dependencies = [
  "rune-runtime",
  "runic-types",
  "serde_json",
+ "tflite",
 ]
 
 [[package]]
@@ -2375,9 +2376,9 @@ dependencies = [
 
 [[package]]
 name = "tflite"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "745e81cbdf4122b3689b13cdc9b7cc3121e32515cad1f81ad1ce8f101935cc46"
+checksum = "c8a7c3822e3c3aafa586481cbd41336ff8cc3b4c00527d129ded70dff11bdfc2"
 dependencies = [
  "bindgen",
  "cpp",

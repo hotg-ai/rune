@@ -95,10 +95,10 @@ impl Default for BaseImage {
         BaseImage {
             accelerometer: Arc::new(|| anyhow::bail!("Unsupported")),
             image: Arc::new(|| anyhow::bail!("Unsupported")),
-            model: Arc::new(|_| anyhow::bail!("Unsupported")),
             rand: Arc::new(|| anyhow::bail!("Unsupported")),
-            serial: Arc::new(|| anyhow::bail!("Unsupported")),
+            serial: Arc::new(initialize_serial_output),
             sound: Arc::new(|| anyhow::bail!("Unsupported")),
+            model: Arc::new(initialize_model),
             log: Arc::new(|record| {
                 log::logger().log(record);
                 Ok(())
@@ -132,6 +132,9 @@ impl Image for BaseImage {
 
         let capability_factories = Capabilities {
             rand: Arc::clone(&self.rand),
+            accel: Arc::clone(&self.accelerometer),
+            image: Arc::clone(&self.image),
+            sound: Arc::clone(&self.sound),
         };
         registrar.register_function(
             "env",
@@ -172,7 +175,9 @@ fn consume_output(
             let data = ctx.memory(address, len).context("Bad input pointer")?;
             let mut outputs = outputs.lock().unwrap();
             let output = outputs.get_mut(&id).context("Invalid output")?;
-            output.consume(data)
+            output.consume(data)?;
+
+            Ok(0)
         },
     )
 }
@@ -203,7 +208,7 @@ fn log(log: &Arc<LogFunc>) -> Function {
             },
         };
 
-        Ok(())
+        Ok(0)
     })
 }
 
@@ -233,12 +238,15 @@ fn request_output(
         log::debug!("Output {} = {:?}", id, output);
         outputs.lock().unwrap().insert(id, output);
 
-        Ok(())
+        Ok(id)
     })
 }
 
 struct Capabilities {
+    accel: Arc<CapabilityFactory>,
+    image: Arc<CapabilityFactory>,
     rand: Arc<CapabilityFactory>,
+    sound: Arc<CapabilityFactory>,
 }
 
 fn request_capability(
@@ -251,13 +259,16 @@ fn request_capability(
 
     Function::new(move |_, capability_type: u32| {
         let cap = match capability_type {
+            runic_types::capabilities::ACCEL => (factories.accel)()?,
+            runic_types::capabilities::IMAGE => (factories.image)()?,
             runic_types::capabilities::RAND => (factories.rand)()?,
+            runic_types::capabilities::SOUND => (factories.sound)()?,
             _ => anyhow::bail!("Unknown capability type: {}", capability_type),
         };
 
         let id = ids.next();
         capabilities.lock().unwrap().insert(id, cap);
-        Ok(())
+        Ok(id)
     })
 }
 
@@ -297,7 +308,7 @@ fn request_capability_set_param(
                 .set_parameter(key, value)
                 .context("Unable to set the parameter")?;
 
-            Ok(())
+            Ok(0)
         },
     )
 }
@@ -319,16 +330,15 @@ fn request_provider_response(
                     .memory_mut(buffer, buffer_len)
                     .context("Unable to read the buffer")?;
 
-                capability.generate(buffer)?;
+                let bytes_written = capability.generate(buffer)?;
+                Ok(bytes_written as u32)
             }
-
-            Ok(())
         },
     )
 }
 
 pub trait Model: Send + Sync + 'static {
-    fn infer(&mut self, input: &[u8], buffer: &mut [u8]) -> Result<(), Error>;
+    fn infer(&mut self, input: &[u8], output: &mut [u8]) -> Result<(), Error>;
 }
 
 fn tfm_preload_model(
@@ -396,9 +406,123 @@ fn tfm_model_invoke(
                 .infer(input, output)
                 .context("Unable to execute the model")?;
 
-            Ok(())
+            Ok(0)
         },
     )
+}
+
+#[cfg(feature = "tflite")]
+fn initialize_model(raw: &[u8]) -> Result<Box<dyn Model>, Error> {
+    use tflite::{
+        FlatBufferModel, InterpreterBuilder, ops::builtin::BuiltinOpResolver,
+    };
+
+    let model = FlatBufferModel::build_from_buffer(raw.to_vec())
+        .context("Unable to build the model")?;
+
+    let resolver = BuiltinOpResolver::default();
+
+    let builder = InterpreterBuilder::new(model, resolver)
+        .context("Unable to create a model interpreter builder")?;
+    let mut interpreter = builder
+        .build()
+        .context("Unable to initialize the model interpreter")?;
+    interpreter
+        .allocate_tensors()
+        .context("Unable to allocate tensors")?;
+
+    if log::log_enabled!(Level::Debug) {
+        let inputs: Vec<_> = interpreter
+            .inputs()
+            .iter()
+            .filter_map(|ix| interpreter.tensor_info(*ix))
+            .collect();
+        let outputs: Vec<_> = interpreter
+            .outputs()
+            .iter()
+            .filter_map(|ix| interpreter.tensor_info(*ix))
+            .collect();
+        log::debug!(
+            "Loaded model with inputs {:?} and outputs {:?}",
+            inputs,
+            outputs
+        );
+    }
+
+    Ok(Box::new(interpreter))
+}
+
+#[cfg(feature = "tflite")]
+impl Model
+    for tflite::Interpreter<'static, tflite::ops::builtin::BuiltinOpResolver>
+{
+    fn infer(&mut self, input: &[u8], output: &mut [u8]) -> Result<(), Error> {
+        let tensor_inputs = self.inputs();
+        anyhow::ensure!(
+            tensor_inputs.len() == 1,
+            "We can't handle models with less/more than 1 input"
+        );
+        let input_index = tensor_inputs[0];
+
+        let buffer = self
+            .tensor_buffer_mut(input_index)
+            .context("Unable to get the input buffer")?;
+
+        if input.len() != buffer.len() {
+            log::warn!(
+                "The input vector for the model is {} bytes long but the tensor expects {}",
+                input.len(),
+                buffer.len(),
+            );
+        }
+        let len = std::cmp::min(input.len(), buffer.len());
+        buffer[..len].copy_from_slice(&input[..len]);
+
+        log::debug!("Model received {} bytes", buffer.len());
+        log::trace!("Model input: {:?}", &buffer[..len]);
+
+        self.invoke().context("Calling the model failed")?;
+
+        let tensor_outputs = self.outputs();
+        anyhow::ensure!(
+            tensor_outputs.len() == 1,
+            "We can't handle models with less/more than 1 output"
+        );
+        let output_index = tensor_outputs[0];
+        let buffer = self
+            .tensor_buffer(output_index)
+            .context("Unable to get the output buffer")?;
+
+        log::debug!("Model Output: {:?}", buffer);
+
+        anyhow::ensure!(buffer.len() == output.len());
+        output.copy_from_slice(buffer);
+
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "tflite"))]
+fn initialize_model(raw: &[u8]) -> Result<Box<dyn Model>, Error> {
+    anyhow::bail!("Unsupported")
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+struct SerialOutput;
+
+impl Output for SerialOutput {
+    fn consume(&mut self, buffer: &[u8]) -> Result<(), Error> {
+        let json = std::str::from_utf8(buffer)
+            .context("Unable to parse the input as UTF-8")?;
+
+        log::info!("Serial: {}", json);
+
+        Ok(())
+    }
+}
+
+fn initialize_serial_output() -> Result<Box<dyn Output>, Error> {
+    Ok(Box::new(SerialOutput::default()))
 }
 
 #[cfg(test)]

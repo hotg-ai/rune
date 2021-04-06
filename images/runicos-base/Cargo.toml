@@ -11,4 +11,8 @@ anyhow = "1.0.40"
 log = "0.4.14"
 rune-runtime = { path = "../../runtime" }
 runic-types = { path = "../../runic-types" }
-serde_json = "1.0.64"
+serde_json = { version = "1" }
+tflite = { version = "0.9.5", optional = true }
+
+[features]
+default = ["tflite"]
