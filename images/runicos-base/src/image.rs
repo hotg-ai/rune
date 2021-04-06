@@ -527,7 +527,7 @@ impl Model
 }
 
 #[cfg(not(feature = "tflite"))]
-fn initialize_model(raw: &[u8]) -> Result<Box<dyn Model>, Error> {
+fn initialize_model(_raw: &[u8]) -> Result<Box<dyn Model>, Error> {
     anyhow::bail!("Models are not supported")
 }
 
