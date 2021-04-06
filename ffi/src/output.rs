@@ -18,7 +18,7 @@ pub struct Output {
     pub destroy: Option<unsafe extern "C" fn(*mut c_void)>,
 }
 
-impl rune_wasmer_runtime::outputs::Output for Output {
+impl rune_runtime::Output for Output {
     fn consume(&mut self, buffer: &[u8]) -> Result<(), Error> {
         let consume = self.consume.context("Not Supported")?;
 

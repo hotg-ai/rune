@@ -12,9 +12,11 @@ env_logger = "0.8.3"
 libc = "0.2.87"
 log = "0.4.14"
 rune-codegen = { path = "../codegen" }
+rune-runtime = { path = "../runtime" }
 rune-wasmer-runtime = { path = "../wasmer-runtime" }
 rune-syntax = { path = "../syntax" }
 runic-types = { path = "../runic-types" }
+runicos-base = { path = "../images/runicos-base" }
 
 [lib]
 name = "rune"

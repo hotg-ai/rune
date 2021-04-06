@@ -1877,9 +1877,11 @@ dependencies = [
  "libc",
  "log",
  "rune-codegen",
+ "rune-runtime",
  "rune-syntax",
  "rune-wasmer-runtime",
  "runic-types",
+ "runicos-base",
  "tempfile",
 ]
 

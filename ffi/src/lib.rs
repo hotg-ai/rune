@@ -2,12 +2,10 @@
 
 mod callbacks;
 mod capability;
-mod environment;
 mod output;
 
 pub use callbacks::Callbacks;
 pub use capability::Capability;
-use environment::Environment;
 pub use output::Output;
 
 use std::{
@@ -33,9 +31,8 @@ pub unsafe extern "C" fn rune_runtime_load(
     callbacks: Callbacks,
 ) -> RuntimeResult {
     let wasm = std::slice::from_raw_parts(wasm, len as usize);
-    let env = Environment::new(callbacks);
 
-    match rune_wasmer_runtime::Runtime::load(wasm, env) {
+    match rune_wasmer_runtime::Runtime::load(wasm, callbacks) {
         Ok(r) => RuntimeResult::Ok(Box::into_raw(Box::new(Runtime(r)))),
         Err(e) => RuntimeResult::Err(Box::into_raw(Box::new(Error(e)))),
     }

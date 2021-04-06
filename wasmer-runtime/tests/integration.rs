@@ -9,7 +9,7 @@ use rune_runtime::{Function, Image, Registrar};
 use tempfile::TempDir;
 use anyhow::Error;
 use wasmer::{Module, Store};
-use rune_wasmer_runtime2::Runtime;
+use rune_wasmer_runtime::Runtime;
 
 #[test]
 fn load_and_call_the_empty_rune() {

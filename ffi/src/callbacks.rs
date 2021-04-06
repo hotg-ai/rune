@@ -1,8 +1,11 @@
 use std::{
     ffi::c_void,
+    mem::{ManuallyDrop, MaybeUninit},
     os::raw::{c_char, c_int},
+    sync::Arc,
 };
-
+use anyhow::Error;
+use runicos_base::BaseImage;
 use crate::{Output, capability::Capability};
 
 /// A vtable providing the Rune with functions for interacting with its
@@ -53,9 +56,9 @@ pub struct Callbacks {
 
 impl Drop for Callbacks {
     fn drop(&mut self) {
-        if let Some(free) = self.destroy {
+        if let Some(destroy) = self.destroy {
             unsafe {
-                free(self.user_data);
+                destroy(self.user_data);
             }
         }
     }
@@ -64,3 +67,69 @@ impl Drop for Callbacks {
 // Safety: Upheld by the caller.
 unsafe impl Send for Callbacks {}
 unsafe impl Sync for Callbacks {}
+
+impl rune_runtime::Image for Callbacks {
+    fn initialize_imports(self, registrar: &mut dyn rune_runtime::Registrar) {
+        let callbacks = ManuallyDrop::new(self);
+        let user_data = Arc::new(UserData {
+            data: callbacks.user_data,
+            destroy: callbacks.destroy,
+        });
+
+        // Instead of implementing *everything* ourselves, we can just use the
+        // normal base image and inject the native library's implementation.
+
+        let mut image = BaseImage::default();
+
+        if let Some(acc) = callbacks.accelerometer {
+            image.with_accelerometer(cap(&user_data, acc));
+        }
+
+        image.initialize_imports(registrar);
+    }
+}
+
+fn cap(
+    user_data: &Arc<UserData>,
+    func: unsafe extern "C" fn(*mut c_void, *mut Capability) -> c_int,
+) -> impl Fn() -> Result<Box<dyn rune_runtime::Capability>, Error>
+       + Send
+       + Sync
+       + 'static {
+    let user_data = Arc::clone(user_data);
+
+    move || {
+        let mut capability = MaybeUninit::uninit();
+
+        unsafe {
+            let ret = func(user_data.data, capability.as_mut_ptr());
+
+            if ret == 0 {
+                Ok(Box::new(capability.assume_init()))
+            } else {
+                anyhow::bail!("Initializing the capability returned non-zero exit code: {}", ret)
+            }
+        }
+    }
+}
+
+/// A wrapper around some opaque object which makes sure it gets free'd.
+struct UserData {
+    data: *mut c_void,
+    destroy: Option<unsafe extern "C" fn(*mut c_void)>,
+}
+
+impl Drop for UserData {
+    fn drop(&mut self) {
+        if let Some(destroy) = self.destroy {
+            unsafe {
+                destroy(self.data);
+            }
+        }
+    }
+}
+
+// Safety: Same safety invariants as Callbacks (all synchronisation upheld by
+// caller).
+unsafe impl Send for UserData {}
+unsafe impl Sync for UserData {}
