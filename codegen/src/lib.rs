@@ -149,7 +149,13 @@ impl Generator {
         let mut dependencies = REQUIRED_DEPENDENCIES.clone();
 
         dependencies.push(
-            json!({ "name": "runic-types", "deps": { "path": runic_types } }),
+            json!({
+                "name": "runic-types",
+                "deps": {
+                    "path": runic_types,
+                    "features": ["rune-runtime-support"],
+                }
+            }),
         );
 
         for (_, _, proc) in self.rune.proc_blocks() {
