@@ -607,7 +607,7 @@ mod tests {
             )
             .unwrap();
 
-        assert!(ret.is_empty());
+        assert_eq!(ret, &[WasmValue::I32(0)]);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 
@@ -640,7 +640,7 @@ mod tests {
 
         let ret = func.call(&ctx, args).unwrap();
 
-        assert!(ret.is_empty());
+        assert_eq!(ret, &[WasmValue::I32(0)]);
         let got = calls.lock().unwrap();
         assert_eq!(got.len(), 1);
         assert_eq!(&got[0], &record);
