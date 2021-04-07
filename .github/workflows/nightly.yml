@@ -3,6 +3,7 @@ name: Nightly
 on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
+  workflow_dispatch:
 
 env:
   # Only run this action if it was scheduled and there were commits within the
@@ -40,14 +41,14 @@ jobs:
             os: ubuntu-latest
             artifact_name: "target/rune.*.zip"
             asset_name: rune-linux
-          # - name: windows
-          #   os: windows-latest
-          #   artifact_name: "target/rune.*.zip"
-          #   asset_name: rune-windows
-          # - name: macos
-          #   os: macos-latest
-          #   artifact_name: "target/rune.*.zip"
-          #   asset_name: rune-macos
+          - name: windows
+            os: windows-latest
+            artifact_name: "target/rune.*.zip"
+            asset_name: rune-windows
+          - name: macos
+            os: macos-latest
+            artifact_name: "target/rune.*.zip"
+            asset_name: rune-macos
     steps:
       - uses: actions/checkout@v1
       - uses: actions/cache@v2
