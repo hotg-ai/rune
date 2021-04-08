@@ -15,7 +15,7 @@ doctest = false
 [dependencies]
 fft = { path = "../fft" }
 normalize = { path = "../normalize" }
-pyo3 = { version = "0.13.2", features = ["extension-module", "abi3", "abi3-py36"] }
+pyo3 = { version = "0.13.2", features = ["extension-module", "abi3"] }
 runic-types = { path = "../../runic-types" }
 
 [[test]]
