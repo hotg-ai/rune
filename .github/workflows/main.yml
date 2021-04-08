@@ -26,15 +26,29 @@ jobs:
           override: true
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
-      - uses: actions-rs/cargo@v1
+      - name: Type Check
+        uses: actions-rs/cargo@v1
         with:
           command: check
           args: --workspace --verbose
-      - uses: actions-rs/cargo@v1
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
           command: build
           args: --workspace --verbose
-      - uses: actions-rs/cargo@v1
+      - name: Test
+        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --workspace --verbose
+      - name: Generate API Docs
+        run: |
+          cargo doc --workspace --verbose
+          echo '<meta http-equiv="refresh" content="0; url=rune/index.html" />' > target/doc/index.html
+        if: github.ref == 'refs/heads/master'
+      - name: Upload API Docs
+        uses: JamesIves/github-pages-deploy-action@4.1.1
+        if: github.ref == 'refs/heads/master'
+        with:
+          branch: gh-pages
+          folder: target/doc
