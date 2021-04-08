@@ -65,7 +65,7 @@ The `PROC_BLOCK` directive allows for pre- and post-processing of the data. For 
 PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
 ```
 
-The input and output of the Procedural Block are the same `f32[128, 3]`. The label for the Procedural block is `normalize` and the location of the Procedural Block is `hotg-ai/rune#proc_blocks/normalize`.
+The input and output of the Processing Block are the same `f32[128, 3]`. The label for the Processing block is `normalize` and the location of the Processing Block is `hotg-ai/rune#proc_blocks/normalize`.
 
 The `MODEL` directive tells the rune to use the tflite model.
 
@@ -100,11 +100,11 @@ RUN accelerometer normalize gesture gesture_agg serial
 
 >The UTF8 label is then sent to the serial which can be read by whichever device the rune is being deployed to.
 
-### Procedural Blocks
+### Processing Blocks
 
 The necessary PROC_BLOCKS to be used in `tutorial_gesture` have already been created and are stored in `proc_blocks/`
 
-Further Tutorials shall explain how to create your own procedural block.
+Further Tutorials shall explain how to create your own processing block.
 
 ### Model
 

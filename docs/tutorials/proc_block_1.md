@@ -1,8 +1,8 @@
-# Procedural Blocks
+# Components of a Processing Blocks
 
-Procedural Blocks are used to pre- and post- process data.
+Processing Blocks are used to pre- and post- process data.
 
-A barebones file structure for a procedural block can be generated with the following cargo command:
+A barebones file structure for a processing block can be generated with the following cargo command:
 
 ```rust
 cargo new `proc_block_name` --lib
@@ -17,14 +17,14 @@ The following file will be generated:
     └── lib.rs
 ```
 
-Each procedural block has 2 components
+Each processing block has 2 components
 
-- `lib.rs` file, where the logic of the procedural block is written
+- `lib.rs` file, where the logic of the processing block is written
 - `Cargo.toml` file, which contains package information and dependencies
 
 ## Dependencies
 
-Procedural blocks are dependent on the runic_types library. This can be added to the Cargo.toml file in the procedural block.
+Processing blocks are dependent on the runic_types library. This can be added to the Cargo.toml file in the processing block.
 
 ```rust
 [dependencies]
@@ -39,7 +39,7 @@ The `lib.rs` should contain the following components.
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3. struct
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4. Transform method
 
-Procedural Blocks are implemented as structs with a transform method hence 3. and 4. are necessary components.
+Processing Blocks are implemented as structs with a transform method hence 3. and 4. are necessary components.
 
 ```rust
 #![no_std]
@@ -58,4 +58,4 @@ impl<T> Transform<T> for ProcBlock<T>{
 }
 ```
 
-Our next tutorial will explore the creation of a Procedural Block in greater detail.
+Our next tutorial will explore the creation of a Processing Block in greater detail.
