@@ -3,6 +3,7 @@ name: Nightly
 on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
+  workflow_dispatch:
 
 env:
   # Only run this action if it was scheduled and there were commits within the
@@ -44,10 +45,10 @@ jobs:
           #   os: windows-latest
           #   artifact_name: "target/rune.*.zip"
           #   asset_name: rune-windows
-          # - name: macos
-          #   os: macos-latest
-          #   artifact_name: "target/rune.*.zip"
-          #   asset_name: rune-macos
+          - name: macos
+            os: macos-latest
+            artifact_name: "target/rune.*.zip"
+            asset_name: rune-macos
     steps:
       - uses: actions/checkout@v1
       - uses: actions/cache@v2
@@ -92,9 +93,11 @@ jobs:
         run: mv nightly/**/*.zip nightly/
       - name: Print Artifacts
         run: ls -la nightly
-      - name: Publish to Firebase Storage
-        uses: google-github-actions/upload-cloud-storage@main
+      - uses: "marvinpinto/action-automatic-releases@latest"
         with:
-          credentials: ${{ secrets.NIGHTLY_SERVICE_ACCOUNT_JSON }}
-          path: nightly
-          destination: rune-registry.appspot.com
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "nightly"
+          prerelease: true
+          title: "Nightly Release"
+          files: |
+            nightly/*.zip

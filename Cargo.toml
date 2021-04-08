@@ -11,7 +11,7 @@ members = [
     "xtask",
     "wasmer-runtime",
 ]
-exclude = [ "examples/*" ]
+exclude = [ "examples/*", "proc_blocks/python" ]
 
 [profile.release]
 debug = true
