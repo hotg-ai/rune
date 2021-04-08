@@ -2,27 +2,7 @@
 
 [![Continuous integration](https://github.com/hotg-ai/rune/actions/workflows/main.yml/badge.svg)](https://github.com/hotg-ai/rune/actions/workflows/main.yml)
 
-<table>
-   <thead>
-      <tr>
-         <th>Release</th>
-         <th>Download</th>
-      </tr>
-   </thead>
-   <tbody>
-      <tr>
-         <td>Nightly</td>
-         <td>
-            <li><a href="https://storage.cloud.google.com/rune-registry.appspot.com/nightly/rune.x86_64-unknown-linux-gnu.zip?authuser=1">
-               Linux (<code>x86_64-unknown-linux-gnu</code>)
-            </a></li>
-            <li>Windows (<code>x86_64-pc-windows-msvc</code>)</li>
-            <li>Mac (<code>x86_64-apple-darwin</code>)</li>
-            <li>iOS (<code>x86_64-apple-ios</code>)</li>
-         </td>
-         </tr>
-   </tbody>
-</table>
+**([Nightly Release][nightly] | [API Docs][api-docs])**
 
 Rune is a containerization technology for deploying TinyML applications to
 extremely constraint devices.
@@ -163,4 +143,5 @@ execute-sine  index.html  startup
 
 [xtask]: https://github.com/matklad/cargo-xtask
 [criterion]: https://bheisler.github.io/criterion.rs/book/criterion_rs.html
-
+[nightly]: https://github.com/hotg-ai/rune/releases/tag/nightly
+[api-docs]: https://hotg-ai.github.com/rune
