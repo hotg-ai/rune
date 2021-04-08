@@ -1,0 +1,1 @@
+initSidebarItems({"macro":[["build_info","Call as `build_info!(fn name)` to create a function called `name` that returns a reference to a lazily created and cached `BuildInfo` object."],["proc_macro_hack_format",""]]});

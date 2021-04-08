@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["signed","Write `val` to the `std::io::Write` stream `w` as a signed LEB128 value."],["unsigned","Write `val` to the `std::io::Write` stream `w` as an unsigned LEB128 value."]]});

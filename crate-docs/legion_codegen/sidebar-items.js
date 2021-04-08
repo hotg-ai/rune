@@ -1,0 +1,1 @@
+initSidebarItems({"attr":[["system","Wraps a function in a system, and generates a new function which constructs that system."]]});

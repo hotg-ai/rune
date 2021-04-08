@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Method","Method of failure."]],"struct":[["Report","Contains metadata about the crash like the backtrace and information about the crate and operating system. Can be used to be serialized and persisted or printed as information to the user."]]});

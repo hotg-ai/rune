@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ArchivedResult","An archived [`Result`] that represents either success (`Ok`) or failure (`Err`)."]],"struct":[["Iter","An iterator over a reference to the `Ok` variant of an [`ArchivedResult`]."],["IterMut","An iterator over a mutable reference to the `Ok` variant of an [`ArchivedResult`]."]]});

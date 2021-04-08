@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["CompressionMethod","Identifies the storage format used to compress a file within a ZIP archive."]],"mod":[["read","Types for reading ZIP archives"],["result","Error types that can be emitted from this library"],["write","Types for creating ZIP archives"]],"struct":[["DateTime","A DateTime field to be used for storing timestamps in a zip file"]]});

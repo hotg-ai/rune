@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["deserializers","Deserializers that can be used standalone and provide basic capabilities."]],"trait":[["SharedDeserializeRegistry","A registry that tracks deserialized shared memory."],["SharedPointer","A deserializable shared pointer type."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize_world",""],["registry","Create a new [`Registry`] populated with the various component types used in this crate."],["serialize_world",""]]});

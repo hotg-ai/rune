@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["serializers","Serializers that can be used standalone and provide basic capabilities."]],"trait":[["ScratchSpace","A serializer that can allocate scratch space."],["Serializer","A byte sink that knows where it is."],["SharedSerializeRegistry","A registry that tracks serialized shared memory."]]});

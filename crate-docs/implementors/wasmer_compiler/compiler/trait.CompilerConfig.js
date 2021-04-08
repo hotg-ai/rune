@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_compiler_cranelift"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_compiler/compiler/trait.CompilerConfig.html\" title=\"trait wasmer_compiler::compiler::CompilerConfig\">CompilerConfig</a> for <a class=\"struct\" href=\"wasmer_compiler_cranelift/struct.Cranelift.html\" title=\"struct wasmer_compiler_cranelift::Cranelift\">Cranelift</a>","synthetic":false,"types":["wasmer_compiler_cranelift::config::Cranelift"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

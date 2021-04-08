@@ -1,0 +1,1 @@
+initSidebarItems({"derive":[["IntoEnumIterator","Derives `IntoEnumIterator` for field-less enums."]]});

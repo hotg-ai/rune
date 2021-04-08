@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ArchivedBox","An archived [`Box`]."],["BoxResolver","The resolver for `Box`."]]});

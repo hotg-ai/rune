@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="🔎 `loupe` is a set of tools to analyse and to profile Rust code. For the moment, it only provides tools about memory usage. It’s mostly driven by Wasmer’s needs, but feel free to propose new features!"><meta name="keywords" content="rust, rustlang, rust-lang, loupe"><title>loupe - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../dark.css" disabled><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../loupe/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../loupe/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Crate loupe</a></h2><div class="sidebar-elems"><div class="block"><ul><li class="version">Version 0.1.3</li><li><a id="all-types" href="all.html">All Items</a></li></div></ul><section><div class="block"><ul><li><a href="#macros">Macros</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#derives">Derive Macros</a></li></ul></div></section><div id="sidebar-vars" data-name="loupe" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../loupe/index.html"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">loupe</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../src/loupe/lib.rs.html#1-134">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>🔎 <code>loupe</code> is a set of tools to analyse and to profile Rust
+code. For the moment, it only provides tools about memory
+usage. It’s mostly driven by
+<a href="https://github.com/wasmerio/wasmer">Wasmer</a>’s needs, but feel
+free to propose new features!</p>
+<p><code>loupe</code> is a French word to express <em>magnifying glass</em>, and can be
+pronounced exactly like <em>loop</em>.</p>
+<h3 id="memory-usage"><a href="#memory-usage">Memory Usage</a></h3>
+<p><code>loupe</code> provides the <a href="trait.MemoryUsage.html" title="MemoryUsage"><code>MemoryUsage</code></a> trait. It allows to know the
+size of a value in bytes, <em>recursively</em>. So it traverses most of
+the types (some are missing, feel free to contribute!), and its
+fields or variants as deep as possible. Hopefully, it tracks
+already visited values so that it doesn’t enter an infinite
+<del><em>loupe</em></del> loop. The trait looks like this:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ</div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore"><code><span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">MemoryUsage</span> {
+    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) -&gt; <span class="ident">usize</span>;
+}</code></pre></div>
+<p><code>loupe</code> provides a <a href="fn.size_of_val.html" title="size_of_val"><code>size_of_val</code></a> function that is a close sibling
+of
+<a href="https://doc.rust-lang.org/std/mem/fn.size_of_val.html"><code>std::mem::size_of_val</code></a>. It
+can be used the same way.</p>
+<p><code>loupe</code> exports its best companion: handful procedural macros from
+the <a href="../loupe_derive/index.html"><code>loupe-derive</code></a> crate, to
+automatically implement the <a href="trait.MemoryUsage.html" title="MemoryUsage"><code>MemoryUsage</code></a> trait if possible, on
+<code>struct</code>s and <code>enum</code>s.</p>
+<p>Thus, one only needs to write:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
+<span class="kw">struct</span> <span class="ident">S</span> {
+    <span class="ident">x</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>,
+    <span class="ident">y</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">S</span> {
+        <span class="ident">x</span>: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>],
+        <span class="ident">y</span>: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>],
+    };
+     
+    <span class="macro">assert_eq!</span>(<span class="number">48</span>, <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">s</span>));
+    <span class="macro">assert_eq!</span>(<span class="number">72</span>, <span class="ident">loupe::size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">s</span>));
+}</code></pre></div>
+<p>In the example above, we see that each elements of <code>Vec&lt;i32&gt;</code> has
+been counted in the size of the value <code>s</code>. In
+<a href="https://github.com/wasmerio/wasmer">Wasmer</a>, it is possible to
+get the size of an <code>Instance</code>, which traverses <code>Module</code>, <code>Store</code>,
+<code>Engine</code>, <code>Compiler</code> etc. It’s an entire tree of values that is
+traversed and the size of each value is summed.</p>
+<h4 id="opinionated-implementations"><a href="#opinionated-implementations">Opinionated implementations</a></h4>
+<p>Even if <a href="trait.MemoryUsage.html" title="MemoryUsage"><code>MemoryUsage</code></a> is already implemented for common types,
+some types are missing. We happily welcome more implementations!
+However, implementations of <code>MemoryUsage</code>:</p>
+<ul>
+<li>must never alter the values,</li>
+<li>must never panic of fail,</li>
+<li>must be deterministic as much as possible (ideally, everytime).</li>
+</ul>
+<p>In the same spirit, our implementation of <a href="trait.MemoryUsage.html" title="MemoryUsage"><code>MemoryUsage</code></a> for
+<code>*const T</code> or <code>*mut T</code> (and other pointer types, like <code>NonNull</code>,
+<code>UnsafeCell</code> etc.) just returns the size of the pointer, but it
+doesn’t dereference the pointer as it’s unsafe. It doesn’t mean
+one must not do that: It’s totally possible if it’s sure that the
+pointer can be safely dereferenced.</p>
+<p>Remember that a user can implement <a href="trait.MemoryUsage.html" title="MemoryUsage"><code>MemoryUsage</code></a> by hand; no
+need to try to have a default implementation for all the standard
+types.</p>
+<p>Finally, our implementations are certainly not perfect! Feel free to
+challenge it and come to discuss!</p>
+</div></details><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.assert_size_of_val_eq.html" title="loupe::assert_size_of_val_eq macro">assert_size_of_val_eq</a></div><div class="item-right docblock-short"><p>Alias to <code>assert_eq!(loupe::MemoryUsage::size_of_val(&amp;$value), $expected)</code>.</p>
+</div></div></div><h2 id="constants" class="small-section-header"><a href="#constants">Constants</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="constant" href="constant.POINTER_BYTE_SIZE.html" title="loupe::POINTER_BYTE_SIZE constant">POINTER_BYTE_SIZE</a></div><div class="item-right docblock-short"><p>Size of a pointer for the compilation target.</p>
+</div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.MemoryUsage.html" title="loupe::MemoryUsage trait">MemoryUsage</a></div><div class="item-right docblock-short"><p>Traverse a value and collect its memory usage.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.MemoryUsageTracker.html" title="loupe::MemoryUsageTracker trait">MemoryUsageTracker</a></div><div class="item-right docblock-short"><p>Represent a bucket that can track memory addresses that have
+already been visited by <code>MemoryUsage</code>.</p>
+</div></div></div><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.size_of_val.html" title="loupe::size_of_val fn">size_of_val</a></div><div class="item-right docblock-short"><p>Returns the size of the pointer-to value in bytes. The size is
+calculated with <code>MemoryUsage::size_of_val</code>.</p>
+</div></div></div><h2 id="derives" class="small-section-header"><a href="#derives">Derive Macros</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="derive" href="derive.MemoryUsage.html" title="loupe::MemoryUsage derive">MemoryUsage</a></div><div class="item-right docblock-short"><p>Procedural macro to implement the <code>loupe::MemoryUsage</code> trait
+automatically for structs and enums.</p>
+</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="loupe" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0-nightly (10cc7a6d0 2022-02-26)" ></div>
+</body></html>

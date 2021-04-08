@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["add_entry_to_archive",""],["archive_name",""],["clear_directory",""],["compile_example_rune",""],["compile_example_runes",""],["compile_rune_binary",""],["copy_docs",""],["generate_archive",""],["is_strippable",""],["strip_binaries",""],["strip_binary",""]],"struct":[["Component",""],["Context",""],["Dist",""]],"type":[["ComponentFunc",""]]});

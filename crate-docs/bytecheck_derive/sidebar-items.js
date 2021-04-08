@@ -1,0 +1,1 @@
+initSidebarItems({"derive":[["CheckBytes","Derives `CheckBytes` for the labeled type."]]});

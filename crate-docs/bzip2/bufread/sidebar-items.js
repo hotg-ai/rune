@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BzDecoder","A bz2 decoder, or decompressor."],["BzEncoder","A bz2 encoder, or compressor."],["MultiBzDecoder","A bzip2 streaming decoder that decodes all members of a multistream."]]});

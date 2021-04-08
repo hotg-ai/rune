@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ArchivedCString","An archived `CString`."],["CStringResolver","The resolver for `CString`."]]});

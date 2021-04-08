@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["integration_tests"] = [{"text":"impl <a class=\"trait\" href=\"hotg_rune_integration_tests/trait.Callbacks.html\" title=\"trait hotg_rune_integration_tests::Callbacks\">Callbacks</a> for <a class=\"struct\" href=\"integration_tests/struct.Printer.html\" title=\"struct integration_tests::Printer\">Printer</a>","synthetic":false,"types":["integration_tests::Printer"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

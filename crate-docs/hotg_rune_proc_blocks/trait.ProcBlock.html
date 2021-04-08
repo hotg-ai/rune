@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The base trait that all proc blocks must implement."><meta name="keywords" content="rust, rustlang, rust-lang, ProcBlock"><title>ProcBlock in hotg_rune_proc_blocks - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../dark.css" disabled><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../hotg_rune_proc_blocks/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../hotg_rune_proc_blocks/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">ProcBlock</a></h2><div class="sidebar-elems"><section><div class="block"><h3 class="sidebar-title"><a href="#associated-const">Associated Constants</a></h3><ul><li><a href="#associatedconstant.DESCRIPTOR">DESCRIPTOR</a></li></ul></div><div class="block"><h3 class="sidebar-title"><a href="#implementors">Implementors</a></h3></div></section><h2 class="location"><a href="index.html">In hotg_rune_proc_blocks</a></h2><div id="sidebar-vars" data-name="ProcBlock" data-ty="trait" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../hotg_rune_proc_blocks/index.html"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Trait <a href="index.html">hotg_rune_proc_blocks</a>::<wbr><a class="trait" href="#">ProcBlock</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../src/hotg_rune_proc_blocks/lib.rs.html#148-151">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><div class="docblock item-decl"><pre class="rust trait"><code>pub trait ProcBlock: <a class="trait" href="https://doc.rust-lang.org/nightly/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + 'static {
+    const <a href="#associatedconstant.DESCRIPTOR" class="constant">DESCRIPTOR</a>: <a class="struct" href="struct.ProcBlockDescriptor.html" title="struct hotg_rune_proc_blocks::ProcBlockDescriptor">ProcBlockDescriptor</a>&lt;'static&gt;;
+}</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The base trait that all proc blocks must implement.</p>
+<p>This trait shouldn’t be implemented manually, instead you should prefer the
+<code>#[derive(ProcBlock)]</code> custom derive.</p>
+<h2 id="struct-attributes"><a href="#struct-attributes">Struct Attributes</a></h2>
+<p>Use the <code>#[transform(...)]</code> attribute to specify which transformations are
+valid for a particular proc block. A plain primitive will be treated as a
+1D <code>Tensor&lt;T&gt;</code>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">hotg_rune_core::Tensor</span>;
+<span class="kw">use</span> <span class="ident">hotg_rune_proc_blocks</span>::{<span class="ident">ProcBlock</span>, <span class="ident">Transform</span>};
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">hotg_rune_proc_block_macros::ProcBlock</span>)]</span>
+<span class="attribute">#[<span class="ident">transform</span>(<span class="ident">inputs</span> <span class="op">=</span> <span class="ident">f32</span>, <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">f32</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Foo</span> {}
+
+<span class="kw">impl</span> <span class="ident">Transform</span><span class="op">&lt;</span><span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Foo</span> {
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span>;
+
+    <span class="kw">fn</span> <span class="ident">transform</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_input</span>: <span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span>) -&gt; <span class="ident"><span class="self">Self</span>::Output</span> {
+        <span class="macro">unimplemented!</span>()
+    }
+}</code></pre></div>
+<p>Forgetting to write the correct <code>Transform</code> implementation will fail to
+compile.</p>
+
+<div class='information'><div class='tooltip compile_fail'>ⓘ</div></div><div class="example-wrap"><pre class="rust rust-example-rendered compile_fail"><code><span class="kw">use</span> <span class="ident">hotg_rune_proc_blocks</span>::{<span class="ident">ProcBlock</span>, <span class="ident">Transform</span>};
+<span class="kw">use</span> <span class="ident">hotg_rune_core::Tensor</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">hotg_rune_proc_block_macros::ProcBlock</span>)]</span>  <span class="comment">// Error: the trait bound `Foo: hotg_rune_proc_blocks::Transform&lt;Tensor&lt;f32&gt;&gt;` is not satisfied</span>
+<span class="attribute">#[<span class="ident">transform</span>(<span class="ident">inputs</span> <span class="op">=</span> <span class="ident">f32</span>, <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">f32</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Foo</span> { }
+
+<span class="comment">// impl Transform&lt;Tensor&lt;f32&gt;&gt; for Foo {</span>
+<span class="comment">//     type Output = Tensor&lt;f32&gt;;</span>
+<span class="comment">//     fn transform(&amp;mut self, _input: Tensor&lt;f32&gt;) -&gt; Self::Output { todo!() }</span>
+<span class="comment">// }</span></code></pre></div>
+<p>You can also specify the number of dimensions in an input or output. Using
+<code>_</code> indicates the transformation works with <em>any</em> number of dimensions.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::borrow::Cow</span>;
+
+<span class="kw">use</span> <span class="ident">hotg_rune_core::Tensor</span>;
+<span class="kw">use</span> <span class="ident">hotg_rune_proc_blocks</span>::{<span class="ident">ProcBlock</span>, <span class="ident">Transform</span>};
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">hotg_rune_proc_block_macros::ProcBlock</span>)]</span>
+<span class="attribute">#[<span class="ident">transform</span>(<span class="ident">inputs</span> <span class="op">=</span> [<span class="ident">f32</span>; <span class="kw">_</span>]</span>, <span class="ident">outputs</span> <span class="op">=</span> [<span class="ident">u8</span>; <span class="number">1920</span>])]
+<span class="attribute">#[<span class="ident">transform</span>(<span class="ident">inputs</span> <span class="op">=</span> <span class="ident">utf8</span>, <span class="ident">outputs</span> <span class="op">=</span> [<span class="ident">i16</span>; <span class="number">2</span>]</span>)]
+<span class="kw">struct</span> <span class="ident">Foo</span> {}
+
+<span class="kw">impl</span> <span class="ident">Transform</span><span class="op">&lt;</span><span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Foo</span> {
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>;
+
+    <span class="kw">fn</span> <span class="ident">transform</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_input</span>: <span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span>) -&gt; <span class="ident"><span class="self">Self</span>::Output</span> {
+        <span class="macro">unimplemented!</span>()
+    }
+}
+<span class="kw">impl</span> <span class="ident">Transform</span><span class="op">&lt;</span><span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Foo</span> {
+    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">i16</span><span class="op">&gt;</span>;
+
+    <span class="kw">fn</span> <span class="ident">transform</span>(
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">_input</span>: <span class="ident">Tensor</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident"><span class="self">Self</span>::Output</span> {
+        <span class="macro">unimplemented!</span>()
+    }
+}</code></pre></div>
+<h3 id="field-attributes"><a href="#field-attributes">Field Attributes</a></h3>
+<p>By default, all fields in a proc block struct will be registered as
+“properties” and will get some generated setters. These setters accept a
+string and use <a href="https://doc.rust-lang.org/nightly/core/str/traits/trait.FromStr.html" title="core::str::FromStr"><code>core::str::FromStr</code></a> to parse it into the correct type.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">hotg_rune_proc_blocks::ProcBlock</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">hotg_rune_proc_block_macros::ProcBlock</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Foo</span> {
+    <span class="ident">property</span>: <span class="ident">f64</span>,
+}
+
+<span class="kw">let</span> <span class="ident">descriptor</span> <span class="op">=</span> <span class="ident">Foo::DESCRIPTOR</span>;
+
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">foo</span> <span class="op">=</span> <span class="ident">Foo::default</span>();
+
+<span class="ident">foo</span>.<span class="ident">set_property</span>(<span class="string">&quot;42&quot;</span>).<span class="ident">unwrap</span>();
+<span class="macro">assert_eq!</span>(<span class="ident">foo</span>.<span class="ident">property</span>, <span class="number">42.0</span>);</code></pre></div>
+<p>A parameter can opt-out of this with the <code>#[proc_block(skip)]</code> attribute.</p>
+
+<div class='information'><div class='tooltip compile_fail'>ⓘ</div></div><div class="example-wrap"><pre class="rust rust-example-rendered compile_fail"><code><span class="kw">use</span> <span class="ident">hotg_rune_proc_blocks::ProcBlock</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">hotg_rune_proc_block_macros::ProcBlock</span>)]</span>
+<span class="kw">struct</span> <span class="ident">Foo</span> {
+    <span class="attribute">#[<span class="ident">proc_block</span>(<span class="ident">skip</span>)]</span>
+    <span class="ident">skip_me</span>: <span class="ident">String</span>,
+    <span class="ident">include_me</span>: <span class="ident">u32</span>,
+}
+
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">foo</span> <span class="op">=</span> <span class="ident">Foo::default</span>();
+
+<span class="ident">foo</span>.<span class="ident">set_skip_me</span>(<span class="string">&quot;...&quot;</span>); <span class="comment">// Error: no method named `set_skip_me` found for struct `Foo` in the current scope</span></code></pre></div>
+</div></details><h2 id="associated-const" class="small-section-header">Associated Constants<a href="#associated-const" class="anchor"></a></h2><div class="methods"><details class="rustdoc-toggle" open><summary><div id="associatedconstant.DESCRIPTOR" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/hotg_rune_proc_blocks/lib.rs.html#150">source</a></div><h4 class="code-header">const <a href="#associatedconstant.DESCRIPTOR" class="constant">DESCRIPTOR</a>: <a class="struct" href="struct.ProcBlockDescriptor.html" title="struct hotg_rune_proc_blocks::ProcBlockDescriptor">ProcBlockDescriptor</a>&lt;'static&gt;</h4></div></summary><div class="docblock"><p>A description of the proc block.</p>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor"></a></h2><div class="item-list" id="implementors-list"></div><script type="text/javascript" src="../implementors/hotg_rune_proc_blocks/trait.ProcBlock.js" async></script></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="hotg_rune_proc_blocks" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0-nightly (10cc7a6d0 2022-02-26)" ></div>
+</body></html>

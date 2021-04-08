@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Derives `Archive` for the labeled type."><meta name="keywords" content="rust, rustlang, rust-lang, Archive"><title>Archive in rkyv_derive - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../dark.css" disabled><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"></head><body class="rustdoc derive"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../rkyv_derive/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../rkyv_derive/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><div class="sidebar-elems"><h2 class="location"><a href="index.html">In rkyv_derive</a></h2><div id="sidebar-vars" data-name="Archive" data-ty="derive" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../rkyv_derive/index.html"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Derive Macro <a href="index.html">rkyv_derive</a>::<wbr><a class="derive" href="#">Archive</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../src/rkyv_derive/lib.rs.html#73-81">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><div class="docblock item-decl"><pre class="rust derive"><code>#[derive(Archive)]
+{
+    // Attributes available to this derive:
+    #[archive]
+    #[archive_attr]
+    #[omit_bounds]
+    #[with]
+}
+</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Derives <code>Archive</code> for the labeled type.</p>
+<h2 id="attributes"><a href="#attributes">Attributes</a></h2>
+<p>Additional arguments can be specified using the <code>#[archive(...)]</code> and <code>#[archive_attr(...)]</code>
+attributes.</p>
+<p><code>#[archive(...)]</code> takes the following arguments:</p>
+<ul>
+<li><code>archived = &quot;...&quot;</code>: Changes the name of the generated archived type to the given value. By
+default, archived types are named “Archived” + <code>the name of the type</code>.</li>
+<li><code>resolver = &quot;...&quot;</code>: Changes the name of the generated resolver type to the given value. By
+default, resolver types are named <code>the name of the type</code> + “Resolver”.</li>
+<li><code>repr(...)</code>: <em>Deprecated, use <code>#[archive_attr(repr(...))]</code> instead.</em> Sets the representation
+for the archived type to the given representation. Available representation options may vary
+depending on features and type layout.</li>
+<li><code>compare(...)</code>: Implements common comparison operators between the original and archived
+types. Supported comparisons are <code>PartialEq</code> and <code>PartialOrd</code> (i.e.
+<code>#[archive(compare(PartialEq, PartialOrd))]</code>).</li>
+<li><code>bound(...)</code>: Adds additional bounds to trait implementations. This can be especially useful
+when dealing with recursive structures, where bounds may need to be omitted to prevent
+recursive type definitions. Use <code>archive = &quot;...&quot;</code> to specify <code>Archive</code> bounds,
+<code>serialize = &quot;...&quot;</code> to specify <code>Serialize</code> bounds, and <code>deserialize = &quot;...&quot;</code> to specify
+<code>Deserialize</code> bounds.</li>
+<li><code>copy_safe</code>: States that the archived type is tightly packed with no padding bytes. This
+qualifies it for copy optimizations. (requires nightly)</li>
+<li><code>as = &quot;...&quot;</code>: Instead of generating a separate archived type, this type will archive as the
+named type. This is useful for types which are generic over their parameters.</li>
+<li><code>crate = &quot;...&quot;</code>: Chooses an alternative crate path to import rkyv from.</li>
+</ul>
+<p><code>#[archive_attr(...)]</code> adds the attributes passed as arguments as attributes to the generated
+type. This is commonly used with attributes like <code>derive(...)</code> to derive trait implementations
+for the archived type.</p>
+<h2 id="recursive-types"><a href="#recursive-types">Recursive types</a></h2>
+<p>This derive macro automatically adds a type bound <code>field: Archive</code> for each field type. This can
+cause an overflow while evaluating trait bounds if the structure eventually references its own
+type, as the implementation of <code>Archive</code> for a struct depends on each field type implementing it
+as well. Adding the attribute <code>#[omit_bounds]</code> to a field will suppress this trait bound and
+allow recursive structures. This may be too coarse for some types, in which case additional type
+bounds may be required with <code>bound(...)</code>.</p>
+<h2 id="wrappers"><a href="#wrappers">Wrappers</a></h2>
+<p>Wrappers transparently customize archived types by providing different implementations of core
+traits. For example, references cannot be archived, but the <code>Inline</code> wrapper serializes a
+reference as if it were a field of the struct. Wrappers can be applied to fields using the
+<code>#[with(...)]</code> attribute. Mutliple wrappers can be used, and they are applied in reverse order
+(i.e. <code>#[with(A, B, C)]</code> will archive <code>MyType</code> as <code>With&lt;With&lt;With&lt;MyType, C&gt;, B, A&gt;</code>).</p>
+</div></details></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="rkyv_derive" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0-nightly (10cc7a6d0 2022-02-26)" ></div>
+</body></html>

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["ceil","Rounds an address up to its closest page boundary."],["floor","Rounds an address down to its closest page boundary."],["size","Returns the operating system’s page size."]]});

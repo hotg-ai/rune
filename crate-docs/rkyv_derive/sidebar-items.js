@@ -1,0 +1,1 @@
+initSidebarItems({"derive":[["Archive","Derives `Archive` for the labeled type."],["Deserialize","Derives `Deserialize` for the labeled type."],["Serialize","Derives `Serialize` for the labeled type."]]});

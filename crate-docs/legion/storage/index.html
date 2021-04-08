@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A “packed archetype” storage model."><meta name="keywords" content="rust, rustlang, rust-lang, storage"><title>legion::storage - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../legion/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../legion/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Module storage</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></div></section><div id="sidebar-vars" data-name="storage" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../legion/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Module <a href="../index.html">legion</a>::<wbr><a class="mod" href="#">storage</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../../src/legion/storage.rs.html#1-95">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A “packed archetype” storage model.</p>
+<p>Any combination of types of components can be attached to each entity
+in a <a href="../world/struct.World.html"><code>World</code></a>. Storing the (potentially unique)
+set of component values for each entity in a manner which is efficient
+to search and access is the responsibility of the ECS libary.</p>
+<p>Legion achieves this via the use of “archetypes”. Archetypes are a
+collection of entities who all have exactly the same set of component
+types attached. By storing these together, we can perform filtering
+operations at the archetype level without needing to ever inspect each
+individual entity. Archetypes also allow us to store contiguous and
+ordered arrays of each component. For example, all <code>Position</code> components
+for all entities in an archetype are stored together in one array, and
+can be returned from queries as a slice. All component arrays for an
+archetype are stored in the same order and are necessarily the same
+length, allowing us to index them together to access the components for
+a single entity.</p>
+<p>Because these components are stored contiguously in memory, iterating
+through the components in an archetype is extremely performant as
+it offers perfect cache locality. By storing each component type in
+its own array, we only need to access the memory containing components
+actually reqested by the query’s view (see the <a href="../query/index.html"><code>query</code></a>
+module).</p>
+<p>One of the disadvantages of archetypes is that there are discontinuities
+between component arrays of different archetypes. In practise this causes
+approximately one additional L2/3 cache miss per unique entity layout that
+exists among the result set of a query.</p>
+<p>Legion mitigates this by conservatively packing archetype component
+slices next to each other. A component slice is considered eligible
+for packing if its components have remained stable for some time (i.e no
+entities have been added or removed from the archetype recently) and
+an estimate of potential saved cache misses passes a “worthwhile”
+threshold.</p>
+<p>By default, legion will pack component slices in the order in which
+the archetypes were created. This matches the order in which queries will
+attempt to access each slice. However, most queries do not access all
+archetypes that contain a certain component - more likely they will skip
+past many archetypes due to other filters (such as only being interested
+in archetypes which also contain another specific component).</p>
+<p>We can provide hints to a world about how it should pack archetypes by
+declaring groups with the world’s <a href="../world/struct.WorldOptions.html">options</a>
+which can be provided while constructing the world. Component groups can be
+used to accelerate the largest and most common queries by optmizing the data
+layout for those queries.</p>
+<p>Each component type in a world may belong to precisely one group. A group is
+a set of components which are frequently queried for together. Queries which
+match a group will not suffer from performance loss due to archetype
+fragmentation.</p>
+<p>Each group implicitly also defines sub-groups, such that the group
+<code>(A, B, C, D)</code> also defines the groups <code>(A, B, C)</code> and <code>(A, B)</code>.</p>
+<p>Groups are defined before constructing a world and are passed in the world’s
+options.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// our component types</span>
+<span class="kw">struct</span> <span class="ident">A</span>;
+<span class="kw">struct</span> <span class="ident">B</span>;
+<span class="kw">struct</span> <span class="ident">C</span>;
+
+<span class="comment">// create a world optimized for cases where (A, B) and/or</span>
+<span class="comment">// (A, B, C) are significant queries.</span>
+<span class="kw">let</span> <span class="ident">group</span> <span class="op">=</span> <span class="op">&lt;</span>(<span class="ident">A</span>, <span class="ident">B</span>, <span class="ident">C</span>)<span class="op">&gt;</span><span class="ident">::to_group</span>();
+<span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="ident">WorldOptions</span> {
+    <span class="ident">groups</span>: <span class="macro">vec!</span>[<span class="ident">group</span>],
+};
+<span class="kw">let</span> <span class="ident">world</span> <span class="op">=</span> <span class="ident">World::new</span>(<span class="ident">options</span>);</code></pre></div>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Archetype.html" title="legion::storage::Archetype struct">Archetype</a></div><div class="item-right docblock-short"><p>An archetype is a collection of entities which all have identical component types.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ArchetypeIndex.html" title="legion::storage::ArchetypeIndex struct">ArchetypeIndex</a></div><div class="item-right docblock-short"><p>The index of an archetype in a world.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ArchetypeWriter.html" title="legion::storage::ArchetypeWriter struct">ArchetypeWriter</a></div><div class="item-right docblock-short"><p>Provides access to writers for writing new entities into an archetype in a world.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentIndex.html" title="legion::storage::ComponentIndex struct">ComponentIndex</a></div><div class="item-right docblock-short"><p>The index of a component within an archetype.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentMeta.html" title="legion::storage::ComponentMeta struct">ComponentMeta</a></div><div class="item-right docblock-short"><p>Contains information about the type of a component.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentSlice.html" title="legion::storage::ComponentSlice struct">ComponentSlice</a></div><div class="item-right docblock-short"><p>An accessor for a shared slice reference of components for a single archetype.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentSliceMut.html" title="legion::storage::ComponentSliceMut struct">ComponentSliceMut</a></div><div class="item-right docblock-short"><p>An accessor for a mutable slice reference of components for a single archetype.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentTypeId.html" title="legion::storage::ComponentTypeId struct">ComponentTypeId</a></div><div class="item-right docblock-short"><p>A unique ID for a component type.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentTypeIdHasher.html" title="legion::storage::ComponentTypeIdHasher struct">ComponentTypeIdHasher</a></div><div class="item-right docblock-short"><p>A hasher optimized for hashing component type IDs.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ComponentWriter.html" title="legion::storage::ComponentWriter struct">ComponentWriter</a></div><div class="item-right docblock-short"><p>Provides the ability to append new components to the entities in an archetype.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Components.html" title="legion::storage::Components struct">Components</a></div><div class="item-right docblock-short"><p>Contains the storages for all component types in a world.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.EntityLayout.html" title="legion::storage::EntityLayout struct">EntityLayout</a></div><div class="item-right docblock-short"><p>Describes the component types which are attached to an entity.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.GroupDef.html" title="legion::storage::GroupDef struct">GroupDef</a></div><div class="item-right docblock-short"><p>Describes the components in a component group.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.MultiMut.html" title="legion::storage::MultiMut struct">MultiMut</a></div><div class="item-right docblock-short"><p>Provides mutable access to multiple different component storages from a single world.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.PackOptions.html" title="legion::storage::PackOptions struct">PackOptions</a></div><div class="item-right docblock-short"><p>Describes how to perform a component pack operation.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.PackedStorage.html" title="legion::storage::PackedStorage struct">PackedStorage</a></div><div class="item-right docblock-short"><p>Stores a slice of components of type <code>T</code> for each archetype.
+Archetype slices are sorted according to the group that component <code>T</code> belongs to.
+Each slice <em>may</em> be packed into a single allocation to optimise for group-based access.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SearchIndex.html" title="legion::storage::SearchIndex struct">SearchIndex</a></div><div class="item-right docblock-short"><p>An index of archetype layouts used to accelerate query evaluation.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.U64Hasher.html" title="legion::storage::U64Hasher struct">U64Hasher</a></div><div class="item-right docblock-short"><p>A hasher optimized for hashing types that are represented as a u64.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.UnknownComponentWriter.html" title="legion::storage::UnknownComponentWriter struct">UnknownComponentWriter</a></div><div class="item-right docblock-short"><p>Provides the ability to append new components to the entities in an archetype.</p>
+</div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.ArchetypeSource.html" title="legion::storage::ArchetypeSource trait">ArchetypeSource</a></div><div class="item-right docblock-short"><p>Defines a type which can describe the layout of an archetype.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Component.html" title="legion::storage::Component trait">Component</a></div><div class="item-right docblock-short"><p>A marker trait for all types which can be attached to an entity.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.ComponentSource.html" title="legion::storage::ComponentSource trait">ComponentSource</a></div><div class="item-right docblock-short"><p>Describes a type which can write entity components into a world.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.ComponentStorage.html" title="legion::storage::ComponentStorage trait">ComponentStorage</a></div><div class="item-right docblock-short"><p>A storage location for component data slices. Each component storage may hold once slice for
+each archetype inserted into the storage.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.ConsAppend.html" title="legion::storage::ConsAppend trait">ConsAppend</a></div><div class="item-right docblock-short"><p>Prepend a new type into a cons list</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.ConsFlatten.html" title="legion::storage::ConsFlatten trait">ConsFlatten</a></div><div class="item-right docblock-short"><p>transform cons list into a flat tuple</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.GroupSource.html" title="legion::storage::GroupSource trait">GroupSource</a></div><div class="item-right docblock-short"><p>A type which defines a component group.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.IntoComponentSource.html" title="legion::storage::IntoComponentSource trait">IntoComponentSource</a></div><div class="item-right docblock-short"><p>Converts a type into a <a href="trait.ComponentSource.html" title="ComponentSource"><code>ComponentSource</code></a>.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.IntoSoa.html" title="legion::storage::IntoSoa trait">IntoSoa</a></div><div class="item-right docblock-short"><p>Describes a type which can convert itself into an SoA representation for entity insertion.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.UnknownComponentStorage.html" title="legion::storage::UnknownComponentStorage trait">UnknownComponentStorage</a></div><div class="item-right docblock-short"><p>A storage location for component data slices. Each component storage may hold one slice for
+each archetype inserted into the storage. The type of component stored is not known statically.</p>
+</div></div></div><h2 id="types" class="small-section-header"><a href="#types">Type Definitions</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="type" href="type.Epoch.html" title="legion::storage::Epoch type">Epoch</a></div><div class="item-right docblock-short"><p>A world epoch. Epochs are incremented each time a world is packed, and are used
+by the packing heuristics as a measure of age.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="type" href="type.Version.html" title="legion::storage::Version type">Version</a></div><div class="item-right docblock-short"><p>The version of a component slice. Versions are incremented when the sliace is
+accessed mutably.</p>
+</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="legion" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0-nightly (10cc7a6d0 2022-02-26)" ></div>
+</body></html>

@@ -1,0 +1,1694 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/registry/src/github.com-1ecc6299db9ec823/xz2-0.1.6/src/stream.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>stream.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../xz2/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../xz2/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../xz2/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
+<span id="681">681</span>
+<span id="682">682</span>
+<span id="683">683</span>
+<span id="684">684</span>
+<span id="685">685</span>
+<span id="686">686</span>
+<span id="687">687</span>
+<span id="688">688</span>
+<span id="689">689</span>
+<span id="690">690</span>
+<span id="691">691</span>
+<span id="692">692</span>
+<span id="693">693</span>
+<span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Raw in-memory LZMA streams.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The `Stream` type exported by this module is the primary type which performs</span>
+<span class="doccomment">//! encoding/decoding of LZMA streams. Each `Stream` is either an encoder or</span>
+<span class="doccomment">//! decoder and processes data in a streaming fashion.</span>
+
+<span class="kw">use</span> <span class="ident">std::collections::LinkedList</span>;
+<span class="kw">use</span> <span class="ident">std::error</span>;
+<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std::io</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
+<span class="kw">use</span> <span class="ident">std::slice</span>;
+
+<span class="kw">use</span> <span class="ident">lzma_sys</span>;
+
+<span class="doccomment">/// Representation of an in-memory LZMA encoding or decoding stream.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Wraps the raw underlying `lzma_stream` type and provides the ability to</span>
+<span class="doccomment">/// create streams which can either decode or encode various LZMA-based formats.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Stream</span> {
+    <span class="ident">raw</span>: <span class="ident">lzma_sys::lzma_stream</span>,
+}
+
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">Stream</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">Stream</span> {}
+
+<span class="doccomment">/// Options that can be used to configure how LZMA encoding happens.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This builder is consumed by a number of other methods.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LzmaOptions</span> {
+    <span class="ident">raw</span>: <span class="ident">lzma_sys::lzma_options_lzma</span>,
+}
+
+<span class="doccomment">/// Builder to create a multi-threaded stream encoder.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MtStreamBuilder</span> {
+    <span class="ident">raw</span>: <span class="ident">lzma_sys::lzma_mt</span>,
+    <span class="ident">filters</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Filters</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// A custom chain of filters to configure an encoding stream.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Filters</span> {
+    <span class="ident">inner</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">lzma_sys::lzma_filter</span><span class="op">&gt;</span>,
+    <span class="ident">lzma_opts</span>: <span class="ident">LinkedList</span><span class="op">&lt;</span><span class="ident">lzma_sys::lzma_options_lzma</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// The `action` argument for `process`,</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// After the first use of SyncFlush, FullFlush, FullBarrier, or Finish, the</span>
+<span class="doccomment">/// same `action&#39; must is used until `process` returns `Status::StreamEnd`.</span>
+<span class="doccomment">/// Also, the amount of input must not be modified by the application until</span>
+<span class="doccomment">/// `process` returns `Status::StreamEnd`. Changing the `action&#39; or modifying</span>
+<span class="doccomment">/// the amount of input will make `process` return `Error::Program`.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Action</span> {
+	<span class="doccomment">/// Continue processing</span>
+	<span class="doccomment">///</span>
+    <span class="doccomment">/// When encoding, encode as much input as possible. Some internal buffering</span>
+    <span class="doccomment">/// will probably be done (depends on the filter chain in use), which causes</span>
+    <span class="doccomment">/// latency: the input used won&#39;t usually be decodeable from the output of</span>
+    <span class="doccomment">/// the same `process` call.</span>
+	<span class="doccomment">///</span>
+    <span class="doccomment">/// When decoding, decode as much input as possible and produce as much</span>
+    <span class="doccomment">/// output as possible.</span>
+    <span class="ident">Run</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_RUN</span> <span class="kw">as</span> <span class="ident">isize</span>,
+
+    <span class="doccomment">/// Make all the input available at output</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Normally the encoder introduces some latency. `SyncFlush` forces all the</span>
+    <span class="doccomment">/// buffered data to be available at output without resetting the internal</span>
+    <span class="doccomment">/// state of the encoder. This way it is possible to use compressed stream</span>
+    <span class="doccomment">/// for example for communication over network.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Only some filters support `SyncFlush`. Trying to use `SyncFlush` with</span>
+    <span class="doccomment">/// filters that don&#39;t support it will make `process` return</span>
+    <span class="doccomment">/// `Error::Options`. For example, LZMA1 doesn&#39;t support `SyncFlush` but</span>
+    <span class="doccomment">/// LZMA2 does.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Using `SyncFlush` very often can dramatically reduce the compression</span>
+    <span class="doccomment">/// ratio. With some filters (for example, LZMA2), fine-tuning the</span>
+    <span class="doccomment">/// compression options may help mitigate this problem significantly (for</span>
+    <span class="doccomment">/// example, match finder with LZMA2).</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Decoders don&#39;t support `SyncFlush`.</span>
+    <span class="ident">SyncFlush</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_SYNC_FLUSH</span> <span class="kw">as</span> <span class="ident">isize</span>,
+
+    <span class="doccomment">/// Finish encoding of the current block.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// All the input data going to the current block must have been given to</span>
+    <span class="doccomment">/// the encoder. Call `process` with `FullFlush` until it returns</span>
+    <span class="doccomment">/// `Status::StreamEnd`. Then continue normally with `Run` or finish the</span>
+    <span class="doccomment">/// Stream with `Finish`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This action is currently supported only by stream encoder and easy</span>
+    <span class="doccomment">/// encoder (which uses stream encoder). If there is no unfinished block, no</span>
+    <span class="doccomment">/// empty block is created.</span>
+    <span class="ident">FullFlush</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_FULL_FLUSH</span> <span class="kw">as</span> <span class="ident">isize</span>,
+
+    <span class="doccomment">/// Finish encoding of the current block.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is like `FullFlush` except that this doesn&#39;t necessarily wait until</span>
+    <span class="doccomment">/// all the input has been made available via the output buffer. That is,</span>
+    <span class="doccomment">/// `process` might return `Status::StreamEnd` as soon as all the input has</span>
+    <span class="doccomment">/// been consumed.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// `FullBarrier` is useful with a threaded encoder if one wants to split</span>
+    <span class="doccomment">/// the .xz Stream into blocks at specific offsets but doesn&#39;t care if the</span>
+    <span class="doccomment">/// output isn&#39;t flushed immediately. Using `FullBarrier` allows keeping the</span>
+    <span class="doccomment">/// threads busy while `FullFlush` would make `process` wait until all the</span>
+    <span class="doccomment">/// threads have finished until more data could be passed to the encoder.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// With a `Stream` initialized with the single-threaded</span>
+    <span class="doccomment">/// `new_stream_encoder` or `new_easy_encoder`, `FullBarrier` is an alias</span>
+    <span class="doccomment">/// for `FullFlush`.</span>
+    <span class="ident">FullBarrier</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_FULL_BARRIER</span> <span class="kw">as</span> <span class="ident">isize</span>,
+
+    <span class="doccomment">/// Finish the current operation</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// All the input data must have been given to the encoder (the last bytes</span>
+    <span class="doccomment">/// can still be pending in next_in). Call `process` with `Finish` until it</span>
+    <span class="doccomment">/// returns `Status::StreamEnd`. Once `Finish` has been used, the amount of</span>
+    <span class="doccomment">/// input must no longer be changed by the application.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// When decoding, using `Finish` is optional unless the concatenated flag</span>
+    <span class="doccomment">/// was used when the decoder was initialized. When concatenated was not</span>
+    <span class="doccomment">/// used, the only effect of `Finish` is that the amount of input must not</span>
+    <span class="doccomment">/// be changed just like in the encoder.</span>
+    <span class="ident">Finish</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_FINISH</span> <span class="kw">as</span> <span class="ident">isize</span>,
+}
+
+<span class="doccomment">/// Return value of a `process` operation.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Status</span> {
+    <span class="doccomment">/// Operation completed successfully.</span>
+    <span class="prelude-val">Ok</span>,
+
+    <span class="doccomment">/// End of stream was reached.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// When encoding, this means that a sync/full flush or `Finish` was</span>
+    <span class="doccomment">/// completed. When decoding, this indicates that all data was decoded</span>
+    <span class="doccomment">/// successfully.</span>
+    <span class="ident">StreamEnd</span>,
+
+    <span class="doccomment">/// If the TELL_ANY_CHECK flags is specified when constructing a decoder,</span>
+    <span class="doccomment">/// this informs that the `check` method will now return the underlying</span>
+    <span class="doccomment">/// integrity check algorithm.</span>
+    <span class="ident">GetCheck</span>,
+
+    <span class="doccomment">/// An error has not been encountered, but no progress is possible.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Processing can be continued normally by providing more input and/or more</span>
+    <span class="doccomment">/// output space, if possible.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Typically the first call to `process` that can do no progress returns</span>
+    <span class="doccomment">/// `Ok` instead of `MemNeeded`. Only the second consecutive call doing no</span>
+    <span class="doccomment">/// progress will return `MemNeeded`.</span>
+    <span class="ident">MemNeeded</span>,
+}
+
+<span class="doccomment">/// Possible error codes that can be returned from a processing operation.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Error</span> {
+    <span class="doccomment">/// The underlying data was corrupt.</span>
+    <span class="ident">Data</span>,
+
+    <span class="doccomment">/// Invalid or unsupported options were specified.</span>
+    <span class="ident">Options</span>,
+
+    <span class="doccomment">/// File format wasn&#39;t recognized.</span>
+    <span class="ident">Format</span>,
+
+    <span class="doccomment">/// Memory usage limit was reached.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The memory limit can be increased with `set_memlimit`</span>
+    <span class="ident">MemLimit</span>,
+
+    <span class="doccomment">/// Memory couldn&#39;t be allocated.</span>
+    <span class="ident">Mem</span>,
+
+    <span class="doccomment">/// A programming error was encountered.</span>
+    <span class="ident">Program</span>,
+
+    <span class="doccomment">/// The `TELL_NO_CHECK` flag was specified and no integrity check was</span>
+    <span class="doccomment">/// available for this stream.</span>
+    <span class="ident">NoCheck</span>,
+
+    <span class="doccomment">/// The `TELL_UNSUPPORTED_CHECK` flag was specified and no integrity check</span>
+    <span class="doccomment">/// isn&#39;t implemented in this build of liblzma for this stream.</span>
+    <span class="ident">UnsupportedCheck</span>,
+}
+
+<span class="doccomment">/// Possible integrity checks that can be part of a .xz stream.</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span> <span class="comment">// self explanatory mostly</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Check</span> {
+    <span class="prelude-val">None</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_CHECK_NONE</span> <span class="kw">as</span> <span class="ident">isize</span>,
+    <span class="ident">Crc32</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_CHECK_CRC32</span> <span class="kw">as</span> <span class="ident">isize</span>,
+    <span class="ident">Crc64</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_CHECK_CRC64</span> <span class="kw">as</span> <span class="ident">isize</span>,
+    <span class="ident">Sha256</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_CHECK_SHA256</span> <span class="kw">as</span> <span class="ident">isize</span>,
+}
+
+<span class="doccomment">/// Compression modes</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This selects the function used to analyze the data produced by the match</span>
+<span class="doccomment">/// finder.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Mode</span> {
+    <span class="doccomment">/// Fast compression.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Fast mode is usually at its best when combined with a hash chain match</span>
+    <span class="doccomment">/// finder.</span>
+    <span class="ident">Fast</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MODE_FAST</span> <span class="kw">as</span> <span class="ident">isize</span>,
+
+    <span class="doccomment">/// Normal compression.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is usually notably slower than fast mode. Use this together with</span>
+    <span class="doccomment">/// binary tree match finders to expose the full potential of the LZMA1 or</span>
+    <span class="doccomment">/// LZMA2 encoder.</span>
+    <span class="ident">Normal</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MODE_NORMAL</span> <span class="kw">as</span> <span class="ident">isize</span>,
+}
+
+<span class="doccomment">/// Match finders</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Match finder has major effect on both speed and compression ratio. Usually</span>
+<span class="doccomment">/// hash chains are faster than binary trees.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// If you will use `SyncFlush` often, the hash chains may be a better choice,</span>
+<span class="doccomment">/// because binary trees get much higher compression ratio penalty with</span>
+<span class="doccomment">/// `SyncFlush`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The memory usage formulas are only rough estimates, which are closest to</span>
+<span class="doccomment">/// reality when dict_size is a power of two. The formulas are  more complex in</span>
+<span class="doccomment">/// reality, and can also change a little between liblzma versions.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MatchFinder</span> {
+    <span class="doccomment">/// Hash Chain with 2- and 3-byte hashing</span>
+    <span class="ident">HashChain3</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MF_HC3</span> <span class="kw">as</span> <span class="ident">isize</span>,
+    <span class="doccomment">/// Hash Chain with 2-, 3-, and 4-byte hashing</span>
+    <span class="ident">HashChain4</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MF_HC4</span> <span class="kw">as</span> <span class="ident">isize</span>,
+
+    <span class="doccomment">/// Binary Tree with 2-byte hashing</span>
+    <span class="ident">BinaryTree2</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MF_BT2</span> <span class="kw">as</span> <span class="ident">isize</span>,
+    <span class="doccomment">/// Binary Tree with 2- and 3-byte hashing</span>
+    <span class="ident">BinaryTree3</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MF_BT3</span> <span class="kw">as</span> <span class="ident">isize</span>,
+    <span class="doccomment">/// Binary Tree with 2-, 3-, and 4-byte hashing</span>
+    <span class="ident">BinaryTree4</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_MF_BT4</span> <span class="kw">as</span> <span class="ident">isize</span>,
+}
+
+<span class="doccomment">/// A flag passed when initializing a decoder, causes `process` to return</span>
+<span class="doccomment">/// `Status::GetCheck` as soon as the integrity check is known.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TELL_ANY_CHECK</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_TELL_ANY_CHECK</span>;
+
+<span class="doccomment">/// A flag passed when initializing a decoder, causes `process` to return</span>
+<span class="doccomment">/// `Error::NoCheck` if the stream being decoded has no integrity check.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TELL_NO_CHECK</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_TELL_NO_CHECK</span>;
+
+<span class="doccomment">/// A flag passed when initializing a decoder, causes `process` to return</span>
+<span class="doccomment">/// `Error::UnsupportedCheck` if the stream being decoded has an integrity check</span>
+<span class="doccomment">/// that cannot be verified by this build of liblzma.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TELL_UNSUPPORTED_CHECK</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_TELL_UNSUPPORTED_CHECK</span>;
+
+<span class="doccomment">/// A flag passed when initializing a decoder, causes the decoder to ignore any</span>
+<span class="doccomment">/// integrity checks listed.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">IGNORE_CHECK</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_TELL_UNSUPPORTED_CHECK</span>;
+
+<span class="doccomment">/// A flag passed when initializing a decoder, indicates that the stream may be</span>
+<span class="doccomment">/// multiple concatenated xz files.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CONCATENATED</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">lzma_sys::LZMA_CONCATENATED</span>;
+
+<span class="kw">impl</span> <span class="ident">Stream</span> {
+    <span class="doccomment">/// Initialize .xz stream encoder using a preset number</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is intended to be used by most for encoding data. The `preset`</span>
+    <span class="doccomment">/// argument is a number 0-9 indicating the compression level to use, and</span>
+    <span class="doccomment">/// normally 6 is a reasonable default.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The `check` argument is the integrity check to insert at the end of the</span>
+    <span class="doccomment">/// stream. The default of `Crc64` is typically appropriate.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_easy_encoder</span>(<span class="ident">preset</span>: <span class="ident">u32</span>, <span class="ident">check</span>: <span class="ident">Check</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_easy_encoder</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>,
+                                                 <span class="ident">preset</span>,
+                                                 <span class="ident">check</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_check</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+
+    <span class="doccomment">/// Initialize .lzma encoder (legacy file format)</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The .lzma format is sometimes called the LZMA_Alone format, which is the</span>
+    <span class="doccomment">/// reason for the name of this function. The .lzma format supports only the</span>
+    <span class="doccomment">/// LZMA1 filter. There is no support for integrity checks like CRC32.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Use this function if and only if you need to create files readable by</span>
+    <span class="doccomment">/// legacy LZMA tools such as LZMA Utils 4.32.x. Moving to the .xz format</span>
+    <span class="doccomment">/// (the `new_easy_encoder` function) is strongly recommended.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The valid action values for `process` are `Run` and `Finish`. No kind</span>
+    <span class="doccomment">/// of flushing is supported, because the file format doesn&#39;t make it</span>
+    <span class="doccomment">/// possible.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_lzma_encoder</span>(<span class="ident">options</span>: <span class="kw-2">&amp;</span><span class="ident">LzmaOptions</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_alone_encoder</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">raw</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+
+    <span class="doccomment">/// Initialize .xz Stream encoder using a custom filter chain</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This function is similar to `new_easy_encoder` but a custom filter chain</span>
+    <span class="doccomment">/// is specified.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_stream_encoder</span>(<span class="ident">filters</span>: <span class="kw-2">&amp;</span><span class="ident">Filters</span>,
+                              <span class="ident">check</span>: <span class="ident">Check</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_stream_encoder</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>,
+                                                   <span class="ident">filters</span>.<span class="ident">inner</span>.<span class="ident">as_ptr</span>(),
+                                                   <span class="ident">check</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_check</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+
+    <span class="doccomment">/// Initialize a .xz stream decoder.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The maximum memory usage can be specified along with flags such as</span>
+    <span class="doccomment">/// `TELL_ANY_CHECK`, `TELL_NO_CHECK`, `TELL_UNSUPPORTED_CHECK`,</span>
+    <span class="doccomment">/// `TELL_IGNORE_CHECK`, or `CONCATENATED`.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_stream_decoder</span>(<span class="ident">memlimit</span>: <span class="ident">u64</span>,
+                              <span class="ident">flags</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_stream_decoder</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>,
+                                                   <span class="ident">memlimit</span>,
+                                                   <span class="ident">flags</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+
+    <span class="doccomment">/// Initialize a .lzma stream decoder.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The maximum memory usage can also be specified.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_lzma_decoder</span>(<span class="ident">memlimit</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_alone_decoder</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>,
+                                                  <span class="ident">memlimit</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+
+    <span class="doccomment">/// Initialize a decoder which will choose a stream/lzma formats depending</span>
+    <span class="doccomment">/// on the input stream.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_auto_decoder</span>(<span class="ident">memlimit</span>: <span class="ident">u64</span>, <span class="ident">flags</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_auto_decoder</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>,
+                                                 <span class="ident">memlimit</span>,
+                                                 <span class="ident">flags</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+
+    <span class="doccomment">/// Processes some data from input into an output buffer.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This will perform the appropriate encoding or decoding operation</span>
+    <span class="doccomment">/// depending on the kind of underlying stream. Documentation for the</span>
+    <span class="doccomment">/// various `action` arguments can be found on the respective variants.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">process</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+                   <span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+                   <span class="ident">output</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>],
+                   <span class="ident">action</span>: <span class="ident">Action</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Status</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">next_in</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">as_ptr</span>();
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">avail_in</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">len</span>();
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">next_out</span> <span class="op">=</span> <span class="ident">output</span>.<span class="ident">as_mut_ptr</span>();
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">avail_out</span> <span class="op">=</span> <span class="ident">output</span>.<span class="ident">len</span>();
+        <span class="kw">let</span> <span class="ident">action</span> <span class="op">=</span> <span class="ident">action</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_action</span>;
+        <span class="kw">unsafe</span> {
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_code</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">raw</span>, <span class="ident">action</span>))
+        }
+    }
+
+    <span class="doccomment">/// Performs the same data as `process`, but places output data in a `Vec`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This function will use the extra capacity of `output` as a destination</span>
+    <span class="doccomment">/// for bytes to be placed. The length of `output` will automatically get</span>
+    <span class="doccomment">/// updated after the operation has completed.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">process_vec</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+                       <span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+                       <span class="ident">output</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+                       <span class="ident">action</span>: <span class="ident">Action</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Status</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">cap</span> <span class="op">=</span> <span class="ident">output</span>.<span class="ident">capacity</span>();
+        <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">output</span>.<span class="ident">len</span>();
+
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">before</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">total_out</span>();
+            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> {
+                <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">output</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">offset</span>(<span class="ident">len</span> <span class="kw">as</span> <span class="ident">isize</span>);
+                <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">ptr</span>, <span class="ident">cap</span> <span class="op">-</span> <span class="ident">len</span>);
+                <span class="self">self</span>.<span class="ident">process</span>(<span class="ident">input</span>, <span class="ident">out</span>, <span class="ident">action</span>)
+            };
+            <span class="ident">output</span>.<span class="ident">set_len</span>((<span class="self">self</span>.<span class="ident">total_out</span>() <span class="op">-</span> <span class="ident">before</span>) <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">len</span>);
+            <span class="kw">return</span> <span class="ident">ret</span>
+        }
+    }
+
+    <span class="doccomment">/// Returns the total amount of input bytes consumed by this stream.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">total_in</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">total_in</span>
+    }
+
+    <span class="doccomment">/// Returns the total amount of bytes produced by this stream.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">total_out</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">total_out</span>
+    }
+
+    <span class="doccomment">/// Get the current memory usage limit.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is only supported if the underlying stream supports a memlimit.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memlimit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
+        <span class="kw">unsafe</span> { <span class="ident">lzma_sys::lzma_memlimit_get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">raw</span>) }
+    }
+
+    <span class="doccomment">/// Set the current memory usage limit.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This can return `Error::MemLimit` if the new limit is too small or</span>
+    <span class="doccomment">/// `Error::Program` if this stream doesn&#39;t take a memory limit.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_memlimit</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">limit</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="ident">cvt</span>(<span class="kw">unsafe</span> { <span class="ident">lzma_sys::lzma_memlimit_set</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">raw</span>, <span class="ident">limit</span>) })
+            .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> ())
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">LzmaOptions</span> {
+    <span class="doccomment">/// Creates a new blank set of options for encoding.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The `preset` argument is the compression level to use, typically in the</span>
+    <span class="doccomment">/// range of 0-9.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_preset</span>(<span class="ident">preset</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">LzmaOptions</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">options</span> <span class="op">=</span> <span class="ident">LzmaOptions</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">lzma_sys::lzma_lzma_preset</span>(<span class="kw-2">&amp;mut</span> <span class="ident">options</span>.<span class="ident">raw</span>, <span class="ident">preset</span>);
+            <span class="kw">if</span> <span class="ident">ret</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">Error::Program</span>)
+            } <span class="kw">else</span> {
+                <span class="prelude-val">Ok</span>(<span class="ident">options</span>)
+            }
+        }
+    }
+
+    <span class="doccomment">/// Configures the dictionary size, in bytes</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Dictionary size indicates how many bytes of the recently processed</span>
+    <span class="doccomment">/// uncompressed data is kept in memory.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The minimum dictionary size is 4096 bytes and the default is 2^23, 8MB.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dict_size</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">dict_size</span> <span class="op">=</span> <span class="ident">size</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the number of literal context bits.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// How many of the highest bits of the previous uncompressed eight-bit byte</span>
+    <span class="doccomment">/// (also known as `literal&#39;) are taken into account when predicting the</span>
+    <span class="doccomment">/// bits of the next literal.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The maximum value to this is 4 and the default is 3. It is not currently</span>
+    <span class="doccomment">/// supported if this plus `literal_position_bits` is greater than 4.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">literal_context_bits</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">bits</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">lc</span> <span class="op">=</span> <span class="ident">bits</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the number of literal position bits.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This affects what kind of alignment in the uncompressed data is assumed</span>
+    <span class="doccomment">/// when encoding literals. A literal is a single 8-bit byte. See</span>
+    <span class="doccomment">/// `position_bits` for more information about alignment.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The default for this is 0.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">literal_position_bits</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">bits</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">lp</span> <span class="op">=</span> <span class="ident">bits</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the number of position bits.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Position bits affects what kind of alignment in the uncompressed data is</span>
+    <span class="doccomment">/// assumed in general. The default of 2 means four-byte alignment (2^ pb</span>
+    <span class="doccomment">/// =2^2=4), which is often a good choice when there&#39;s no better guess.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// When the aligment is known, setting pb accordingly may reduce the file</span>
+    <span class="doccomment">/// size a little. E.g. with text files having one-byte alignment (US-ASCII,</span>
+    <span class="doccomment">/// ISO-8859-*, UTF-8), setting pb=0 can improve compression slightly. For</span>
+    <span class="doccomment">/// UTF-16 text, pb=1 is a good choice. If the alignment is an odd number</span>
+    <span class="doccomment">/// like 3 bytes, pb=0 might be the best choice.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Even though the assumed alignment can be adjusted with pb and lp, LZMA1</span>
+    <span class="doccomment">/// and LZMA2 still slightly favor 16-byte alignment. It might be worth</span>
+    <span class="doccomment">/// taking into account when designing file formats that are likely to be</span>
+    <span class="doccomment">/// often compressed with LZMA1 or LZMA2.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">position_bits</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">bits</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">pb</span> <span class="op">=</span> <span class="ident">bits</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the compression mode.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mode</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">mode</span>: <span class="ident">Mode</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">mode</span> <span class="op">=</span> <span class="ident">mode</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_mode</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the nice length of a match.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This determines how many bytes the encoder compares from the match</span>
+    <span class="doccomment">/// candidates when looking for the best match. Once a match of at least</span>
+    <span class="doccomment">/// `nice_len` bytes long is found, the encoder stops looking for better</span>
+    <span class="doccomment">/// candidates and encodes the match. (Naturally, if the found match is</span>
+    <span class="doccomment">/// actually longer than `nice_len`, the actual length is encoded; it&#39;s not</span>
+    <span class="doccomment">/// truncated to `nice_len`.)</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Bigger values usually increase the compression ratio and compression</span>
+    <span class="doccomment">/// time. For most files, 32 to 128 is a good value, which gives very good</span>
+    <span class="doccomment">/// compression ratio at good speed.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The exact minimum value depends on the match finder. The maximum is 273,</span>
+    <span class="doccomment">/// which is the maximum length of a match that LZMA1 and LZMA2 can encode.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">nice_len</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">len</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">nice_len</span> <span class="op">=</span> <span class="ident">len</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the match finder ID.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">match_finder</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">mf</span>: <span class="ident">MatchFinder</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">mf</span> <span class="op">=</span> <span class="ident">mf</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_match_finder</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Maximum search depth in the match finder.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// For every input byte, match finder searches through the hash chain or</span>
+    <span class="doccomment">/// binary tree in a loop, each iteration going one step deeper in the chain</span>
+    <span class="doccomment">/// or tree. The searching stops if</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">///  - a match of at least `nice_len` bytes long is found;</span>
+    <span class="doccomment">///  - all match candidates from the hash chain or binary tree have</span>
+    <span class="doccomment">///    been checked; or</span>
+    <span class="doccomment">///  - maximum search depth is reached.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Maximum search depth is needed to prevent the match finder from wasting</span>
+    <span class="doccomment">/// too much time in case there are lots of short match candidates. On the</span>
+    <span class="doccomment">/// other hand, stopping the search before all candidates have been checked</span>
+    <span class="doccomment">/// can reduce compression ratio.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Setting depth to zero tells liblzma to use an automatic default value,</span>
+    <span class="doccomment">/// that depends on the selected match finder and nice_len.  The default is</span>
+    <span class="doccomment">/// in the range [4, 200] or so (it may vary between liblzma versions).</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Using a bigger depth value than the default can increase compression</span>
+    <span class="doccomment">/// ratio in some cases. There is no strict maximum value, but high values</span>
+    <span class="doccomment">/// (thousands or millions) should be used with care: the encoder could</span>
+    <span class="doccomment">/// remain fast enough with typical input, but malicious input could cause</span>
+    <span class="doccomment">/// the match finder to slow down dramatically, possibly creating a denial</span>
+    <span class="doccomment">/// of service attack.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">depth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">depth</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">LzmaOptions</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">depth</span> <span class="op">=</span> <span class="ident">depth</span>;
+        <span class="self">self</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Check</span> {
+    <span class="doccomment">/// Test if this check is supported in this build of liblzma.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_supported</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="ident">lzma_sys::lzma_check_is_supported</span>(<span class="kw-2">*</span><span class="self">self</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_check</span>)
+        };
+        <span class="ident">ret</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">MatchFinder</span> {
+    <span class="doccomment">/// Test if this match finder is supported in this build of liblzma.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_supported</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="ident">lzma_sys::lzma_mf_is_supported</span>(<span class="kw-2">*</span><span class="self">self</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_match_finder</span>)
+        };
+        <span class="ident">ret</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Filters</span> {
+    <span class="doccomment">/// Creates a new filter chain with no filters.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="ident">Filters</span> {
+        <span class="ident">Filters</span> {
+            <span class="ident">inner</span>: <span class="macro">vec!</span>[<span class="ident">lzma_sys::lzma_filter</span> {
+                <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_VLI_UNKNOWN</span>,
+                <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+            }],
+            <span class="ident">lzma_opts</span>: <span class="ident">LinkedList::new</span>(),
+        }
+    }
+
+    <span class="doccomment">/// Add an LZMA1 filter.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// LZMA1 is the very same thing as what was called just LZMA in LZMA Utils,</span>
+    <span class="doccomment">/// 7-Zip, and LZMA SDK. It&#39;s called LZMA1 here to prevent developers from</span>
+    <span class="doccomment">/// accidentally using LZMA when they actually want LZMA2.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// LZMA1 shouldn&#39;t be used for new applications unless you _really_ know</span>
+    <span class="doccomment">/// what you are doing.  LZMA2 is almost always a better choice.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lzma1</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">opts</span>: <span class="kw-2">&amp;</span><span class="ident">LzmaOptions</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">lzma_opts</span>.<span class="ident">push_back</span>(<span class="ident">opts</span>.<span class="ident">raw</span>);
+        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lzma_opts</span>.<span class="ident">back</span>().<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>;
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_LZMA1</span>,
+            <span class="ident">options</span>: <span class="ident">ptr</span>,
+        })
+    }
+
+    <span class="doccomment">/// Add an LZMA2 filter.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Usually you want this instead of LZMA1. Compared to LZMA1, LZMA2 adds</span>
+    <span class="doccomment">/// support for `SyncFlush`, uncompressed chunks (smaller expansion when</span>
+    <span class="doccomment">/// trying to compress uncompressible data), possibility to change</span>
+    <span class="doccomment">/// `literal_context_bits`/`literal_position_bits`/`position_bits` in the</span>
+    <span class="doccomment">/// middle of encoding, and some other internal improvements.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lzma2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">opts</span>: <span class="kw-2">&amp;</span><span class="ident">LzmaOptions</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">lzma_opts</span>.<span class="ident">push_back</span>(<span class="ident">opts</span>.<span class="ident">raw</span>);
+        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lzma_opts</span>.<span class="ident">back</span>().<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>;
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_LZMA2</span>,
+            <span class="ident">options</span>: <span class="ident">ptr</span>,
+        })
+    }
+
+    <span class="comment">// TODO: delta filter</span>
+
+    <span class="doccomment">/// Add a filter for x86 binaries.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">x86</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_X86</span>,
+            <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+        })
+    }
+
+    <span class="doccomment">/// Add a filter for PowerPC binaries.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">powerpc</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_POWERPC</span>,
+            <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+        })
+    }
+
+    <span class="doccomment">/// Add a filter for IA-64 (itanium) binaries.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ia64</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_IA64</span>,
+            <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+        })
+    }
+
+    <span class="doccomment">/// Add a filter for ARM binaries.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">arm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_ARM</span>,
+            <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+        })
+    }
+
+    <span class="doccomment">/// Add a filter for ARM-Thumb binaries.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">arm_thumb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_ARMTHUMB</span>,
+            <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+        })
+    }
+
+    <span class="doccomment">/// Add a filter for SPARC binaries.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sparc</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="self">self</span>.<span class="ident">push</span>(<span class="ident">lzma_sys::lzma_filter</span> {
+            <span class="ident">id</span>: <span class="ident">lzma_sys::LZMA_FILTER_SPARC</span>,
+            <span class="ident">options</span>: <span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
+        })
+    }
+
+    <span class="kw">fn</span> <span class="ident">push</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">filter</span>: <span class="ident">lzma_sys::lzma_filter</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Filters</span> {
+        <span class="kw">let</span> <span class="ident">pos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>;
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">insert</span>(<span class="ident">pos</span>, <span class="ident">filter</span>);
+        <span class="self">self</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">MtStreamBuilder</span> {
+    <span class="doccomment">/// Creates a new blank builder to create a multithreaded encoding `Stream`.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="ident">MtStreamBuilder</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">MtStreamBuilder</span> {
+                <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>(),
+                <span class="ident">filters</span>: <span class="prelude-val">None</span>,
+            };
+            <span class="ident">init</span>.<span class="ident">raw</span>.<span class="ident">threads</span> <span class="op">=</span> <span class="number">1</span>;
+            <span class="kw">return</span> <span class="ident">init</span>
+        }
+    }
+
+    <span class="doccomment">/// Configures the number of worker threads to use</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">threads</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">threads</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">threads</span> <span class="op">=</span> <span class="ident">threads</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the maximum uncompressed size of a block</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The encoder will start a new .xz block every `block_size` bytes.</span>
+    <span class="doccomment">/// Using `FullFlush` or `FullBarrier` with `process` the caller may tell</span>
+    <span class="doccomment">/// liblzma to start a new block earlier.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// With LZMA2, a recommended block size is 2-4 times the LZMA2 dictionary</span>
+    <span class="doccomment">/// size. With very small dictionaries, it is recommended to use at least 1</span>
+    <span class="doccomment">/// MiB block size for good compression ratio, even if this is more than</span>
+    <span class="doccomment">/// four times the dictionary size. Note that these are only recommendations</span>
+    <span class="doccomment">/// for typical use cases; feel free to use other values. Just keep in mind</span>
+    <span class="doccomment">/// that using a block size less than the LZMA2 dictionary size is waste of</span>
+    <span class="doccomment">/// RAM.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Set this to 0 to let liblzma choose the block size depending on the</span>
+    <span class="doccomment">/// compression options. For LZMA2 it will be 3*`dict_size` or 1 MiB,</span>
+    <span class="doccomment">/// whichever is more.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// For each thread, about 3 * `block_size` bytes of memory will be</span>
+    <span class="doccomment">/// allocated. This may change in later liblzma versions. If so, the memory</span>
+    <span class="doccomment">/// usage will probably be reduced, not increased.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">block_size</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">block_size</span>: <span class="ident">u64</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">block_size</span> <span class="op">=</span> <span class="ident">block_size</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Timeout to allow `process` to return early</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Multithreading can make liblzma to consume input and produce output in a</span>
+    <span class="doccomment">/// very bursty way: it may first read a lot of input to fill internal</span>
+    <span class="doccomment">/// buffers, then no input or output occurs for a while.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// In single-threaded mode, `process` won&#39;t return until it has either</span>
+    <span class="doccomment">/// consumed all the input or filled the output buffer. If this is done in</span>
+    <span class="doccomment">/// multithreaded mode, it may cause a call `process` to take even tens of</span>
+    <span class="doccomment">/// seconds, which isn&#39;t acceptable in all applications.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// To avoid very long blocking times in `process`, a timeout (in</span>
+    <span class="doccomment">/// milliseconds) may be set here. If `process would block longer than</span>
+    <span class="doccomment">/// this number of milliseconds, it will return with `Ok`. Reasonable</span>
+    <span class="doccomment">/// values are 100 ms or more. The xz command line tool uses 300 ms.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If long blocking times are fine for you, set timeout to a special</span>
+    <span class="doccomment">/// value of 0, which will disable the timeout mechanism and will make</span>
+    <span class="doccomment">/// `process` block until all the input is consumed or the output</span>
+    <span class="doccomment">/// buffer has been filled.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">timeout_ms</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">timeout</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">timeout</span> <span class="op">=</span> <span class="ident">timeout</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Compression preset (level and possible flags)</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The preset is set just like with `Stream::new_easy_encoder`. The preset</span>
+    <span class="doccomment">/// is ignored if filters below have been specified.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">preset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">preset</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">preset</span> <span class="op">=</span> <span class="ident">preset</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configure a custom filter chain</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">filters</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">filters</span>: <span class="ident">Filters</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">filters</span> <span class="op">=</span> <span class="ident">filters</span>.<span class="ident">inner</span>.<span class="ident">as_ptr</span>();
+        <span class="self">self</span>.<span class="ident">filters</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">filters</span>);
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configures the integrity check type</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">check</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">check</span>: <span class="ident">Check</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>.<span class="ident">check</span> <span class="op">=</span> <span class="ident">check</span> <span class="kw">as</span> <span class="ident">lzma_sys::lzma_check</span>;
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Calculate approximate memory usage of multithreaded .xz encoder</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memusage</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
+        <span class="kw">unsafe</span> { <span class="ident">lzma_sys::lzma_stream_encoder_mt_memusage</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">raw</span>) }
+    }
+
+    <span class="doccomment">/// Initialize multithreaded .xz stream encoder.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encoder</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Stream</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init</span> <span class="op">=</span> <span class="ident">Stream</span> { <span class="ident">raw</span>: <span class="ident">mem::zeroed</span>() };
+            <span class="ident">cvt</span>(<span class="ident">lzma_sys::lzma_stream_encoder_mt</span>(<span class="kw-2">&amp;mut</span> <span class="ident">init</span>.<span class="ident">raw</span>,
+                                                      <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">raw</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">init</span>)
+        }
+    }
+}
+
+<span class="kw">fn</span> <span class="ident">cvt</span>(<span class="ident">rc</span>: <span class="ident">lzma_sys::lzma_ret</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Status</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">match</span> <span class="ident">rc</span> {
+        <span class="ident">lzma_sys::LZMA_OK</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Status::Ok</span>),
+        <span class="ident">lzma_sys::LZMA_STREAM_END</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Status::StreamEnd</span>),
+        <span class="ident">lzma_sys::LZMA_NO_CHECK</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::NoCheck</span>),
+        <span class="ident">lzma_sys::LZMA_UNSUPPORTED_CHECK</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::UnsupportedCheck</span>),
+        <span class="ident">lzma_sys::LZMA_GET_CHECK</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Status::GetCheck</span>),
+        <span class="ident">lzma_sys::LZMA_MEM_ERROR</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::Mem</span>),
+        <span class="ident">lzma_sys::LZMA_MEMLIMIT_ERROR</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::MemLimit</span>),
+        <span class="ident">lzma_sys::LZMA_FORMAT_ERROR</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::Format</span>),
+        <span class="ident">lzma_sys::LZMA_OPTIONS_ERROR</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::Options</span>),
+        <span class="ident">lzma_sys::LZMA_DATA_ERROR</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::Data</span>),
+        <span class="ident">lzma_sys::LZMA_BUF_ERROR</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Status::MemNeeded</span>),
+        <span class="ident">lzma_sys::LZMA_PROG_ERROR</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">Error::Program</span>),
+        <span class="ident">c</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unknown return code: {}&quot;</span>, <span class="ident">c</span>),
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">io::Error</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">e</span>: <span class="ident">Error</span>) -&gt; <span class="ident">io::Error</span> {
+        <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="ident">e</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">error::Error</span> <span class="kw">for</span> <span class="ident">Error</span> {
+    <span class="kw">fn</span> <span class="ident">description</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> { <span class="string">&quot;lzma data error&quot;</span> }
+}
+
+<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">Error</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="ident">error::Error::description</span>(<span class="self">self</span>).<span class="ident">fmt</span>(<span class="ident">f</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Stream</span> {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+        <span class="kw">unsafe</span> {
+            <span class="ident">lzma_sys::lzma_end</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">raw</span>);
+        }
+    }
+}
+
+</code></pre></div>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="xz2" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0-nightly (10cc7a6d0 2022-02-26)" ></div>
+</body></html>

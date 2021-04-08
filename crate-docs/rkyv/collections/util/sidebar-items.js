@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Entry","A simple key-value pair."]]});

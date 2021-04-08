@@ -1,0 +1,1 @@
+initSidebarItems({"attr":[["pointee","Generates an implementation of `Pointee` for trait objects."]],"derive":[["Pointee","Generates an implementation of `Pointee` for structs with a DST as its last field."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["OSType","A list of supported operating system types"]],"fn":[["current_platform","Returns the current operating system type"]],"struct":[["OSInformation","Holds information about Operating System type and its version If the version could not be fetched it defaults to `0.0.0`"]]});

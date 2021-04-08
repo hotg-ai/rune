@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ArchivedIpAddr","An archived `IpAddr`."],["ArchivedSocketAddr","An archived `SocketAddr`."]],"struct":[["ArchivedIpv4Addr","An archived `Ipv4Addr`."],["ArchivedIpv6Addr","An archived `Ipv6Addr`."],["ArchivedSocketAddrV4","An archived `SocketAddrV4`."],["ArchivedSocketAddrV6","An archived `SocketAddrV6`."]]});

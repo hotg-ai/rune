@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["bufread","I/O streams for wrapping `BufRead` types as encoders/decoders"],["read","Reader-based compression/decompression streams"],["stream","Raw in-memory LZMA streams."],["write","Writer-based compression/decompression streams"]]});

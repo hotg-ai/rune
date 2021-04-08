@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ArchivedOption","An archived [`Option`]."]],"struct":[["Iter","An iterator over a reference to the `Some` variant of an `ArchivedOption`."],["IterMut","An iterator over a mutable reference to the `Some` variant of an `ArchivedOption`."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["INLINE_CAPACITY","The maximum number of bytes that can be inlined."]],"union":[["ArchivedStringRepr","An archived string representation that can inline short strings."]]});

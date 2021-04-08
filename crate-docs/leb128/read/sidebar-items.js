@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error","An error type for reading LEB128-encoded values."]],"fn":[["signed","Read a signed LEB128-encoded number from the `std::io::Read` stream `r`."],["unsigned","Read an unsigned LEB128-encoded number from the `std::io::Read` stream `r`."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ArchivedRcWeak","An archived `rc::Weak`."],["RcWeakResolver","The resolver for `rc::Weak`."]],"struct":[["ArchivedRc","An archived `Rc`."],["RcResolver","The resolver for `Rc`."]]});

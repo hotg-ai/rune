@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ArchivedIndexMap","An archived `IndexMap`."],["IndexMapResolver","The resolver for an `IndexMap`."],["Iter","An iterator over the key-value pairs of an index map."],["Keys","An iterator over the keys of an index map."],["Values","An iterator over the values of an index map."]]});
