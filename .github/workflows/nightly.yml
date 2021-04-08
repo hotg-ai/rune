@@ -66,9 +66,18 @@ jobs:
           override: true
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
+      # Note: We can't properly link to the LLVM installed on the default
+      # Windows image, so install it to a well-known location.
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "10.0"
+          directory: ${{ runner.temp }}/llvm
       - name: Build
         run: cargo xtask dist
         env:
+          LIBCLANG_PATH: ${{ runner.temp }}/llvm/lib
+          LLVM_CONFIG_PATH: ${{ runner.temp }}/llvm/bin/llvm-config
           RUST_LOG: info,xtask=debug
       - name: Upload binaries to release
         uses: actions/upload-artifact@v2
