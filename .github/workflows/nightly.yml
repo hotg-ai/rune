@@ -67,7 +67,7 @@ jobs:
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
       - name: Print Sysconfig
-        run: python3 -c "import sysconfig; import json; ; print(json.dumps(sysconfig.get_config_vars(), indent=2))"
+        run: python3 -c "import sysconfig; import json; print(json.dumps(sysconfig.get_config_vars(), indent=2))"
       - name: Build
         run: cargo xtask dist
         env:
