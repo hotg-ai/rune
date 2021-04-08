@@ -4,6 +4,7 @@ on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
   workflow_dispatch:
+  push:
 
 env:
   # Only run this action if it was scheduled and there were commits within the
@@ -93,9 +94,11 @@ jobs:
         run: mv nightly/**/*.zip nightly/
       - name: Print Artifacts
         run: ls -la nightly
-      - name: Publish to Firebase Storage
-        uses: google-github-actions/upload-cloud-storage@main
+      - uses: "marvinpinto/action-automatic-releases@latest"
         with:
-          credentials: ${{ secrets.NIGHTLY_SERVICE_ACCOUNT_JSON }}
-          path: nightly
-          destination: rune-registry.appspot.com
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Nightly Release"
+          files: |
+            nightly/*.zip
