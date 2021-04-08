@@ -94,6 +94,8 @@ jobs:
         run: mv nightly/**/*.zip nightly/
       - name: Print Artifacts
         run: ls -la nightly
+      - name: Print Sysconfig
+        run: python3 -c "import sysconfig; import json; ; print(json.dumps(sysconfig.get_config_vars(), indent=2))"
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
