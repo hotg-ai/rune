@@ -41,8 +41,12 @@ pub fn generate_release_artifacts() -> Result<(), Error> {
         .with_max_depth(1)
         .copy(project_root.join(""), &dist)?;
 
-    generate_python_bindings(&project_root, &dist)
-        .context("Unable to generate the Python bindings")?;
+    if cfg!(target_os = "linux") {
+        // We only want to generate the Python bindings for our proc blocks on
+        // Linux. Mac builds require more setup.
+        generate_python_bindings(&project_root, &dist)
+            .context("Unable to generate the Python bindings")?;
+    }
 
     generate_archive(&dist, &target)
         .context("Unable to generate the zip archive")?;
