@@ -48,7 +48,9 @@ impl Run {
             .context("Unable to initialize the virtual machine")?;
 
         for i in 0..self.repeats {
-            log::info!("Call {}", i);
+            if i > 0 {
+                log::info!("Call {}", i + 1);
+            }
             runtime.call().context("Call failed")?;
         }
 
