@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Build {
     /// The Runefile to compile.
-    #[structopt(parse(from_os_str))]
+    #[structopt(parse(from_os_str), default_value = "Runefile")]
     runefile: PathBuf,
     /// Where to write the generated Rune.
     #[structopt(short, long, parse(from_os_str))]
@@ -101,7 +101,7 @@ impl Build {
             return Ok(name.to_string());
         }
 
-        let current_dir = self.current_directory()?;
+        let current_dir = self.current_directory()?.canonicalize()?;
 
         if let Some(name) = current_dir.file_name().and_then(|n| n.to_str()) {
             return Ok(name.to_string());
