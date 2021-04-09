@@ -1,0 +1,15 @@
+{
+  "name": "rune",
+  "version": "0.2.1",
+  "main": "src/index.ts",
+  "repository": "https://github.com/hotg-ai/rune",
+  "author": "The Rune Authors",
+  "license": "MIT OR Apache-2.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^4.2.4"
+  }
+}
