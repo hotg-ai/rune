@@ -370,7 +370,8 @@ impl Generator {
 
     fn compile(&self) -> Result<(), Error> {
         let mut cmd = Command::new("cargo");
-        cmd.arg("build")
+        cmd.arg("+nightly")
+            .arg("build")
             .arg("--target=wasm32-unknown-unknown")
             .arg("--quiet")
             .current_dir(&self.dest);
