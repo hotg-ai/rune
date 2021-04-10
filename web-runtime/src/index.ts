@@ -27,11 +27,13 @@ export interface Outputs {
     [key: string]: () => Output;
 };
 
-export interface Model { }
+export interface Model {
+    transform(input: Uint8Array, output: Uint8Array): void;
+}
 
 export interface Imports {
-    capabilities(): Capabilities;
-    outputs(): Outputs;
+    capabilities: Capabilities;
+    outputs: Outputs;
     loadModel(raw: Uint8Array): Model;
 }
 
@@ -105,8 +107,8 @@ function makeImports(imports: Imports, getMemory: () => WebAssembly.Memory): Web
         return new Uint8Array(m.buffer);
     };
     const ids = counter();
-    const numberedOutputs = new IndirectFactory(ids, KnownOutputs, imports.outputs());
-    const numberedCapability = new IndirectFactory(ids, KnownCapabilities, imports.capabilities());
+    const numberedOutputs = new IndirectFactory(ids, KnownOutputs, imports.outputs);
+    const numberedCapability = new IndirectFactory(ids, KnownCapabilities, imports.capabilities);
     const models = new Map<number, Model>();
     const utf8 = new TextDecoder();
 
@@ -121,21 +123,50 @@ function makeImports(imports: Imports, getMemory: () => WebAssembly.Memory): Web
             const [id, _] = numberedOutputs.create(type);
             return id;
         },
-        consume_output() { console.error("consume_output", arguments); },
+        consume_output(id: number, buffer: number, len: number) {
+            const output = numberedOutputs.instances.get(id);
+
+            if (output) {
+                const data = memory().subarray(buffer, buffer + len);
+                console.log(id, buffer, len, data);
+                output.consume(data);
+            } else {
+                throw new Error("Invalid output");
+            }
+        },
         request_capability(type: number) {
             const [id, _] = numberedCapability.create(type);
             return id;
         },
         request_capability_set_param() { console.error("request_capability_set_param", arguments); },
-        request_provider_response() { console.error("request_provider_response", arguments); },
+        request_provider_response(buffer: number, len: number, id: number) {
+            const cap = numberedCapability.instances.get(id);
+            if (!cap) {
+                throw new Error("Invalid capabiltiy");
+            }
+
+            const dest = memory().subarray(buffer, buffer + len);
+            cap.generate(dest);
+        },
         tfm_preload_model(data: number, len: number, _: number) {
-            const modelData = memory().subarray(data, len);
+            const modelData = memory().subarray(data, data + len);
             const model = imports.loadModel(modelData);
             const id = ids();
             models.set(id, model);
             return id;
         },
-        tfm_model_invoke() { console.error("tfm_model_invoke", arguments); },
+        tfm_model_invoke(id: number, inputPtr: number, inputLen: number, outputPtr: number, outputLen: number) {
+            const model = models.get(id);
+
+            if (!model) {
+                throw new Error("Invalid model");
+            }
+
+            const input = memory().subarray(inputPtr, inputPtr + inputLen);
+            const output = memory().subarray(outputPtr, outputPtr + outputLen);
+
+            model.transform(input, output);
+        },
     };
 
     return { env };
