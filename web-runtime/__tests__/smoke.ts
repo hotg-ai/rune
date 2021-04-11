@@ -1,5 +1,6 @@
 import "jest";
-import { Capabilities, Capability, Imports, loadRuntime, Model, Output, Outputs } from "../src";
+import { Capability, Imports, Model, Output, Outputs } from "../src";
+import Runtime from "../src/Runtime";
 import runes from "../__mocks__/runes";
 
 describe("Web Runtime", () => {
@@ -7,7 +8,7 @@ describe("Web Runtime", () => {
         const sine = await runes.sine();
         const module = await WebAssembly.compile(sine);
 
-        const got = await loadRuntime(module, trivialImports());
+        const got = await Runtime.load(module, trivialImports(), () => new DummyModel());
 
         expect(got).toBeDefined();
     });
@@ -17,9 +18,9 @@ describe("Web Runtime", () => {
         const module = await WebAssembly.compile(sine);
         const imports = trivialImports();
         const serial = imports.outputs.serial() as SerialOutput;
-        const runtime = await loadRuntime(module, imports);
+        const runtime = await Runtime.load(module, imports, () => new DummyModel());
 
-        runtime();
+        runtime.call();
 
         expect(serial.calls).toEqual([[0]]);
     });
@@ -34,11 +35,7 @@ function trivialImports(): Imports {
         serial: () => serial,
     };
 
-    return {
-        capabilities,
-        outputs,
-        loadModel: () => new DummyModel(),
-    }
+    return { capabilities, outputs };
 }
 
 class RandomCapability implements Capability {
