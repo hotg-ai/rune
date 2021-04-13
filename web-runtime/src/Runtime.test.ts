@@ -1,6 +1,6 @@
 import "jest";
-import { Capability, Imports, Model, Output, Outputs } from "../src";
-import Runtime from "../src/Runtime";
+import { Capability, Imports, Model, Output, Outputs } from ".";
+import Runtime from "./Runtime";
 import runes from "../__mocks__/runes";
 
 describe("Web Runtime", () => {
