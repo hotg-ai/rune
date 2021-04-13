@@ -1,4 +1,10 @@
-import { Imports, KnownCapabilities, KnownOutputs, Model, ModelConstructor } from "./imports";
+import {
+    Imports,
+    KnownCapabilities,
+    KnownOutputs,
+    Model,
+    ModelConstructor,
+} from "./imports";
 
 export default class Runtime {
     private instance: WebAssembly.Instance;
@@ -7,10 +13,17 @@ export default class Runtime {
         this.instance = instance;
     }
 
-    public static async load(mod: WebAssembly.Module, imports: Imports, modelConstructor: ModelConstructor): Promise<Runtime> {
+    public static async load(
+        mod: WebAssembly.Module,
+        imports: Imports,
+        modelConstructor: ModelConstructor
+    ): Promise<Runtime> {
         let memory: WebAssembly.Memory;
 
-        const instance = await WebAssembly.instantiate(mod, importsToHostFunctions(imports, () => memory, modelConstructor));
+        const instance = await WebAssembly.instantiate(
+            mod,
+            importsToHostFunctions(imports, () => memory, modelConstructor)
+        );
 
         if (!isRuneExports(instance.exports)) {
             throw new Error("Invalid Rune exports");
@@ -27,11 +40,8 @@ export default class Runtime {
     }
 
     private get exports(): RuneExports {
-        if (!isRuneExports(this.instance.exports)) {
-            throw new Error("Invalid Rune exports");
-        }
-
-        return this.instance.exports;
+        // Note: checked inside Runtime.load() and exports will never change.
+        return (this.instance.exports as unknown) as RuneExports;
     }
 }
 
@@ -44,21 +54,64 @@ type HostFunctions = {
         request_capability_set_param(): void;
         request_provider_response(buffer: number, len: number, id: number): void;
         tfm_preload_model(data: number, len: number, _: number): number;
-        tfm_model_invoke(id: number, inputPtr: number, inputLen: number, outputPtr: number, outputLen: number): void;
+        tfm_model_invoke(
+            id: number,
+            inputPtr: number,
+            inputLen: number,
+            outputPtr: number,
+            outputLen: number
+        ): void;
+    };
+};
+
+function constructFromNameTable<T>(
+    nextId: () => number,
+    nameTable: Record<number, string>,
+    constructors: Record<string, () => T>
+): [Map<number, T>, (n: number) => number] {
+    const instances = new Map<number, T>();
+
+    function create(type: number): number {
+        const name = nameTable[type];
+        if (!name) {
+            throw new Error(`type ${type} is unknown`);
+        }
+        const constructor = constructors[name];
+        if (!constructor) {
+            throw new Error(`No constructor for type ${type} called \"${name}\"`);
+        }
+
+        const instance = constructor();
+        const id = nextId();
+
+        instances.set(id, instance);
+        return id;
     }
+
+    return [instances, create];
 }
 
-function importsToHostFunctions(imports: Imports,
-    getMemory: () => WebAssembly.Memory,
-    modelConstructor: ModelConstructor): HostFunctions {
+function importsToHostFunctions(
+    imports: Imports,
+    getMemory: () => WebAssembly.Memory | undefined,
+    modelConstructor: ModelConstructor
+): HostFunctions {
     const memory = () => {
         const m = getMemory();
         if (!m) throw new Error("WebAssembly memory wasn't initialized");
         return new Uint8Array(m.buffer);
     };
     const ids = counter();
-    const numberedOutputs = new IndirectFactory(ids, KnownOutputs, imports.outputs);
-    const numberedCapability = new IndirectFactory(ids, KnownCapabilities, imports.capabilities);
+    const [outputs, createOutput] = constructFromNameTable(
+        ids,
+        KnownOutputs,
+        imports.outputs
+    );
+    const [capabilities, createCapability] = constructFromNameTable(
+        ids,
+        KnownCapabilities,
+        imports.capabilities
+    );
     const models = new Map<number, Model>();
     const utf8 = new TextDecoder();
 
@@ -70,11 +123,10 @@ function importsToHostFunctions(imports: Imports,
             console.log(message);
         },
         request_output(type: number) {
-            const [id, _] = numberedOutputs.create(type);
-            return id;
+            return createOutput(type);
         },
         consume_output(id: number, buffer: number, len: number) {
-            const output = numberedOutputs.instances.get(id);
+            const output = outputs.get(id);
 
             if (output) {
                 const data = memory().subarray(buffer, buffer + len);
@@ -84,12 +136,13 @@ function importsToHostFunctions(imports: Imports,
             }
         },
         request_capability(type: number) {
-            const [id, _] = numberedCapability.create(type);
-            return id;
+            return createCapability(type);
         },
-        request_capability_set_param() { console.error("request_capability_set_param", arguments); },
+        request_capability_set_param() {
+            console.error("request_capability_set_param", arguments);
+        },
         request_provider_response(buffer: number, len: number, id: number) {
-            const cap = numberedCapability.instances.get(id);
+            const cap = capabilities.get(id);
             if (!cap) {
                 throw new Error("Invalid capabiltiy");
             }
@@ -104,7 +157,13 @@ function importsToHostFunctions(imports: Imports,
             models.set(id, model);
             return id;
         },
-        tfm_model_invoke(id: number, inputPtr: number, inputLen: number, outputPtr: number, outputLen: number) {
+        tfm_model_invoke(
+            id: number,
+            inputPtr: number,
+            inputLen: number,
+            outputPtr: number,
+            outputLen: number
+        ) {
             const model = models.get(id);
 
             if (!model) {
@@ -127,37 +186,6 @@ function counter(): () => number {
     return () => value++;
 }
 
-class IndirectFactory<T> {
-    nextId: () => number;
-    nameTable: Record<number, string>;
-    constructors: Record<string, () => T>;
-    instances: Map<number, T>;
-
-    constructor(nextId: () => number, nameTable: Record<number, string>, constructors: Record<string, () => T>) {
-        this.nextId = nextId;
-        this.nameTable = nameTable;
-        this.constructors = constructors;
-        this.instances = new Map<number, T>();
-    }
-
-    create(type: number): [number, T] {
-        const name = this.nameTable[type];
-        if (!name) {
-            throw new Error(`type ${type} is unknown`);
-        }
-        const constructor = this.constructors[name];
-        if (!constructor) {
-            throw new Error(`No constructor for type ${type} called \"${name}\"`);
-        }
-
-        const instance = constructor();
-        const id = this.nextId();
-
-        this.instances.set(id, instance);
-        return [id, instance];
-    }
-}
-
 interface RuneExports {
     readonly memory: WebAssembly.Memory;
     _call(_a: number, _b: number, _c: number): void;
@@ -165,8 +193,10 @@ interface RuneExports {
 }
 
 function isRuneExports(obj?: any): obj is RuneExports {
-    return obj &&
+    return (
+        obj &&
         obj.memory instanceof WebAssembly.Memory &&
         obj._call instanceof Function &&
-        obj._manifest instanceof Function;
+        obj._manifest instanceof Function
+    );
 }

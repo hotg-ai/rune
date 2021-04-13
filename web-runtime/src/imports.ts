@@ -17,7 +17,7 @@ export interface Capability {
 
 export interface Capabilities {
     [key: string]: () => Capability;
-};
+}
 
 export interface Output {
     consume(data: Uint8Array): void;
@@ -25,7 +25,7 @@ export interface Output {
 
 export interface Outputs {
     [key: string]: () => Output;
-};
+}
 
 export interface Model {
     transform(input: Uint8Array, output: Uint8Array): void;
