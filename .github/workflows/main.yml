@@ -19,10 +19,8 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
+      - name: Setup Rust Toolchain
+        run: rustup show
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
       - name: Type Check
