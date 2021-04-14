@@ -1,0 +1,21 @@
+{
+  "name": "web-runtime-integration-tests",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "build:fixtures": "cargo run --manifest-path ../../rune/Cargo.toml -- build ../../examples/sine/Runefile --output ./sine.rune",
+    "build:wasm": "wasm-pack build .. --dev",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.22",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.4",
+    "rune": "../pkg",
+    "typescript": "^4.2.4"
+  }
+}

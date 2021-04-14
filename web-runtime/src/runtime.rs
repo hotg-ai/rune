@@ -1,8 +1,9 @@
 use std::{collections::HashMap, sync::Mutex};
+use WebAssembly::Module;
 use rune_runtime::Image;
 use wasm_bindgen::{JsCast, prelude::*};
 use js_sys::{
-    JsString, Object, Reflect,
+    JsString, Object, Reflect, Uint8Array,
     WebAssembly::{self, Instance, Memory},
 };
 use alloc::sync::Arc;
@@ -17,7 +18,17 @@ pub struct Runtime {
 #[wasm_bindgen]
 impl Runtime {
     pub async fn load(
-        rune: Vec<u8>,
+        rune: Uint8Array,
+        imports: Imports,
+    ) -> Result<Runtime, JsValue> {
+        let pending = WebAssembly::compile(rune.as_ref());
+        let module = wasm_bindgen_futures::JsFuture::from(pending).await?;
+
+        Runtime::load_from_module(module.unchecked_into(), imports).await
+    }
+
+    pub async fn load_from_module(
+        module: Module,
         imports: Imports,
     ) -> Result<Runtime, JsValue> {
         let memory: Arc<Mutex<Option<Memory>>> = Arc::new(Mutex::new(None));
@@ -27,7 +38,8 @@ impl Runtime {
         image.initialize_imports(&mut registrar);
 
         let (imports, drops) = registrar.to_object()?;
-        let pending = WebAssembly::instantiate_buffer(&rune, &imports);
+        let pending =
+            WebAssembly::instantiate_module(module.as_ref(), &imports);
         let instance = wasm_bindgen_futures::JsFuture::from(pending).await?;
 
         Ok(Runtime {
@@ -105,11 +117,12 @@ impl rune_runtime::Registrar for Registrar {
             .or_insert_with(Object::new);
         let name = JsValue::from_str(name);
 
-        let droppable = crate::hacks::with_wrapped_closure(function, memory, |value| {
-            if let Err(e) = Reflect::set(ns, &name, value) {
-                wasm_bindgen::throw_val(e);
-            }
-        });
+        let droppable =
+            crate::hacks::with_wrapped_closure(function, memory, |value| {
+                if let Err(e) = Reflect::set(ns, &name, value) {
+                    wasm_bindgen::throw_val(e);
+                }
+            });
 
         // we store the closures so we can clean them up properly later on
         self.drops.push(droppable);

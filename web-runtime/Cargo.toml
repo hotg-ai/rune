@@ -1,5 +1,5 @@
 [package]
-name = "web-runtime"
+name = "rune"
 version = "0.1.0"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
