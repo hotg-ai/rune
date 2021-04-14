@@ -1,4 +1,5 @@
 use anyhow::{Context, Error};
+use fmt::Display;
 use crate::{WasmType, WasmValue};
 use std::{
     convert::{Infallible, TryFrom, TryInto},
@@ -42,6 +43,38 @@ impl Signature {
     pub fn parameters(&self) -> &'static [WasmType] { self.parameters }
 
     pub fn returns(&self) -> &'static [WasmType] { self.returns }
+}
+
+impl Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "fn(")?;
+
+        match self.parameters() {
+            [] => {},
+            [first, rest @ ..] => {
+                write!(f, "{}", first)?;
+                for ty in rest {
+                    write!(f, ", {}", ty)?;
+                }
+            },
+        }
+
+        write!(f, ")")?;
+
+        match self.returns() {
+            [] => {},
+            [ty] => write!(f, " -> {}", ty)?,
+            [first, rest @ ..] => {
+                write!(f, " -> ({}", first)?;
+                for ty in rest {
+                    write!(f, ", {}", ty)?;
+                }
+                write!(f, ")")?;
+            },
+        }
+
+        Ok(())
+    }
 }
 
 /// A type-erased function which can be used with WebAssembly values.
@@ -284,5 +317,51 @@ mod tests {
         let got = src.into_values();
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn signature_display_impl() {
+        let inputs = vec![
+            (
+                Signature {
+                    parameters: &[],
+                    returns: &[],
+                },
+                "fn()",
+            ),
+            (
+                Signature {
+                    parameters: &[WasmType::I32],
+                    returns: &[],
+                },
+                "fn(i32)",
+            ),
+            (
+                Signature {
+                    parameters: &[WasmType::I32, WasmType::F64],
+                    returns: &[],
+                },
+                "fn(i32, f64)",
+            ),
+            (
+                Signature {
+                    parameters: &[],
+                    returns: &[WasmType::I32],
+                },
+                "fn() -> i32",
+            ),
+            (
+                Signature {
+                    parameters: &[],
+                    returns: &[WasmType::I32, WasmType::F64],
+                },
+                "fn() -> (i32, f64)",
+            ),
+        ];
+
+        for (signature, should_be) in inputs {
+            let got = format!("{}", signature);
+            assert_eq!(got, should_be);
+        }
     }
 }

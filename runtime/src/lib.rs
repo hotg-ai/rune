@@ -22,14 +22,27 @@ pub enum WasmValue {
     I64(i64),
 }
 
+impl WasmValue {
+    pub const fn wasm_type(self) -> WasmType {
+        match self {
+            WasmValue::F32(_) => WasmType::F32,
+            WasmValue::F64(_) => WasmType::F64,
+            WasmValue::I32(_) => WasmType::I32,
+            WasmValue::I64(_) => WasmType::I64,
+        }
+    }
+}
+
 impl Display for WasmValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            WasmValue::F32(float) => write!(f, "{}_f32", float),
-            WasmValue::F64(double) => write!(f, "{}_f64", double),
-            WasmValue::I32(int) => write!(f, "{}_i32", int),
-            WasmValue::I64(long) => write!(f, "{}_i64", long),
+            WasmValue::F32(float) => write!(f, "{}", float)?,
+            WasmValue::F64(double) => write!(f, "{}", double)?,
+            WasmValue::I32(int) => write!(f, "{}", int)?,
+            WasmValue::I64(long) => write!(f, "{}", long)?,
         }
+
+        write!(f, "_{}", self.wasm_type())
     }
 }
 
@@ -39,6 +52,17 @@ pub enum WasmType {
     F64,
     I32,
     I64,
+}
+
+impl Display for WasmType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            WasmType::F32 => write!(f, "f32"),
+            WasmType::F64 => write!(f, "f64"),
+            WasmType::I32 => write!(f, "i32"),
+            WasmType::I64 => write!(f, "i64"),
+        }
+    }
 }
 
 pub trait Image {
