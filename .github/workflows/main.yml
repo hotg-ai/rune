@@ -78,7 +78,7 @@ jobs:
       - name: Build
         run: wasm-pack build ./web-runtime --dev
       - name: Test
-        run: wasm-pack test ./web-runtime --dev --firefox --headless
+        run: wasm-pack test ./web-runtime --firefox --headless
       - name: Setup Web Runtime Tests
         run: |
           cd web-runtime/tests
