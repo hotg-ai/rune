@@ -1,13 +1,13 @@
 #![no_std]
 // The WebAssembly bindings need to provide alloc error handling.
 #![cfg_attr(
-    all(target_arch = "wasm32", features = "rune-runtime-support"),
+    all(target_arch = "wasm32", feature = "rune-runtime-support"),
     feature(core_intrinsics, lang_items, alloc_error_handler)
 )]
 
 extern crate alloc;
 
-#[cfg(all(target_arch = "wasm32", features = "rune-runtime-support"))]
+#[cfg(all(target_arch = "wasm32", feature = "rune-runtime-support"))]
 pub mod wasm32;
 
 mod buf_writer;
