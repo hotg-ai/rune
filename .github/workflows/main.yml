@@ -79,3 +79,13 @@ jobs:
         run: wasm-pack build ./web-runtime --dev
       - name: Test
         run: wasm-pack test ./web-runtime --dev --firefox --headless
+      - name: Setup Web Runtime Tests
+        run: |
+          cd web-runtime/tests
+          yarn install
+          yarn build:fixtures
+          yarn build:wasm
+      - name: Run Web Runtime Tests
+        run: |
+          cd web-runtime/tests
+          yarn test
