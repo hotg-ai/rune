@@ -52,3 +52,30 @@ jobs:
         with:
           branch: gh-pages
           folder: target/doc
+
+  web:
+    name: Web Runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: web-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Install wasm-pack
+        uses: actions-rs/install@v0.1
+        with:
+          crate: wasm-pack
+          version: latest
+      - name: Build
+        run: wasm-pack build ./web-runtime --dev
+      - name: Test
+        run: wasm-pack test ./web-runtime --dev --firefox --headless
