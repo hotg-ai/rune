@@ -61,7 +61,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: nightly-2021-03-10
           override: true
       - name: Install wasm32 target
         run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
