@@ -5,6 +5,9 @@ import {
     Model,
     ModelConstructor,
 } from "./imports";
+import { loadTFLiteModelFromBuffer } from "./hacked-tensorflow";
+import * as tf from "@tensorflow/tfjs-core";
+import { Tensor } from "@tensorflow/tfjs-core";
 
 export default class Runtime {
     private instance: WebAssembly.Instance;
@@ -16,7 +19,7 @@ export default class Runtime {
     public static async load(
         mod: WebAssembly.Module,
         imports: Imports,
-        modelConstructor: ModelConstructor
+        modelConstructor: ModelConstructor = loadTensorflowLiteModel
     ): Promise<Runtime> {
         let memory: WebAssembly.Memory;
 
@@ -152,9 +155,9 @@ function importsToHostFunctions(
         },
         tfm_preload_model(data: number, len: number, _: number) {
             const modelData = memory().subarray(data, data + len);
-            const model = modelConstructor(modelData);
+            // const model = modelConstructor(modelData);
             const id = ids();
-            models.set(id, model);
+            // models.set(id, model);
             return id;
         },
         tfm_model_invoke(
@@ -199,4 +202,16 @@ function isRuneExports(obj?: any): obj is RuneExports {
         obj._call instanceof Function &&
         obj._manifest instanceof Function
     );
+}
+
+async function loadTensorflowLiteModel(data: Uint8Array): Promise<Model> {
+    const model = await loadTFLiteModelFromBuffer(data);
+
+    return {
+        async transform(input: Uint8Array, output: Uint8Array) {
+            const outputTensor = model.predict(tf.tensor([input])) as Tensor;
+            const rawBytes = await outputTensor.bytes() as Uint8Array;
+            output.set(rawBytes);
+        }
+    }
 }

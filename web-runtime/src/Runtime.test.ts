@@ -1,14 +1,15 @@
 import "jest";
 import { Capability, Imports, Model, Output, Outputs } from ".";
 import Runtime from "./Runtime";
-import runes from "../__mocks__/runes";
+import { promises } from "fs";
+import { join } from "path";
 
 describe("Web Runtime", () => {
     it("should load a Rune", async () => {
         const sine = await runes.sine();
         const module = await WebAssembly.compile(sine);
 
-        const got = await Runtime.load(module, trivialImports(), () => new DummyModel());
+        const got = await Runtime.load(module, trivialImports(), () => Promise.resolve(new DummyModel()));
 
         expect(got).toBeDefined();
     });
@@ -18,7 +19,7 @@ describe("Web Runtime", () => {
         const module = await WebAssembly.compile(sine);
         const imports = trivialImports();
         const serial = imports.outputs.serial() as SerialOutput;
-        const runtime = await Runtime.load(module, imports, () => new DummyModel());
+        const runtime = await Runtime.load(module, imports, () => Promise.resolve(new DummyModel()));
 
         runtime.call();
 
@@ -63,3 +64,10 @@ class DummyModel implements Model {
     transform(input: Uint8Array, output: Uint8Array): void {
     }
 }
+
+const runes = {
+    sine() {
+        const path = join(__dirname, "..", "fixtures", "sine.rune");
+        return promises.readFile(path);
+    },
+};

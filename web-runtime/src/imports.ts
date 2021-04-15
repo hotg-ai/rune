@@ -31,7 +31,7 @@ export interface Model {
     transform(input: Uint8Array, output: Uint8Array): void;
 }
 
-export type ModelConstructor = (raw: Uint8Array) => Model;
+export type ModelConstructor = (raw: Uint8Array) => Promise<Model>;
 
 export interface Imports {
     capabilities: Capabilities;
