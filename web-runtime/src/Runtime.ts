@@ -23,10 +23,8 @@ export default class Runtime {
     ): Promise<Runtime> {
         let memory: WebAssembly.Memory;
 
-        const instance = await WebAssembly.instantiate(
-            mod,
-            importsToHostFunctions(imports, () => memory, modelConstructor)
-        );
+        const [hostFunctions, finaliseModels] = importsToHostFunctions(imports, () => memory, modelConstructor);
+        const instance = await WebAssembly.instantiate(mod, hostFunctions);
 
         if (!isRuneExports(instance.exports)) {
             throw new Error("Invalid Rune exports");
@@ -34,6 +32,10 @@ export default class Runtime {
         memory = instance.exports.memory;
 
         instance.exports._manifest();
+
+        // now we've asked for all the models to be loaded, let's wait until
+        // they are done before continuing
+        await finaliseModels();
 
         return new Runtime(instance);
     }
@@ -98,7 +100,7 @@ function importsToHostFunctions(
     imports: Imports,
     getMemory: () => WebAssembly.Memory | undefined,
     modelConstructor: ModelConstructor
-): HostFunctions {
+): [HostFunctions, () => Promise<void>] {
     const memory = () => {
         const m = getMemory();
         if (!m) throw new Error("WebAssembly memory wasn't initialized");
@@ -115,6 +117,7 @@ function importsToHostFunctions(
         KnownCapabilities,
         imports.capabilities
     );
+    const pendingModels: Promise<[number, Model]>[] = [];
     const models = new Map<number, Model>();
     const utf8 = new TextDecoder();
 
@@ -155,9 +158,9 @@ function importsToHostFunctions(
         },
         tfm_preload_model(data: number, len: number, _: number) {
             const modelData = memory().subarray(data, data + len);
-            // const model = modelConstructor(modelData);
+            const pending = modelConstructor(modelData);
             const id = ids();
-            // models.set(id, model);
+            pendingModels.push(pending.then(model => [id, model]));
             return id;
         },
         tfm_model_invoke(
@@ -180,7 +183,16 @@ function importsToHostFunctions(
         },
     };
 
-    return { env };
+    async function synchroniseModelLoading(): Promise<void> {
+        const loadedModels = await Promise.all(pendingModels);
+        pendingModels.length = 0;
+
+        loadedModels.forEach(([id, model]) => {
+            models.set(id, model);
+        });
+    }
+
+    return [{ env }, synchroniseModelLoading];
 }
 
 function counter(): () => number {
@@ -208,10 +220,12 @@ async function loadTensorflowLiteModel(data: Uint8Array): Promise<Model> {
     const model = await loadTFLiteModelFromBuffer(data);
 
     return {
-        async transform(input: Uint8Array, output: Uint8Array) {
+        transform(input: Uint8Array, output: Uint8Array) {
             const outputTensor = model.predict(tf.tensor([input])) as Tensor;
-            const rawBytes = await outputTensor.bytes() as Uint8Array;
-            output.set(rawBytes);
+            const { buffer, byteOffset, byteLength } = outputTensor.dataSync();
+            const binaryRepresentation = new Uint8Array(buffer.slice(byteLength, byteLength + byteOffset));;
+
+            output.set(binaryRepresentation);
         }
     }
 }
