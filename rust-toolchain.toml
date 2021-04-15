@@ -1,2 +1,3 @@
 [toolchain]
 channel = "nightly-2021-03-25"
+targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-musl"]
