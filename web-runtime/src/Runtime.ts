@@ -1,4 +1,5 @@
 import {
+    HostFunctions,
     Imports,
     KnownCapabilities,
     KnownOutputs,
@@ -49,25 +50,6 @@ export default class Runtime {
         return (this.instance.exports as unknown) as RuneExports;
     }
 }
-
-type HostFunctions = {
-    env: {
-        _debug(msg: number, len: number): void;
-        request_output(type: number): number;
-        consume_output(id: number, buffer: number, len: number): void;
-        request_capability(type: number): number;
-        request_capability_set_param(): void;
-        request_provider_response(buffer: number, len: number, id: number): void;
-        tfm_preload_model(data: number, len: number, _: number): number;
-        tfm_model_invoke(
-            id: number,
-            inputPtr: number,
-            inputLen: number,
-            outputPtr: number,
-            outputLen: number
-        ): void;
-    };
-};
 
 function constructFromNameTable<T>(
     nextId: () => number,
