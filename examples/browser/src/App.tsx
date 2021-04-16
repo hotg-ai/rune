@@ -1,7 +1,8 @@
 import React, { ChangeEvent } from "react";
 import Capabilities, { Callbacks } from './components/Capabilities';
-import { Runtime, Imports, Output } from "rune";
+import { Runtime, Imports, Output, Capability } from "rune";
 import Outputs from "./components/Outputs";
+import ReactDOM from "react-dom";
 
 type State = {
   runtime?: Runtime,
@@ -23,7 +24,9 @@ export default class App extends React.Component<Props, State> {
 
     this.state = {
       imports: {
-        capabilities: {},
+        capabilities: {
+          rand: () => new RandomCapability(),
+        },
         outputs: {
           serial: () => logger,
         }
@@ -36,6 +39,7 @@ export default class App extends React.Component<Props, State> {
   onFileInputChanged(e: ChangeEvent<HTMLInputElement>, imports: Imports) {
     if (e.target.files && e.target.files.length >= 1) {
       e.target.files[0].arrayBuffer()
+        .then(bytes => WebAssembly.compile(bytes))
         .then(rune => Runtime.load(rune, this.state.imports))
         .then(runtime => this.setState({ runtime, ...this.state }));
     }
@@ -81,7 +85,7 @@ type EventHandler<T> = (arg: T) => void;
 
 class LoggingOutput implements Output {
   private decoder = new TextDecoder();
-  private callbacks: EventHandler<string>[];
+  private callbacks: EventHandler<string>[] = [];
 
   consume(data: Uint8Array): void {
     const message = this.decoder.decode(data);
@@ -96,3 +100,16 @@ class LoggingOutput implements Output {
   }
 }
 
+ReactDOM.render(<App />, document.getElementById("app"));
+
+class RandomCapability implements Capability {
+  generate(dest: Uint8Array): void {
+    const randomBytes = new Array(dest.length).map(() => Math.round(Math.random() * 255));
+    dest.set(randomBytes);
+  }
+
+  set(key: string, value: number): void {
+    console.log("Setting", key, value);
+  }
+
+}
