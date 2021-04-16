@@ -1,2 +1,2 @@
 export * from "./imports";
-export * from "./Runtime";
+export { default as Runtime } from "./Runtime";
