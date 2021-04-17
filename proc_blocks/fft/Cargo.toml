@@ -10,3 +10,5 @@ edition = "2018"
 runic-types = { path = "../../runic-types" }
 hound = "3.4"
 sonogram = {git = "https://github.com/hotg-ai/sonogram"}
+mel = "0.3.0"
+nalgebra = "0.26.1"

@@ -1,6 +1,8 @@
 #![no_std]
 
+extern crate std;
 extern crate alloc;
+
 use alloc::vec::Vec;
 use sonogram::SpecOptionsBuilder;
 pub use runic_types::{Transform};
@@ -82,7 +84,7 @@ impl Fft {
         let power_spectrum_matrix: DMatrix<f64> = DMatrix::from_rows(&power_spectrum_vec);
         let mel_spectrum_matrix = &mel_filter_matrix*&power_spectrum_matrix;
 
-        let min_value = mel_spectrum_matrix.data.as_vec().iter().fold(f64::INFINITY, 
+        let min_value = mel_spectrum_matrix.data.as_vec().iter().fold(f64::INFINITY,
             |a, &b| a.min(b));
         let max_value =
         mel_spectrum_matrix.data.as_vec().iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
@@ -98,7 +100,7 @@ impl Fft {
         }
 
         return out;
-    
+
     }
 }
 
