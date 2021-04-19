@@ -3,7 +3,7 @@ use build_info::{BuildInfo, GitInfo};
 use structopt::StructOpt;
 use std::{path::Path, str::FromStr};
 
-build_info::build_info!(fn version);
+build_info::build_info!(pub fn version);
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct Version {

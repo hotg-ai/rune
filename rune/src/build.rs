@@ -3,7 +3,7 @@ use codespan_reporting::{
     files::SimpleFiles,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use rune_codegen::Compilation;
+use rune_codegen::{Compilation, RuneProject};
 use rune_syntax::{Diagnostics, hir::Rune};
 use std::{
     env::current_dir,
@@ -53,10 +53,24 @@ impl Build {
             name,
             working_directory.display()
         );
+        let rune_project = match nearest_git_repo() {
+            Some(root_dir) => RuneProject::Disk(root_dir),
+            None => {
+                let build_info = crate::version::version();
+                let git = build_info
+                    .version_control
+                    .as_ref()
+                    .and_then(|v| v.git())
+                    .context("Unable to determine the rune project dir")?;
+                RuneProject::Git {
+                    committish: git.commit_id.clone(),
+                }
+            },
+        };
         let compilation = Compilation {
             name,
             rune,
-            rune_project_dir: nearest_git_repo(),
+            rune_project,
             current_directory,
             working_directory,
             optimized: !self.debug,
@@ -111,16 +125,16 @@ impl Build {
     }
 }
 
-fn nearest_git_repo() -> PathBuf {
+fn nearest_git_repo() -> Option<PathBuf> {
     let current_dir = std::env::current_dir().unwrap();
 
     for parent in current_dir.ancestors() {
         if parent.join(".git").exists() {
-            return parent.to_path_buf();
+            return Some(parent.to_path_buf());
         }
     }
 
-    panic!("Unable to find the rune project root");
+    None
 }
 
 static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {

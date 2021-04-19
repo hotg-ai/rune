@@ -16,6 +16,8 @@ use std::{
 use once_cell::sync::Lazy;
 use petgraph::{Direction, visit::EdgeRef};
 
+const RUNE_GITHUB_REPO: &str = "https://github.com/hotg-ai/rune";
+
 static REQUIRED_DEPENDENCIES: Lazy<Vec<Value>> = Lazy::new(|| {
     vec![json!({
         "name": "log",
@@ -36,9 +38,8 @@ pub struct Compilation {
     pub working_directory: PathBuf,
     /// The directory that all paths (e.g. to models) are resolved relative to.
     pub current_directory: PathBuf,
-    /// The root directory for the `rune` project (used for locating
-    /// dependencies).
-    pub rune_project_dir: PathBuf,
+    /// How to find the Rune project.
+    pub rune_project: RuneProject,
     /// Generate an optimized build.
     pub optimized: bool,
 }
@@ -74,7 +75,7 @@ struct Generator {
     rune: Rune,
     dest: PathBuf,
     current_directory: PathBuf,
-    rune_project_dir: PathBuf,
+    rune_project: RuneProject,
     optimized: bool,
 }
 
@@ -108,7 +109,7 @@ impl Generator {
             rune,
             working_directory,
             current_directory,
-            rune_project_dir,
+            rune_project,
             optimized,
         } = compilation;
 
@@ -117,7 +118,7 @@ impl Generator {
             hbs,
             rune,
             current_directory,
-            rune_project_dir,
+            rune_project,
             optimized,
             dest: working_directory,
         }
@@ -145,15 +146,11 @@ impl Generator {
     }
 
     fn dependencies(&self) -> Vec<Value> {
-        let runic_types = self.rune_project_dir.join("runic-types");
         let mut dependencies = REQUIRED_DEPENDENCIES.clone();
-
-        dependencies.push(
-            json!({ "name": "runic-types", "deps": { "path": runic_types } }),
-        );
+        dependencies.push(self.rune_project.runic_types_dependency());
 
         for (_, _, proc) in self.rune.proc_blocks() {
-            dependencies.push(dependency_info(proc, &self.rune_project_dir));
+            dependencies.push(dependency_info(proc, &self.rune_project));
         }
 
         dependencies
@@ -413,16 +410,12 @@ fn rust_literal(arg: &ArgumentValue) -> String {
 
 fn dependency_info(
     proc: &rune_syntax::hir::ProcBlock,
-    rune_project_dir: &Path,
+    rune_project: &RuneProject,
 ) -> serde_json::Value {
     let name = proc.name();
 
     if is_builtin(&proc.path) {
-        let path = rune_project_dir.join("proc_blocks").join(name);
-        json!({
-            "name": name,
-            "deps": {"path": path.display().to_string() },
-        })
+        rune_project.proc_block(name)
     } else {
         let repo = format!("https://github.com/{}.git", proc.path.base);
         json!({
@@ -512,6 +505,41 @@ struct Stage<'a> {
     previous: Option<&'a str>,
     next: Option<&'a str>,
     output_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuneProject {
+    Disk(PathBuf),
+    Git { committish: String },
+}
+
+impl RuneProject {
+    fn runic_types_dependency(&self) -> Value {
+        match self {
+            RuneProject::Disk(root_dir) => {
+                let path = root_dir.join("runic-types");
+                json!({ "name": "runic-types", "deps": { "path": path.display().to_string() } })
+            },
+            RuneProject::Git { committish } => {
+                json!({ "name": "runic-types", "deps": { "git": RUNE_GITHUB_REPO, "rev": committish } })
+            },
+        }
+    }
+
+    fn proc_block(&self, name: &str) -> Value {
+        match self {
+            RuneProject::Disk(root_dir) => {
+                let path = root_dir.join("proc_blocks").join(name);
+                json!({
+                    "name": name,
+                    "deps": {"path": path.display().to_string() },
+                })
+            },
+            RuneProject::Git { committish } => {
+                json!({ "name": name, "deps": { "git": RUNE_GITHUB_REPO, "rev": committish } })
+            },
+        }
+    }
 }
 
 #[cfg(test)]
