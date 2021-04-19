@@ -1,12 +1,16 @@
 mod build;
 mod graph;
 mod run;
+mod version;
 
 use std::str::FromStr;
-use crate::build::Build;
+use crate::{
+    build::Build,
+    version::{Format, Version},
+};
 use anyhow::Error;
 use codespan_reporting::term::termcolor;
-use structopt::StructOpt;
+use structopt::{clap::AppSettings, StructOpt};
 use env_logger::{Env, WriteStyle};
 use crate::run::Run;
 use crate::graph::Graph;
@@ -20,7 +24,12 @@ const DEFAULT_RUST_LOG: &str = concat!(
 );
 
 fn main() -> Result<(), Error> {
-    let Args { colour, cmd } = Args::from_args();
+    let Args {
+        colour,
+        cmd,
+        version,
+        verbose,
+    } = Args::from_args();
 
     let env = Env::new().default_filter_or(DEFAULT_RUST_LOG);
     env_logger::builder()
@@ -31,9 +40,26 @@ fn main() -> Result<(), Error> {
         .init();
 
     match cmd {
-        Cmd::Build(build) => build.execute(colour.into()),
-        Cmd::Run(run) => run.execute(),
-        Cmd::Graph(graph) => graph.execute(colour.into()),
+        Some(Cmd::Build(build)) => build.execute(colour.into()),
+        Some(Cmd::Run(run)) => run.execute(),
+        Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
+        Some(Cmd::Version(mut version)) => {
+            version.verbose |= verbose;
+            version.execute()
+        },
+        None if version => {
+            let v = Version {
+                format: Format::Text,
+                verbose,
+            };
+            v.execute()
+        },
+        None => {
+            // we haven't been asked to print the version or execute a command,
+            // so just print out the usage and bail.
+            Args::clap().print_help()?;
+            Ok(())
+        },
     }
 }
 
@@ -47,8 +73,12 @@ pub struct Args {
         possible_values = &["always", "never", "auto"])
     ]
     colour: ColorChoice,
+    #[structopt(short = "V", long, help = "Print out version information")]
+    version: bool,
+    #[structopt(short, long, help = "Prints even more detailed information")]
+    verbose: bool,
     #[structopt(subcommand)]
-    cmd: Cmd,
+    cmd: Option<Cmd>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -92,6 +122,7 @@ impl FromStr for ColorChoice {
 }
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
+#[structopt(setting(AppSettings::DisableVersion))]
 enum Cmd {
     /// Compile a Runefile into a Rune.
     Build(Build),
@@ -99,4 +130,6 @@ enum Cmd {
     Run(Run),
     /// Parse a Runefile and generate a DOT graph showing the pipelines inside.
     Graph(Graph),
+    /// Print detailed version information.
+    Version(Version),
 }

@@ -4,7 +4,7 @@ use std::{
 };
 use tempfile::TempDir;
 use rune_syntax::Diagnostics;
-use rune_codegen::Compilation;
+use rune_codegen::{Compilation, RuneProject};
 
 #[test]
 fn execute_cpp_example() {
@@ -69,7 +69,7 @@ fn execute_cpp_example() {
         rune: analysed,
         working_directory: temp.join("rust"),
         current_directory: ffi_dir.to_path_buf(),
-        rune_project_dir,
+        rune_project: RuneProject::Disk(rune_project_dir),
         optimized: false,
     };
     let compiled = rune_codegen::generate(c).unwrap();
