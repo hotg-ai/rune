@@ -40,7 +40,7 @@ fn execute_cpp_example() {
         std::env::var("CXX").unwrap_or_else(|_| String::from("clang++"));
     let status = Command::new(compiler)
         .arg("-g")
-        .arg("-std=c++20")
+        .arg("-std=c++17")
         .arg("-Wall")
         .arg("-I")
         .arg(temp)
