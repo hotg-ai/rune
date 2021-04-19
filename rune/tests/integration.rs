@@ -10,6 +10,7 @@ fn example_dir() -> PathBuf {
         .join("examples")
 }
 
+fn noop_dir() -> PathBuf { example_dir().join("noop") }
 fn sine_dir() -> PathBuf { example_dir().join("sine") }
 fn gesture_dir() -> PathBuf { example_dir().join("gesture") }
 fn microspeech_dir() -> PathBuf { example_dir().join("microspeech") }
@@ -136,4 +137,38 @@ fn no_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains("Serial: \"no\""));
+}
+
+#[test]
+fn noop() {
+    let build_dir = TempDir::new().unwrap();
+    let runefile = noop_dir().join("Runefile");
+    let rune = build_dir.path().join("noop.rune");
+
+    let mut cmd = Command::cargo_bin("rune").unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .arg("--output")
+        .arg(&rune)
+        .unwrap();
+
+    assert!(rune.exists());
+
+    let mut bytes = Vec::new();
+    for number in &[0_i32, 1, 2, 3] {
+        bytes.extend_from_slice(&number.to_ne_bytes());
+    }
+    let mut tempfile = NamedTempFile::new().unwrap();
+    tempfile.write(&bytes).unwrap();
+
+    let mut cmd = Command::cargo_bin("rune").unwrap();
+    cmd.arg("run")
+        .arg(&rune)
+        .arg("--capability")
+        .arg(format!("raw:{}", tempfile.path().display()));
+
+    cmd.assert()
+        .success()
+        .code(0)
+        .stderr(predicates::str::contains("Serial: [0,1,2,3]"));
 }

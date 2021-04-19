@@ -156,7 +156,7 @@ impl Image for BaseImage {
             accel: Arc::clone(&self.accelerometer),
             image: Arc::clone(&self.image),
             sound: Arc::clone(&self.sound),
-            raw: Arc::clone(&self.sound),
+            raw: Arc::clone(&self.raw),
         };
         registrar.register_function(
             "env",
