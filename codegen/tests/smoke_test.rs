@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use rune_codegen::Compilation;
+use rune_codegen::{Compilation, RuneProject};
 use rune_syntax::Diagnostics;
 use tempfile::TempDir;
 
@@ -22,10 +22,12 @@ fn we_can_compile_the_sine_example() {
         current_directory: sine_dir,
         working_directory: temp.path().to_path_buf(),
         optimized: false,
-        rune_project_dir: Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .to_path_buf(),
+        rune_project: RuneProject::Disk(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
+                .to_path_buf(),
+        ),
     };
 
     if let Err(e) = rune_codegen::generate(compilation) {

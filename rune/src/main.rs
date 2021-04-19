@@ -73,7 +73,7 @@ pub struct Args {
         possible_values = &["always", "never", "auto"])
     ]
     colour: ColorChoice,
-    #[structopt(long, help = "Print out version information")]
+    #[structopt(short = "V", long, help = "Print out version information")]
     version: bool,
     #[structopt(short, long, help = "Prints even more detailed information")]
     verbose: bool,
