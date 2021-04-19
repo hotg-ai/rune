@@ -6,6 +6,7 @@ pub mod intrinsics;
 mod logging;
 mod model;
 mod random;
+mod raw;
 mod serial;
 mod sound;
 mod stats_allocator;
