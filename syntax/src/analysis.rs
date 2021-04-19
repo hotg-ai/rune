@@ -158,6 +158,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             "ACCEL" => SourceKind::Accelerometer,
             "SOUND" => SourceKind::Sound,
             "IMAGE" => SourceKind::Image,
+            "RAW" => SourceKind::Raw,
             _ => {
                 self.error(
                     "This isn't one of the builtin capabilities",

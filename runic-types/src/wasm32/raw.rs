@@ -13,7 +13,7 @@ impl<B: Buffer> Raw<B> {
             let index =
                 intrinsics::request_capability(capabilities::RAW as u32);
 
-            Random {
+            Raw {
                 index,
                 _type: PhantomData,
             }

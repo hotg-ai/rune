@@ -220,6 +220,7 @@ impl Generator {
                     },
                     SourceKind::Sound => "runic_types::wasm32::Sound",
                     SourceKind::Image => "runic_types::wasm32::Image",
+                    SourceKind::Raw => "runic_types::wasm32::Raw",
                     SourceKind::Other(name) => name.as_str(),
                 };
 

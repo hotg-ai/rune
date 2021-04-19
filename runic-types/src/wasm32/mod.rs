@@ -16,6 +16,7 @@ pub use image::Image;
 pub use guards::{SetupGuard, PipelineGuard};
 pub use model::Model;
 pub use random::Random;
+pub use raw::Raw;
 pub use serial::Serial;
 pub use sound::Sound;
 pub use logging::Logger;

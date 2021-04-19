@@ -393,6 +393,7 @@ pub enum SourceKind {
     Accelerometer,
     Sound,
     Image,
+    Raw,
     Other(String),
 }
 
