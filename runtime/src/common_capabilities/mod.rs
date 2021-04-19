@@ -2,11 +2,13 @@ mod accelerometer;
 mod image;
 mod random;
 mod sound;
+mod raw;
 
 use crate::ParameterError;
 
 pub use self::{
     accelerometer::Accelerometer, random::Random, sound::Sound, image::Image,
+    raw::Raw,
 };
 
 use anyhow::Error;

@@ -31,6 +31,7 @@ pub struct BaseImage {
     rand: Arc<CapabilityFactory>,
     serial: Arc<OutputFactory>,
     sound: Arc<CapabilityFactory>,
+    raw: Arc<CapabilityFactory>,
 }
 
 impl BaseImage {
@@ -76,6 +77,14 @@ impl BaseImage {
         self
     }
 
+    pub fn with_raw<F>(&mut self, raw: F) -> &mut Self
+    where
+        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
+    {
+        self.raw = Arc::new(raw);
+        self
+    }
+
     pub fn with_serial<F>(&mut self, serial: F) -> &mut Self
     where
         F: Fn() -> Result<Box<dyn Output>, Error> + Send + Sync + 'static,
@@ -98,6 +107,9 @@ impl Default for BaseImage {
         BaseImage {
             accelerometer: Arc::new(|| {
                 anyhow::bail!("The accelerometer capability is not supported")
+            }),
+            raw: Arc::new(|| {
+                anyhow::bail!("The raw capability is not supported")
             }),
             image: Arc::new(|| {
                 anyhow::bail!("The image capability is not supported")
@@ -144,6 +156,7 @@ impl Image for BaseImage {
             accel: Arc::clone(&self.accelerometer),
             image: Arc::clone(&self.image),
             sound: Arc::clone(&self.sound),
+            raw: Arc::clone(&self.sound),
         };
         registrar.register_function(
             "env",
@@ -256,6 +269,7 @@ struct Capabilities {
     image: Arc<CapabilityFactory>,
     rand: Arc<CapabilityFactory>,
     sound: Arc<CapabilityFactory>,
+    raw: Arc<CapabilityFactory>,
 }
 
 fn request_capability(
@@ -272,6 +286,7 @@ fn request_capability(
             runic_types::capabilities::IMAGE => (factories.image)()?,
             runic_types::capabilities::RAND => (factories.rand)()?,
             runic_types::capabilities::SOUND => (factories.sound)()?,
+            runic_types::capabilities::RAW => (factories.raw)()?,
             _ => anyhow::bail!("Unknown capability type: {}", capability_type),
         };
 

@@ -2,7 +2,7 @@ use std::{fs::File, path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use hound::WavReader;
 use log;
-use rune_runtime::common_capabilities::{Accelerometer, Image, Random, Sound};
+use rune_runtime::common_capabilities::{Accelerometer, Image, Random, Raw, Sound};
 use rune_wasmer_runtime::Runtime;
 use runicos_base::BaseImage;
 
@@ -30,6 +30,8 @@ pub struct Run {
     ///
     /// - `image:person.png` is an image file that will be returned by the
     ///   image capability
+    ///
+    /// - `raw:data.bin` is a file who's bytes will be used as-is
     #[structopt(short, long = "capability")]
     capabilities: Vec<Capability>,
 }
@@ -140,6 +142,15 @@ fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
                     Ok(Box::new(Sound::new(samples.clone())))
                 });
             },
+            Capability::Raw { filename } => {
+                let bytes = std::fs::read(filename).with_context(|| {
+                    format!(
+                        "Unable to open \"{}\" for reading",
+                        filename.display()
+                    )
+                })?;
+                env.with_raw(move || Ok(Box::new(Raw::new(bytes.clone()))));
+            },
         }
     }
 
@@ -153,6 +164,7 @@ enum Capability {
     Accelerometer { filename: PathBuf },
     Image { filename: PathBuf },
     Sound { filename: PathBuf },
+    Raw { filename: PathBuf },
 }
 
 impl FromStr for Capability {
@@ -179,6 +191,9 @@ impl FromStr for Capability {
             },
             "i" | "img" | "image" => {
                 Ok(Capability::Image { filename: PathBuf::from(value) })
+            }
+            "w" | "raw" => {
+                Ok(Capability::Raw { filename: PathBuf::from(value) })
             }
             "s" | "sound" | "wav" => {
                 Ok(Capability::Sound { filename: PathBuf::from(value) })
