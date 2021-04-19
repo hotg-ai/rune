@@ -15,7 +15,7 @@ jobs:
   # letting us skip subsequent steps if there haven't.
   # https://github.community/t/trigger-action-on-schedule-only-if-there-are-changes-to-the-branch/17887
   check_date:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     name: Check latest commit
     outputs:
       should_run: ${{ steps.should_run.outputs.should_run }}
@@ -38,7 +38,7 @@ jobs:
       matrix:
         include:
           - name: linux
-            os: ubuntu-latest
+            os: ubuntu-18.04
             artifact_name: "target/rune.*.zip"
             asset_name: rune-linux
           # - name: windows
@@ -77,7 +77,7 @@ jobs:
 
   create-release:
     name: Create Nightly Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     needs:
       - build
       - check_date
