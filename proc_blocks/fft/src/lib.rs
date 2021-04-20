@@ -89,7 +89,7 @@ impl Fft {
         let max_value =
         mel_spectrum_matrix.data.as_vec().iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let res: Vec<u8> = mel_spectrum_matrix.data.as_vec()
+        let res: Vec<u8> = mel_spectrum_matrix.data.as_vec().iter()
             .map(|freq| 25.0 * (freq - min_value) / (max_value - min_value))
             .map(|freq| freq as u8)
             .collect();
