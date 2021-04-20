@@ -1,28 +1,20 @@
 #![no_std]
 
 extern crate alloc;
-
 use alloc::vec::Vec;
-
 use sonogram::SpecOptionsBuilder;
-
 pub use runic_types::{Transform};
-use core::fmt::Debug;
 use mel;
-use nalgebra::{DMatrix, DVector, Matrix2x4};
-use std::fmt::Display;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
+use nalgebra::DMatrix;
 
 #[derive(Clone, PartialEq)]
 pub struct Fft {
-    pub sample_rate: u32,
+    pub sample_rate: usize,
     pub bins: usize,
     pub window_overlap: f32,
 }
 
-const DEFAULT_SAMPLE_RATE: u32 = 16000;
+const DEFAULT_SAMPLE_RATE: usize = 16000;
 const DEFAULT_BINS: usize = 480;
 const DEFAULT_WINDOW_OVERLAP: f32 = 6.0 / 10.0;
 
@@ -38,7 +30,7 @@ impl Fft {
     pub fn default() -> Self { Fft::new() }
 
     // `Self` is the type and `self` is the pointer
-    pub fn with_sample_rate(self, sample_rate: u32) -> Self {
+    pub fn with_sample_rate(self, sample_rate: usize) -> Self {
         Fft {
             sample_rate,
             ..self
@@ -58,16 +50,16 @@ impl Fft {
         // Build the spectrogram computation engine
         let mut spectrograph = SpecOptionsBuilder::new(49, 241)
         .set_window_fn(sonogram::hann_function)
-        .load_data_from_memory(input, self.sample_rate)
+        .load_data_from_memory(input, self.sample_rate as u32)
         //.unwrap()
         .build();
 
         // Compute the spectrogram giving the number of bins in a window and the overlap between neighbour windows.
         spectrograph.compute(480, 0.66666666666666667);
 
-        let result_f32 = spectrograph.create_in_memory(false);
+        let spectrogram_f32 = spectrograph.create_in_memory(false);
 
-        let filter_count: i32 = 40;
+        let filter_count: usize = 40;
         let power_spectrum_size = 241;
         let window_size = 480;
 
@@ -82,7 +74,7 @@ impl Fft {
             mel_filter_matrix[(row, col)] = coefficient;
         }
 
-        let doubles = result_f32.into_iter().map(f64::from);
+        let doubles = spectrogram_f32.into_iter().map(f64::from);
         let power_spectrum_matrix_unflipped: DMatrix<f64> = DMatrix::from_iterator(49, power_spectrum_size, doubles);
         let power_spectrum_matrix_transposed = power_spectrum_matrix_unflipped.transpose();
         let mut power_spectrum_vec: Vec<_> = power_spectrum_matrix_transposed.row_iter().collect();
@@ -90,15 +82,13 @@ impl Fft {
         let power_spectrum_matrix: DMatrix<f64> = DMatrix::from_rows(&power_spectrum_vec);
         let mel_spectrum_matrix = &mel_filter_matrix*&power_spectrum_matrix;
 
-        let mel_spectrum_f32 = mel_spectrum_matrix.into_iter().map(f32::from);
-
-        let min_value = mel_spectrum_f32.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let min_value = mel_spectrum_matrix.data.as_vec().iter().fold(f64::INFINITY, 
+            |a, &b| a.min(b));
         let max_value =
-        mel_spectrum_f32.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        mel_spectrum_matrix.data.as_vec().iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let res: Vec<u8> = mel_spectrum_f32
-            .into_iter()
-            .map(|freq| 255.0 * (freq - min_value) / (max_value - min_value))
+        let res: Vec<u8> = mel_spectrum_matrix.data.as_vec()
+            .map(|freq| 25.0 * (freq - min_value) / (max_value - min_value))
             .map(|freq| freq as u8)
             .collect();
         let mut out = [0; 1960];
