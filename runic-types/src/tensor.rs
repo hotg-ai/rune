@@ -79,6 +79,20 @@ impl<T> Tensor<T> {
     }
 }
 
+impl<T: PartialEq> PartialEq<[T]> for Tensor<T> {
+    fn eq(&self, other: &[T]) -> bool {
+        self.dimensions.len() == 1 && self.elements() == other
+    }
+}
+
+impl<T: PartialEq> PartialEq<Tensor<T>> for [T] {
+    fn eq(&self, other: &Tensor<T>) -> bool { other == self }
+}
+
+impl<T: PartialEq, const N: usize> PartialEq<[T; N]> for Tensor<T> {
+    fn eq(&self, other: &[T; N]) -> bool { self == &other[..] }
+}
+
 impl<T: Clone> Tensor<T> {
     pub fn make_elements_mut(&mut self) -> &mut [T] {
         // Note: we can't use Arc::make_mut() because [T] is not Clone

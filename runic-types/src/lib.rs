@@ -11,14 +11,12 @@ extern crate alloc;
 pub mod wasm32;
 
 mod buf_writer;
-mod buffer;
 mod pipelines;
 mod tensor;
 mod value;
 
 pub use crate::{
     buf_writer::BufWriter,
-    buffer::Buffer,
     pipelines::{Sink, Source, Transform},
     tensor::{Tensor, TensorView},
     value::{Value, Type, AsType, InvalidConversionError},

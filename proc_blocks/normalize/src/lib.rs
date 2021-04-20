@@ -4,11 +4,10 @@
 extern crate std;
 
 use core::{
-    fmt::{self, Formatter, Debug},
-    marker::PhantomData,
+    fmt::Debug,
     ops::{Div, Sub},
 };
-use runic_types::{Transform, Buffer};
+use runic_types::{Tensor, Transform};
 
 pub fn normalize<T>(input: &mut [T])
 where
@@ -26,46 +25,33 @@ where
 }
 
 /// Normalize the input to the range `[0, 1]`.
-pub struct Normalize<B> {
-    _type: PhantomData<fn(B) -> B>,
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct Normalize {
+    _private: (),
 }
 
-impl<B> Transform<B> for Normalize<B>
+impl<T> Transform<Tensor<T>> for Normalize
 where
-    B: Buffer,
-    B::Item: PartialOrd + Div<Output = B::Item> + Sub<Output = B::Item> + Copy,
+    T: PartialOrd + Div<Output = T> + Sub<Output = T> + Copy,
 {
-    type Output = B;
+    type Output = Tensor<T>;
 
-    fn transform(&mut self, mut input: B) -> B {
-        normalize(input.as_mut_slice());
+    fn transform(&mut self, mut input: Tensor<T>) -> Tensor<T> {
+        normalize(input.make_elements_mut());
         input
     }
 }
 
-impl<B> Debug for Normalize<B> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Normalize").finish()
+impl<T, const N: usize> Transform<[T; N]> for Normalize
+where
+    T: PartialOrd + Div<Output = T> + Sub<Output = T> + Copy,
+{
+    type Output = [T; N];
+
+    fn transform(&mut self, mut input: [T; N]) -> [T; N] {
+        normalize(&mut input);
+        input
     }
-}
-
-impl<B> Default for Normalize<B> {
-    fn default() -> Self { Normalize { _type: PhantomData } }
-}
-
-impl<B> PartialEq for Normalize<B> {
-    fn eq(&self, other: &Self) -> bool {
-        let Normalize { _type: type_a } = self;
-        let Normalize { _type: type_b } = other;
-
-        type_a == type_b
-    }
-}
-
-impl<B> Copy for Normalize<B> {}
-
-impl<B> Clone for Normalize<B> {
-    fn clone(&self) -> Self { *self }
 }
 
 fn min_max<'a, I, T>(items: I) -> Option<(T, T)>
@@ -85,12 +71,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::Normalize;
-    use runic_types::Transform;
+    use super::*;
 
     #[test]
     fn it_works() {
-        let input = [0.0, 1.0, 2.0];
+        let input = Tensor::from([0.0, 1.0, 2.0]);
         let mut pb = Normalize::default();
 
         let output = pb.transform(input);
