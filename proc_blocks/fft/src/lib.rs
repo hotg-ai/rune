@@ -55,7 +55,8 @@ impl Fft {
         //.unwrap()
         .build();
 
-        // Compute the spectrogram giving the number of bins in a window and the overlap between neighbour windows.
+        // Compute the spectrogram giving the number of bins in a window and the
+        // overlap between neighbour windows.
         spectrograph.compute(480, 0.66666666666666667);
 
         let spectrogram_f32 = spectrograph.create_in_memory(false);
@@ -66,7 +67,8 @@ impl Fft {
         let sample_rate_usize:usize = 16000;
 
         // build up the mel filter matrix
-        let mut mel_filter_matrix = DMatrix::<f64>::zeros(filter_count, power_spectrum_size);
+        let mut mel_filter_matrix =
+            DMatrix::<f64>::zeros(filter_count, power_spectrum_size);
         for (row, col, coefficient) in mel::enumerate_mel_scaling_matrix(
             sample_rate_usize,
             window_size,
@@ -77,9 +79,12 @@ impl Fft {
         }
 
         let doubles = spectrogram_f32.into_iter().map(f64::from);
-        let power_spectrum_matrix_unflipped: DMatrix<f64> = DMatrix::from_iterator(49, power_spectrum_size, doubles);
-        let power_spectrum_matrix_transposed = power_spectrum_matrix_unflipped.transpose();
-        let mut power_spectrum_vec: Vec<_> = power_spectrum_matrix_transposed.row_iter().collect();
+        let power_spectrum_matrix_unflipped: DMatrix<f64> =
+            DMatrix::from_iterator(49, power_spectrum_size, doubles);
+        let power_spectrum_matrix_transposed =
+            power_spectrum_matrix_unflipped.transpose();
+        let mut power_spectrum_vec: Vec<_> =
+            power_spectrum_matrix_transposed.row_iter().collect();
         &power_spectrum_vec.reverse();
         let power_spectrum_matrix: DMatrix<f64> = DMatrix::from_rows(&power_spectrum_vec);
         let mel_spectrum_matrix = &mel_filter_matrix*&power_spectrum_matrix;
@@ -100,7 +105,6 @@ impl Fft {
         }
 
         return out;
-
     }
 }
 
