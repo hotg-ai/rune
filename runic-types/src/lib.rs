@@ -5,6 +5,10 @@
     feature(core_intrinsics, lang_items, alloc_error_handler)
 )]
 
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+
 extern crate alloc;
 
 #[cfg(target_arch = "wasm32")]

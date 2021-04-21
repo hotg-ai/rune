@@ -1,10 +1,15 @@
 use core::{convert::TryInto, ops::Index};
-use alloc::{vec::Vec, sync::Arc};
+use alloc::{sync::Arc, vec::Vec};
 
 /// A multidimensional array with copy-on-write semantics.
 ///
 /// # Examples
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(
+    from = "SerializableTensor<T>",
+    into = "SerializableTensor<T>",
+    bound = "T: serde::ser::Serialize + serde::de::DeserializeOwned + Clone"
+)]
 pub struct Tensor<T> {
     elements: Arc<[T]>,
     dimensions: Vec<usize>,
@@ -38,12 +43,9 @@ impl<T> Tensor<T> {
 
     pub fn zeroed(dimensions: Vec<usize>) -> Self
     where
-        T: Default + Copy,
+        T: Default,
     {
-        let len = dimensions.iter().product::<usize>();
-        let elements = alloc::vec![T::default(); len];
-
-        Tensor::new_row_major(elements.into(), dimensions)
+        Tensor::filled_with(dimensions, Default::default)
     }
 
     pub fn filled_with<F>(dimensions: Vec<usize>, f: F) -> Self
@@ -180,16 +182,46 @@ impl<'t, T> Index<usize> for TensorView<'t, T, 1> {
     fn index(&self, index: usize) -> &Self::Output { &self[[index]] }
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SerializableTensor<T> {
+    elements: Vec<T>,
+    dimensions: Vec<usize>,
+}
+
+impl<T> From<SerializableTensor<T>> for Tensor<T> {
+    fn from(s: SerializableTensor<T>) -> Self {
+        let SerializableTensor {
+            elements,
+            dimensions,
+        } = s;
+        Tensor::new_row_major(elements.into(), dimensions)
+    }
+}
+
+impl<T: Clone> From<Tensor<T>> for SerializableTensor<T> {
+    fn from(s: Tensor<T>) -> Self {
+        let Tensor {
+            elements,
+            dimensions,
+        } = s;
+        SerializableTensor {
+            elements: elements.to_vec(),
+            dimensions,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::prelude::v1::*;
 
     #[test]
     fn indices_for_2d_view() {
-        let tensor: Tensor<u32> = Tensor::zeroed(alloc::vec![2, 3]);
+        let tensor: Tensor<u32> = Tensor::zeroed(vec![2, 3]);
         let view = tensor.view::<2>().unwrap();
 
-        let inputs = alloc::vec![
+        let inputs = vec![
             ([0, 0], 0),
             ([0, 1], 1),
             ([0, 2], 2),
@@ -206,7 +238,7 @@ mod tests {
 
     #[test]
     fn copy_on_write_semantics() {
-        let mut first: Tensor<u32> = Tensor::zeroed(alloc::vec![2]);
+        let mut first: Tensor<u32> = Tensor::zeroed(vec![2]);
         let second = Tensor::clone(&first);
 
         assert!(
@@ -223,7 +255,7 @@ mod tests {
 
     #[test]
     fn incorrect_view_dimensions() {
-        let tensor: Tensor<u32> = Tensor::zeroed(alloc::vec![2, 3]);
+        let tensor: Tensor<u32> = Tensor::zeroed(vec![2, 3]);
 
         assert!(tensor.view::<1>().is_none());
         assert!(tensor.view::<1>().is_none());
@@ -234,7 +266,7 @@ mod tests {
         expected = "index out of bounds: the index was [2, 0] but the tensor has dimensions of [2, 3]"
     )]
     fn index_out_of_bounds() {
-        let tensor: Tensor<u32> = Tensor::zeroed(alloc::vec![2, 3]);
+        let tensor: Tensor<u32> = Tensor::zeroed(vec![2_usize, 3]);
         let view = tensor.view::<2>().unwrap();
 
         let _ = view[[2, 0]];
