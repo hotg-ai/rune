@@ -56,7 +56,7 @@ impl Fft {
 
         // Compute the spectrogram giving the number of bins in a window and the
         // overlap between neighbour windows.
-        spectrograph.compute(480, 0.66666666666666667);
+        spectrograph.compute(self.bins, self.window_overlap);
 
         let spectrogram_f32 = spectrograph.create_in_memory(false);
 
