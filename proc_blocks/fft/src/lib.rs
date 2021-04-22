@@ -78,9 +78,9 @@ impl Fft {
             mel_filter_matrix[(row, col)] = coefficient;
         }
 
-        let doubles = spectrogram_f32.into_iter().map(f64::from);
+        let spectrogram = spectrogram.into_iter().map(f64::from);
         let power_spectrum_matrix_unflipped: DMatrix<f64> =
-            DMatrix::from_iterator(49, power_spectrum_size, doubles);
+            DMatrix::from_iterator(49, power_spectrum_size, spectrogram);
         let power_spectrum_matrix_transposed =
             power_spectrum_matrix_unflipped.transpose();
         let mut power_spectrum_vec: Vec<_> =
