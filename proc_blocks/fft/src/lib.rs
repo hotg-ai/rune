@@ -52,7 +52,6 @@ impl Fft {
         let mut spectrograph = SpecOptionsBuilder::new(49, 241)
         .set_window_fn(sonogram::hann_function)
         .load_data_from_memory(input, self.sample_rate as u32)
-        //.unwrap()
         .build();
 
         // Compute the spectrogram giving the number of bins in a window and the
