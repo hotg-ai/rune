@@ -1,6 +1,5 @@
 #![no_std]
 
-extern crate std;
 extern crate alloc;
 
 use alloc::vec::Vec;
@@ -11,14 +10,14 @@ use nalgebra::DMatrix;
 
 #[derive(Clone, PartialEq)]
 pub struct Fft {
-    pub sample_rate: usize,
+    pub sample_rate: u32,
     pub bins: usize,
     pub window_overlap: f32,
 }
 
-const DEFAULT_SAMPLE_RATE: usize = 16000;
+const DEFAULT_SAMPLE_RATE: u32 = 16000;
 const DEFAULT_BINS: usize = 480;
-const DEFAULT_WINDOW_OVERLAP: f32 = 6.0 / 10.0;
+const DEFAULT_WINDOW_OVERLAP: f32 = 0.6666666666666667;
 
 impl Fft {
     pub const fn new() -> Self {
@@ -32,7 +31,7 @@ impl Fft {
     pub fn default() -> Self { Fft::new() }
 
     // `Self` is the type and `self` is the pointer
-    pub fn with_sample_rate(self, sample_rate: usize) -> Self {
+    pub fn with_sample_rate(self, sample_rate: u32) -> Self {
         Fft {
             sample_rate,
             ..self
@@ -48,7 +47,7 @@ impl Fft {
         }
     }
 
-    fn transform_inner(&mut self, input: Vec<i16>) -> [u8; 1960] {
+    fn transform_inner(&mut self, input: Vec<i16>) -> [i8; 1960] {
         // Build the spectrogram computation engine
         let mut spectrograph = SpecOptionsBuilder::new(49, 241)
         .set_window_fn(sonogram::hann_function)
@@ -64,11 +63,12 @@ impl Fft {
         let filter_count: usize = 40;
         let power_spectrum_size = 241;
         let window_size = 480;
+        let sample_rate_usize:usize = 16000;
 
         // build up the mel filter matrix
         let mut mel_filter_matrix = DMatrix::<f64>::zeros(filter_count, power_spectrum_size);
         for (row, col, coefficient) in mel::enumerate_mel_scaling_matrix(
-            self.sample_rate,
+            sample_rate_usize,
             window_size,
             power_spectrum_size,
             filter_count,
@@ -89,9 +89,9 @@ impl Fft {
         let max_value =
         mel_spectrum_matrix.data.as_vec().iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let res: Vec<u8> = mel_spectrum_matrix.data.as_vec().iter()
-            .map(|freq| 25.0 * (freq - min_value) / (max_value - min_value))
-            .map(|freq| freq as u8)
+        let res: Vec<i8> = mel_spectrum_matrix.data.as_vec().iter()
+            .map(|freq| (255.0 * (freq - min_value) / (max_value - min_value)) - 128.0)
+            .map(|freq| freq as i8)
             .collect();
         let mut out = [0; 1960];
 
@@ -109,7 +109,7 @@ impl Default for Fft {
 }
 
 impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
-    type Output = [u8; 1960];
+    type Output = [i8; 1960];
 
     fn transform(&mut self, input: [i16; N]) -> Self::Output {
         self.transform_inner(input.to_vec())
@@ -117,7 +117,7 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
 }
 
 impl<'a> runic_types::Transform<&'a [i16]> for Fft {
-    type Output = [u8; 1960];
+    type Output = [i8; 1960];
 
     fn transform(&mut self, input: &'a [i16]) -> Self::Output {
         self.transform_inner(input.to_vec())
@@ -134,6 +134,7 @@ mod tests {
         let input = [0; 16000];
 
         let res = fft_pb.transform(input);
-        assert_eq!(res.len(), 1960)
+        assert_eq!(res.len(), 1960);
+        println!("{:?}", res);
     }
 }
