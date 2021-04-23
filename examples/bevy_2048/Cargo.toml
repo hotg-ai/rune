@@ -1,0 +1,15 @@
+[package]
+name = "bevy_2048"
+version = "0.1.0"
+authors = ["Meir Klemfner <251.klemp.work@gmail.com>"]
+edition = "2018"
+license = "MIT"
+repository = "https://github.com/MeirKlemp/bevy_2048"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies] 
+bevy = "0.3.0"
+rand = "0.7.3"
+savefile = "0.7.4"
+savefile-derive = "0.7.4"
