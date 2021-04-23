@@ -16,6 +16,3 @@ exclude = [ "examples/*", "proc_blocks/python" ]
 [profile.release]
 debug = true
 
-[patch.crates-io]
-# See https://github.com/hotg-ai/rune/pull/107#issuecomment-825806000
-mel = { git = "https://github.com/hotg-ai/mel", rev = "3c366e47e95e8c6b586fae720bb4a29516dc7fc5" }
