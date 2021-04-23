@@ -58,7 +58,7 @@ impl Fft {
         // overlap between neighbour windows.
         spectrograph.compute(self.bins, self.window_overlap);
 
-        let spectrogram_f32 = spectrograph.create_in_memory(false);
+        let spectrogram = spectrograph.create_in_memory(false);
 
         let filter_count: usize = 40;
         let power_spectrum_size = 241;
@@ -138,6 +138,5 @@ mod tests {
 
         let res = fft_pb.transform(input);
         assert_eq!(res.len(), 1960);
-        println!("{:?}", res);
     }
 }
