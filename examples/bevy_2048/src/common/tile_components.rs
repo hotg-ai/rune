@@ -16,13 +16,13 @@ impl Tile {
     pub fn color(&self) -> Color {
         match self.level {
             0 => Color::rgb_u8(255, 255, 0),  // Yellow
-            1 => Color::rgb_u8(255, 69, 0),   // Orange Red
+            1 => Color::rgb_u8(255, 165, 0),   // Orange 
             2 => Color::rgb_u8(255, 0, 0),    // Red
-            3 => Color::rgb_u8(255, 0, 255),  // Magenta
-            4 => Color::rgb_u8(75, 0, 130),   // Indigo
-            5 => Color::rgb_u8(0, 0, 255),    // Blue
-            6 => Color::rgb_u8(0, 255, 255),  // Cyan
-            7 => Color::rgb_u8(0, 255, 0),    // Green
+            3 => Color::rgb_u8(138,43,226),   // Blue Violet
+            4 => Color::rgb_u8(0, 0, 255),    // Blue
+            5 => Color::rgb_u8(0, 255, 255),  // Cyan
+            6 => Color::rgb_u8(124, 252, 0),  // Lawn Green
+            7 => Color::rgb_u8(0, 100, 0),   // Dark Green
             8 => Color::rgb_u8(139, 69, 19),  // Saddle Brown
             9 => Color::rgb_u8(184, 134, 11), // Dark Golden Rod
             _ => Color::BLACK,
