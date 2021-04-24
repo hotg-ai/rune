@@ -52,3 +52,35 @@ jobs:
         with:
           branch: gh-pages
           folder: target/doc
+
+  python:
+    name: Python Bindings
+    strategy:
+      matrix:
+        os:
+          - ubuntu-18.04
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - run: |
+          pip3 install maturin
+          maturin build --manifest-path proc_blocks/python/Cargo.toml --bindings pyo3
+      - name: Upload Wheels
+        uses: actions/upload-artifact@v2
+        with:
+          name: benchmarks
+          path: proc_blocks/python/target/wheels
+
