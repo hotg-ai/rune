@@ -6,7 +6,7 @@ pub type Random<T> = GenericCapability<T, { crate::capabilities::RAND }>;
 pub type Accelerometer = GenericCapability<f32, { crate::capabilities::ACCEL }>;
 pub type Image = GenericCapability<u32, { crate::capabilities::IMAGE }>;
 pub type Sound = GenericCapability<i16, { crate::capabilities::SOUND }>;
-pub type Raw = GenericCapability<u8, { crate::capabilities::RAW }>;
+pub type Raw<T> = GenericCapability<T, { crate::capabilities::RAW }>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericCapability<T, const KIND: u32> {

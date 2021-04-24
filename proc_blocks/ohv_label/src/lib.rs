@@ -7,7 +7,7 @@ extern crate std;
 
 use core::cmp::Ordering;
 
-use runic_types::{HasOutputs, Transform};
+use runic_types::{HasOutputs, Tensor, Transform};
 
 pub const MISSING_LABEL: &'static str = "<MISSING>";
 
@@ -68,16 +68,53 @@ impl<const N: usize> Transform<[u8; N]> for OhvLabel<N> {
     type Output = &'static str;
 
     fn transform(&mut self, input: [u8; N]) -> Self::Output {
-        match self.labels.iter().zip(input.iter().copied()).max_by(
-            |left, right| {
-                left.1.partial_cmp(&right.1).unwrap_or(Ordering::Equal)
-            },
-        ) {
+        match self
+            .labels
+            .iter()
+            .zip(input.iter().copied())
+            .max_by(|left, right| left.1.cmp(&right.1))
+        {
             Some((label, probability)) if probability > 0u8 => *label,
             _ => MISSING_LABEL,
         }
     }
 }
+
+impl<const N: usize> Transform<Tensor<f32>> for OhvLabel<N> {
+    type Output = &'static str;
+
+    fn transform(&mut self, input: Tensor<f32>) -> Self::Output {
+        let input = input.elements();
+
+        match self.labels.iter().zip(input.iter().copied()).max_by(
+            |left, right| {
+                left.1.partial_cmp(&right.1).unwrap_or(Ordering::Equal)
+            },
+        ) {
+            Some((label, probability)) if probability > 0.0 => *label,
+            _ => MISSING_LABEL,
+        }
+    }
+}
+
+impl<const N: usize> Transform<Tensor<u8>> for OhvLabel<N> {
+    type Output = &'static str;
+
+    fn transform(&mut self, input: Tensor<u8>) -> Self::Output {
+        let input = input.elements();
+
+        match self
+            .labels
+            .iter()
+            .zip(input.iter().copied())
+            .max_by(|left, right| left.1.cmp(&right.1))
+        {
+            Some((label, probability)) if probability > 0u8 => *label,
+            _ => MISSING_LABEL,
+        }
+    }
+}
+
 
 impl<const N: usize> Default for OhvLabel<N> {
     fn default() -> Self { OhvLabel::new() }
