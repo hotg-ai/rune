@@ -77,7 +77,10 @@ jobs:
           override: true
       - run: |
           pip3 install maturin
-          maturin build --manifest-path proc_blocks/python/Cargo.toml --bindings pyo3
+          maturin build --manifest-path proc_blocks/python/Cargo.toml \
+                        --bindings pyo3 \
+                        --manylinux off \
+                        --release --verbose
       - name: Upload Wheels
         uses: actions/upload-artifact@v2
         with:
