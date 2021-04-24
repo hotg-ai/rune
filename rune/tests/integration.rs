@@ -126,7 +126,7 @@ fn no_microspeech() {
 
     let wav = microspeech_dir
         .join("data")
-        .join("no_bf90a57a_nohash_1.wav");
+        .join("no_d874a786_nohash_0.wav");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run")

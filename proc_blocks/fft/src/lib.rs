@@ -3,10 +3,10 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-
 use sonogram::SpecOptionsBuilder;
-
 pub use runic_types::{Transform};
+use mel;
+use nalgebra::DMatrix;
 
 #[derive(Clone, PartialEq)]
 pub struct Fft {
@@ -16,8 +16,8 @@ pub struct Fft {
 }
 
 const DEFAULT_SAMPLE_RATE: u32 = 16000;
-const DEFAULT_BINS: usize = 256;
-const DEFAULT_WINDOW_OVERLAP: f32 = 6.0 / 10.0;
+const DEFAULT_BINS: usize = 480;
+const DEFAULT_WINDOW_OVERLAP: f32 = 0.6666666666666667;
 
 impl Fft {
     pub const fn new() -> Self {
@@ -47,27 +47,55 @@ impl Fft {
         }
     }
 
-    fn transform_inner(&mut self, input: Vec<i16>) -> [u8; 1960] {
+    fn transform_inner(&mut self, input: Vec<i16>) -> [i8; 1960] {
         // Build the spectrogram computation engine
-        let mut spectrograph = SpecOptionsBuilder::new(49, 40)
-        .load_data_from_memory(input, self.sample_rate)
-        //.unwrap()
+        let mut spectrograph = SpecOptionsBuilder::new(49, 241)
+        .set_window_fn(sonogram::hann_function)
+        .load_data_from_memory(input, self.sample_rate as u32)
         .build();
 
-        // // Compute the spectrogram giving the number of bins and the window
-        // // overlap.
+        // Compute the spectrogram giving the number of bins in a window and the
+        // overlap between neighbour windows.
         spectrograph.compute(self.bins, self.window_overlap);
 
-        let result_f32 = spectrograph.create_in_memory(false);
+        let spectrogram = spectrograph.create_in_memory(false);
 
-        let min_value = result_f32.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let filter_count: usize = 40;
+        let power_spectrum_size = 241;
+        let window_size = 480;
+        let sample_rate_usize:usize = 16000;
+
+        // build up the mel filter matrix
+        let mut mel_filter_matrix =
+            DMatrix::<f64>::zeros(filter_count, power_spectrum_size);
+        for (row, col, coefficient) in mel::enumerate_mel_scaling_matrix(
+            sample_rate_usize,
+            window_size,
+            power_spectrum_size,
+            filter_count,
+        ) {
+            mel_filter_matrix[(row, col)] = coefficient;
+        }
+
+        let spectrogram = spectrogram.into_iter().map(f64::from);
+        let power_spectrum_matrix_unflipped: DMatrix<f64> =
+            DMatrix::from_iterator(49, power_spectrum_size, spectrogram);
+        let power_spectrum_matrix_transposed =
+            power_spectrum_matrix_unflipped.transpose();
+        let mut power_spectrum_vec: Vec<_> =
+            power_spectrum_matrix_transposed.row_iter().collect();
+        &power_spectrum_vec.reverse();
+        let power_spectrum_matrix: DMatrix<f64> = DMatrix::from_rows(&power_spectrum_vec);
+        let mel_spectrum_matrix = &mel_filter_matrix*&power_spectrum_matrix;
+
+        let min_value = mel_spectrum_matrix.data.as_vec().iter().fold(f64::INFINITY,
+            |a, &b| a.min(b));
         let max_value =
-            result_f32.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        mel_spectrum_matrix.data.as_vec().iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let res: Vec<u8> = result_f32
-            .into_iter()
-            .map(|freq| 255.0 * (freq - min_value) / (max_value - min_value))
-            .map(|freq| freq as u8)
+        let res: Vec<i8> = mel_spectrum_matrix.data.as_vec().iter()
+            .map(|freq| (255.0 * (freq - min_value) / (max_value - min_value)) - 128.0)
+            .map(|freq| freq as i8)
             .collect();
         let mut out = [0; 1960];
 
@@ -84,7 +112,7 @@ impl Default for Fft {
 }
 
 impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
-    type Output = [u8; 1960];
+    type Output = [i8; 1960];
 
     fn transform(&mut self, input: [i16; N]) -> Self::Output {
         self.transform_inner(input.to_vec())
@@ -92,7 +120,7 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
 }
 
 impl<'a> runic_types::Transform<&'a [i16]> for Fft {
-    type Output = [u8; 1960];
+    type Output = [i8; 1960];
 
     fn transform(&mut self, input: &'a [i16]) -> Self::Output {
         self.transform_inner(input.to_vec())
@@ -109,6 +137,6 @@ mod tests {
         let input = [0; 16000];
 
         let res = fft_pb.transform(input);
-        assert_eq!(res.len(), 1960)
+        assert_eq!(res.len(), 1960);
     }
 }

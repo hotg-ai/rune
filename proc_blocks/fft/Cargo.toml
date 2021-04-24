@@ -10,3 +10,6 @@ edition = "2018"
 runic-types = { path = "../../runic-types" }
 hound = "3.4"
 sonogram = {git = "https://github.com/hotg-ai/sonogram"}
+nalgebra = { version = "0.26.1", default-features = false, features = ["alloc"] }
+# See https://github.com/hotg-ai/rune/pull/107#issuecomment-825806000
+mel = { git = "https://github.com/hotg-ai/mel", rev = "017694ee3143c11ea9b75ba6cd27fe7c8a69a867", default-features = false }

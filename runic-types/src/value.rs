@@ -9,6 +9,7 @@ pub enum Value {
     Short(i16),
     Integer(i32),
     Float(f32),
+    SignedByte(i8),
 }
 
 impl Value {
@@ -20,6 +21,13 @@ impl Value {
     pub fn from_le_bytes(ty: Type, bytes: &[u8]) -> Option<Self> {
         match ty {
             Type::Byte => bytes.get(0).copied().map(Value::Byte),
+            Type::SignedByte => {
+                if let [byte, ..] = bytes {
+                    Some(Value::SignedByte(i8::from_le_bytes([*byte])))
+                } else {
+                    None
+                }
+            },
             Type::Short => {
                 const LEN: usize = core::mem::size_of::<i16>();
 
@@ -62,6 +70,10 @@ impl Value {
                 buffer[0] = b;
                 1
             },
+            Value::SignedByte(b) => {
+                buffer[..1].copy_from_slice(&b.to_le_bytes());
+                1
+            },
             Value::Short(short) => {
                 let bytes = short.to_le_bytes();
                 buffer[..bytes.len()].copy_from_slice(&bytes);
@@ -83,6 +95,7 @@ impl Value {
     pub fn ty(&self) -> Type {
         match self {
             Value::Byte(_) => Type::Byte,
+            Value::SignedByte(_) => Type::SignedByte,
             Value::Short(_) => Type::Short,
             Value::Integer(_) => Type::Integer,
             Value::Float(_) => Type::Float,
@@ -94,6 +107,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Value::Byte(b) => write!(f, "{}_u8", b),
+            Value::SignedByte(b) => write!(f, "{}_i8", b),
             Value::Short(s) => write!(f, "{}_i16", s),
             Value::Integer(i) => write!(f, "{}_i32", i),
             Value::Float(float) => write!(f, "{:.1}", float),
@@ -113,17 +127,17 @@ pub enum Type {
     Byte = 5,
     /// A 16-bit signed integer.
     Short = 6,
-    /* Note: Enum discriminant are important here. We want to stay
-     * compatible with PARAM_TYPE so the mobile runtime isn't broken.
-     *
-     * https://github.com/hotg-ai/runic_mobile/blob/94f9e72d6de8bd57c004952dc3ba31adc7603381/ios/Runner/hmr/hmr.hpp#L23-L29
-     *
-     * Don't forget to update TryFrom if you add new variants!
-     *
-     * We *could* use #[derive(FromPrimitive)] to automate things, but I'd
-     * prefer not to add a proc-macro dependency to the crate that every
-     * single rune or proc block will depend on.
-     */
+    // Note: Enum discriminant are important here. We want to stay
+    // compatible with PARAM_TYPE so the mobile runtime isn't broken.
+    //
+    // https://github.com/hotg-ai/runic_mobile/blob/94f9e72d6de8bd57c004952dc3ba31adc7603381/ios/Runner/hmr/hmr.hpp#L23-L29
+    //
+    // Don't forget to update TryFrom if you add new variants!
+    //
+    // We *could* use #[derive(FromPrimitive)] to automate things, but I'd
+    // prefer not to add a proc-macro dependency to the crate that every
+    // single rune or proc block will depend on.
+    SignedByte = 7,
 }
 
 impl From<Type> for u32 {
@@ -185,7 +199,7 @@ macro_rules! impl_as_type {
     }
 }
 
-impl_as_type!(u8 => Byte, i16 => Short, i32 => Integer, f32 => Float);
+impl_as_type!(u8 => Byte, i16 => Short, i32 => Integer, f32 => Float, i8 => SignedByte);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct InvalidConversionError {
