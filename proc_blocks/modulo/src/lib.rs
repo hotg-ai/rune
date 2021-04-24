@@ -2,7 +2,7 @@
 
 use core::ops::Rem;
 use num_traits::One;
-use runic_types::{Tensor, Transform};
+use runic_types::{HasOutputs, Tensor, Transform};
 
 pub fn modulo<T>(modulus: T, values: &mut [T])
 where
@@ -62,6 +62,8 @@ where
         input
     }
 }
+
+impl<T> HasOutputs for Modulo<T> {}
 
 #[cfg(test)]
 mod tests {

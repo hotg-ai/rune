@@ -5,7 +5,7 @@ extern crate alloc;
 #[macro_use]
 extern crate std;
 
-use runic_types::Transform;
+use runic_types::{Transform, HasOutputs};
 use alloc::collections::VecDeque;
 
 /// Person Detection Aggregator takes a list of confidences and returns the
@@ -108,6 +108,8 @@ impl<const N: usize> Transform<[u8; N]> for PersonDetectionAgg<N> {
 impl<const N: usize> Default for PersonDetectionAgg<N> {
     fn default() -> Self { PersonDetectionAgg::new() }
 }
+
+impl<const N: usize> HasOutputs for PersonDetectionAgg<N> {}
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,6 @@
-use crate::{Tensor, Source, wasm32::intrinsics, Value};
+use crate::{Tensor, Source, wasm32::intrinsics, Value, HasOutputs};
 use core::marker::PhantomData;
+use alloc::vec::Vec;
 
 pub type Random<T> = GenericCapability<T, { crate::capabilities::RAND }>;
 pub type Accelerometer = GenericCapability<f32, { crate::capabilities::ACCEL }>;
@@ -10,6 +11,7 @@ pub type Raw = GenericCapability<u8, { crate::capabilities::RAW }>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericCapability<T, const KIND: u32> {
     index: u32,
+    output_dimensions: Option<Vec<usize>>,
     _type: PhantomData<fn() -> T>,
 }
 
@@ -20,6 +22,7 @@ impl<T, const KIND: u32> GenericCapability<T, KIND> {
 
             GenericCapability {
                 index,
+                output_dimensions: None,
                 _type: PhantomData,
             }
         }
@@ -34,7 +37,12 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
     type Output = Tensor<T>;
 
     fn generate(&mut self) -> Self::Output {
-        let mut buffer = Tensor::zeroed(alloc::vec![0]);
+        let output_dimensions = self
+            .output_dimensions
+            .as_ref()
+            .expect("Please specify the capability's output dimensions");
+
+        let mut buffer = Tensor::zeroed(output_dimensions.to_vec());
 
         let elements = buffer.make_elements_mut();
         let byte_length = (elements.len() * core::mem::size_of::<T>()) as u32;
@@ -74,5 +82,11 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
         }
 
         self
+    }
+}
+
+impl<T, const KIND: u32> HasOutputs for GenericCapability<T, KIND> {
+    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
+        self.output_dimensions = Some(dimensions.to_vec());
     }
 }

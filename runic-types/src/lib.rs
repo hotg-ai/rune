@@ -21,7 +21,7 @@ mod value;
 
 pub use crate::{
     buf_writer::BufWriter,
-    pipelines::{Sink, Source, Transform},
+    pipelines::{Sink, Source, Transform, HasOutputs},
     tensor::{Tensor, TensorView},
     value::{Value, Type, AsType, InvalidConversionError},
 };

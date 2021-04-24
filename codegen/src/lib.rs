@@ -297,7 +297,7 @@ impl Generator {
                 })
                 .next();
 
-            let (output_type, next) = graph
+            let (output_type, output_dimensions, next) = graph
                 .edges_directed(node, Direction::Outgoing)
                 .filter_map(|edge| {
                     let node_ix = edge.target();
@@ -305,8 +305,19 @@ impl Generator {
                     let ty = self.rune.types.get(&type_id)?;
                     let id = self.rune.node_index_to_hir_id.get(&node_ix)?;
                     let name = self.rune.names.get_name(*id)?;
+                    let dimensions = match ty {
+                        Type::Primitive(_) => Some(vec![1]),
+                        Type::Buffer { dimensions, .. } => {
+                            Some(dimensions.clone())
+                        },
+                        Type::Unknown | Type::Any => None,
+                    };
 
-                    Some((rust_type_name(ty, &self.rune.types), Some(name)))
+                    Some((
+                        rust_type_name(ty, &self.rune.types),
+                        dimensions,
+                        Some(name),
+                    ))
                 })
                 .next()
                 .unwrap_or_default();
@@ -316,6 +327,7 @@ impl Generator {
                 previous,
                 next,
                 output_type,
+                output_dimensions,
             });
         }
 
@@ -513,6 +525,7 @@ struct Stage<'a> {
     previous: Option<&'a str>,
     next: Option<&'a str>,
     output_type: Option<String>,
+    output_dimensions: Option<Vec<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -7,7 +7,7 @@ extern crate std;
 
 use core::cmp::Ordering;
 
-use runic_types::Transform;
+use runic_types::{HasOutputs, Transform};
 
 pub const MISSING_LABEL: &'static str = "<MISSING>";
 
@@ -82,6 +82,8 @@ impl<const N: usize> Transform<[u8; N]> for OhvLabel<N> {
 impl<const N: usize> Default for OhvLabel<N> {
     fn default() -> Self { OhvLabel::new() }
 }
+
+impl<const N: usize> HasOutputs for OhvLabel<N> {}
 
 #[cfg(test)]
 mod tests {

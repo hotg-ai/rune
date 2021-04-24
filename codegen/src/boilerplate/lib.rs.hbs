@@ -39,6 +39,12 @@ pub extern "C" fn _manifest() -> u32 {
     let mut {{name}} = {{type}}::default();
     {{~/each}}
 
+    {{#each pipeline~}}
+    {{~#if output_dimensions~}}
+    {{name}}.set_output_dimensions(&{{output_dimensions}});
+    {{~/if}}
+    {{~/each}}
+
     let pipeline = move || {
         let _guard = PipelineGuard::default();
 

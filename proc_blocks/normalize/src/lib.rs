@@ -7,7 +7,7 @@ use core::{
     fmt::Debug,
     ops::{Div, Sub},
 };
-use runic_types::{Tensor, Transform};
+use runic_types::{HasOutputs, Tensor, Transform};
 
 pub fn normalize<T>(input: &mut [T])
 where
@@ -53,6 +53,8 @@ where
         input
     }
 }
+
+impl HasOutputs for Normalize {}
 
 fn min_max<'a, I, T>(items: I) -> Option<(T, T)>
 where

@@ -5,7 +5,7 @@ extern crate alloc;
 #[macro_use]
 extern crate std;
 
-use runic_types::Transform;
+use runic_types::{HasOutputs, Transform};
 use alloc::collections::VecDeque;
 
 /// Gesture Aggregator takes a list of confidences and returns the associated
@@ -105,6 +105,8 @@ impl<const N: usize> Transform<[f32; N]> for GestureAgg<N> {
 impl<const N: usize> Default for GestureAgg<N> {
     fn default() -> Self { GestureAgg::new() }
 }
+
+impl<const N: usize> HasOutputs for GestureAgg<N> {}
 
 #[cfg(test)]
 mod tests {

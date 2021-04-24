@@ -79,6 +79,12 @@ impl<T> Tensor<T> {
             dimensions,
         })
     }
+
+    pub fn as_ptr_and_byte_length(&self) -> (*const u8, usize) {
+        let elements = self.elements();
+        let byte_length = elements.len() * core::mem::size_of::<T>();
+        (elements.as_ptr().cast(), byte_length)
+    }
 }
 
 impl<T: PartialEq> PartialEq<[T]> for Tensor<T> {
