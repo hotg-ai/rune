@@ -41,9 +41,6 @@ jobs:
         with:
           command: test
           args: --workspace --verbose
-      - name: Test Python Bindings
-        run: |
-          cargo test --manifest-path proc_blocks/python/Cargo.toml --verbose
       - name: Generate API Docs
         run: |
           cargo doc --workspace --verbose
