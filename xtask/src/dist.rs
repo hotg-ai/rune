@@ -93,14 +93,8 @@ pub struct Component {
 }
 
 impl Component {
-    pub const POSSIBLE_VALUES: &'static [&'static str] = &[
-        "rune",
-        "ffi",
-        "examples",
-        "python-bindings",
-        "strip",
-        "docs",
-    ];
+    pub const POSSIBLE_VALUES: &'static [&'static str] =
+        &["rune", "ffi", "examples", "strip", "docs"];
 
     fn new<I, F>(name: I, execute: F) -> Self
     where
@@ -140,7 +134,6 @@ impl FromStr for Component {
             "rune" => compile_rune_binary as ComponentFunc,
             "ffi" => generate_ffi_header as ComponentFunc,
             "docs" => copy_docs as ComponentFunc,
-            "python-bindings" => generate_python_bindings as ComponentFunc,
             _ => anyhow::bail!(
                 "Expected one of \"{}\" but found \"{}\"",
                 Component::POSSIBLE_VALUES.join("\", \""),
@@ -473,118 +466,4 @@ fn clear_directory<P: AsRef<Path>>(directory: P) -> Result<(), Error> {
     std::fs::create_dir_all(directory)?;
 
     Ok(())
-}
-
-fn generate_python_bindings(ctx: &Context) -> Result<(), Error> {
-    if !cfg!(target_os = "linux") {
-        // We only want to generate the Python bindings for our proc blocks on
-        // Linux. Mac builds require more setup.
-        log::warn!("Python bindings are only built on Linux");
-        return Ok(());
-    }
-
-    let Context {
-        project_root, dist, ..
-    } = ctx;
-
-    log::info!("Generating Python bindings to the proc blocks");
-    let venv = VirtualEnv::new(project_root)?;
-
-    venv.python("venv", &[&venv.env_dir])
-        .context("Unable to initialize the virtual environment")?;
-    venv.python(
-        "pip",
-        &["install", "maturin", "--disable-pip-version-check"],
-    )
-    .context("Unable to make sure `maturin` is installed")?;
-
-    let wheel_dir = dist.join("wheels");
-
-    venv.maturin(&[
-        "build".as_ref(),
-        "--release".as_ref(),
-        "--strip".as_ref(),
-        "--no-sdist".as_ref(),
-        "--out".as_ref(),
-        wheel_dir.as_os_str(),
-    ])
-    .context("Unable to compile the Python wheels")?;
-
-    Ok(())
-}
-
-struct VirtualEnv {
-    python_bindings_dir: PathBuf,
-    env_dir: PathBuf,
-    path: OsString,
-}
-
-impl VirtualEnv {
-    fn new(project_root: &Path) -> Result<VirtualEnv, Error> {
-        let python_bindings_dir =
-            project_root.join("proc_blocks").join("python");
-        let env_dir = python_bindings_dir.join("env");
-
-        let path = match std::env::var_os("PATH") {
-            Some(p) => {
-                let paths = std::iter::once(env_dir.clone())
-                    .chain(std::env::split_paths(&p));
-
-                std::env::join_paths(paths)
-                    .context("Unable to construct the PATH variable")?
-            },
-            None => env_dir.clone().into_os_string(),
-        };
-
-        Ok(VirtualEnv {
-            python_bindings_dir,
-            env_dir,
-            path,
-        })
-    }
-
-    fn python<S>(&self, module: &str, args: &[S]) -> Result<(), Error>
-    where
-        S: AsRef<OsStr>,
-    {
-        let python = if self.env_dir.exists() {
-            self.env_dir.join("bin").join("python3").into_os_string()
-        } else {
-            OsString::from("python3")
-        };
-
-        let mut cmd = Command::new(python);
-        cmd.arg("-m").arg(module).args(args);
-
-        self.run(&mut cmd)
-    }
-
-    fn maturin<S>(&self, args: &[S]) -> Result<(), Error>
-    where
-        S: AsRef<OsStr>,
-    {
-        let maturin = self.env_dir.join("bin").join("maturin");
-        let mut cmd = Command::new(maturin);
-        cmd.args(args);
-
-        self.run(&mut cmd)
-    }
-
-    fn run(&self, cmd: &mut Command) -> Result<(), Error> {
-        cmd.env("VIRTUAL_ENV", &self.env_dir)
-            .env("PATH", &self.path)
-            .current_dir(&self.python_bindings_dir);
-
-        log::debug!("Executing {:?}", cmd);
-
-        let status = cmd.status().context("Unable to invoke the command")?;
-
-        anyhow::ensure!(
-            status.success(),
-            "The command failed with exit code {}",
-            status.code().unwrap_or(1)
-        );
-
-        Ok(())
-    }
 }
