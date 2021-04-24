@@ -3,11 +3,12 @@ use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{Rune, SinkKind, SourceKind},
+    hir::{HirId, Rune, SinkKind, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
+    collections::HashMap,
     fs::File,
     path::{Path, PathBuf},
     process::Command,
@@ -305,7 +306,7 @@ impl Generator {
                     let id = self.rune.node_index_to_hir_id.get(&node_ix)?;
                     let name = self.rune.names.get_name(*id)?;
 
-                    Some((ty.rust_type_name(&self.rune.types).ok(), Some(name)))
+                    Some((rust_type_name(ty, &self.rune.types), Some(name)))
                 })
                 .next()
                 .unwrap_or_default();
@@ -389,6 +390,12 @@ impl Generator {
             Err(Error::msg("Compilation failed"))
         }
     }
+}
+
+fn rust_type_name(ty: &Type, types: &HashMap<HirId, Type>) -> Option<String> {
+    let primitive = ty.underlying_primitive(types)?;
+
+    Some(format!("Tensor<{}>", primitive.rust_name()))
 }
 
 fn rust_literal(arg: &ArgumentValue) -> String {

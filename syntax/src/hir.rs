@@ -277,6 +277,22 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn underlying_primitive(
+        &self,
+        types: &HashMap<HirId, Type>,
+    ) -> Option<Primitive> {
+        match self {
+            Type::Primitive(p) => Some(*p),
+            Type::Buffer {
+                underlying_type, ..
+            } => {
+                let underlying_type = types.get(underlying_type)?;
+                underlying_type.underlying_primitive(types)
+            },
+            Type::Unknown | Type::Any => None,
+        }
+    }
+
     pub fn rust_type_name(
         &self,
         types: &HashMap<HirId, Type>,
