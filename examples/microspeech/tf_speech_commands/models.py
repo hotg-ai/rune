@@ -38,7 +38,7 @@ def _next_power_of_two(x):
 
 def prepare_model_settings(label_count, sample_rate, clip_duration_ms,
                            window_size_ms, window_stride_ms, feature_bin_count,
-                           preprocess):
+                           preprocess, upper_mel_band_limit=7500, lower_mel_band_limit=125):
   """Calculates common settings needed for all models.
 
   Args:
@@ -89,6 +89,8 @@ def prepare_model_settings(label_count, sample_rate, clip_duration_ms,
       'sample_rate': sample_rate,
       'preprocess': preprocess,
       'average_window_width': average_window_width,
+      'upper_mel_band_limit': upper_mel_band_limit,
+      'lower_mel_band_limit': lower_mel_band_limit,
   }
 
 
