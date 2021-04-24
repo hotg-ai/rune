@@ -80,10 +80,10 @@ jobs:
           maturin build --manifest-path proc_blocks/python/Cargo.toml \
                         --bindings pyo3 \
                         --manylinux off \
-                        --release --verbose
+                        --release
       - name: Upload Wheels
         uses: actions/upload-artifact@v2
         with:
-          name: benchmarks
+          name: Wheels
           path: proc_blocks/python/target/wheels
 
