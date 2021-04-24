@@ -1,15 +1,11 @@
 use core::{convert::TryInto, ops::Index};
 use alloc::{sync::Arc, vec::Vec};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A multidimensional array with copy-on-write semantics.
 ///
 /// # Examples
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(
-    from = "SerializableTensor<T>",
-    into = "SerializableTensor<T>",
-    bound = "T: serde::ser::Serialize + serde::de::DeserializeOwned + Clone"
-)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tensor<T> {
     elements: Arc<[T]>,
     dimensions: Vec<usize>,
@@ -188,32 +184,43 @@ impl<'t, T> Index<usize> for TensorView<'t, T, 1> {
     fn index(&self, index: usize) -> &Self::Output { &self[[index]] }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct SerializableTensor<T> {
-    elements: Vec<T>,
-    dimensions: Vec<usize>,
-}
+impl<T: Serialize> Serialize for Tensor<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(serde::Serialize)]
+        struct S<'a, Item> {
+            elements: &'a [Item],
+            dimensions: &'a [usize],
+        }
 
-impl<T> From<SerializableTensor<T>> for Tensor<T> {
-    fn from(s: SerializableTensor<T>) -> Self {
-        let SerializableTensor {
-            elements,
-            dimensions,
-        } = s;
-        Tensor::new_row_major(elements.into(), dimensions)
+        let s = S {
+            elements: self.elements(),
+            dimensions: self.dimensions(),
+        };
+
+        s.serialize(serializer)
     }
 }
 
-impl<T: Clone> From<Tensor<T>> for SerializableTensor<T> {
-    fn from(s: Tensor<T>) -> Self {
-        let Tensor {
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Tensor<T> {
+    fn deserialize<D>(de: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct D<Item> {
+            elements: Vec<Item>,
+            dimensions: Vec<usize>,
+        }
+
+        let D {
             elements,
             dimensions,
-        } = s;
-        SerializableTensor {
-            elements: elements.to_vec(),
-            dimensions,
-        }
+        } = D::deserialize(de)?;
+
+        Ok(Tensor::<T>::new_row_major(elements.into(), dimensions))
     }
 }
 
