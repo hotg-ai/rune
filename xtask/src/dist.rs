@@ -1,67 +1,182 @@
 use crate::BulkCopy;
-use anyhow::{Context, Error};
+use anyhow::{Context as _, Error};
 use walkdir::{DirEntry, WalkDir};
 use std::{
     ffi::{OsStr, OsString},
+    fmt::{self, Debug, Formatter},
     fs::File,
     io::{Seek, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    str::FromStr,
 };
 use zip::write::{ZipWriter, FileOptions};
 
-pub fn generate_release_artifacts() -> Result<(), Error> {
-    log::info!("Generating release artifacts");
+#[derive(Debug, structopt::StructOpt)]
+pub struct Dist {
+    #[structopt(short, long, help = "A list of components to exclude")]
+    exclude: Vec<String>,
+    /// The components to include. If not provided, all available components
+    /// will be used.
+    #[structopt(possible_values = Component::POSSIBLE_VALUES)]
+    requested_components: Vec<String>,
+}
 
-    let cargo =
-        std::env::var("CARGO").unwrap_or_else(|_| String::from("cargo"));
+impl Dist {
+    pub fn run(self) -> Result<(), Error> {
+        log::info!("Generating release artifacts");
 
-    let project_root = crate::project_root()?;
-    let target = project_root.join("target");
-    let dist = target.join("dist");
-    let workspace_cargo_toml = project_root.join("Cargo.toml");
+        let components = self.components()?;
 
-    clear_directory(&dist).context("Unable to clear the dist directory")?;
+        let cargo = std::env::var_os("CARGO")
+            .unwrap_or_else(|| OsString::from("cargo"));
 
-    compile_rune_binary(&cargo, &workspace_cargo_toml, &dist, &target)
-        .context("Unable to compile binaries")?;
-    if let Err(e) = strip_binaries(&dist) {
-        log::warn!("Unable to strip the binaries: {}", e);
+        let project_root = crate::project_root()?;
+        let target_dir = project_root.join("target");
+        let dist = target_dir.join("dist");
+        let workspace_cargo_toml = project_root.join("Cargo.toml");
+
+        clear_directory(&dist).context("Unable to clear the dist directory")?;
+
+        let ctx = Context {
+            cargo,
+            project_root,
+            target_dir,
+            dist,
+            workspace_cargo_toml,
+        };
+
+        for component in components {
+            log::info!("Running \"{}\"", component.name);
+            (component.execute)(&ctx)?;
+        }
+
+        generate_archive(&ctx).context("Unable to generate the zip archive")?;
+
+        Ok(())
     }
-    generate_ffi_header(&project_root, &dist)
-        .context("Unable to generate the header file")?;
 
-    compile_example_runes(&cargo, &project_root, &dist)
-        .context("Unable to compile example runes")?;
+    fn components(&self) -> Result<Vec<Component>, Error> {
+        let mut all_components = if self.requested_components.is_empty() {
+            Component::POSSIBLE_VALUES
+                .iter()
+                .map(ToString::to_string)
+                .collect()
+        } else {
+            self.requested_components.clone()
+        };
+
+        all_components.retain(|name| !self.exclude.contains(name));
+
+        all_components
+            .into_iter()
+            .map(|name| Component::from_str(&name))
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Context {
+    cargo: OsString,
+    project_root: PathBuf,
+    target_dir: PathBuf,
+    dist: PathBuf,
+    workspace_cargo_toml: PathBuf,
+}
+
+type ComponentFunc = fn(&Context) -> Result<(), Error>;
+
+pub struct Component {
+    name: String,
+    execute: Box<dyn Fn(&Context) -> Result<(), Error>>,
+    function_name: &'static str,
+}
+
+impl Component {
+    pub const POSSIBLE_VALUES: &'static [&'static str] = &[
+        "rune",
+        "ffi",
+        "examples",
+        "python-bindings",
+        "strip",
+        "docs",
+    ];
+
+    fn new<I, F>(name: I, execute: F) -> Self
+    where
+        I: Into<String>,
+        F: Fn(&Context) -> Result<(), Error> + 'static,
+    {
+        Component {
+            name: name.into(),
+            execute: Box::new(execute),
+            function_name: std::any::type_name::<F>(),
+        }
+    }
+}
+
+impl Debug for Component {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Component {
+            name,
+            execute: _,
+            function_name,
+        } = self;
+
+        f.debug_struct("Component")
+            .field("name", name)
+            .field("execute", function_name)
+            .finish()
+    }
+}
+
+impl FromStr for Component {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let func = match s {
+            "strip" => strip_binaries as ComponentFunc,
+            "examples" => compile_example_runes as ComponentFunc,
+            "rune" => compile_rune_binary as ComponentFunc,
+            "ffi" => generate_ffi_header as ComponentFunc,
+            "docs" => copy_docs as ComponentFunc,
+            "python-bindings" => generate_python_bindings as ComponentFunc,
+            _ => anyhow::bail!(
+                "Expected one of \"{}\" but found \"{}\"",
+                Component::POSSIBLE_VALUES.join("\", \""),
+                s,
+            ),
+        };
+
+        Ok(Component::new(s, func))
+    }
+}
+
+fn copy_docs(ctx: &Context) -> Result<(), Error> {
+    let Context {
+        project_root, dist, ..
+    } = ctx;
 
     std::fs::copy(project_root.join("README.md"), dist.join("README.md"))
         .context("Unable to copy the README across")?;
 
     BulkCopy::new(&["*.md"])?
         .with_max_depth(1)
-        .copy(project_root.join(""), &dist)?;
-
-    if cfg!(target_os = "linux") {
-        // We only want to generate the Python bindings for our proc blocks on
-        // Linux. Mac builds require more setup.
-        generate_python_bindings(&project_root, &dist)
-            .context("Unable to generate the Python bindings")?;
-    }
-
-    generate_archive(&dist, &target)
-        .context("Unable to generate the zip archive")?;
+        .copy(project_root.join(""), dist)?;
 
     Ok(())
 }
 
 #[cfg(not(unix))]
-fn strip_binaries(dist: &Path) -> Result<(), Error> {
+fn strip_binaries(_ctx: &Context) -> Result<(), Error> {
     // Windows puts all debug info in a PDB file, so there's nothing to strip
     Ok(())
 }
 
 #[cfg(unix)]
-fn strip_binaries(dist: &Path) -> Result<(), Error> {
+fn strip_binaries(ctx: &Context) -> Result<(), Error> {
+    let dist = &ctx.dist;
+
     log::debug!("Stripping binaries");
 
     for entry in dist
@@ -115,7 +230,11 @@ fn is_strippable(path: &Path) -> bool {
     whitelist.contains(&ext.as_str())
 }
 
-fn generate_ffi_header(project_root: &Path, dist: &Path) -> Result<(), Error> {
+fn generate_ffi_header(ctx: &Context) -> Result<(), Error> {
+    let Context {
+        project_root, dist, ..
+    } = ctx;
+
     let ffi_dir = project_root.join("ffi");
     let header = dist.join("rune.h");
     log::debug!("Writing FFI headers at \"{}\"", header.display());
@@ -124,7 +243,11 @@ fn generate_ffi_header(project_root: &Path, dist: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn generate_archive(dist: &Path, target_dir: &Path) -> Result<(), Error> {
+fn generate_archive(ctx: &Context) -> Result<(), Error> {
+    let Context {
+        target_dir, dist, ..
+    } = ctx;
+
     let name = archive_name(target_dir)?;
     log::info!("Writing the release archive to \"{}\"", name.display());
 
@@ -209,11 +332,14 @@ fn archive_name(target_dir: &Path) -> Result<PathBuf, Error> {
     Ok(target_dir.join(name))
 }
 
-fn compile_example_runes(
-    cargo: &str,
-    project_root: &Path,
-    dist: &Path,
-) -> Result<(), Error> {
+fn compile_example_runes(ctx: &Context) -> Result<(), Error> {
+    let Context {
+        cargo,
+        project_root,
+        dist,
+        ..
+    } = ctx;
+
     let example_dir = project_root.join("examples");
     let destination_dir = dist.join("examples");
 
@@ -253,7 +379,7 @@ fn compile_example_runes(
 }
 
 fn compile_example_rune(
-    cargo: &str,
+    cargo: &OsStr,
     name: &OsStr,
     runefile: &Path,
     example: &Path,
@@ -290,12 +416,15 @@ fn compile_example_rune(
     Ok(())
 }
 
-fn compile_rune_binary(
-    cargo: &str,
-    workspace_cargo_toml: &Path,
-    dist: &Path,
-    target_dir: &Path,
-) -> Result<(), Error> {
+fn compile_rune_binary(ctx: &Context) -> Result<(), Error> {
+    let Context {
+        cargo,
+        target_dir,
+        dist,
+        workspace_cargo_toml,
+        ..
+    } = ctx;
+
     log::info!("Compiling the `rune` binary");
 
     let mut cmd = Command::new(cargo);
@@ -346,10 +475,18 @@ fn clear_directory<P: AsRef<Path>>(directory: P) -> Result<(), Error> {
     Ok(())
 }
 
-fn generate_python_bindings(
-    project_root: &Path,
-    dist: &Path,
-) -> Result<(), Error> {
+fn generate_python_bindings(ctx: &Context) -> Result<(), Error> {
+    if !cfg!(target_os = "linux") {
+        // We only want to generate the Python bindings for our proc blocks on
+        // Linux. Mac builds require more setup.
+        log::warn!("Python bindings are only built on Linux");
+        return Ok(());
+    }
+
+    let Context {
+        project_root, dist, ..
+    } = ctx;
+
     log::info!("Generating Python bindings to the proc blocks");
     let venv = VirtualEnv::new(project_root)?;
 
