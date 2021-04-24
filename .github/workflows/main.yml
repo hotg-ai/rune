@@ -60,6 +60,11 @@ jobs:
         os:
           - ubuntu-18.04
           - macos-latest
+        python:
+          - '3.6'
+          - '3.7'
+          - '3.8'
+          - '3.9'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -69,13 +74,19 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
+          key: ${{ runner.os }}-py${{ matrix.python }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           override: true
-      - run: |
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Compile the Wheel
+        run: |
           pip3 install maturin
           maturin build --manifest-path proc_blocks/python/Cargo.toml \
                         --bindings pyo3 \
