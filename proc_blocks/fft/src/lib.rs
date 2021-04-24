@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Transform};
+use runic_types::{HasOutputs, Tensor, Transform};
 use sonogram::SpecOptionsBuilder;
 use mel;
 use nalgebra::DMatrix;
@@ -116,6 +116,16 @@ impl<const N: usize> Transform<[i16; N]> for Fft {
 
     fn transform(&mut self, input: [i16; N]) -> Self::Output {
         self.transform_inner(input.to_vec())
+    }
+}
+
+impl<> Transform<Tensor<i16>> for Fft {
+    type Output = Tensor<i8>;
+
+    fn transform(&mut self, input: Tensor<i16>) -> Self::Output {
+        let input = input.elements().to_vec();
+        let stft = self.transform_inner(input);
+        Tensor::new_vector(stft.iter().copied())
     }
 }
 

@@ -107,7 +107,7 @@ fn yes_microspeech() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("Serial: \"yes\""));
+        .stderr(predicates::str::contains(r#"Serial: {"type_name":"&str","channel":2,"string":"yes"}"#));
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn no_microspeech() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("Serial: \"no\""));
+        .stderr(predicates::str::contains(r#"Serial: {"type_name":"&str","channel":2,"string":"no"}"#));
 }
 
 #[test]
