@@ -1,29 +1,22 @@
-mod accelerometer;
 pub mod alloc;
+mod capability;
 mod guards;
-mod image;
 pub mod intrinsics;
 mod logging;
 mod model;
-mod random;
-mod raw;
 mod serial;
-mod sound;
 mod stats_allocator;
 
-pub use accelerometer::Accelerometer;
-pub use image::Image;
-pub use guards::{SetupGuard, PipelineGuard};
-pub use model::Model;
-pub use random::Random;
-pub use raw::Raw;
-pub use serial::Serial;
-pub use sound::Sound;
-pub use logging::Logger;
+pub use self::{
+    capability::{GenericCapability, Accelerometer, Random, Sound, Raw, Image},
+    guards::{SetupGuard, PipelineGuard},
+    logging::Logger,
+    model::Model,
+    serial::Serial,
+};
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use crate::{Buffer, Value, BufWriter};
-use self::alloc::Allocator;
+use crate::{BufWriter, wasm32::alloc::Allocator};
 use dlmalloc::GlobalDlmalloc;
 
 #[global_allocator]
@@ -76,37 +69,4 @@ fn on_alloc_error(layout: Layout) -> ! {
         layout.size(),
         ALLOCATOR.stats()
     );
-}
-
-fn copy_capability_data_to_buffer<B>(capability_id: u32, buffer: &mut B)
-where
-    B: Buffer,
-{
-    let byte_length = buffer.size_in_bytes() as u32;
-
-    unsafe {
-        let response_size = intrinsics::request_provider_response(
-            buffer.as_mut_ptr() as _,
-            byte_length,
-            capability_id,
-        );
-
-        debug_assert_eq!(response_size, byte_length);
-    }
-}
-
-fn set_capability_parameter(capability_id: u32, key: &str, value: Value) {
-    unsafe {
-        let mut buffer = Value::buffer();
-        let bytes_written = value.to_le_bytes(&mut buffer);
-
-        intrinsics::request_capability_set_param(
-            capability_id,
-            key.as_ptr(),
-            key.len() as u32,
-            buffer.as_ptr(),
-            bytes_written as u32,
-            value.ty().into(),
-        );
-    }
 }

@@ -3,8 +3,8 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use runic_types::{HasOutputs, Tensor, Transform};
 use sonogram::SpecOptionsBuilder;
-pub use runic_types::{Transform};
 use mel;
 use nalgebra::DMatrix;
 
@@ -111,7 +111,7 @@ impl Default for Fft {
     fn default() -> Self { Fft::new() }
 }
 
-impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
+impl<const N: usize> Transform<[i16; N]> for Fft {
     type Output = [i8; 1960];
 
     fn transform(&mut self, input: [i16; N]) -> Self::Output {
@@ -119,13 +119,25 @@ impl<const N: usize> runic_types::Transform<[i16; N]> for Fft {
     }
 }
 
-impl<'a> runic_types::Transform<&'a [i16]> for Fft {
+impl<> Transform<Tensor<i16>> for Fft {
+    type Output = Tensor<i8>;
+
+    fn transform(&mut self, input: Tensor<i16>) -> Self::Output {
+        let input = input.elements().to_vec();
+        let stft = self.transform_inner(input);
+        Tensor::new_vector(stft.iter().copied())
+    }
+}
+
+impl<'a> Transform<&'a [i16]> for Fft {
     type Output = [i8; 1960];
 
     fn transform(&mut self, input: &'a [i16]) -> Self::Output {
         self.transform_inner(input.to_vec())
     }
 }
+
+impl HasOutputs for Fft {}
 
 #[cfg(test)]
 mod tests {

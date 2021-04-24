@@ -5,22 +5,29 @@
     feature(core_intrinsics, lang_items, alloc_error_handler)
 )]
 
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+
 extern crate alloc;
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm32;
 
 mod buf_writer;
-mod buffer;
 mod pipelines;
+mod tensor;
 mod value;
 
+pub use crate::{
+    buf_writer::BufWriter,
+    pipelines::{Sink, Source, Transform, HasOutputs},
+    tensor::{Tensor, TensorView},
+    value::{Value, Type, AsType, InvalidConversionError},
+};
+
 use alloc::borrow::Cow;
-pub use buf_writer::BufWriter;
 use log::{Level, Record};
-pub use pipelines::{Sink, Source, Transform};
-pub use buffer::Buffer;
-pub use value::{Value, Type, AsType, InvalidConversionError};
 
 pub mod capabilities {
     pub const RAND: u32 = 1;

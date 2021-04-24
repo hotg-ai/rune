@@ -2,7 +2,16 @@
 
 use core::ops::Rem;
 use num_traits::One;
-use runic_types::Transform;
+use runic_types::{HasOutputs, Tensor, Transform};
+
+pub fn modulo<T>(modulus: T, values: &mut [T])
+where
+    T: Rem<Output = T> + Clone,
+{
+    for item in values {
+        *item = item.clone() % modulus.clone();
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Modulo<T> {
@@ -11,7 +20,9 @@ pub struct Modulo<T> {
 
 impl<T: One> Modulo<T> {
     pub fn new() -> Self { Modulo { modulus: T::one() } }
+}
 
+impl<T> Modulo<T> {
     pub fn with_modulus(self, modulus: T) -> Self { Modulo { modulus } }
 }
 
@@ -35,13 +46,24 @@ where
     type Output = [T; N];
 
     fn transform(&mut self, mut input: [T; N]) -> [T; N] {
-        for item in &mut input {
-            *item = item.clone() % self.modulus.clone();
-        }
-
+        modulo(self.modulus.clone(), &mut input);
         input
     }
 }
+
+impl<'a, T> Transform<Tensor<T>> for Modulo<T>
+where
+    T: Rem<Output = T> + Clone,
+{
+    type Output = Tensor<T>;
+
+    fn transform(&mut self, mut input: Tensor<T>) -> Tensor<T> {
+        modulo(self.modulus.clone(), input.make_elements_mut());
+        input
+    }
+}
+
+impl<T> HasOutputs for Modulo<T> {}
 
 #[cfg(test)]
 mod tests {

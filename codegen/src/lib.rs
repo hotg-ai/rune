@@ -3,18 +3,19 @@ use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{Rune, SinkKind, SourceKind},
+    hir::{HirId, Primitive, Rune, SinkKind, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
+    collections::HashMap,
     fs::File,
     path::{Path, PathBuf},
     process::Command,
     unimplemented,
 };
 use once_cell::sync::Lazy;
-use petgraph::{Direction, visit::EdgeRef};
+use petgraph::{Direction, graph::NodeIndex, visit::EdgeRef};
 
 const RUNE_GITHUB_REPO: &str = "https://github.com/hotg-ai/rune";
 
@@ -281,41 +282,7 @@ impl Generator {
         let mut stages = Vec::new();
 
         for node in nodes {
-            let id = self.rune.node_index_to_hir_id[&node];
-            let name = self
-                .rune
-                .names
-                .get_name(id)
-                .expect("All stages must be named");
-            let previous = graph
-                .edges_directed(node, Direction::Incoming)
-                .filter_map(|edge| {
-                    let node_ix = edge.source();
-                    let id = self.rune.node_index_to_hir_id.get(&node_ix)?;
-                    self.rune.names.get_name(*id)
-                })
-                .next();
-
-            let (output_type, next) = graph
-                .edges_directed(node, Direction::Outgoing)
-                .filter_map(|edge| {
-                    let node_ix = edge.target();
-                    let type_id = edge.weight().type_id;
-                    let ty = self.rune.types.get(&type_id)?;
-                    let id = self.rune.node_index_to_hir_id.get(&node_ix)?;
-                    let name = self.rune.names.get_name(*id)?;
-
-                    Some((ty.rust_type_name(&self.rune.types).ok(), Some(name)))
-                })
-                .next()
-                .unwrap_or_default();
-
-            stages.push(Stage {
-                name,
-                previous,
-                next,
-                output_type,
-            });
+            stages.push(pipeline_stage(&self.rune, node));
         }
 
         stages
@@ -388,6 +355,57 @@ impl Generator {
         } else {
             Err(Error::msg("Compilation failed"))
         }
+    }
+}
+
+fn pipeline_stage(rune: &Rune, node: NodeIndex) -> Stage<'_> {
+    let graph = &rune.graph;
+    let id = rune.node_index_to_hir_id[&node];
+    let name = rune.names.get_name(id).expect("All stages must be named");
+
+    let previous = graph
+        .edges_directed(node, Direction::Incoming)
+        .filter_map(|edge| {
+            let node_ix = edge.source();
+            let id = rune.node_index_to_hir_id.get(&node_ix)?;
+            rune.names.get_name(*id)
+        })
+        .next();
+
+    let (output_type, output_dimensions, next) = graph
+        .edges_directed(node, Direction::Outgoing)
+        .filter_map(|edge| {
+            let node_ix = edge.target();
+            let type_id = edge.weight().type_id;
+            let ty = rune.types.get(&type_id)?;
+            let id = rune.node_index_to_hir_id.get(&node_ix)?;
+            let name = rune.names.get_name(*id)?;
+            let dimensions = match ty {
+                Type::Primitive(_) => Some(vec![1]),
+                Type::Buffer { dimensions, .. } => Some(dimensions.clone()),
+                Type::Unknown | Type::Any => None,
+            };
+
+            Some((rust_type_name(ty, &rune.types), dimensions, Some(name)))
+        })
+        .next()
+        .unwrap_or_default();
+
+    Stage {
+        name,
+        previous,
+        next,
+        output_type,
+        output_dimensions,
+    }
+}
+
+fn rust_type_name(ty: &Type, types: &HashMap<HirId, Type>) -> Option<String> {
+    let primitive = ty.underlying_primitive(types)?;
+
+    match primitive {
+        Primitive::String => Some(format!("&'static str")),
+        _ => Some(format!("Tensor<{}>", primitive.rust_name())),
     }
 }
 
@@ -500,12 +518,13 @@ fn as_inline_toml(value: &Value) -> String {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 struct Stage<'a> {
     name: &'a str,
     previous: Option<&'a str>,
     next: Option<&'a str>,
     output_type: Option<String>,
+    output_dimensions: Option<Vec<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -545,9 +564,25 @@ impl RuneProject {
 
 #[cfg(test)]
 mod tests {
-    use rune_syntax::ast::Path;
+    use rune_syntax::{Diagnostics, ast::Path};
 
     use super::*;
+
+    fn parse_runefile(src: &str) -> Rune {
+        let parsed = rune_syntax::parse(src).unwrap();
+        let mut diags = Diagnostics::new();
+        let rune = rune_syntax::analyse(0, &parsed, &mut diags);
+        assert!(!diags.has_errors());
+
+        rune
+    }
+
+    static SINE_RUNE: Lazy<Rune> = Lazy::new(|| {
+        parse_runefile(include_str!("../../examples/sine/Runefile"))
+    });
+    static MICROSPEECH_RUNE: Lazy<Rune> = Lazy::new(|| {
+        parse_runefile(include_str!("../../examples/microspeech/Runefile"))
+    });
 
     #[test]
     fn detect_builtin_proc_blocks() {
@@ -592,5 +627,41 @@ mod tests {
         let src = format!("[temp]\nfoo = {}", got);
         let deserialized: Document = toml::from_str(&src).unwrap();
         assert_eq!(deserialized.temp.foo, object);
+    }
+
+    #[test]
+    fn sine_model_stage_info() {
+        let rune = &SINE_RUNE;
+        let id = rune.names["sine"];
+        let node_index = rune.hir_id_to_node_index[&id];
+        let should_be = Stage {
+            name: "sine",
+            previous: Some("mod360"),
+            next: Some("serial"),
+            output_type: Some("Tensor<f32>".to_string()),
+            output_dimensions: Some(vec![1]),
+        };
+
+        let got = pipeline_stage(rune, node_index);
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn output_type_for_label_is_string() {
+        let rune = &MICROSPEECH_RUNE;
+        let id = rune.names["label"];
+        let node_index = rune.hir_id_to_node_index[&id];
+        let should_be = Stage {
+            name: "label",
+            previous: Some("model"),
+            next: Some("serial"),
+            output_type: Some("&'static str".to_string()),
+            output_dimensions: Some(vec![1]),
+        };
+
+        let got = pipeline_stage(rune, node_index);
+
+        assert_eq!(got, should_be);
     }
 }
