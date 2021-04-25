@@ -52,3 +52,46 @@ jobs:
         with:
           branch: gh-pages
           folder: target/doc
+
+  python:
+    name: Python Bindings
+    strategy:
+      matrix:
+        os:
+          - ubuntu-18.04
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+      - name: Compile the Wheel
+        run: |
+          pip3 install maturin
+          maturin build --manifest-path proc_blocks/python/Cargo.toml \
+                        --bindings pyo3 \
+                        --manylinux off \
+                        --no-sdist \
+                        --release
+          pip3 install target/wheels/*.whl
+          python3 -c 'from proc_blocks import Normalize; n = Normalize(); print(n([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))'
+      - name: Upload Wheels
+        uses: actions/upload-artifact@v2
+        with:
+          name: python-wheel-${{ matrix.os }}
+          path: target/wheels/*.whl
