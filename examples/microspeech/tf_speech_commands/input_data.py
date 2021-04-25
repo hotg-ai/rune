@@ -247,7 +247,7 @@ class AudioProcessor(object):
         tarfile.open(filepath, 'r:gz').extractall(dest_directory)
       elif zipfile.is_zipfile(filepath):
         zf = zipfile.ZipFile(filepath)
-        zipfile.extractall(dest_directory)
+        zf.extractall(dest_directory)
 
   def prepare_data_index(self, silence_percentage, unknown_percentage,
                          wanted_words, validation_percentage,
