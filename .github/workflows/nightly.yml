@@ -83,6 +83,8 @@ jobs:
           - ubuntu-18.04
           - macos-latest
     runs-on: ${{ matrix.os }}
+    needs: check_date
+    if: ${{ needs.check_date.outputs.should_run != 'false' }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
