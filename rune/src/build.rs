@@ -3,7 +3,7 @@ use codespan_reporting::{
     files::SimpleFiles,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use rune_codegen::{Compilation, RuneProject};
+use rune_codegen::{Compilation, GitSpecifier, RuneProject};
 use rune_syntax::{Diagnostics, hir::Rune};
 use std::{
     env::current_dir,
@@ -56,6 +56,7 @@ impl Build {
         let rune_project = match nearest_git_repo() {
             Some(root_dir) => RuneProject::Disk(root_dir),
             None => {
+                // looks like we aren't into a checked out rune dir
                 let build_info = crate::version::version();
                 let git = build_info
                     .version_control
@@ -63,7 +64,8 @@ impl Build {
                     .and_then(|v| v.git())
                     .context("Unable to determine the rune project dir")?;
                 RuneProject::Git {
-                    committish: git.commit_id.clone(),
+                    repo: RuneProject::GITHUB_REPO.into(),
+                    specifier: GitSpecifier::Commit(git.commit_id.clone()),
                 }
             },
         };
