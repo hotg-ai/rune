@@ -237,7 +237,7 @@ class AudioProcessor(object):
             'have enough free space and an internet connection'.format(
                 data_url, filepath))
         raise
-      print()
+
       statinfo = os.stat(filepath)
       tf.compat.v1.logging.info(
           'Successfully downloaded {0} ({1} bytes)'.format(
@@ -421,7 +421,7 @@ class AudioProcessor(object):
       sliced_foreground = tf.slice(padded_foreground,
                                    self.time_shift_offset_placeholder_,
                                    [desired_samples, -1])
-      print(sliced_foreground)
+
       # Mix in background noise.
       self.background_data_placeholder_ = tf.compat.v1.placeholder(
           tf.float32, [desired_samples, 1], name='background_data')
@@ -579,7 +579,7 @@ class AudioProcessor(object):
           self.time_shift_padding_placeholder_: time_shift_padding,
           self.time_shift_offset_placeholder_: time_shift_offset,
       }
-      print(sample['file'])
+
       # Choose a section of background noise to mix in.
       if use_background or sample['label'] == SILENCE_LABEL:
         background_index = np.random.randint(len(self.background_data))
