@@ -53,7 +53,7 @@ impl Build {
             name,
             working_directory.display()
         );
-        let rune_project = match nearest_git_repo() {
+        let rune_project = match rune_repo_root() {
             Some(root_dir) => RuneProject::Disk(root_dir),
             None => {
                 // looks like we aren't into a checked out rune dir
@@ -127,11 +127,14 @@ impl Build {
     }
 }
 
-fn nearest_git_repo() -> Option<PathBuf> {
+fn rune_repo_root() -> Option<PathBuf> {
     let current_dir = std::env::current_dir().unwrap();
 
     for parent in current_dir.ancestors() {
-        if parent.join(".git").exists() {
+        if parent.join(".git").exists()
+            && parent.join("runic-types").exists()
+            && parent.join("proc_blocks").exists()
+        {
             return Some(parent.to_path_buf());
         }
     }
