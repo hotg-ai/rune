@@ -80,6 +80,22 @@ impl<const N: usize> Transform<[u8; N]> for OhvLabel<N> {
     }
 }
 
+impl<const N: usize> Transform<[i8; N]> for OhvLabel<N> {
+    type Output = &'static str;
+
+    fn transform(&mut self, input: [i8; N]) -> Self::Output {
+        match self
+            .labels
+            .iter()
+            .zip(input.iter().copied())
+            .max_by(|left, right| left.1.cmp(&right.1))
+        {
+            Some((label, probability)) if probability > -128i8 => *label,
+            _ => MISSING_LABEL,
+        }
+    }
+}
+
 impl<const N: usize> Transform<Tensor<f32>> for OhvLabel<N> {
     type Output = &'static str;
 
@@ -110,6 +126,24 @@ impl<const N: usize> Transform<Tensor<u8>> for OhvLabel<N> {
             .max_by(|left, right| left.1.cmp(&right.1))
         {
             Some((label, probability)) if probability > 0u8 => *label,
+            _ => MISSING_LABEL,
+        }
+    }
+}
+
+impl<const N: usize> Transform<Tensor<i8>> for OhvLabel<N> {
+    type Output = &'static str;
+
+    fn transform(&mut self, input: Tensor<i8>) -> Self::Output {
+        let input = input.elements();
+
+        match self
+            .labels
+            .iter()
+            .zip(input.iter().copied())
+            .max_by(|left, right| left.1.cmp(&right.1))
+        {
+            Some((label, probability)) if probability > -128i8 => *label,
             _ => MISSING_LABEL,
         }
     }
