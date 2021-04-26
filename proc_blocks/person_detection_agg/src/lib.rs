@@ -5,7 +5,9 @@ extern crate alloc;
 #[macro_use]
 extern crate std;
 
-use runic_types::{Transform, HasOutputs};
+use core::convert::TryInto;
+
+use runic_types::{HasOutputs, Tensor, Transform};
 use alloc::collections::VecDeque;
 
 /// Person Detection Aggregator takes a list of confidences and returns the
@@ -102,6 +104,15 @@ impl<const N: usize> Transform<[u8; N]> for PersonDetectionAgg<N> {
             },
             _ => self.unknown,
         }
+    }
+}
+
+impl<const N: usize> Transform<Tensor<u8>> for PersonDetectionAgg<N> {
+    type Output = &'static str;
+
+    fn transform(&mut self, input: Tensor<u8>) -> Self::Output {
+        let elements: &[u8; N] = input.elements().try_into().unwrap();
+        self.transform(*elements)
     }
 }
 

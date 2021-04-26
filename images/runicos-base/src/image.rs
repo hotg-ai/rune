@@ -328,9 +328,9 @@ fn request_capability_set_param(
             let value = Value::from_le_bytes(value_type, value)
                 .context("Unable to unmarshal the value")?;
 
-            capability
-                .set_parameter(key, value)
-                .context("Unable to set the parameter")?;
+            capability.set_parameter(key, value).with_context(|| {
+                format!("Unable to set \"{}\" = {}", key, value,)
+            })?;
 
             Ok(0)
         },
