@@ -14,9 +14,7 @@ jobs:
         os:
           - ubuntu-18.04
           - macos-latest
-          # Note: we need to use pre-compiled TensorFlow Lite binaries on
-          # Windows, so ignore the Windows build for now
-          #- windows-latest
+          - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -36,6 +34,17 @@ jobs:
         if: runner.os == 'macOS'
       - name: Setup Rust
         run: rustup show
+      # We need to explicitly install clang and record where libclang is
+      # https://github.com/rust-lang/rust-bindgen/issues/1797
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "11.0"
+          directory: ${{ runner.temp }}/llvm
+        if: runner.os == 'Windows'
+      - name: Set LIBCLANG_PATH
+        run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
+        if: runner.os == 'Windows'
       - name: Type Check
         uses: actions-rs/cargo@v1
         with:

@@ -47,10 +47,10 @@ jobs:
             os: ubuntu-18.04
             artifact_name: "target/rune.*.zip"
             asset_name: rune-linux
-          # - name: windows
-          #   os: windows-latest
-          #   artifact_name: "target/rune.*.zip"
-          #   asset_name: rune-windows
+          - name: windows
+            os: windows-latest
+            artifact_name: "target/rune.*.zip"
+            asset_name: rune-windows
           - name: macos
             os: macos-latest
             artifact_name: "target/rune.*.zip"
@@ -65,10 +65,19 @@ jobs:
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Setup Rust
         run: |
-          rustup default nightly-2021-05-09
-          rustup target add wasm32-unknown-unknown
-          rustc --version --verbose
           rustup show
+          rustc --version --verbose
+      # We need to explicitly install clang and record where libclang is
+      # https://github.com/rust-lang/rust-bindgen/issues/1797
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "11.0"
+          directory: ${{ runner.temp }}/llvm
+        if: runner.os == 'Windows'
+      - name: Set LIBCLANG_PATH
+        run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
+        if: runner.os == 'Windows'
       - name: Build
         run: cargo xtask dist
         env:
