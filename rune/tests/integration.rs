@@ -207,3 +207,17 @@ fn person_detection() {
         .code(0)
         .stderr(predicates::str::contains("\"not_person_prob\""));
 }
+
+#[test]
+fn build_all_examples() {
+    for entry in example_dir().read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let runefile = entry.path().join("Runefile");
+
+        if runefile.exists() {
+            let mut cmd = Command::cargo_bin("rune").unwrap();
+
+            cmd.arg("build").arg(&runefile).assert().success();
+        }
+    }
+}
