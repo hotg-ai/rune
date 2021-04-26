@@ -1,3 +1,6 @@
+use assert_cmd::Command;
+use std::path::{Path, PathBuf};
+
 extern crate cpal;
 extern crate hound;
 
@@ -30,6 +33,7 @@ pub fn in_and_out() {
         cmd.arg("run")
             .arg(&rune)
             .arg(format!("--capability=sound:{}", wav.display()));
+
     }
 
     // Need to add something to read usefull line from json to find direction
