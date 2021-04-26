@@ -1,3 +1,15 @@
 [alias]
 xtask = "run --package xtask --bin xtask --release --"
 rune = "run --package rune --release --quiet --"
+
+[target.x86_64-apple-darwin]
+rustflags = [
+  "-C", "link-arg=-undefined",
+  "-C", "link-arg=dynamic_lookup",
+]
+
+[target.aarch64-apple-darwin]
+rustflags = [
+  "-C", "link-arg=-undefined",
+  "-C", "link-arg=dynamic_lookup",
+]
