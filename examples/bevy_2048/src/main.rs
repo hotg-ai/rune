@@ -20,7 +20,11 @@ extern crate savefile_derive;
 /// Number of tiles to spawn at start.
 pub const STARTING_TILES: usize = 2;
 
+const RUNE_WASM: &[u8] = include_bytes!("../../microspeech/microspeech.rune");
+
 fn main() {
+    env_logger::init();
+
     let (stream, samples) = audio::start_recording().unwrap();
 
     stream.play().unwrap();
@@ -34,7 +38,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(GameSizePlugin)
         .add_plugin(SpawnTilePlugin)
-        .add_plugin(MovementPlugin)
+        .add_plugin(MovementPlugin::new(samples, RUNE_WASM.to_vec()))
         .add_plugin(ScoreSystemPlugin)
         .add_plugin(UiPlugin)
         .init_resource::<GameState>()

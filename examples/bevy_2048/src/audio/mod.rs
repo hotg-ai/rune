@@ -65,6 +65,10 @@ impl Samples {
     }
 
     pub fn len(&self) -> usize { self.buffer.len() }
+
+    pub fn iter(&self) -> impl Iterator<Item = i16> + '_ {
+        self.buffer.iter().copied()
+    }
 }
 
 #[cfg(test)]

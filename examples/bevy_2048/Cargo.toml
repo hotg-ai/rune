@@ -13,5 +13,11 @@ anyhow = "1.0.40"
 bevy = "0.3.0"
 cpal = "0.13.3"
 rand = "0.7.3"
+rune-wasmer-runtime = { path = "../../wasmer-runtime" }
+rune-runtime = { path = "../../runtime" }
+runic-types = { path = "../../runic-types" }
+runicos-base = { path = "../../images/runicos-base" }
 savefile = "0.7.4"
 savefile-derive = "0.7.4"
+env_logger = "0.8.3"
+log = "0.4.14"
