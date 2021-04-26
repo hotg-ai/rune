@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    fs::File,
     sync::{Arc, RwLock},
 };
 
@@ -8,6 +9,7 @@ use cpal::{
     Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait},
 };
+use hound::{SampleFormat, WavSpec};
 
 pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
     let host = cpal::default_host();
@@ -24,11 +26,25 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
     let samples = Arc::new(RwLock::new(Samples::new(1000)));
     let samples_2 = Arc::clone(&samples);
 
+    // TODO: Remove this WAV writer once testing is over
+    let f = File::create("samples.wav")?;
+    let spec = WavSpec {
+        channels: 1,
+        sample_rate: stream_config.sample_rate.0 * 2,
+        bits_per_sample: 16,
+        sample_format: SampleFormat::Int,
+    };
+    let mut wav_writer = hound::WavWriter::new(f, spec)?;
+
     let stream = microphone
         .build_input_stream(
             &stream_config,
             move |data: &[i16], _| {
                 let mut samples = samples_2.write().unwrap();
+                for sample in data {
+                    wav_writer.write_sample(*sample).unwrap();
+                }
+                wav_writer.flush().unwrap();
                 samples.append(data);
             },
             |err| panic!("Error: {}", err),

@@ -334,6 +334,7 @@ dependencies = [
  "bevy",
  "cpal",
  "env_logger 0.8.3",
+ "hound",
  "log",
  "rand 0.7.3",
  "rune-runtime",
