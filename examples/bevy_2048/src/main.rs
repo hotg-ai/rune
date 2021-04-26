@@ -1,3 +1,4 @@
+pub mod audio;
 mod board;
 mod common;
 mod movement;
@@ -7,6 +8,7 @@ mod ui;
 
 use bevy::{prelude::*, render::pass::ClearColor};
 use common::{GameSizePlugin, GameState, Tile};
+use cpal::traits::StreamTrait;
 use movement::MovementPlugin;
 use score::{Score, ScoreSystemPlugin};
 use tile_spawning::{Despawn, SpawnTileEvent, SpawnTilePlugin};
@@ -19,6 +21,10 @@ extern crate savefile_derive;
 pub const STARTING_TILES: usize = 2;
 
 fn main() {
+    let (stream, samples) = audio::start_recording().unwrap();
+
+    stream.play().unwrap();
+
     App::build()
         // Set window title.
         .add_resource(WindowDescriptor {
@@ -75,7 +81,10 @@ fn new_game(
     }
 }
 
-fn space_new_game(mut game_state: ResMut<GameState>, keyboard: Res<Input<KeyCode>>) {
+fn space_new_game(
+    mut game_state: ResMut<GameState>,
+    keyboard: Res<Input<KeyCode>>,
+) {
     if keyboard.just_pressed(KeyCode::Space) {
         *game_state = GameState::Restarting;
     }

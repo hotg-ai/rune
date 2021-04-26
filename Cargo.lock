@@ -330,7 +330,9 @@ checksum = "0d5f2f58f0aec3c50a20799792c3705e80dd7df327e79791cacec197e84e5e61"
 name = "bevy_2048"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy",
+ "cpal",
  "rand 0.7.3",
  "savefile",
  "savefile-derive",
