@@ -14,7 +14,9 @@ jobs:
         os:
           - ubuntu-18.04
           - macos-latest
-          - windows-latest
+          # Note: we need to use pre-compiled TensorFlow Lite binaries on
+          # Windows, so ignore the Windows build for now
+          #- windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
