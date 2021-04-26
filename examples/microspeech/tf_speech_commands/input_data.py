@@ -491,6 +491,8 @@ class AudioProcessor(object):
             out_type=tf.float32,
             upper_band_limit=model_settings['upper_mel_band_limit'],
             lower_band_limit=model_settings['lower_mel_band_limit'],
+            enable_pcan=model_settings['enable_pcan'],
+            min_signal_remaining=model_settings['min_signal_remaining']
             )
         self.output_ = tf.multiply(micro_frontend, (10.0 / 256.0))
         tf.compat.v1.summary.image(
