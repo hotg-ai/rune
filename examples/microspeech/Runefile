@@ -5,7 +5,7 @@ PROC_BLOCK<I16[16000],I8[1960]> fft hotg-ai/rune#proc_blocks/fft
 
 MODEL<I8[1960],I8[4]> model ./model.tflite
 
-PROC_BLOCK<I8[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=unknown,silence,yes,no
+PROC_BLOCK<I8[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=silence, unknown,yes,no
 
 OUT serial
 
