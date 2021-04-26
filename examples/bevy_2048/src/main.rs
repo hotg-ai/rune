@@ -6,6 +6,7 @@ mod score;
 mod tile_spawning;
 mod ui;
 
+use anyhow::{Context, Error};
 use bevy::{prelude::*, render::pass::ClearColor};
 use common::{GameSizePlugin, GameState, Tile};
 use cpal::traits::StreamTrait;
@@ -22,12 +23,16 @@ pub const STARTING_TILES: usize = 2;
 
 const RUNE_WASM: &[u8] = include_bytes!("../../microspeech/microspeech.rune");
 
-fn main() {
+fn main() -> Result<(), Error> {
     env_logger::init();
 
-    let (stream, samples) = audio::start_recording().unwrap();
+    let (stream, samples) = audio::start_recording()
+        .context("Unable to initialize the audio input")?;
 
-    stream.play().unwrap();
+    stream.play().context("Unable to start the stream")?;
+
+    let movement = MovementPlugin::load(samples, RUNE_WASM)
+        .context("Unable to load the movement system")?;
 
     App::build()
         // Set window title.
@@ -38,7 +43,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(GameSizePlugin)
         .add_plugin(SpawnTilePlugin)
-        .add_plugin(MovementPlugin::new(samples, RUNE_WASM.to_vec()))
+        .add_plugin(movement)
         .add_plugin(ScoreSystemPlugin)
         .add_plugin(UiPlugin)
         .init_resource::<GameState>()
@@ -49,6 +54,8 @@ fn main() {
         .add_system(new_game.system())
         .add_system(space_new_game.system())
         .run();
+
+    Ok(())
 }
 
 fn setup(

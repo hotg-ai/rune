@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Error, Context};
 use cpal::{
-    Stream, StreamConfig,
+    BufferSize, SampleRate, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait},
 };
 use hound::{SampleFormat, WavSpec};
@@ -18,16 +18,23 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
         .default_input_device()
         .context("Unable to connected to your microphone")?;
 
-    let stream_config = microphone
-        .default_input_config()
-        .context("Unable to get the input config")?;
-    let stream_config = StreamConfig::from(stream_config);
-
     let samples = Arc::new(RwLock::new(Samples::new(1000)));
     let samples_2 = Arc::clone(&samples);
 
+    let stream_config = StreamConfig {
+        channels: 1,
+        // TODO: Figure out how to get the sample rate out of the rune (e.g.
+        // when setting the "hz" property on our sound capability)
+        sample_rate: SampleRate(16_000),
+        buffer_size: BufferSize::Default,
+    };
+    log::debug!("Building the input stream with {:?}", stream_config);
+
     // TODO: Remove this WAV writer once testing is over
-    let f = File::create("samples.wav")?;
+    let filename = "samples.wav";
+    let f = File::create(filename).with_context(|| {
+        format!("Unable to open \"{}\" for writing", filename)
+    })?;
     let spec = WavSpec {
         channels: 1,
         sample_rate: stream_config.sample_rate.0 * 2,

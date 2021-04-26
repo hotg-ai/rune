@@ -8,7 +8,7 @@ use wasmer::{
 use wasmer::ImportObject;
 use wasmer_vm::Trap;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Runtime {
     instance: Instance,
 }

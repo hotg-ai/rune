@@ -11,7 +11,7 @@ mod moving_input;
 mod moving_state;
 mod set_moving;
 
-use anyhow::Context;
+use anyhow::{Context, Error};
 pub use merge_animation::MergeAnimation;
 pub use moving_animation::MovingAnimation;
 pub use moving_direction::MovingDirection;
@@ -35,26 +35,20 @@ use runic_types::Value;
 use crate::audio::Samples;
 
 pub struct MovementPlugin {
-    samples: Arc<RwLock<Samples>>,
-    rune: Vec<u8>,
+    runtime: Runtime,
+    current_movement: Arc<RwLock<Option<MovingDirection>>>,
 }
 
 impl MovementPlugin {
-    pub fn new(samples: Arc<RwLock<Samples>>, rune_wasm: Vec<u8>) -> Self {
-        MovementPlugin {
-            samples,
-            rune: rune_wasm,
-        }
-    }
-}
-
-impl Plugin for MovementPlugin {
-    fn build(&self, app: &mut bevy::prelude::AppBuilder) {
+    pub fn load(
+        samples: Arc<RwLock<Samples>>,
+        rune_wasm: &[u8],
+    ) -> Result<Self, Error> {
         let current_movement = Arc::new(RwLock::new(None));
         let current_movement_2 = Arc::clone(&current_movement);
 
         let mut image = BaseImage::default();
-        let samples = Arc::clone(&self.samples);
+        let samples = Arc::clone(&samples);
         image
             .with_sound(move || {
                 Ok(Box::new(Microphone::new(Arc::clone(&samples))))
@@ -63,14 +57,28 @@ impl Plugin for MovementPlugin {
                 let current_movement = Arc::clone(&current_movement_2);
                 Ok(Box::new(Serial::new(current_movement)))
             });
-        let runtime = Runtime::load(&self.rune, image).unwrap();
+        let runtime = Runtime::load(rune_wasm, image)?;
+
+        Ok(MovementPlugin {
+            runtime,
+            current_movement,
+        })
+    }
+}
+
+impl Plugin for MovementPlugin {
+    fn build(&self, app: &mut bevy::prelude::AppBuilder) {
+        let MovementPlugin {
+            runtime,
+            current_movement,
+        } = self;
 
         app.init_resource::<MovingAnimation>()
             .init_resource::<MovingState>()
             .init_resource::<Option<MovingDirection>>()
             .add_resource(MovingDirection::Left)
-            .add_resource(runtime)
-            .add_resource(current_movement)
+            .add_resource(runtime.clone())
+            .add_resource(Arc::clone(current_movement))
             .add_system(execute_rune.system())
             .add_system(moving_input::moving_input.system())
             .add_system(moving_input::next_direction.system())
