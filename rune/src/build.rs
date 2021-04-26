@@ -3,7 +3,7 @@ use codespan_reporting::{
     files::SimpleFiles,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use rune_codegen::{Compilation, RuneProject};
+use rune_codegen::{Compilation, GitSpecifier, RuneProject};
 use rune_syntax::{Diagnostics, hir::Rune};
 use std::{
     env::current_dir,
@@ -53,9 +53,10 @@ impl Build {
             name,
             working_directory.display()
         );
-        let rune_project = match nearest_git_repo() {
+        let rune_project = match rune_repo_root() {
             Some(root_dir) => RuneProject::Disk(root_dir),
             None => {
+                // looks like we aren't into a checked out rune dir
                 let build_info = crate::version::version();
                 let git = build_info
                     .version_control
@@ -63,7 +64,8 @@ impl Build {
                     .and_then(|v| v.git())
                     .context("Unable to determine the rune project dir")?;
                 RuneProject::Git {
-                    committish: git.commit_id.clone(),
+                    repo: RuneProject::GITHUB_REPO.into(),
+                    specifier: GitSpecifier::Commit(git.commit_id.clone()),
                 }
             },
         };
@@ -125,11 +127,14 @@ impl Build {
     }
 }
 
-fn nearest_git_repo() -> Option<PathBuf> {
+fn rune_repo_root() -> Option<PathBuf> {
     let current_dir = std::env::current_dir().unwrap();
 
     for parent in current_dir.ancestors() {
-        if parent.join(".git").exists() {
+        if parent.join(".git").exists()
+            && parent.join("runic-types").exists()
+            && parent.join("proc_blocks").exists()
+        {
             return Some(parent.to_path_buf());
         }
     }

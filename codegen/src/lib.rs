@@ -17,8 +17,6 @@ use std::{
 use once_cell::sync::Lazy;
 use petgraph::{Direction, graph::NodeIndex, visit::EdgeRef};
 
-const RUNE_GITHUB_REPO: &str = "https://github.com/hotg-ai/rune";
-
 static REQUIRED_DEPENDENCIES: Lazy<Vec<Value>> = Lazy::new(|| {
     vec![json!({
         "name": "log",
@@ -530,18 +528,23 @@ struct Stage<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuneProject {
     Disk(PathBuf),
-    Git { committish: String },
+    Git {
+        repo: String,
+        specifier: GitSpecifier,
+    },
 }
 
 impl RuneProject {
+    pub const GITHUB_REPO: &'static str = "https://github.com/hotg-ai/rune";
+
     fn runic_types_dependency(&self) -> Value {
         match self {
             RuneProject::Disk(root_dir) => {
                 let path = root_dir.join("runic-types");
                 json!({ "name": "runic-types", "deps": { "path": path.display().to_string() } })
             },
-            RuneProject::Git { committish } => {
-                json!({ "name": "runic-types", "deps": { "git": RUNE_GITHUB_REPO, "rev": committish } })
+            RuneProject::Git { repo, specifier } => {
+                json!({ "name": "runic-types", "deps": specifier.deps(repo) })
             },
         }
     }
@@ -555,8 +558,29 @@ impl RuneProject {
                     "deps": {"path": path.display().to_string() },
                 })
             },
-            RuneProject::Git { committish } => {
-                json!({ "name": name, "deps": { "git": RUNE_GITHUB_REPO, "rev": committish } })
+            RuneProject::Git { repo, specifier } => {
+                json!({ "name": name, "deps": specifier.deps(repo) })
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum GitSpecifier {
+    Commit(String),
+    Tag(String),
+    Branch(String),
+}
+
+impl GitSpecifier {
+    fn deps(&self, repo: &str) -> Value {
+        match self {
+            GitSpecifier::Branch(branch) => {
+                json!({ "git": repo, "branch": branch })
+            },
+            GitSpecifier::Tag(tag) => json!({ "git": repo, "tag": tag }),
+            GitSpecifier::Commit(commit) => {
+                json!({ "git": repo, "rev": commit })
             },
         }
     }
