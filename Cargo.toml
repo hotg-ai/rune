@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "codegen",
+    "examples/bevy_2048",
     "ffi",
     "images/*",
     "proc_blocks/*",
