@@ -11,6 +11,7 @@ mod moving_input;
 mod moving_state;
 mod set_moving;
 
+use anyhow::Context;
 pub use merge_animation::MergeAnimation;
 pub use moving_animation::MovingAnimation;
 pub use moving_direction::MovingDirection;
@@ -21,11 +22,15 @@ pub struct Moving;
 /// Component to tell if a tile has been merged or not.
 pub struct Merged;
 
+use std::convert::TryFrom;
 use bevy::prelude::*;
-use rune_runtime::Capability;
+use rune_runtime::{Capability, Output, ParameterError};
 use rune_wasmer_runtime::Runtime;
 use runicos_base::BaseImage;
-use std::sync::{Arc, RwLock};
+use std::{
+    borrow::Cow,
+    sync::{Arc, RwLock},
+};
 use runic_types::Value;
 use crate::audio::Samples;
 
@@ -45,11 +50,19 @@ impl MovementPlugin {
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut bevy::prelude::AppBuilder) {
+        let current_movement = Arc::new(RwLock::new(None));
+        let current_movement_2 = Arc::clone(&current_movement);
+
         let mut image = BaseImage::default();
         let samples = Arc::clone(&self.samples);
-        image.with_sound(move || {
-            Ok(Box::new(Microphone::new(Arc::clone(&samples))))
-        });
+        image
+            .with_sound(move || {
+                Ok(Box::new(Microphone::new(Arc::clone(&samples))))
+            })
+            .with_serial(move || {
+                let current_movement = Arc::clone(&current_movement_2);
+                Ok(Box::new(Serial::new(current_movement)))
+            });
         let runtime = Runtime::load(&self.rune, image).unwrap();
 
         app.init_resource::<MovingAnimation>()
@@ -57,6 +70,7 @@ impl Plugin for MovementPlugin {
             .init_resource::<Option<MovingDirection>>()
             .add_resource(MovingDirection::Left)
             .add_resource(runtime)
+            .add_resource(current_movement)
             .add_system(execute_rune.system())
             .add_system(moving_input::moving_input.system())
             .add_system(moving_input::next_direction.system())
@@ -81,10 +95,24 @@ fn execute_rune(mut runtime: ResMut<Runtime>) {
 #[derive(Debug, Clone)]
 struct Microphone {
     samples: Arc<RwLock<Samples>>,
+    sample_rate: i32,
+    sample_duration_ms: i32,
 }
 
 impl Microphone {
-    pub fn new(samples: Arc<RwLock<Samples>>) -> Self { Microphone { samples } }
+    pub fn new(samples: Arc<RwLock<Samples>>) -> Self {
+        Microphone {
+            samples,
+            sample_rate: 0,
+            sample_duration_ms: 0,
+        }
+    }
+
+    fn update_buffer_capacity(&self) {
+        let mut samples = self.samples.write().unwrap();
+        let capacity = self.sample_rate * self.sample_duration_ms / 1000;
+        samples.set_capacity(capacity as usize);
+    }
 }
 
 impl Capability for Microphone {
@@ -103,6 +131,8 @@ impl Capability for Microphone {
             bytes_written += bytes.len();
         }
 
+        log::debug!("Wrote {} bytes", bytes_written);
+
         Ok(bytes_written)
     }
 
@@ -110,9 +140,66 @@ impl Capability for Microphone {
         &mut self,
         name: &str,
         value: Value,
-    ) -> Result<(), rune_runtime::ParameterError> {
-        println!("Setting {} = {}", name, value);
+    ) -> Result<(), ParameterError> {
+        log::info!("Setting {} = {}", name, value);
+
+        match name {
+            "hz" => {
+                self.sample_rate = i32::try_from(value)?;
+                log::info!("Sample Rate = {} hz", self.sample_rate);
+                self.update_buffer_capacity();
+            },
+            "sample_duration_ms" => {
+                self.sample_duration_ms = i32::try_from(value)?;
+                log::info!("Sample Duration = {} ms", self.sample_duration_ms);
+                self.update_buffer_capacity();
+            },
+            _ => {
+                log::info!("Setting unknown property \"{}\" = {}", name, value);
+            },
+        }
 
         Ok(())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Serial {
+    current_movement: Arc<RwLock<Option<MovingDirection>>>,
+}
+
+impl Serial {
+    fn new(current_movement: Arc<RwLock<Option<MovingDirection>>>) -> Self {
+        Serial { current_movement }
+    }
+}
+
+impl Output for Serial {
+    fn consume(&mut self, buffer: &[u8]) -> Result<(), anyhow::Error> {
+        let msg: Message = serde_json::from_slice(buffer)
+            .context("Unable to deserialize the message")?;
+
+        let mut current_movement = self.current_movement.write().unwrap();
+
+        *current_movement = match &*msg.string {
+            "unknown" | "silence" => None,
+            "yles" => Some(MovingDirection::Up),
+            "alla" => Some(MovingDirection::Down),
+            "parem" => Some(MovingDirection::Right),
+            "vasak" => Some(MovingDirection::Left),
+            other => anyhow::bail!("Unknown label: \"{}\"", other),
+        };
+
+        log::info!("{:?} => {:?}", msg, *current_movement);
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+// {"type_name":"&st\nr","channel":2,"string":"unknown"}
+struct Message<'a> {
+    type_name: Cow<'a, str>,
+    channel: usize,
+    string: Cow<'a, str>,
 }

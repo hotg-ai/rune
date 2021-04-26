@@ -55,19 +55,27 @@ impl Samples {
 
     pub fn append(&mut self, samples: &[i16]) {
         self.buffer.extend(samples.iter().copied());
-
-        if self.buffer.len() <= self.max_samples {
-            return;
-        }
-
-        let samples_to_remove = self.len() - self.max_samples;
-        let _ = self.buffer.drain(..samples_to_remove);
+        self.trim();
     }
 
     pub fn len(&self) -> usize { self.buffer.len() }
 
     pub fn iter(&self) -> impl Iterator<Item = i16> + '_ {
         self.buffer.iter().copied()
+    }
+
+    pub fn set_capacity(&mut self, capacity: usize) {
+        self.max_samples = capacity;
+        self.trim();
+    }
+
+    fn trim(&mut self) {
+        if self.buffer.len() <= self.max_samples {
+            return;
+        }
+
+        let samples_to_remove = self.len() - self.max_samples;
+        let _ = self.buffer.drain(..samples_to_remove);
     }
 }
 

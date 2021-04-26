@@ -1,10 +1,10 @@
 //! This module contains the implementation of the moving_input system.
+
 use std::sync::{Arc, RwLock};
 
 use bevy::prelude::*;
-use crate::{audio::Samples, common::GameState};
+use crate::common::GameState;
 use super::{MovingDirection, MovingState};
-use rune_wasmer_runtime::Runtime;
 
 /// While the moving state is `Idle`, getting the input
 /// of the user.
@@ -12,7 +12,7 @@ use rune_wasmer_runtime::Runtime;
 /// the direction is being chosen
 pub fn moving_input(
     game_state: Res<GameState>,
-    mut runtime: ResMut<Runtime>,
+    input: Res<Arc<RwLock<Option<MovingDirection>>>>,
     mut moving_state: ResMut<MovingState>,
     mut moving_dir: ResMut<MovingDirection>,
     mut next_dir: ResMut<Option<MovingDirection>>,
@@ -21,7 +21,9 @@ pub fn moving_input(
         return;
     }
 
-    if let Some(direction) = infer_direction(&mut runtime) {
+    let input = input.read().unwrap();
+
+    if let Some(direction) = *input {
         if matches!(*moving_state, MovingState::Idle) {
             *moving_dir = direction;
             *moving_state = MovingState::SetMoving { starting: true };
@@ -30,8 +32,6 @@ pub fn moving_input(
         }
     }
 }
-
-fn infer_direction(runtime: &mut Runtime) -> Option<MovingDirection> { None }
 
 /// This system checks whether the game is idle and there is a next direction to
 /// move.

@@ -86,3 +86,9 @@ pub enum ParameterError {
     #[error("{}", _0)]
     IncorrectType(InvalidConversionError),
 }
+
+impl From<InvalidConversionError> for ParameterError {
+    fn from(e: InvalidConversionError) -> Self {
+        ParameterError::IncorrectType(e)
+    }
+}

@@ -342,6 +342,8 @@ dependencies = [
  "runicos-base",
  "savefile",
  "savefile-derive",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
