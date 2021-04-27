@@ -854,6 +854,7 @@ dependencies = [
  "libm",
  "mel",
  "nalgebra",
+ "paste 1.0.5",
  "pretty_assertions",
  "runic-types",
  "sonogram",
@@ -1834,6 +1835,7 @@ version = "0.1.0"
 dependencies = [
  "fft",
  "normalize",
+ "paste 1.0.5",
  "pyo3",
  "runic-types",
 ]

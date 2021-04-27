@@ -20,21 +20,9 @@ pub struct GainControl {
 }
 
 impl GainControl {
-    fn update_config(self, update: impl FnOnce(&mut Config)) -> Self {
-        let GainControl { mut config, .. } = self;
-        update(&mut config);
-
-        let state = State::new(config, SMOOTHING_BITS, CORRECTION_BITS);
-
-        GainControl { config, state }
-    }
-
-    pub fn with_strength(self, strength: f32) -> Self {
-        self.update_config(|c| c.strength = strength)
-    }
-
-    pub fn with_offset(self, offset: f32) -> Self {
-        self.update_config(|c| c.offset = offset)
+    defered_builder_methods! {
+        config.strength: f32;
+        config.offset: f32;
     }
 
     pub fn transform(
@@ -60,6 +48,10 @@ struct Config {
     strength: f32,
     offset: f32,
     gain_bits: i32,
+}
+
+impl Config {
+    builder_methods!(strength: f32, offset: f32);
 }
 
 impl Default for Config {

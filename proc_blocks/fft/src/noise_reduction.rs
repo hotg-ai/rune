@@ -18,34 +18,43 @@ pub struct NoiseReduction {
     estimate: Vec<u32>,
 }
 
+macro_rules! scaled_builder_methods {
+    ($( $property:ident : $type:ty ),* $(,)?) => {
+        $(
+            paste::paste! {
+                pub fn [< with_ $property >](mut self, $property: $type) -> Self {
+                    self.[< set_ $property >]($property);
+                    self
+                }
+            }
+        )*
+
+        $(
+            paste::paste! {
+                pub fn [< set_ $property >](&mut self, $property: $type) {
+                    self.$property = scale($property);
+                }
+            }
+        )*
+
+        $(
+            paste::paste! {
+                pub fn $property(&self) -> $type {
+                    unscale(self.$property)
+                }
+            }
+        )*
+    };
+}
+
 impl NoiseReduction {
-    pub fn with_smoothing_bits(self, smoothing_bits: u32) -> Self {
-        NoiseReduction {
-            smoothing_bits,
-            ..self
-        }
-    }
+    builder_methods!(smoothing_bits: u32);
 
-    pub fn with_even_smoothing(self, even_smoothing: f32) -> Self {
-        NoiseReduction {
-            even_smoothing: scale(even_smoothing),
-            ..self
-        }
-    }
-
-    pub fn with_odd_smoothing(self, odd_smoothing: f32) -> Self {
-        NoiseReduction {
-            odd_smoothing: scale(odd_smoothing),
-            ..self
-        }
-    }
-
-    pub fn with_min_signal_remaining(self, min_signal_remaining: f32) -> Self {
-        NoiseReduction {
-            min_signal_remaining: scale(min_signal_remaining),
-            ..self
-        }
-    }
+    scaled_builder_methods!(
+        even_smoothing: f32,
+        odd_smoothing: f32,
+        min_signal_remaining: f32,
+    );
 
     pub fn noise_estimate(&self) -> &[u32] { &self.estimate }
 }
@@ -108,6 +117,11 @@ impl Default for NoiseReduction {
 fn scale(number: f32) -> u16 {
     let scale_factor: f32 = (1 << NOISE_REDUCTION_BITS) as f32;
     (number * scale_factor) as u16
+}
+
+fn unscale(number: u16) -> f32 {
+    let scale_factor: f32 = (1 << NOISE_REDUCTION_BITS) as f32;
+    number as f32 / scale_factor
 }
 
 impl HasOutputs for NoiseReduction {

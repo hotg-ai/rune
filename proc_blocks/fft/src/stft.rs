@@ -6,9 +6,9 @@ use nalgebra::DMatrix;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShortTimeFourierTransform {
-    pub sample_rate: u32,
-    pub bins: usize,
-    pub window_overlap: f32,
+    sample_rate: u32,
+    bins: usize,
+    window_overlap: f32,
 }
 
 const DEFAULT_SAMPLE_RATE: u32 = 16000;
@@ -21,25 +21,6 @@ impl ShortTimeFourierTransform {
             sample_rate: DEFAULT_SAMPLE_RATE,
             bins: DEFAULT_BINS,
             window_overlap: DEFAULT_WINDOW_OVERLAP,
-        }
-    }
-
-    pub fn default() -> Self { ShortTimeFourierTransform::new() }
-
-    // `Self` is the type and `self` is the pointer
-    pub fn with_sample_rate(self, sample_rate: u32) -> Self {
-        ShortTimeFourierTransform {
-            sample_rate,
-            ..self
-        }
-    }
-
-    pub fn with_bins(self, bins: usize) -> Self { ShortTimeFourierTransform { bins, ..self } }
-
-    pub fn with_window_overlap(self, window_overlap: f32) -> Self {
-        ShortTimeFourierTransform {
-            window_overlap,
-            ..self
         }
     }
 
@@ -115,6 +96,10 @@ impl ShortTimeFourierTransform {
     }
 }
 
+impl ShortTimeFourierTransform {
+    builder_methods!(sample_rate: u32, bins: usize, window_overlap: f32);
+}
+
 impl Default for ShortTimeFourierTransform {
     fn default() -> Self { ShortTimeFourierTransform::new() }
 }
@@ -153,11 +138,11 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let mut fft_pb = ShortTimeFourierTransform::new().with_sample_rate(16000);
+        let mut fft_pb =
+            ShortTimeFourierTransform::new().with_sample_rate(16000);
         let input = [0; 16000];
 
         let res = fft_pb.transform(input);
         assert_eq!(res.len(), 1960);
     }
 }
-
