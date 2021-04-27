@@ -114,7 +114,7 @@ impl Default for NoiseReduction {
 
 fn scale(number: f32) -> u16 {
     let scale_factor: f32 = (1 << NOISE_REDUCTION_BITS) as f32;
-    libm::roundf(number * scale_factor) as u16
+    (number * scale_factor) as u16
 }
 
 impl HasOutputs for NoiseReduction {
