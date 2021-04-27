@@ -62,9 +62,13 @@ fn perfect_parity(
 }
 
 #[test]
-fn bad_test_cases() {
-    let inputs =
-        vec![(0, 0, 0, 0, &[0, 0]), (0, 0, 0, 16904, &[4162845728, 0])];
+fn known_test_cases() {
+    let inputs = vec![
+        (0, 0, 0, 0, vec![0, 0]),
+        (0, 0, 0, 0, vec![]),
+        (0, 0, 0, 0, vec![42]),
+        (0, 0, 0, 16904, vec![4162845728, 0]),
+    ];
 
     for args in inputs {
         let (
@@ -72,7 +76,7 @@ fn bad_test_cases() {
             even_smoothing,
             odd_smoothing,
             min_signal_remaining,
-            input,
+            ref input,
         ) = args;
 
         let result = perfect_parity(
@@ -80,7 +84,7 @@ fn bad_test_cases() {
             even_smoothing,
             odd_smoothing,
             min_signal_remaining,
-            input.to_vec(),
+            input.clone(),
         );
 
         assert!(!result.is_error(), "{:?}", args);
