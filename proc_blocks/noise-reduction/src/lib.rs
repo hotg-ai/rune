@@ -1,6 +1,6 @@
 //! A noise reduction routine inspired by the [TensorFlow function][tf].
 //!
-//! https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/experimental/microfrontend/lib/noise_reduction.c
+//! [tf]: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/experimental/microfrontend/lib/noise_reduction.c
 
 #![no_std]
 
