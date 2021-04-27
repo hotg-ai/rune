@@ -2,153 +2,99 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+#[cfg(test)]
+#[macro_use]
+extern crate std;
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
+mod gain_control;
+mod noise_reduction;
+mod stft;
+
+pub use crate::{
+    noise_reduction::NoiseReduction, gain_control::GainControl,
+    stft::ShortTimeFourierTransform,
+};
+
 use runic_types::{HasOutputs, Tensor, Transform};
-use sonogram::SpecOptionsBuilder;
-use mel;
-use nalgebra::DMatrix;
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Fft {
-    pub sample_rate: u32,
-    pub bins: usize,
-    pub window_overlap: f32,
+    stft: ShortTimeFourierTransform,
+    noise_reduction: NoiseReduction,
+    gain_control: GainControl,
 }
-
-const DEFAULT_SAMPLE_RATE: u32 = 16000;
-const DEFAULT_BINS: usize = 480;
-const DEFAULT_WINDOW_OVERLAP: f32 = 0.6666666666666667;
 
 impl Fft {
-    pub const fn new() -> Self {
-        Fft {
-            sample_rate: DEFAULT_SAMPLE_RATE,
-            bins: DEFAULT_BINS,
-            window_overlap: DEFAULT_WINDOW_OVERLAP,
-        }
+    pub fn with_strength(mut self, strength: f32) -> Self {
+        self.gain_control = self.gain_control.with_strength(strength);
+        self
     }
 
-    pub fn default() -> Self { Fft::new() }
-
-    // `Self` is the type and `self` is the pointer
-    pub fn with_sample_rate(self, sample_rate: u32) -> Self {
-        Fft {
-            sample_rate,
-            ..self
-        }
+    pub fn with_offset(mut self, offset: f32) -> Self {
+        self.gain_control = self.gain_control.with_offset(offset);
+        self
     }
 
-    pub fn with_bins(self, bins: usize) -> Self { Fft { bins, ..self } }
-
-    pub fn with_window_overlap(self, window_overlap: f32) -> Self {
-        Fft {
-            window_overlap,
-            ..self
-        }
+    pub fn with_sample_rate(mut self, sample_rate: u32) -> Self {
+        self.stft = self.stft.with_sample_rate(sample_rate);
+        self
     }
 
-    fn transform_inner(&mut self, input: Vec<i16>) -> [i8; 1960] {
-        // Build the spectrogram computation engine
-        let mut spectrograph = SpecOptionsBuilder::new(49, 241)
-        .set_window_fn(sonogram::hann_function)
-        .load_data_from_memory(input, self.sample_rate as u32)
-        .build();
+    pub fn with_bins(mut self, bins: usize) -> Self {
+        self.stft = self.stft.with_bins(bins);
+        self
+    }
 
-        // Compute the spectrogram giving the number of bins in a window and the
-        // overlap between neighbour windows.
-        spectrograph.compute(self.bins, self.window_overlap);
+    pub fn with_smoothing_bits(mut self, smoothing_bits: u32) -> Self {
+        self.noise_reduction =
+            self.noise_reduction.with_smoothing_bits(smoothing_bits);
+        self
+    }
 
-        let spectrogram = spectrograph.create_in_memory(false);
+    pub fn with_even_smoothing(mut self, even_smoothing: f32) -> Self {
+        self.noise_reduction =
+            self.noise_reduction.with_even_smoothing(even_smoothing);
+        self
+    }
 
-        let filter_count: usize = 40;
-        let power_spectrum_size = 241;
-        let window_size = 480;
-        let sample_rate_usize:usize = 16000;
+    pub fn with_odd_smoothing(mut self, odd_smoothing: f32) -> Self {
+        self.noise_reduction =
+            self.noise_reduction.with_odd_smoothing(odd_smoothing);
+        self
+    }
 
-        // build up the mel filter matrix
-        let mut mel_filter_matrix =
-            DMatrix::<f64>::zeros(filter_count, power_spectrum_size);
-        for (row, col, coefficient) in mel::enumerate_mel_scaling_matrix(
-            sample_rate_usize,
-            window_size,
-            power_spectrum_size,
-            filter_count,
-        ) {
-            mel_filter_matrix[(row, col)] = coefficient;
-        }
-
-        let spectrogram = spectrogram.into_iter().map(f64::from);
-        let power_spectrum_matrix_unflipped: DMatrix<f64> =
-            DMatrix::from_iterator(49, power_spectrum_size, spectrogram);
-        let power_spectrum_matrix_transposed =
-            power_spectrum_matrix_unflipped.transpose();
-        let mut power_spectrum_vec: Vec<_> =
-            power_spectrum_matrix_transposed.row_iter().collect();
-        &power_spectrum_vec.reverse();
-        let power_spectrum_matrix: DMatrix<f64> = DMatrix::from_rows(&power_spectrum_vec);
-        let mel_spectrum_matrix = &mel_filter_matrix*&power_spectrum_matrix;
-
-        let min_value = mel_spectrum_matrix.data.as_vec().iter().fold(f64::INFINITY,
-            |a, &b| a.min(b));
-        let max_value =
-        mel_spectrum_matrix.data.as_vec().iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-
-        let res: Vec<i8> = mel_spectrum_matrix.data.as_vec().iter()
-            .map(|freq| (255.0 * (freq - min_value) / (max_value - min_value)) - 128.0)
-            .map(|freq| freq as i8)
-            .collect();
-        let mut out = [0; 1960];
-
-        for i in 0..1960 {
-            out[i] = res[i];
-        }
-
-        return out;
+    pub fn with_min_signal_remaining(
+        mut self,
+        min_signal_remaining: f32,
+    ) -> Self {
+        self.noise_reduction = self
+            .noise_reduction
+            .with_min_signal_remaining(min_signal_remaining);
+        self
     }
 }
 
-impl Default for Fft {
-    fn default() -> Self { Fft::new() }
-}
+impl Transform<Tensor<i16>> for Fft {
+    type Output = Tensor<i16>;
 
-impl<const N: usize> Transform<[i16; N]> for Fft {
-    type Output = [i8; 1960];
+    fn transform(&mut self, input: Tensor<i16>) -> Tensor<i16> {
+        let spectrograph =
+            self.stft.transform(input).map(|_, &energy| energy as u32);
 
-    fn transform(&mut self, input: [i16; N]) -> Self::Output {
-        self.transform_inner(input.to_vec())
+        let cleaned = self.noise_reduction.transform(spectrograph);
+
+        let amplified = self
+            .gain_control
+            .transform(cleaned, &self.noise_reduction.noise_estimate())
+            .map(|_, &energy| energy as i16);
+
+        amplified
     }
 }
 
-impl<> Transform<Tensor<i16>> for Fft {
-    type Output = Tensor<i8>;
-
-    fn transform(&mut self, input: Tensor<i16>) -> Self::Output {
-        let input = input.elements().to_vec();
-        let stft = self.transform_inner(input);
-        Tensor::new_vector(stft.iter().copied())
-    }
-}
-
-impl<'a> Transform<&'a [i16]> for Fft {
-    type Output = [i8; 1960];
-
-    fn transform(&mut self, input: &'a [i16]) -> Self::Output {
-        self.transform_inner(input.to_vec())
-    }
-}
-
-impl HasOutputs for Fft {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let mut fft_pb = Fft::new().with_sample_rate(16000);
-        let input = [0; 16000];
-
-        let res = fft_pb.transform(input);
-        assert_eq!(res.len(), 1960);
-    }
+impl HasOutputs for Fft {
+    fn set_output_dimensions(&mut self, _dimensions: &[usize]) {}
 }

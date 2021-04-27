@@ -851,8 +851,10 @@ name = "fft"
 version = "0.1.0"
 dependencies = [
  "hound",
+ "libm",
  "mel",
  "nalgebra",
+ "pretty_assertions",
  "runic-types",
  "sonogram",
 ]
@@ -917,15 +919,6 @@ name = "fs_extra"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
-
-[[package]]
-name = "gain-control"
-version = "0.1.0"
-dependencies = [
- "libm",
- "pretty_assertions",
- "runic-types",
-]
 
 [[package]]
 name = "generic-array"
@@ -1466,14 +1459,6 @@ dependencies = [
  "num-traits",
  "simba",
  "typenum",
-]
-
-[[package]]
-name = "noise-reduction"
-version = "0.1.0"
-dependencies = [
- "pretty_assertions",
- "runic-types",
 ]
 
 [[package]]

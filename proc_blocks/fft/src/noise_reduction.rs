@@ -2,16 +2,7 @@
 //!
 //! [tf]: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/experimental/microfrontend/lib/noise_reduction.c
 
-#![no_std]
-
 extern crate alloc;
-
-#[cfg(test)]
-#[macro_use]
-extern crate std;
-#[cfg(test)]
-#[macro_use]
-extern crate pretty_assertions;
 
 use alloc::vec::Vec;
 use runic_types::{HasOutputs, Tensor, Transform};
@@ -55,6 +46,8 @@ impl NoiseReduction {
             ..self
         }
     }
+
+    pub fn noise_estimate(&self) -> &[u32] { &self.estimate }
 }
 
 impl Transform<Tensor<u32>> for NoiseReduction {

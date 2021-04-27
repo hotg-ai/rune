@@ -85,6 +85,11 @@ impl<T> Tensor<T> {
         (elements.as_ptr().cast(), byte_length)
     }
 
+    /// Create a new [`Tensor`] by applying a function to every element in the
+    /// current tensor.
+    ///
+    /// This is often an expensive operation.
+    #[must_use]
     pub fn map<F, Out>(&self, mut map: F) -> Tensor<Out>
     where
         F: FnMut(&[usize], &T) -> Out,
