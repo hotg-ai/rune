@@ -31,8 +31,8 @@ impl<T> Tensor<T> {
         }
     }
 
-    pub fn new_vector(iter: impl Iterator<Item = T>) -> Self {
-        let elements: Arc<[T]> = iter.collect();
+    pub fn new_vector(iter: impl IntoIterator<Item = T>) -> Self {
+        let elements: Arc<[T]> = iter.into_iter().collect();
         let len = elements.len();
         Tensor::new_row_major(elements, alloc::vec![len])
     }

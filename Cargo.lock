@@ -1460,6 +1460,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "noise-reduction"
+version = "0.1.0"
+dependencies = [
+ "runic-types",
+]
+
+[[package]]
 name = "nom"
 version = "5.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
