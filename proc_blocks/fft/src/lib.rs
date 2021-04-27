@@ -43,9 +43,9 @@ impl Fft {
 }
 
 impl Transform<Tensor<i16>> for Fft {
-    type Output = Tensor<i16>;
+    type Output = Tensor<i8>;
 
-    fn transform(&mut self, input: Tensor<i16>) -> Tensor<i16> {
+    fn transform(&mut self, input: Tensor<i16>) -> Tensor<i8> {
         let spectrograph =
             self.stft.transform(input).map(|_, &energy| energy as u32);
 
@@ -54,7 +54,7 @@ impl Transform<Tensor<i16>> for Fft {
         let amplified = self
             .gain_control
             .transform(cleaned, &self.noise_reduction.noise_estimate())
-            .map(|_, &energy| energy as i16);
+            .map(|_, &energy| energy as i8);
 
         amplified
     }
