@@ -119,8 +119,8 @@ fn scale(number: f32) -> u16 {
 
 impl HasOutputs for NoiseReduction {
     fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match dimensions {
-            [len] => self.estimate.resize(*len, 0),
+        match *dimensions {
+            [len] => self.estimate.resize(len, 0),
             _ => panic!(
                 "This transform only supports 1D outputs, not {:?}",
                 dimensions
