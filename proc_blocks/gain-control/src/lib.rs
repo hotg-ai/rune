@@ -215,16 +215,13 @@ mod tests {
     /// https://github.com/tensorflow/tensorflow/blob/0f6d728b920e9b0286171bdfec9917d8486ac08b/tensorflow/lite/experimental/microfrontend/lib/pcan_gain_control_test.cc#L43-L63
     #[test]
     fn test_pcan_gain_control() {
-        let config = Config::default();
-        let mut state = State::new(
-            config,
-            vec![6321887, 31248341],
-            SMOOTHING_BITS,
-            CORRECTION_BITS,
-        );
+        let mut gain_control =
+            GainControl::default().with_strength(0.95).with_offset(80.0);
         let input = Tensor::new_vector(vec![241137, 478104]);
+        // Note: we get this from a the noise reduction step
+        gain_control.state.noise_estimate = vec![6321887, 31248341];
 
-        let got = state.transform(input);
+        let got = gain_control.transform(input);
 
         let should_be = Tensor::new_vector(vec![3578, 1533]);
         assert_eq!(got, should_be);
