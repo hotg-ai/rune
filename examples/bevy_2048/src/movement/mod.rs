@@ -191,10 +191,10 @@ impl Output for Serial {
 
         *current_movement = match &*msg.string {
             "unknown" | "silence" => None,
-            "yles" => Some(MovingDirection::Up),
-            "alla" => Some(MovingDirection::Down),
-            "parem" => Some(MovingDirection::Right),
-            "vasak" => Some(MovingDirection::Left),
+            "up" => Some(MovingDirection::Up),
+            "down" => Some(MovingDirection::Down),
+            "right" => Some(MovingDirection::Right),
+            "left" => Some(MovingDirection::Left),
             other => anyhow::bail!("Unknown label: \"{}\"", other),
         };
 
