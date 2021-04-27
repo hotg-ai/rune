@@ -1463,8 +1463,8 @@ dependencies = [
 name = "noise-reduction"
 version = "0.1.0"
 dependencies = [
- "once_cell",
- "quickcheck",
+ "libm",
+ "pretty_assertions",
  "runic-types",
 ]
 
@@ -1934,17 +1934,6 @@ name = "quick-error"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ac73b1112776fc109b2e61909bc46c7e1bf0d7f690ffb1676553acce16d5cda"
-
-[[package]]
-name = "quickcheck"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
-dependencies = [
- "env_logger 0.8.3",
- "log",
- "rand",
-]
 
 [[package]]
 name = "quote"
