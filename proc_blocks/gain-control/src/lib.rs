@@ -31,8 +31,17 @@ pub struct GainControl {
 }
 
 impl GainControl {
-    fn update_config(self, _update: impl FnOnce(&mut Config)) -> Self {
-        todo!()
+    fn update_config(self, update: impl FnOnce(&mut Config)) -> Self {
+        let GainControl {
+            mut config,
+            state: State { noise_estimate, .. },
+        } = self;
+        update(&mut config);
+
+        let state =
+            State::new(config, noise_estimate, SMOOTHING_BITS, CORRECTION_BITS);
+
+        GainControl { config, state }
     }
 
     pub fn with_strength(self, strength: f32) -> Self {
@@ -41,10 +50,6 @@ impl GainControl {
 
     pub fn with_offset(self, offset: f32) -> Self {
         self.update_config(|c| c.offset = offset)
-    }
-
-    pub fn with_gain_bits(self, gain_bits: i32) -> Self {
-        self.update_config(|c| c.gain_bits = gain_bits)
     }
 }
 
