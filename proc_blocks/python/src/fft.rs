@@ -39,19 +39,12 @@ impl Fft {
 
     #[call]
     pub fn call(&mut self, py: Python, iter: &PyAny) -> PyResult<PyObject> {
-        let mut input = Vec::new();
+        let input = crate::utils::to_tensor(iter)?;
 
-        for value in iter.iter()? {
-            let value: i16 = value?.extract()?;
-            input.push(value);
-        }
+        let spectrum =
+            py.allow_threads(move || self.inner.clone().transform(input));
 
-        let spectrum = py.allow_threads(move || {
-            let input = Tensor::new_vector(input);
-            self.inner.clone().transform(input)
-        });
-
-        Ok(spectrum.elements().to_object(py))
+        crate::utils::to_numpy(py, &spectrum).map(|obj| obj.to_object(py))
     }
 }
 
