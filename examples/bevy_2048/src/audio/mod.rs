@@ -25,7 +25,7 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
         channels: 1,
         // TODO: Figure out how to get the sample rate out of the rune (e.g.
         // when setting the "hz" property on our sound capability)
-        sample_rate: SampleRate(16_000),
+        sample_rate: SampleRate(44_100),
         buffer_size: BufferSize::Default,
     };
     log::debug!("Building the input stream with {:?}", stream_config);
@@ -37,16 +37,16 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
     })?;
     let spec = WavSpec {
         channels: 1,
-        sample_rate: stream_config.sample_rate.0 * 2,
-        bits_per_sample: 16,
-        sample_format: SampleFormat::Int,
+        sample_rate: stream_config.sample_rate.0,
+        bits_per_sample: 32,
+        sample_format: SampleFormat::Float,
     };
     let mut wav_writer = hound::WavWriter::new(f, spec)?;
 
     let stream = microphone
         .build_input_stream(
             &stream_config,
-            move |data: &[i16], _| {
+            move |data: &[f32], _| {
                 let mut samples = samples_2.write().unwrap();
                 for sample in data {
                     wav_writer.write_sample(*sample).unwrap();
@@ -64,7 +64,7 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
 /// A circular buffer containing the last N audio samples.
 #[derive(Debug)]
 pub struct Samples {
-    buffer: VecDeque<i16>,
+    buffer: VecDeque<f32>,
     max_samples: usize,
 }
 
@@ -76,14 +76,14 @@ impl Samples {
         }
     }
 
-    pub fn append(&mut self, samples: &[i16]) {
+    pub fn append(&mut self, samples: &[f32]) {
         self.buffer.extend(samples.iter().copied());
         self.trim();
     }
 
     pub fn len(&self) -> usize { self.buffer.len() }
 
-    pub fn iter(&self) -> impl Iterator<Item = i16> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
         self.buffer.iter().copied()
     }
 
@@ -111,12 +111,12 @@ mod tests {
         let mut samples = Samples::new(4);
         assert_eq!(samples.len(), 0);
 
-        samples.append(&[1, 2, 3]);
+        samples.append(&[1.0, 2.0, 3.0]);
         assert_eq!(samples.len(), 3);
 
-        samples.append(&[4, 5, 6]);
+        samples.append(&[4.0, 5.0, 6.0]);
         assert_eq!(samples.len(), 4);
 
-        assert_eq!(samples.buffer, &[3, 4, 5, 6]);
+        assert_eq!(samples.buffer, &[3.0, 4.0, 5.0, 6.0]);
     }
 }

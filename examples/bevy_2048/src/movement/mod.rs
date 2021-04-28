@@ -130,7 +130,7 @@ impl Capability for Microphone {
         let mut bytes_written = 0;
 
         for (chunk, sample) in buffer
-            .chunks_mut(std::mem::size_of::<i16>())
+            .chunks_mut(std::mem::size_of::<f32>())
             .zip(samples.iter())
         {
             let bytes = sample.to_le_bytes();
