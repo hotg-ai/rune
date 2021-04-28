@@ -23,6 +23,7 @@ impl GainControl {
     defered_builder_methods! {
         config.strength: f32;
         config.offset: f32;
+        config.gain_bits: i32;
     }
 
     pub fn transform(
@@ -51,7 +52,7 @@ struct Config {
 }
 
 impl Config {
-    builder_methods!(strength: f32, offset: f32);
+    builder_methods!(strength: f32, offset: f32, gain_bits: i32);
 }
 
 impl Default for Config {

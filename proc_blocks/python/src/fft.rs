@@ -65,6 +65,7 @@ getters_and_setters! {
         /// The frequency used to sample the audio data.
         sample_rate: u32;
         smoothing_bits: u32;
+        gain_bits: i32;
         strength: f32;
     }
 }

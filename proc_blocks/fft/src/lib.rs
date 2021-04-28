@@ -33,6 +33,7 @@ impl Fft {
     defered_builder_methods! {
         gain_control.strength: f32;
         gain_control.offset: f32;
+        gain_control.gain_bits: i32;
         stft.sample_rate: u32;
         stft.bins: usize;
         noise_reduction.smoothing_bits: u32;
