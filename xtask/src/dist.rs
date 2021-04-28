@@ -196,7 +196,7 @@ fn strip_binaries(ctx: &Context) -> Result<(), Error> {
 
 fn strip_binary(path: &Path) -> Result<(), Error> {
     let mut cmd = Command::new("strip");
-    cmd.arg(&path);
+    cmd.arg(&path).arg("--strip-debug");
     log::debug!("Executing {:?}", cmd);
 
     let status = cmd.status().context("Unable to execute `strip`")?;
