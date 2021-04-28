@@ -26,6 +26,7 @@ import random
 import re
 import sys
 import tarfile
+import zipfile
 
 import numpy as np
 from six.moves import urllib
@@ -237,12 +238,16 @@ class AudioProcessor(object):
             'have enough free space and an internet connection'.format(
                 data_url, filepath))
         raise
-      print()
+
       statinfo = os.stat(filepath)
       tf.compat.v1.logging.info(
           'Successfully downloaded {0} ({1} bytes)'.format(
               filename, statinfo.st_size))
-      tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+      if tarfile.is_tarfile(filepath):
+        tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+      elif zipfile.is_zipfile(filepath):
+        zf = zipfile.ZipFile(filepath)
+        zf.extractall(dest_directory)
 
   def prepare_data_index(self, silence_percentage, unknown_percentage,
                          wanted_words, validation_percentage,
@@ -421,7 +426,7 @@ class AudioProcessor(object):
       sliced_foreground = tf.slice(padded_foreground,
                                    self.time_shift_offset_placeholder_,
                                    [desired_samples, -1])
-      print(sliced_foreground)
+
       # Mix in background noise.
       self.background_data_placeholder_ = tf.compat.v1.placeholder(
           tf.float32, [desired_samples, 1], name='background_data')
@@ -486,6 +491,8 @@ class AudioProcessor(object):
             out_type=tf.float32,
             upper_band_limit=model_settings['upper_mel_band_limit'],
             lower_band_limit=model_settings['lower_mel_band_limit'],
+            enable_pcan=model_settings['enable_pcan'],
+            min_signal_remaining=model_settings['min_signal_remaining']
             )
         self.output_ = tf.multiply(micro_frontend, (10.0 / 256.0))
         tf.compat.v1.summary.image(
@@ -579,7 +586,7 @@ class AudioProcessor(object):
           self.time_shift_padding_placeholder_: time_shift_padding,
           self.time_shift_offset_placeholder_: time_shift_offset,
       }
-      print(sample['file'])
+
       # Choose a section of background noise to mix in.
       if use_background or sample['label'] == SILENCE_LABEL:
         background_index = np.random.randint(len(self.background_data))
