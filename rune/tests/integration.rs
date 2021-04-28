@@ -178,6 +178,7 @@ fn noop() {
         .stderr(predicates::str::contains(r#"Serial: {"type_name":"i32","channel":1,"elements":[0,1,2,3],"dimensions":[4]}"#));
 }
 
+#[cfg(target_os = "linux")] // See https://github.com/hotg-ai/rune/issues/131
 #[test]
 fn person_detection() {
     let person_detection_dir = person_detection_dir();
