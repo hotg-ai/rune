@@ -1,5 +1,6 @@
 mod fft;
 mod normalize;
+mod utils;
 
 use crate::fft::Fft;
 use crate::normalize::Normalize;
