@@ -160,14 +160,13 @@ fn copy_docs(ctx: &Context) -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(not(unix))]
-fn strip_binaries(_ctx: &Context) -> Result<(), Error> {
-    // Windows puts all debug info in a PDB file, so there's nothing to strip
-    Ok(())
-}
-
-#[cfg(unix)]
 fn strip_binaries(ctx: &Context) -> Result<(), Error> {
+    if cfg!(windows) {
+        // Windows puts all debug info in a PDB file, so there's nothing to
+        // strip.
+        return Ok(());
+    }
+
     let dist = &ctx.dist;
 
     log::debug!("Stripping binaries");
@@ -183,20 +182,26 @@ fn strip_binaries(ctx: &Context) -> Result<(), Error> {
             continue;
         }
 
-        let mut cmd = Command::new("strip");
-        cmd.arg(&path);
-        log::debug!("Executing {:?}", cmd);
-
-        let status = cmd
-            .current_dir(&dist)
-            .status()
-            .context("Unable to execute `strip`")?;
-
-        anyhow::ensure!(
-            status.success(),
-            "The `strip` command finished unsuccessfully"
-        );
+        if let Err(e) = strip_binary(&path) {
+            log::warn!(
+                "Running the `strip` command on \"{}\" failed: {:?}",
+                path.display(),
+                e,
+            );
+        }
     }
+
+    Ok(())
+}
+
+fn strip_binary(path: &Path) -> Result<(), Error> {
+    let mut cmd = Command::new("strip");
+    cmd.arg(&path);
+    log::debug!("Executing {:?}", cmd);
+
+    let status = cmd.status().context("Unable to execute `strip`")?;
+
+    anyhow::ensure!(status.success(), "Strip returned a non-zero exit code");
 
     Ok(())
 }
