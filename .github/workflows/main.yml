@@ -9,7 +9,15 @@ on:
 jobs:
   check:
     name: Compile and Test
-    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-18.04
+          - macos-latest
+          # Note: we need to use pre-compiled TensorFlow Lite binaries on
+          # Windows, so ignore the Windows build for now
+          #- windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
@@ -18,14 +26,14 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           override: true
       - name: Install wasm32 target
-        run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
+        run: rustup target add wasm32-unknown-unknown
       - name: Type Check
         uses: actions-rs/cargo@v1
         with:

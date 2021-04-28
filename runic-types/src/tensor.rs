@@ -31,8 +31,8 @@ impl<T> Tensor<T> {
         }
     }
 
-    pub fn new_vector(iter: impl Iterator<Item = T>) -> Self {
-        let elements: Arc<[T]> = iter.collect();
+    pub fn new_vector(iter: impl IntoIterator<Item = T>) -> Self {
+        let elements: Arc<[T]> = iter.into_iter().collect();
         let len = elements.len();
         Tensor::new_row_major(elements, alloc::vec![len])
     }
@@ -58,6 +58,9 @@ impl<T> Tensor<T> {
     /// Get the [`Tensor`]'s dimensions.
     pub fn dimensions(&self) -> &[usize] { &self.dimensions }
 
+    /// The number of dimensions this [`Tensor`] has.
+    pub fn rank(&self) -> usize { self.dimensions().len() }
+
     /// Get an immutable reference to the underlying elements in this
     /// [`Tensor`].
     pub fn elements(&self) -> &[T] { &self.elements }
@@ -80,6 +83,30 @@ impl<T> Tensor<T> {
         let elements = self.elements();
         let byte_length = elements.len() * core::mem::size_of::<T>();
         (elements.as_ptr().cast(), byte_length)
+    }
+
+    /// Create a new [`Tensor`] by applying a function to every element in the
+    /// current tensor.
+    ///
+    /// This is often an expensive operation.
+    #[must_use]
+    pub fn map<F, Out>(&self, mut map: F) -> Tensor<Out>
+    where
+        F: FnMut(&[usize], &T) -> Out,
+        Out: Clone + Default,
+    {
+        let mut counter = Counter::new(self.dimensions());
+        let mut output = Tensor::zeroed(self.dimensions().to_vec());
+
+        let elements = output.make_elements_mut();
+
+        while let Some(indices) = counter.next() {
+            let index = index_of(self.dimensions(), indices).unwrap();
+            let previous = &self.elements[index];
+            elements[index] = map(indices, previous);
+        }
+
+        output
     }
 }
 
@@ -143,24 +170,27 @@ impl<'t, T, const RANK: usize> TensorView<'t, T, RANK> {
     }
 
     fn index_of(&self, indices: [usize; RANK]) -> Option<usize> {
-        if indices
-            .iter()
-            .zip(self.dimensions)
-            .any(|(ix, max)| ix >= max)
-        {
-            return None;
-        }
-
-        let mut index = *indices.last().unwrap();
-
-        for k in 0..RANK {
-            for l in (k + 1)..RANK {
-                index += self.dimensions[l] * indices[k];
-            }
-        }
-
-        Some(index)
+        index_of(self.dimensions, &indices)
     }
+}
+
+fn index_of(dimensions: &[usize], indices: &[usize]) -> Option<usize> {
+    if indices.iter().zip(dimensions).any(|(ix, max)| ix >= max) {
+        return None;
+    }
+    if dimensions.len() != indices.len() {
+        return None;
+    }
+
+    let mut index = *indices.last().unwrap();
+
+    for k in 0..dimensions.len() {
+        for l in (k + 1)..dimensions.len() {
+            index += dimensions[l] * indices[k];
+        }
+    }
+
+    Some(index)
 }
 
 impl<'t, T, const RANK: usize> Index<[usize; RANK]>
@@ -224,6 +254,44 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Tensor<T> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct Counter<'a> {
+    current: Vec<usize>,
+    max: &'a [usize],
+    first: bool,
+}
+
+impl<'a> Counter<'a> {
+    fn new(max: &'a [usize]) -> Self {
+        Counter {
+            current: alloc::vec![0; max.len()],
+            max,
+            first: true,
+        }
+    }
+
+    fn next(&mut self) -> Option<&[usize]> {
+        if self.first {
+            self.first = false;
+            return Some(&self.current);
+        }
+
+        for (i, index) in self.current.iter_mut().rev().enumerate() {
+            let i = self.max.len() - i - 1;
+
+            *index += 1;
+            if *index >= self.max[i] {
+                *index = 0;
+                continue;
+            }
+
+            return Some(&self.current);
+        }
+
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,5 +351,54 @@ mod tests {
         let view = tensor.view::<2>().unwrap();
 
         let _ = view[[2, 0]];
+    }
+
+    #[test]
+    fn map_the_elements() {
+        let tensor: Tensor<u32> =
+            Tensor::new_row_major(vec![1, 2, 3, 4, 5, 6].into(), vec![2, 3]);
+        let mut indices = Vec::new();
+
+        let got = tensor.map(|index, &element| {
+            indices.push(index.to_vec());
+            element * 2
+        });
+
+        let should_be = tensor.elements.iter().map(|&e| e * 2).collect();
+        let should_be =
+            Tensor::new_row_major(should_be, tensor.dimensions().to_vec());
+
+        assert_eq!(got, should_be);
+
+        let expected_order = vec![
+            vec![0, 0],
+            vec![0, 1],
+            vec![0, 2],
+            vec![1, 0],
+            vec![1, 1],
+            vec![1, 2],
+        ];
+        assert_eq!(indices, expected_order);
+    }
+
+    fn collect_counter(mut counter: Counter<'_>) -> Vec<Vec<usize>> {
+        let mut indices = Vec::new();
+
+        while let Some(index) = counter.next() {
+            indices.push(index.to_vec());
+            println!("{:?}", counter);
+        }
+
+        indices
+    }
+
+    #[test]
+    fn one_dimension_counter() {
+        let counter = Counter::new(&[4]);
+        let should_be = vec![vec![0], vec![1], vec![2], vec![3]];
+
+        let got = collect_counter(counter);
+
+        assert_eq!(got, should_be);
     }
 }

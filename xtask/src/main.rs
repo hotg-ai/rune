@@ -3,6 +3,7 @@ mod dist;
 mod model_info;
 
 pub use bulk_copy::BulkCopy;
+use dist::Dist;
 
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
@@ -21,7 +22,7 @@ fn main() -> Result<(), Error> {
         return run_pre_commit_hook(&project_root);
     }
 
-    let env = Env::new().default_filter_or("info,cbindgen=warn");
+    let env = Env::new().default_filter_or("info,cbindgen=warn,globset=info");
     env_logger::builder().parse_env(env).init();
 
     let cmd = Command::from_args();
@@ -35,7 +36,7 @@ fn main() -> Result<(), Error> {
                 .context("Unable to install the pre-commit hook")?;
         },
         Command::ModelInfo(m) => model_info(m)?,
-        Command::Dist => dist::generate_release_artifacts()?,
+        Command::Dist(dist) => dist.run()?,
     }
 
     Ok(())
@@ -70,7 +71,7 @@ enum Command {
     )]
     ModelInfo(ModelInfo),
     #[structopt(name = "dist", about = "Generate a release bundle")]
-    Dist,
+    Dist(Dist),
 }
 
 fn project_root() -> Result<PathBuf, Error> {

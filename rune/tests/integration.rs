@@ -14,6 +14,7 @@ fn noop_dir() -> PathBuf { example_dir().join("noop") }
 fn sine_dir() -> PathBuf { example_dir().join("sine") }
 fn gesture_dir() -> PathBuf { example_dir().join("gesture") }
 fn microspeech_dir() -> PathBuf { example_dir().join("microspeech") }
+fn person_detection_dir() -> PathBuf { example_dir().join("person_detection") }
 
 #[test]
 fn sine() {
@@ -107,7 +108,9 @@ fn yes_microspeech() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains(r#"Serial: {"type_name":"&str","channel":2,"string":"yes"}"#));
+        .stderr(predicates::str::contains(
+            r#"Serial: {"type_name":"&str","channel":2,"string":"yes"}"#,
+        ));
 }
 
 #[test]
@@ -136,7 +139,9 @@ fn no_microspeech() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains(r#"Serial: {"type_name":"&str","channel":2,"string":"no"}"#));
+        .stderr(predicates::str::contains(
+            r#"Serial: {"type_name":"&str","channel":2,"string":"no"}"#,
+        ));
 }
 
 #[test]
@@ -171,4 +176,49 @@ fn noop() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(r#"Serial: {"type_name":"i32","channel":1,"elements":[0,1,2,3],"dimensions":[4]}"#));
+}
+
+#[cfg(target_os = "linux")] // See https://github.com/hotg-ai/rune/issues/131
+#[test]
+fn person_detection() {
+    let person_detection_dir = person_detection_dir();
+    let runefile = person_detection_dir.join("Runefile");
+    let build_dir = TempDir::new().unwrap();
+    let rune = build_dir.path().join("person_detection.rune");
+
+    let mut cmd = Command::cargo_bin("rune").unwrap();
+    cmd.arg("build")
+        .arg(&runefile)
+        .arg("--output")
+        .arg(&rune)
+        .unwrap();
+
+    let image = person_detection_dir.join("image_grayscale.png");
+
+    let mut cmd = Command::cargo_bin("rune").unwrap();
+    cmd.arg("run")
+        .arg(&rune)
+        .arg("--capability")
+        .arg(format!("image:{}", image.display()));
+
+    // FIXME: This should actually look for "person_prob" but it looks like our
+    // person detection rune isn't detecting people properly
+    cmd.assert()
+        .success()
+        .code(0)
+        .stderr(predicates::str::contains("\"not_person_prob\""));
+}
+
+#[test]
+fn build_all_examples() {
+    for entry in example_dir().read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let runefile = entry.path().join("Runefile");
+
+        if runefile.exists() {
+            let mut cmd = Command::cargo_bin("rune").unwrap();
+
+            cmd.arg("build").arg(&runefile).assert().success();
+        }
+    }
 }

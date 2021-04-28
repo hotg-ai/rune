@@ -3,7 +3,7 @@ use pyo3::{
     prelude::{pyclass, pymethods},
 };
 use ::fft::Fft as UnderlyingFft;
-use runic_types::Transform;
+use runic_types::{Tensor, Transform};
 
 /// A Fast Fourier Transform.
 #[pyclass(module = "proc_blocks.fft")]
@@ -12,22 +12,30 @@ pub struct Fft {
     inner: UnderlyingFft,
 }
 
+macro_rules! getters_and_setters {
+    (impl $owner:ty { $( $(#[$meta:meta])* $property:ident : $type:ty ;)* }) => {
+        $(
+            paste::paste! {
+                #[pymethods]
+                impl $owner {
+                    #[getter]
+                    $( #[$meta] )*
+                    pub fn $property(&self) -> $type { self.inner.$property() }
+
+                    #[setter]
+                    pub fn [< set_ $property >](&mut self, $property : $type) {
+                        self.inner.[< set_ $property >]($property);
+                    }
+                }
+            }
+        )*
+    };
+}
+
 #[pymethods]
 impl Fft {
     #[new]
-    pub fn new(sample_rate: u32) -> Self {
-        Fft {
-            inner: UnderlyingFft::new().with_sample_rate(sample_rate),
-        }
-    }
-
-    #[getter]
-    pub fn sample_rate(&self) -> u32 { self.inner.sample_rate }
-
-    #[setter]
-    pub fn set_sample_rate(&mut self, sample_rate: u32) {
-        self.inner.sample_rate = sample_rate;
-    }
+    pub fn new() -> Self { Fft::default() }
 
     #[call]
     pub fn call(&mut self, py: Python, iter: &PyAny) -> PyResult<PyObject> {
@@ -38,8 +46,25 @@ impl Fft {
             input.push(value);
         }
 
-        let spectrum = self.inner.clone().transform(input.as_slice());
+        let spectrum = py.allow_threads(move || {
+            let input = Tensor::new_vector(input);
+            self.inner.clone().transform(input)
+        });
 
-        Ok(spectrum.to_object(py))
+        Ok(spectrum.elements().to_object(py))
+    }
+}
+
+getters_and_setters! {
+    impl Fft {
+        bins: usize;
+        even_smoothing: f32;
+        min_signal_remaining: f32;
+        odd_smoothing: f32;
+        offset: f32;
+        /// The frequency used to sample the audio data.
+        sample_rate: u32;
+        smoothing_bits: u32;
+        strength: f32;
     }
 }
