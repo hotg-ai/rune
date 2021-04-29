@@ -854,6 +854,7 @@ dependencies = [
  "libm",
  "mel",
  "nalgebra",
+ "normalize",
  "paste 1.0.5",
  "pretty_assertions",
  "runic-types",
