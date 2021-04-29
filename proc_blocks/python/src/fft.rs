@@ -3,7 +3,7 @@ use pyo3::{
     prelude::{pyclass, pymethods},
 };
 use ::fft::Fft as UnderlyingFft;
-use runic_types::{Tensor, Transform};
+use runic_types::Transform;
 
 /// A Fast Fourier Transform.
 #[pyclass(module = "proc_blocks.fft")]

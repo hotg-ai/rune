@@ -54,10 +54,13 @@ impl Transform<Tensor<i16>> for Fft {
 
         let amplified = self
             .gain_control
-            .transform(cleaned, &self.noise_reduction.noise_estimate())
-            .map(|_, &energy| energy as i8);
+            .transform(cleaned, &self.noise_reduction.noise_estimate());
 
-        amplified
+        let log = amplified.map(|_, &energy| libm::logf(energy as f32));
+
+        // normalize::normalize(log.make_elements_mut());
+
+        log.map(|_, &energy| (energy * 127.0).floor() as i8)
     }
 }
 
