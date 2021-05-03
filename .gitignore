@@ -10,3 +10,4 @@ examples/.DS_Store
 *.svg
 *.png
 tarpaulin-report.html
+.ipynb_checkpoints/
