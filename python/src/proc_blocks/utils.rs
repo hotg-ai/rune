@@ -47,3 +47,23 @@ where
 
     elements.to_pyarray(py).reshape(shape)
 }
+
+macro_rules! getters_and_setters {
+    (impl $owner:ty { $( $(#[$meta:meta])* $component:ident . $property:ident : $type:ty ;)* }) => {
+        $(
+            paste::paste! {
+                #[pymethods]
+                impl $owner {
+                    #[getter]
+                    $( #[$meta] )*
+                    pub fn $property(&self) -> $type { self.$component.$property() }
+
+                    #[setter]
+                    pub fn [< set_ $property >](&mut self, $property : $type) {
+                        self.$component.[< set_ $property >]($property);
+                    }
+                }
+            }
+        )*
+    };
+}
