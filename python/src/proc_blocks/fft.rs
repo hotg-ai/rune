@@ -4,9 +4,10 @@ use pyo3::{
 };
 use ::fft::Fft as UnderlyingFft;
 use runic_types::Transform;
+use crate::proc_blocks::utils;
 
 /// A Fast Fourier Transform.
-#[pyclass(module = "proc_blocks.fft")]
+#[pyclass(module = "proc_blocks")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Fft {
     inner: UnderlyingFft,
@@ -39,12 +40,12 @@ impl Fft {
 
     #[call]
     pub fn call(&mut self, py: Python, iter: &PyAny) -> PyResult<PyObject> {
-        let input = crate::utils::to_tensor(iter)?;
+        let input = utils::to_tensor(iter)?;
 
         let spectrum =
             py.allow_threads(move || self.inner.clone().transform(input));
 
-        crate::utils::to_numpy(py, &spectrum).map(|obj| obj.to_object(py))
+        utils::to_numpy(py, &spectrum).map(|obj| obj.to_object(py))
     }
 }
 

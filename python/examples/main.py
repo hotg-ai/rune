@@ -2,7 +2,7 @@ import math
 import random
 
 try:
-    from proc_blocks import Fft, Normalize
+    from rune_py.proc_blocks import Fft, Normalize
 except Exception as e:
     print(
         "ERROR: Unable to import the native module. You may need to install it or run `maturin develop`"

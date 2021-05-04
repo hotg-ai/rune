@@ -1,26 +1,28 @@
 [package]
-name = "proc-blocks"
+name = "rune_py"
 version = "0.1.0"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "proc_blocks"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 test = false
 doctest = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fft = { path = "../fft" }
-normalize = { path = "../normalize" }
+fft = { path = "../proc_blocks/fft" }
+normalize = { path = "../proc_blocks/normalize" }
 numpy = "0.13.1"
 paste = "1.0.5"
 pyo3 = { version = "0.13.2", features = ["extension-module", "abi3", "abi3-py36"] }
-runic-types = { path = "../../runic-types" }
+runic-types = { path = "../runic-types" }
 
 [[test]]
 name = "python-unittest"
 path = "tests/python-unittest.rs"
 harness = false
+
+[package.metadata.maturin]
+requires-dist = ["numpy~=1.20.2"]

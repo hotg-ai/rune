@@ -4,6 +4,7 @@ members = [
     "ffi",
     "images/*",
     "proc_blocks/*",
+    "python",
     "rune",
     "runic-types",
     "runtime",

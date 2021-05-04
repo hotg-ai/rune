@@ -1,6 +1,6 @@
 import unittest
 import math
-from proc_blocks import Normalize, Fft
+from rune_py import Normalize, Fft
 
 
 class NormalizeTests(unittest.TestCase):
