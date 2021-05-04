@@ -1,4 +1,3 @@
-use fft::ShortTimeFourierTransform;
 use pyo3::{
     PyAny, PyObject, PyResult, Python, ToPyObject,
     prelude::{pyclass, pymethods},
@@ -6,17 +5,16 @@ use pyo3::{
 use runic_types::Transform;
 use crate::proc_blocks::utils;
 
-/// A Fast Fourier Transform.
 #[pyclass(module = "proc_blocks")]
-#[derive(Default, Clone, PartialEq)]
-pub struct Fft {
-    inner: ShortTimeFourierTransform,
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct NoiseFiltering {
+    inner: noise_filtering::NoiseFiltering,
 }
 
 #[pymethods]
-impl Fft {
+impl NoiseFiltering {
     #[new]
-    pub fn new() -> Self { Fft::default() }
+    pub fn new() -> Self { NoiseFiltering::default() }
 
     #[call]
     pub fn call(&mut self, py: Python, iter: &PyAny) -> PyResult<PyObject> {
@@ -29,9 +27,14 @@ impl Fft {
 }
 
 getters_and_setters! {
-    impl Fft {
-        inner.bins: usize;
+    impl NoiseFiltering {
+        inner.even_smoothing: f32;
+        inner.min_signal_remaining: f32;
+        inner.odd_smoothing: f32;
+        inner.offset: f32;
         /// The frequency used to sample the audio data.
-        inner.sample_rate: u32;
+        inner.smoothing_bits: u32;
+        inner.gain_bits: i32;
+        inner.strength: f32;
     }
 }

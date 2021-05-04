@@ -1486,6 +1486,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "noise-filtering"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "paste 1.0.5",
+ "runic-types",
+]
+
+[[package]]
 name = "nom"
 version = "5.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2224,6 +2233,7 @@ name = "rune_py"
 version = "0.1.0"
 dependencies = [
  "fft",
+ "noise-filtering",
  "normalize",
  "numpy",
  "paste 1.0.5",
