@@ -60,7 +60,7 @@ impl Transform<Tensor<i16>> for Fft {
 
         // normalize::normalize(log.make_elements_mut());
 
-        log.map(|_, &energy| (energy * 127.0).floor() as i8)
+        log.map(|_, &energy| libm::floorf(energy * 127.0) as i8)
     }
 }
 
