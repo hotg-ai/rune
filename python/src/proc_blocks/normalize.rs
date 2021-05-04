@@ -3,7 +3,7 @@ use pyo3::{
     prelude::{pyclass, pymethods},
 };
 
-#[pyclass]
+#[pyclass(module = "proc_blocks")]
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Normalize {}
 

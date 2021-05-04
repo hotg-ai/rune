@@ -76,7 +76,8 @@ impl Runner {
     }
 
     fn run(&self, cmd: &mut Command) {
-        cmd.env("VIRTUAL_ENV", &self.virtual_env)
+        cmd.env_clear()
+            .env("VIRTUAL_ENV", &self.virtual_env)
             .env("PATH", &self.path)
             .current_dir(&self.manifest_dir);
 

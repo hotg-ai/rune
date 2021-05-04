@@ -1,6 +1,7 @@
-# Python Proc Block Bindings
+# Rune Python Bindings
 
-A python module exporting several common proc blocks as a Python module,
+A Python module which exposes
+A python module exporting the several common proc blocks as a Python module,
 primarily intended for use in training models.
 
 ## Getting Started (Developer)

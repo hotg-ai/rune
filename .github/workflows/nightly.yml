@@ -110,7 +110,7 @@ jobs:
       - name: Compile the Wheel
         run: |
           pip3 install maturin
-          maturin build --manifest-path proc_blocks/python/Cargo.toml \
+          maturin build --manifest-path python/Cargo.toml \
                         --bindings pyo3 \
                         --manylinux off \
                         --no-sdist \
