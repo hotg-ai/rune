@@ -29,18 +29,16 @@ impl NoiseFiltering {
 }
 
 impl Transform<Tensor<u32>> for NoiseFiltering {
-    type Output = Tensor<i8>;
+    type Output = Tensor<u32>;
 
-    fn transform(&mut self, input: Tensor<u32>) -> Tensor<i8> {
+    fn transform(&mut self, input: Tensor<u32>) -> Tensor<u32> {
         let cleaned = self.noise_reduction.transform(input);
 
         let amplified = self
             .gain_control
             .transform(cleaned, &self.noise_reduction.noise_estimate());
 
-        let log = amplified.map(|_, &energy| libm::logf(energy as f32));
-
-        log.map(|_, &energy| libm::floorf(energy * 127.0) as i8)
+        amplified
     }
 }
 
