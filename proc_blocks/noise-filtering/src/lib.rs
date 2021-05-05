@@ -38,7 +38,9 @@ impl Transform<Tensor<u32>> for NoiseFiltering {
             .gain_control
             .transform(cleaned, &self.noise_reduction.noise_estimate());
 
-        amplified
+        let log = amplified.map(|_, &energy| libm::logf(energy as f32));
+
+        log.map(|_, &energy| libm::floorf(energy * 127.0) as i8)
     }
 }
 
