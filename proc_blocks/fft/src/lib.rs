@@ -42,7 +42,7 @@ impl ShortTimeFourierTransform {
         }
     }
 
-    fn transform_inner(&mut self, input: Vec<i16>) -> [i8; 1960] {
+    fn transform_inner(&mut self, input: Vec<i16>) -> [u32; 1960] {
         // Build the spectrogram computation engine
         let mut spectrograph = SpecOptionsBuilder::new(49, 241)
             .set_window_fn(sonogram::hann_function)
@@ -83,6 +83,7 @@ impl ShortTimeFourierTransform {
         let power_spectrum_matrix: DMatrix<f64> =
             DMatrix::from_rows(&power_spectrum_vec);
         let mel_spectrum_matrix = &mel_filter_matrix * &power_spectrum_matrix;
+        let mel_spectrum_matrix = mel_spectrum_matrix.map(|energy| libm::sqrt(energy));
 
         let min_value = mel_spectrum_matrix
             .data
@@ -95,14 +96,14 @@ impl ShortTimeFourierTransform {
             .iter()
             .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let res: Vec<i8> = mel_spectrum_matrix
+        let res: Vec<u32> = mel_spectrum_matrix
             .data
             .as_vec()
             .iter()
             .map(|freq| {
-                (255.0 * (freq - min_value) / (max_value - min_value)) - 128.0
+                65536.0 * (freq - min_value) / (max_value - min_value)
             })
-            .map(|freq| freq as i8)
+            .map(|freq| freq as u32)
             .collect();
         let mut out = [0; 1960];
 
@@ -123,7 +124,7 @@ impl Default for ShortTimeFourierTransform {
 }
 
 impl Transform<Tensor<i16>> for ShortTimeFourierTransform {
-    type Output = Tensor<i8>;
+    type Output = Tensor<u32>;
 
     fn transform(&mut self, input: Tensor<i16>) -> Self::Output {
         let input = input.elements().to_vec();
