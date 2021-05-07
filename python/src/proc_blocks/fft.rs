@@ -7,7 +7,7 @@ use runic_types::Transform;
 use crate::proc_blocks::utils;
 
 /// A Fast Fourier Transform.
-#[pyclass(module = "proc_blocks")]
+#[pyclass(module = "rune_py")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Fft {
     inner: ShortTimeFourierTransform,
