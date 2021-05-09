@@ -413,18 +413,18 @@ fn args_to_parameters(
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct HirIds {
+pub(crate) struct HirIds {
     last_id: HirId,
 }
 
 impl HirIds {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         HirIds {
             last_id: HirId::ERROR,
         }
     }
 
-    fn next(&mut self) -> HirId {
+    pub(crate) fn next(&mut self) -> HirId {
         let id = self.last_id.next();
         self.last_id = id;
         id
@@ -432,23 +432,23 @@ impl HirIds {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct Builtins {
-    unknown_type: HirId,
-    u8: HirId,
-    i8: HirId,
-    u16: HirId,
-    i16: HirId,
-    u32: HirId,
-    i32: HirId,
-    u64: HirId,
-    i64: HirId,
-    f32: HirId,
-    f64: HirId,
-    string: HirId,
+pub(crate) struct Builtins {
+    pub(crate) unknown_type: HirId,
+    pub(crate) u8: HirId,
+    pub(crate) i8: HirId,
+    pub(crate) u16: HirId,
+    pub(crate) i16: HirId,
+    pub(crate) u32: HirId,
+    pub(crate) i32: HirId,
+    pub(crate) u64: HirId,
+    pub(crate) i64: HirId,
+    pub(crate) f32: HirId,
+    pub(crate) f64: HirId,
+    pub(crate) string: HirId,
 }
 
 impl Builtins {
-    fn new(ids: &mut HirIds) -> Self {
+    pub(crate) fn new(ids: &mut HirIds) -> Self {
         Builtins {
             unknown_type: ids.next(),
             u8: ids.next(),
@@ -465,7 +465,13 @@ impl Builtins {
         }
     }
 
-    fn copy_into(&self, rune: &mut Rune) {
+    pub(crate) fn copy_into(&self, rune: &mut Rune) {
+        self.for_each(|id, ty| {
+            rune.types.insert(id, ty);
+        });
+    }
+
+    pub(crate) fn for_each(&self, mut f: impl FnMut(HirId, Type)) {
         let Builtins {
             unknown_type,
             u8,
@@ -481,20 +487,19 @@ impl Builtins {
             string,
         } = *self;
 
-        rune.types.insert(unknown_type, Type::Unknown);
-        rune.types.insert(u8, Type::Primitive(Primitive::U8));
-        rune.types.insert(i8, Type::Primitive(Primitive::I8));
-        rune.types.insert(u16, Type::Primitive(Primitive::U16));
-        rune.types.insert(i16, Type::Primitive(Primitive::I16));
-        rune.types.insert(u32, Type::Primitive(Primitive::U32));
-        rune.types.insert(i16, Type::Primitive(Primitive::I16));
-        rune.types.insert(i32, Type::Primitive(Primitive::I32));
-        rune.types.insert(u64, Type::Primitive(Primitive::U64));
-        rune.types.insert(i64, Type::Primitive(Primitive::I64));
-        rune.types.insert(f32, Type::Primitive(Primitive::F32));
-        rune.types.insert(f64, Type::Primitive(Primitive::F64));
-        rune.types
-            .insert(string, Type::Primitive(Primitive::String));
+        f(unknown_type, Type::Unknown);
+        f(u8, Type::Primitive(Primitive::U8));
+        f(i8, Type::Primitive(Primitive::I8));
+        f(u16, Type::Primitive(Primitive::U16));
+        f(i16, Type::Primitive(Primitive::I16));
+        f(u32, Type::Primitive(Primitive::U32));
+        f(i16, Type::Primitive(Primitive::I16));
+        f(i32, Type::Primitive(Primitive::I32));
+        f(u64, Type::Primitive(Primitive::U64));
+        f(i64, Type::Primitive(Primitive::I64));
+        f(f32, Type::Primitive(Primitive::F32));
+        f(f64, Type::Primitive(Primitive::F64));
+        f(string, Type::Primitive(Primitive::String));
     }
 }
 

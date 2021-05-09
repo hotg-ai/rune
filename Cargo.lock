@@ -2180,10 +2180,12 @@ version = "0.1.0"
 dependencies = [
  "codespan",
  "codespan-reporting",
+ "once_cell",
  "pest",
  "pest_derive",
  "petgraph",
  "pretty_assertions",
+ "regex",
  "serde",
  "serde_yaml",
 ]

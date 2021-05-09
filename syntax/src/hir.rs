@@ -28,6 +28,15 @@ pub struct Rune {
 }
 
 impl Rune {
+    pub(crate) fn add_hir_id_and_node_index(
+        &mut self,
+        hir_id: HirId,
+        node_index: NodeIndex,
+    ) {
+        self.hir_id_to_node_index.insert(hir_id, node_index);
+        self.node_index_to_hir_id.insert(node_index, hir_id);
+    }
+
     pub fn stages(
         &self,
     ) -> impl Iterator<Item = (HirId, NodeIndex, &Stage)> + '_ {
@@ -239,6 +248,15 @@ pub enum SinkKind {
     Other(String),
 }
 
+impl<'a> From<&'a str> for SinkKind {
+    fn from(s: &'a str) -> SinkKind {
+        match s {
+            "serial" | "SERIAL" => SinkKind::Serial,
+            _ => SinkKind::Other(s.to_string()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
@@ -397,6 +415,19 @@ pub enum SourceKind {
     Image,
     Raw,
     Other(String),
+}
+
+impl<'a> From<&'a str> for SourceKind {
+    fn from(s: &'a str) -> SourceKind {
+        match s {
+            "random" | "RANDOM" => SourceKind::Random,
+            "accelerometer" | "ACCELEROMETER" => SourceKind::Accelerometer,
+            "sound" | "SOUND" => SourceKind::Sound,
+            "image" | "IMAGE" => SourceKind::Image,
+            "raw" | "RAW" => SourceKind::Raw,
+            _ => SourceKind::Other(s.to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
