@@ -10,6 +10,7 @@ description = "Runefile parsing and analysis."
 [dependencies]
 codespan = { version = "0.11.0", features = ["serialization"] }
 codespan-reporting = "0.11.0"
+indexmap = { version = "1.6.2", features = ["serde-1"] }
 once_cell = "1.7.2"
 pest = "2.1.3"
 pest_derive = "2.1.0"

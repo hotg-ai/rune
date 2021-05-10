@@ -6,11 +6,11 @@ use crate::{
     },
     yaml::{Path, Document, Stage, Value, Type},
 };
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 pub fn document_from_runefile(runefile: Runefile) -> Document {
     let mut image = Path::new("runicos/base", None, None);
-    let mut pipeline = HashMap::new();
+    let mut pipeline = IndexMap::new();
 
     for instruction in runefile.instructions {
         match instruction {
@@ -53,7 +53,7 @@ pub fn document_from_runefile(runefile: Runefile) -> Document {
                 let stage = Stage::Out {
                     out: out_type.value.clone(),
                     inputs: Vec::new(),
-                    args: HashMap::default(),
+                    args: IndexMap::default(),
                 };
                 pipeline.insert(name, stage);
             },
@@ -109,8 +109,8 @@ fn convert_type(t: ast::Type) -> Type {
     }
 }
 
-fn convert_args(arguments: Vec<Argument>) -> HashMap<String, Value> {
-    let mut args = HashMap::new();
+fn convert_args(arguments: Vec<Argument>) -> IndexMap<String, Value> {
+    let mut args = IndexMap::new();
 
     for arg in arguments {
         args.insert(arg.name.value, convert_value(arg.value));
@@ -227,7 +227,7 @@ mod tests {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
                     inputs: vec![String::from("audio")],
                     outputs: vec![ty!(I8[1960])],
-                    args: HashMap::new(),
+                    args: IndexMap::new(),
                 },
                 model: Stage::Model {
                     model: String::from("./model.tflite"),
@@ -236,7 +236,7 @@ mod tests {
                 },
                 serial: Stage::Out {
                     out: String::from("serial"),
-                    args: HashMap::new(),
+                    args: IndexMap::new(),
                     inputs: vec![String::from("label")],
                 },
             },

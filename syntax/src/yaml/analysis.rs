@@ -1,8 +1,9 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use codespan_reporting::{
     diagnostic::Diagnostic,
 };
 use petgraph::graph::NodeIndex;
+use indexmap::IndexMap;
 use crate::{
     Diagnostics,
     hir::{self, HirId, Rune, Edge, Primitive},
@@ -36,14 +37,14 @@ struct Context {
 }
 
 impl Context {
-    fn register_names(&mut self, pipeline: &HashMap<String, Stage>) {
+    fn register_names(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, _step) in pipeline {
             let id = self.ids.next();
             self.rune.names.register(name, id);
         }
     }
 
-    fn register_stages(&mut self, pipeline: &HashMap<String, Stage>) {
+    fn register_stages(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
             let id = self.rune.names[name.as_str()];
 
@@ -52,7 +53,7 @@ impl Context {
         }
     }
 
-    fn construct_pipeline(&mut self, pipeline: &HashMap<String, Stage>) {
+    fn construct_pipeline(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
             let node_index = self.node_index_by_name(name).unwrap();
 
@@ -262,7 +263,7 @@ pipeline:
                 },
                 output: Stage::Out {
                     out: String::from("SERIAL"),
-                    args: HashMap::new(),
+                    args: IndexMap::new(),
                     inputs: vec![String::from("label")],
                 },
                 label: Stage::ProcBlock {
@@ -284,7 +285,7 @@ pipeline:
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
                     inputs: vec![String::from("audio")],
                     outputs: vec![ty!(i8[1960])],
-                    args: HashMap::new(),
+                    args: IndexMap::new(),
                 },
                 model: Stage::Model {
                     model: String::from("./model.tflite"),
@@ -405,7 +406,7 @@ pipeline:
                     outputs: vec![
                         ty!(i8[1960]),
                     ],
-                    args: HashMap::new(),
+                    args: IndexMap::new(),
                 },
                 model: Stage::Model {
                     model: String::from("./model.tflite"),
@@ -431,7 +432,7 @@ pipeline:
                 output: Stage::Out {
                     out: String::from("SERIAL"),
                     inputs: vec![String::from("label")],
-                    args: HashMap::default(),
+                    args: IndexMap::default(),
                 }
             },
         }

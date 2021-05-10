@@ -10,6 +10,14 @@ pipeline:
     args:
       hz: 16000
       sample-duration-ms: 1000
+  fft:
+    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    inputs:
+      - audio
+    outputs:
+      - type: I8
+        dimensions:
+          - 1960
   model:
     model: "./model.tflite"
     inputs:
@@ -18,10 +26,6 @@ pipeline:
       - type: I8
         dimensions:
           - 4
-  serial:
-    out: serial
-    inputs:
-      - label
   label:
     proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
     inputs:
@@ -34,11 +38,7 @@ pipeline:
         - unknown
         - "yes"
         - "no"
-  fft:
-    proc-block: "hotg-ai/rune#proc_blocks/fft"
+  serial:
+    out: serial
     inputs:
-      - audio
-    outputs:
-      - type: I8
-        dimensions:
-          - 1960
+      - label

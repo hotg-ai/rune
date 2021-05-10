@@ -4,6 +4,7 @@ use std::{
     fmt::{self, Formatter, Display},
     str::FromStr,
 };
+use indexmap::IndexMap;
 use regex::Regex;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
@@ -16,7 +17,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Document {
     pub image: Path,
-    pub pipeline: HashMap<String, Stage>,
+    pub pipeline: IndexMap<String, Stage>,
 }
 
 impl Document {
@@ -184,22 +185,22 @@ pub enum Stage {
         inputs: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
-        #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-        args: HashMap<String, Value>,
+        #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+        args: IndexMap<String, Value>,
     },
     Capability {
         capability: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
-        #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-        args: HashMap<String, Value>,
+        #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+        args: IndexMap<String, Value>,
     },
     Out {
         out: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         inputs: Vec<String>,
-        #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-        args: HashMap<String, Value>,
+        #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+        args: IndexMap<String, Value>,
     },
 }
 
@@ -266,7 +267,7 @@ impl<'a> From<&'a Stage> for hir::Stage {
 }
 
 fn to_parameters(
-    yaml: &HashMap<String, Value>,
+    yaml: &IndexMap<String, Value>,
 ) -> HashMap<String, ArgumentValue> {
     let mut map = HashMap::new();
 

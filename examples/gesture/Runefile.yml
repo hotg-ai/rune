@@ -1,0 +1,45 @@
+---
+image: runicos/base
+pipeline:
+  accelerometer:
+    capability: ACCEL
+    outputs:
+      - type: F32
+        dimensions:
+          - 128
+          - 3
+    args:
+      n: 128
+  normalize:
+    proc-block: "hotg-ai/rune#proc_blocks/normalize"
+    inputs:
+      - accelerometer
+    outputs:
+      - type: f32
+        dimensions:
+          - 128
+          - 3
+  gesture:
+    model: "./model.tflite"
+    inputs:
+      - normalize
+    outputs:
+      - type: f32
+        dimensions:
+          - 4
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    inputs:
+      - gesture
+    outputs:
+      - type: UTF8
+    args:
+      labels:
+        - Wing
+        - Ring
+        - Slope
+        - Unknown
+  serial:
+    out: SERIAL
+    inputs:
+      - label

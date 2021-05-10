@@ -1,0 +1,34 @@
+---
+image: runicos/base
+pipeline:
+  image:
+    capability: IMAGE
+    outputs:
+      - type: U8
+        dimensions:
+          - 1
+          - 96
+          - 96
+  person_detection:
+    model: "./model.tflite"
+    inputs:
+      - image
+    outputs:
+      - type: U8
+        dimensions:
+          - 3
+  person_detection_agg:
+    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    inputs:
+      - person_detection
+    outputs:
+      - type: UTF8
+    args:
+      labels:
+        - unknown
+        - person_prob
+        - not_person_prob
+  serial:
+    out: SERIAL
+    inputs:
+      - person_detection_agg
