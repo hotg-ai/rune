@@ -6,7 +6,8 @@ use std::{env, error::Error, fs};
 
 use super::Score;
 
-/// This struct manages the highscore and saves it into a binary file `best.bin`.
+/// This struct manages the highscore and saves it into a binary file
+/// `best.bin`.
 #[derive(Savefile)]
 pub struct HighScore(pub u32);
 
@@ -36,7 +37,7 @@ pub fn update_highscore(mut highscore: ResMut<HighScore>, score: Res<Score>) {
                 if let Err(e) = save_file(&filepath, 0, &*highscore) {
                     print_error(e, ErrorType::Save)
                 }
-            }
+            },
             Err(e) => print_error(e, ErrorType::Save),
         }
     }

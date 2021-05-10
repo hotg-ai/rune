@@ -19,10 +19,10 @@ impl NewGameButtonState {
         match self {
             NewGameButtonState::Down => {
                 *self = NewGameButtonState::Up;
-            }
+            },
             NewGameButtonState::Up => {
                 *self = NewGameButtonState::Idle;
-            }
+            },
             NewGameButtonState::Idle => (),
         }
     }
@@ -37,7 +37,8 @@ pub struct NewGameButtonMaterials {
 
 impl FromResources for NewGameButtonMaterials {
     fn from_resources(resources: &Resources) -> Self {
-        let mut materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
+        let mut materials =
+            resources.get_mut::<Assets<ColorMaterial>>().unwrap();
         NewGameButtonMaterials {
             normal: materials.add(Color::rgb_u8(40, 40, 40).into()),
             hovered: materials.add(Color::rgb_u8(64, 64, 64).into()),
@@ -57,12 +58,14 @@ pub fn new_game_button_system(
         &mut NewGameButtonState,
     )>,
 ) {
-    for (_, interaction, mut material, mut button_state) in interaction_query.iter_mut() {
+    for (_, interaction, mut material, mut button_state) in
+        interaction_query.iter_mut()
+    {
         match *interaction {
             Interaction::Clicked => {
                 *material = button_materials.pressed.clone();
                 *button_state = NewGameButtonState::Down;
-            }
+            },
             Interaction::Hovered => {
                 *material = button_materials.hovered.clone();
                 button_state.update_state();
@@ -71,11 +74,11 @@ pub fn new_game_button_system(
                 if matches!(*button_state, NewGameButtonState::Up) {
                     *game_state = GameState::Restarting;
                 }
-            }
+            },
             Interaction::None => {
                 *material = button_materials.normal.clone();
                 button_state.update_state();
-            }
+            },
         }
     }
 }
@@ -125,5 +128,6 @@ pub fn spawn_new_game_button(
         .with(NewGameButtonState::Idle);
 
     // Making the button as a child of the left side node.
-    commands.push_children(ls_node_entity, &[commands.current_entity().unwrap()]);
+    commands
+        .push_children(ls_node_entity, &[commands.current_entity().unwrap()]);
 }

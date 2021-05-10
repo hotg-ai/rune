@@ -1,5 +1,6 @@
-//! This modlue contains the spawn tile event, despawn tile component, spawn/despawn animations
-//! and a plugin for adding all of this into the application.
+//! This modlue contains the spawn tile event, despawn tile component,
+//! spawn/despawn animations and a plugin for adding all of this into the
+//! application.
 
 mod despawn_animation;
 mod despawn_tiles;
@@ -29,8 +30,17 @@ impl Plugin for SpawnTilePlugin {
             .add_stage_after(SPAWN_STAGE, POST_SPAWN_STAGE)
             .add_event::<SpawnTileEvent>()
             .add_system_to_stage(SPAWN_STAGE, spawn_tiles::spawn_tiles.system())
-            .add_system_to_stage(SPAWN_STAGE, spawn_animation::spawn_animation.system())
-            .add_system_to_stage(DESPAWN_STAGE, despawn_tiles::despawn_tiles.system())
-            .add_system_to_stage(DESPAWN_STAGE, despawn_animation::despawn_animation.system());
+            .add_system_to_stage(
+                SPAWN_STAGE,
+                spawn_animation::spawn_animation.system(),
+            )
+            .add_system_to_stage(
+                DESPAWN_STAGE,
+                despawn_tiles::despawn_tiles.system(),
+            )
+            .add_system_to_stage(
+                DESPAWN_STAGE,
+                despawn_animation::despawn_animation.system(),
+            );
     }
 }

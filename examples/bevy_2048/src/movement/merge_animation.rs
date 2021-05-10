@@ -1,4 +1,5 @@
-//! This module contains the implementation of the MergeAnimation component and system.
+//! This module contains the implementation of the MergeAnimation component and
+//! system.
 
 use crate::common::{Animation, GameSize};
 use bevy::prelude::*;
@@ -30,7 +31,8 @@ pub fn merge_animation(
 ) {
     if merge_anim.animation.update(time.delta_seconds) {
         // Updating the sprite size while the animation is not finished.
-        let size = game_size.tile_size() + game_size.merge_size() * merge_anim.animation.value();
+        let size = game_size.tile_size()
+            + game_size.merge_size() * merge_anim.animation.value();
         sprite.size.set_x(size);
         sprite.size.set_y(size);
     }

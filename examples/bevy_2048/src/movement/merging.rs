@@ -29,9 +29,12 @@ pub fn merging(
         // Create a board with entity and position to check
         // if two tiles are at the same position.
         let mut board = [None; 16];
-        for (entity, mut tile, position, mut merged, mut material) in tiles.iter_mut() {
+        for (entity, mut tile, position, mut merged, mut material) in
+            tiles.iter_mut()
+        {
             // Check if a tile is already exists at that position.
-            if let Some((existing_entity, _position)) = board[position.index()] {
+            if let Some((existing_entity, _position)) = board[position.index()]
+            {
                 // Despawning the existing tile.
                 commands.despawn(existing_entity);
 
@@ -48,7 +51,8 @@ pub fn merging(
                     *merged = Some(Merged);
                     commands.insert_one(entity, MergeAnimation::default());
                 } else {
-                    // If the level is the last, despawn the tile with an animation.
+                    // If the level is the last, despawn the tile with an
+                    // animation.
                     commands.insert_one(entity, Despawn);
                 }
             }

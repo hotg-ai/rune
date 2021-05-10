@@ -23,7 +23,8 @@ pub enum MovingState {
     Animating,
     /// At this state, checking each tiles that are at the same position,
     /// Are being merged.
-    /// Then setting the next state to `SetMoving` with `starting` set to `false`.
+    /// Then setting the next state to `SetMoving` with `starting` set to
+    /// `false`.
     Merging,
     /// At this state, all the tiles are at their final position.
     /// Removing the merged compoent from the tiles and spawning a new
@@ -41,7 +42,5 @@ pub enum MovingState {
 
 impl Default for MovingState {
     /// Creates an Idle moving state.
-    fn default() -> Self {
-        Self::Idle
-    }
+    fn default() -> Self { Self::Idle }
 }

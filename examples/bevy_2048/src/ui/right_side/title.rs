@@ -50,5 +50,6 @@ pub fn spawn_title(
         });
 
     // Making the title as a chlid of the left side node.
-    commands.push_children(rs_node_entity, &[commands.current_entity().unwrap()]);
+    commands
+        .push_children(rs_node_entity, &[commands.current_entity().unwrap()]);
 }

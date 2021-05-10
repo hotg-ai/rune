@@ -23,7 +23,11 @@ impl Plugin for UiPlugin {
 
 pub struct RootNode;
 
-fn create_root(mut commands: Commands, assets: Res<AssetServer>, mut _fonts: ResMut<Assets<Font>>) {
+fn create_root(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut _fonts: ResMut<Assets<Font>>,
+) {
     // Loading the font once.
     assets.load::<Font, _>("fonts/FiraSans-Bold.ttf");
 

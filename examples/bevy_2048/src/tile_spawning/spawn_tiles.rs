@@ -1,4 +1,5 @@
-//! This module cotains the implementation of the SpawnTile event, reader and system.
+//! This module cotains the implementation of the SpawnTile event, reader and
+//! system.
 
 use crate::common::{GameSize, Position, Tile};
 use crate::movement::{Merged, Moving};
@@ -14,9 +15,7 @@ pub struct SpawnTileEvent {
 
 impl Default for SpawnTileEvent {
     /// Spawns 1 tile.
-    fn default() -> Self {
-        Self { count: 1 }
-    }
+    fn default() -> Self { Self { count: 1 } }
 }
 
 /// Event listener for SpawnTileEvent.
@@ -75,7 +74,9 @@ pub fn spawn_tiles(
                 commands
                     .spawn(SpriteComponents {
                         material: materials.add(tile.color().into()),
-                        transform: Transform::from_translation(pos.to_vec3(*game_size)),
+                        transform: Transform::from_translation(
+                            pos.to_vec3(*game_size),
+                        ),
                         ..Default::default()
                     })
                     .with(tile)

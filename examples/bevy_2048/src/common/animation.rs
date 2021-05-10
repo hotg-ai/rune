@@ -54,9 +54,7 @@ impl Animation {
         }
     }
 
-    fn base_value(&self) -> f32 {
-        self.ticks as f32 / self.max_ticks as f32
-    }
+    fn base_value(&self) -> f32 { self.ticks as f32 / self.max_ticks as f32 }
 
     /// Updates the animation, needs `delta_seconds` from the time resource.
     /// Returns `true` if the timer finished,
@@ -79,9 +77,7 @@ impl Animation {
     }
 
     /// Returns `true` if the animation finished.
-    pub fn finished(&self) -> bool {
-        self.finished
-    }
+    pub fn finished(&self) -> bool { self.finished }
 
     /// Resets the animation.
     pub fn reset(&mut self) {

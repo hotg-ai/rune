@@ -1,4 +1,5 @@
-//! This module contians the implementation of the CheckingMoveable state's system.
+//! This module contians the implementation of the CheckingMoveable state's
+//! system.
 
 use bevy::prelude::*;
 
@@ -26,7 +27,8 @@ pub fn check_moveable(
                     board[position.index()] = tile;
                 }
 
-                // Checking if there are some neighbor tiles with the same level.
+                // Checking if there are some neighbor tiles with the same
+                // level.
                 let mut gameover = true;
                 for row in 0..4 {
                     for col in 0..4 {
@@ -34,7 +36,9 @@ pub fn check_moveable(
 
                         if row < 3 {
                             let up = Position { row: row + 1, col };
-                            if board[pos.index()].level == board[up.index()].level {
+                            if board[pos.index()].level
+                                == board[up.index()].level
+                            {
                                 gameover = false;
                                 break;
                             }
@@ -42,7 +46,9 @@ pub fn check_moveable(
 
                         if col < 3 {
                             let right = Position { row, col: col + 1 };
-                            if board[pos.index()].level == board[right.index()].level {
+                            if board[pos.index()].level
+                                == board[right.index()].level
+                            {
                                 gameover = false;
                                 break;
                             }

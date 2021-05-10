@@ -40,7 +40,8 @@ pub fn moving_animation(
         // Checking if should update the transform of the tiles.
         if moving_anim.animation.update(time.delta_seconds) {
             // For each tile that is moving, update its transform.
-            for (position, mut transform, moving) in queries.q0_mut().iter_mut() {
+            for (position, mut transform, moving) in queries.q0_mut().iter_mut()
+            {
                 if moving.is_some() {
                     // The amount to move from its position.
                     let translate: Vec3 = Vec3::from(*moving_dir)
@@ -48,7 +49,8 @@ pub fn moving_animation(
                         * moving_anim.animation.value();
 
                     // update the transform.
-                    transform.translation = position.to_vec3(*game_size) + translate;
+                    transform.translation =
+                        position.to_vec3(*game_size) + translate;
                 }
             }
         }

@@ -1,4 +1,5 @@
-//! This module contains the implementation of the DespawnAnimation and its system.
+//! This module contains the implementation of the DespawnAnimation and its
+//! system.
 
 use crate::common::{Animation, GameSize};
 use bevy::prelude::*;

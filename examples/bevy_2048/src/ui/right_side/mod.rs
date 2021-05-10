@@ -15,13 +15,22 @@ static POST_RS_CREATION_STAGE: &str = "POST-RIGHT-SIDE-CREATION";
 /// This plugin builds the right side ui into the app.
 impl Plugin for RightSidePlugin {
     fn build(&self, app: &mut bevy::prelude::AppBuilder) {
-        app.add_startup_stage_after(POST_ROOT_CREATION_STAGE, POST_RS_CREATION_STAGE)
-            .add_startup_system_to_stage(POST_ROOT_CREATION_STAGE, spawn_right_side_node.system())
-            .add_startup_system_to_stage(
-                POST_RS_CREATION_STAGE,
-                how_to_node::spawn_how_to_node.system(),
-            )
-            .add_startup_system_to_stage(POST_RS_CREATION_STAGE, title::spawn_title.system());
+        app.add_startup_stage_after(
+            POST_ROOT_CREATION_STAGE,
+            POST_RS_CREATION_STAGE,
+        )
+        .add_startup_system_to_stage(
+            POST_ROOT_CREATION_STAGE,
+            spawn_right_side_node.system(),
+        )
+        .add_startup_system_to_stage(
+            POST_RS_CREATION_STAGE,
+            how_to_node::spawn_how_to_node.system(),
+        )
+        .add_startup_system_to_stage(
+            POST_RS_CREATION_STAGE,
+            title::spawn_title.system(),
+        );
     }
 }
 
@@ -29,7 +38,11 @@ impl Plugin for RightSidePlugin {
 pub struct RightSideNode;
 
 /// Spawns the right side node as a child of the root node.
-fn spawn_right_side_node(mut commands: Commands, root_entity: Entity, _: &RootNode) {
+fn spawn_right_side_node(
+    mut commands: Commands,
+    root_entity: Entity,
+    _: &RootNode,
+) {
     commands
         .spawn(NodeComponents {
             style: Style {

@@ -10,7 +10,5 @@ pub enum GameState {
 
 impl Default for GameState {
     /// Creates a Play game state.
-    fn default() -> Self {
-        Self::Play
-    }
+    fn default() -> Self { Self::Play }
 }

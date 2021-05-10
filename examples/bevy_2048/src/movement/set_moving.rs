@@ -17,8 +17,13 @@ pub fn set_moving(
         // Creating a board represented by a 1D array
         // in order to check the neighbors tiles.
         let mut tiles = tiles.iter();
-        let mut board: [Option<(Entity, &Tile, &Position, &Option<Moving>, &Option<Merged>)>; 16] =
-            Default::default();
+        let mut board: [Option<(
+            Entity,
+            &Tile,
+            &Position,
+            &Option<Moving>,
+            &Option<Merged>,
+        )>; 16] = Default::default();
         for tile in &mut tiles {
             let position = tile.2;
             board[position.index()] = Some(tile);
@@ -36,8 +41,9 @@ pub fn set_moving(
                     // Checking if the new position contains a tile.
                     if let Some(existing_tile) = &board[new_pos.index()] {
                         // If the existing tile is moving
-                        // or has the same level while both tiles are not merged,
-                        // move the current tile.
+                        // or has the same level while both tiles are not
+                        // merged, move the current
+                        // tile.
                         if moving_entities.contains(&existing_tile.0)
                             || (curr_tile.1.level == existing_tile.1.level
                                 && curr_tile.4.is_none()

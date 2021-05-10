@@ -32,7 +32,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 use runic_types::Value;
-use crate::audio::Samples;
+use crate::audio::AudioSystem;
 
 pub struct MovementPlugin {
     runtime: Runtime,
@@ -41,17 +41,17 @@ pub struct MovementPlugin {
 
 impl MovementPlugin {
     pub fn load(
-        samples: Arc<RwLock<Samples>>,
+        audio: Arc<RwLock<AudioSystem>>,
         rune_wasm: &[u8],
     ) -> Result<Self, Error> {
         let current_movement = Arc::new(RwLock::new(None));
         let current_movement_2 = Arc::clone(&current_movement);
 
         let mut image = BaseImage::default();
-        let samples = Arc::clone(&samples);
+        let audio = Arc::clone(&audio);
         image
             .with_sound(move || {
-                Ok(Box::new(Microphone::new(Arc::clone(&samples))))
+                Ok(Box::new(Microphone::new(Arc::clone(&audio))))
             })
             .with_serial(move || {
                 let current_movement = Arc::clone(&current_movement_2);
@@ -102,30 +102,23 @@ fn execute_rune(mut runtime: ResMut<Runtime>) {
 
 #[derive(Debug, Clone)]
 struct Microphone {
-    samples: Arc<RwLock<Samples>>,
-    sample_rate: i32,
+    audio: Arc<RwLock<AudioSystem>>,
     sample_duration_ms: i32,
 }
 
 impl Microphone {
-    pub fn new(samples: Arc<RwLock<Samples>>) -> Self {
+    pub fn new(audio: Arc<RwLock<AudioSystem>>) -> Self {
         Microphone {
-            samples,
-            sample_rate: 0,
+            audio,
             sample_duration_ms: 0,
         }
-    }
-
-    fn update_buffer_capacity(&self) {
-        let mut samples = self.samples.write().unwrap();
-        let capacity = self.sample_rate * self.sample_duration_ms / 1000;
-        samples.set_capacity(capacity as usize);
     }
 }
 
 impl Capability for Microphone {
     fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, anyhow::Error> {
-        let samples = self.samples.read().unwrap();
+        let audio = self.audio.read().unwrap();
+        let samples = &audio.samples;
 
         let mut bytes_written = 0;
 
@@ -153,17 +146,25 @@ impl Capability for Microphone {
 
         match name {
             "hz" => {
-                self.sample_rate = i32::try_from(value)?;
-                log::info!("Sample Rate = {} hz", self.sample_rate);
-                self.update_buffer_capacity();
+                let mut audio = self.audio.write().unwrap();
+                audio.sample_rate = i32::try_from(value)?;
+                log::info!("Sample Rate = {} hz", audio.sample_rate);
+                audio.update_buffer_capacity(self.sample_duration_ms);
             },
             "sample_duration_ms" => {
                 self.sample_duration_ms = i32::try_from(value)?;
                 log::info!("Sample Duration = {} ms", self.sample_duration_ms);
-                self.update_buffer_capacity();
+                self.audio
+                    .write()
+                    .unwrap()
+                    .update_buffer_capacity(self.sample_duration_ms);
             },
             _ => {
-                log::info!("Setting unknown property \"{}\" = {}", name, value);
+                log::info!(
+                    "Ignoring unknown property \"{}\" = {}",
+                    name,
+                    value
+                );
             },
         }
 
@@ -189,7 +190,7 @@ impl Output for Serial {
 
         let mut current_movement = self.current_movement.write().unwrap();
 
-        *current_movement = match &*msg.string {
+        *current_movement = match msg.string.as_ref() {
             "unknown" | "silence" => None,
             "up" => Some(MovingDirection::Up),
             "down" => Some(MovingDirection::Down),

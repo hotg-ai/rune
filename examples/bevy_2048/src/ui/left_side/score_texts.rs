@@ -15,7 +15,11 @@ pub fn score_text(score: Res<Score>, mut text: Mut<Text>, _: &ScoreText) {
 }
 
 /// Updating the highscore text.
-pub fn highscore_text(highscore: Res<HighScore>, mut text: Mut<Text>, _: &HighScoreText) {
+pub fn highscore_text(
+    highscore: Res<HighScore>,
+    mut text: Mut<Text>,
+    _: &HighScoreText,
+) {
     text.value = format!("Best: {}", highscore.0)
 }
 

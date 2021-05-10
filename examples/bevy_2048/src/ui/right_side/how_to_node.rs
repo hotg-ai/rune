@@ -44,11 +44,17 @@ pub fn spawn_how_to_node(
         });
 
     // Making 'how to' text as a child of the left side node.
-    commands.push_children(rs_node_entity, &[commands.current_entity().unwrap()]);
+    commands
+        .push_children(rs_node_entity, &[commands.current_entity().unwrap()]);
 }
 
 /// Creates a text as a child of a given parent.
-fn spawn_text(parent: &mut ChildBuilder, text: &str, font_size: f32, font_handle: Handle<Font>) {
+fn spawn_text(
+    parent: &mut ChildBuilder,
+    text: &str,
+    font_size: f32,
+    font_handle: Handle<Font>,
+) {
     parent
         // Base node.
         .spawn(NodeComponents {

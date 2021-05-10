@@ -18,7 +18,10 @@ pub fn spawn_board(
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb_u8(119, 110, 101).into()),
-            sprite: Sprite::new(Vec2::new(game_size.board_size(), game_size.board_size())),
+            sprite: Sprite::new(Vec2::new(
+                game_size.board_size(),
+                game_size.board_size(),
+            )),
             ..Default::default()
         })
         .with(Board);
@@ -30,9 +33,15 @@ pub fn spawn_board(
 
             commands
                 .spawn(SpriteComponents {
-                    material: materials.add(Color::rgba_u8(238, 228, 218, 90).into()),
-                    sprite: Sprite::new(Vec2::new(game_size.tile_size(), game_size.tile_size())),
-                    transform: Transform::from_translation(position.to_vec3(*game_size)),
+                    material: materials
+                        .add(Color::rgba_u8(238, 228, 218, 90).into()),
+                    sprite: Sprite::new(Vec2::new(
+                        game_size.tile_size(),
+                        game_size.tile_size(),
+                    )),
+                    transform: Transform::from_translation(
+                        position.to_vec3(*game_size),
+                    ),
                     ..Default::default()
                 })
                 .with(position)
