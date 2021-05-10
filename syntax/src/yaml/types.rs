@@ -205,6 +205,15 @@ impl Stage {
         }
     }
 
+    pub fn inputs_mut(&mut self) -> Option<&mut Vec<String>> {
+        match self {
+            Stage::Model { inputs, .. }
+            | Stage::ProcBlock { inputs, .. }
+            | Stage::Out { inputs, .. } => Some(inputs),
+            Stage::Capability { .. } => None,
+        }
+    }
+
     pub fn output_type(&self) -> Option<&Type> {
         match self.output_types() {
             [] => None,
