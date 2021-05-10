@@ -1,24 +1,41 @@
 use std::{
     collections::VecDeque,
-    fs::File,
+    fmt::Debug,
     sync::{Arc, RwLock},
 };
-
-use anyhow::{Error, Context};
+use anyhow::{Context, Error};
 use cpal::{
-    BufferSize, SampleRate, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait},
+    BufferSize, SampleRate, Stream, StreamConfig,
 };
-use hound::{SampleFormat, WavSpec};
+use dasp::{Signal, interpolate::linear::Linear};
 
-pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioSystem {
+    pub samples: Samples,
+    pub sample_rate: i32,
+}
+
+impl AudioSystem {
+    pub fn update_buffer_capacity(&mut self, sample_duration_ms: i32) {
+        let capacity = self.sample_rate * sample_duration_ms / 1000;
+        self.samples.set_capacity(capacity as usize);
+    }
+}
+
+pub fn start_recording() -> Result<(Stream, Arc<RwLock<AudioSystem>>), Error> {
+    log::info!("Started recording");
     let host = cpal::default_host();
 
     let microphone = host
         .default_input_device()
         .context("Unable to connected to your microphone")?;
 
-    let samples = Arc::new(RwLock::new(Samples::new(1000)));
+    let audio = AudioSystem {
+        samples: Samples::new(1000),
+        sample_rate: 16_000,
+    };
+    let samples = Arc::new(RwLock::new(audio));
     let samples_2 = Arc::clone(&samples);
 
     let stream_config = StreamConfig {
@@ -30,29 +47,31 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
     };
     log::debug!("Building the input stream with {:?}", stream_config);
 
-    // TODO: Remove this WAV writer once testing is over
-    let filename = "samples.wav";
-    let f = File::create(filename).with_context(|| {
-        format!("Unable to open \"{}\" for writing", filename)
-    })?;
-    let spec = WavSpec {
-        channels: 1,
-        sample_rate: stream_config.sample_rate.0,
-        bits_per_sample: 32,
-        sample_format: SampleFormat::Float,
-    };
-    let mut wav_writer = hound::WavWriter::new(f, spec)?;
+    let source_hz = stream_config.sample_rate.0 as f64;
 
     let stream = microphone
         .build_input_stream(
             &stream_config,
             move |data: &[f32], _| {
-                let mut samples = samples_2.write().unwrap();
-                for sample in data {
-                    wav_writer.write_sample(*sample).unwrap();
-                }
-                wav_writer.flush().unwrap();
-                samples.append(data);
+                let mut audio = samples_2.write().unwrap();
+
+                let mut signal = dasp::signal::from_iter(data.iter().cloned());
+
+                let first_sample = signal.next();
+                let second_sample = signal.next();
+                let interpolator = Linear::new(first_sample, second_sample);
+
+                let dest_hz = 16000.0;
+
+                let converter = signal.from_hz_to_hz(
+                    interpolator,
+                    source_hz,
+                    audio.sample_rate as f64,
+                );
+
+                let sample_count =
+                    (data.len() as f64 * dest_hz / source_hz).round() as usize;
+                audio.samples.extend(converter.take(sample_count));
             },
             |err| panic!("Error: {}", err),
         )
@@ -62,7 +81,7 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<Samples>>), Error> {
 }
 
 /// A circular buffer containing the last N audio samples.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Samples {
     buffer: VecDeque<f32>,
     max_samples: usize,
@@ -94,11 +113,24 @@ impl Samples {
 
     fn trim(&mut self) {
         if self.buffer.len() <= self.max_samples {
+            let samples_required = self.max_samples - self.buffer.len();
+            self.buffer
+                .extend(std::iter::repeat(0.0).take(samples_required));
             return;
         }
 
         let samples_to_remove = self.len() - self.max_samples;
         let _ = self.buffer.drain(..samples_to_remove);
+    }
+}
+
+impl Extend<f32> for Samples {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = f32>,
+    {
+        self.buffer.extend(iter);
+        self.trim();
     }
 }
 

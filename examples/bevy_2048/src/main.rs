@@ -26,16 +26,15 @@ const RUNE_WASM: &[u8] = include_bytes!("../../microspeech/microspeech.rune");
 fn main() -> Result<(), Error> {
     env_logger::init();
 
-    let (stream, samples) = audio::start_recording()
+    let (stream, audio) = audio::start_recording()
         .context("Unable to initialize the audio input")?;
 
     stream.play().context("Unable to start the stream")?;
 
-    let movement = MovementPlugin::load(samples, RUNE_WASM)
+    let movement = MovementPlugin::load(audio, RUNE_WASM)
         .context("Unable to load the movement system")?;
 
     App::build()
-        // Set window title.
         .add_resource(WindowDescriptor {
             title: "Bevy 2048".to_string(),
             ..Default::default()
@@ -47,7 +46,6 @@ fn main() -> Result<(), Error> {
         .add_plugin(ScoreSystemPlugin)
         .add_plugin(UiPlugin)
         .init_resource::<GameState>()
-        // Set background color.
         .add_resource(ClearColor(Color::rgb_u8(250, 248, 239)))
         .add_startup_system(setup.system())
         .add_startup_system(board::spawn_board.system())
