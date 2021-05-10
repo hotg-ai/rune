@@ -23,6 +23,14 @@ impl Document {
     pub fn parse(yaml: &str) -> Result<Self, serde_yaml::Error> {
         serde_yaml::from_str(yaml)
     }
+
+    pub fn write_as_yaml<W>(&self, writer: W) -> Result<(), serde_yaml::Error>
+    where
+        W: std::io::Write,
+    {
+        serde_yaml::to_writer(writer, self)?;
+        Ok(())
+    }
 }
 
 impl FromStr for Document {
@@ -164,33 +172,33 @@ impl std::error::Error for PathParseError {}
 pub enum Stage {
     Model {
         model: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         inputs: Vec<String>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
     },
     ProcBlock {
         #[serde(rename = "proc-block")]
         proc_block: Path,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         inputs: Vec<String>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "HashMap::is_empty")]
         args: HashMap<String, Value>,
     },
     Capability {
         capability: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "HashMap::is_empty")]
         args: HashMap<String, Value>,
     },
     Out {
         out: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         inputs: Vec<String>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "HashMap::is_empty")]
         args: HashMap<String, Value>,
     },
 }
@@ -263,7 +271,9 @@ fn to_parameters(
     let mut map = HashMap::new();
 
     for (key, value) in yaml {
-        map.insert(key.clone(), value.clone().into());
+        let key = key.replace("-", "_");
+        let value = value.clone().into();
+        map.insert(key, value);
     }
 
     map
@@ -275,7 +285,7 @@ fn to_parameters(
 pub struct Type {
     #[serde(rename = "type")]
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dimensions: Vec<usize>,
 }
 

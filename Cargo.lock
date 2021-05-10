@@ -2983,6 +2983,7 @@ dependencies = [
  "env_logger 0.8.3",
  "globset",
  "log",
+ "rune-syntax",
  "serde",
  "serde_json",
  "structopt",

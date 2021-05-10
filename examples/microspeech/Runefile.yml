@@ -1,0 +1,44 @@
+---
+image: runicos/base
+pipeline:
+  audio:
+    capability: SOUND
+    outputs:
+      - type: I16
+        dimensions:
+          - 16000
+    args:
+      hz: 16000
+      sample-duration-ms: 1000
+  model:
+    model: "./model.tflite"
+    inputs:
+      - fft
+    outputs:
+      - type: I8
+        dimensions:
+          - 4
+  serial:
+    out: serial
+    inputs:
+      - label
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    inputs:
+      - model
+    outputs:
+      - type: UTF8
+    args:
+      labels:
+        - silence
+        - unknown
+        - "yes"
+        - "no"
+  fft:
+    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    inputs:
+      - audio
+    outputs:
+      - type: I8
+        dimensions:
+          - 1960

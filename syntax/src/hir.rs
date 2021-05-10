@@ -434,8 +434,8 @@ pub enum SourceKind {
 impl<'a> From<&'a str> for SourceKind {
     fn from(s: &'a str) -> SourceKind {
         match s {
-            "random" | "RANDOM" => SourceKind::Random,
-            "accelerometer" | "ACCELEROMETER" => SourceKind::Accelerometer,
+            "rand" | "RAND" => SourceKind::Random,
+            "accel" | "ACCEL" => SourceKind::Accelerometer,
             "sound" | "SOUND" => SourceKind::Sound,
             "image" | "IMAGE" => SourceKind::Image,
             "raw" | "RAW" => SourceKind::Raw,

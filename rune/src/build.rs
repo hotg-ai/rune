@@ -4,7 +4,10 @@ use codespan_reporting::{
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use rune_codegen::{Compilation, GitSpecifier, RuneProject};
-use rune_syntax::{Diagnostics, hir::Rune};
+use rune_syntax::{
+    hir::Rune,
+    yaml::{self, Document},
+};
 use std::{
     env::current_dir,
     path::{Path, PathBuf},
@@ -161,10 +164,15 @@ pub(crate) fn analyze(
     let file = SimpleFile::new(runefile.display().to_string(), &src);
 
     log::debug!("Parsing \"{}\"", runefile.display());
-    let parsed = rune_syntax::parse(&src).unwrap();
+    let parsed = match runefile.extension().and_then(|ext| ext.to_str()) {
+        Some("yaml") | Some("yml") => Document::parse(&src)?,
+        _ => {
+            let f = rune_syntax::parse(&src)?;
+            yaml::document_from_runefile(f)
+        },
+    };
 
-    let mut diags = Diagnostics::new();
-    let rune = rune_syntax::analyse(&parsed, &mut diags);
+    let (rune, diags) = rune_syntax::yaml::analyse(&parsed);
 
     let mut writer = StandardStream::stdout(color);
     let config = Config::default();
