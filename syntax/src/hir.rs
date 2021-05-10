@@ -100,18 +100,32 @@ pub struct HirId(u32);
 
 impl HirId {
     pub const ERROR: HirId = HirId(0);
+    pub const UNKNOWN: HirId = HirId(1);
+
+    /// The first non-builtin [`HirId`] that can be allocated to a HIR object.
+    pub(crate) const fn first_user_defined() -> HirId { HirId(2) }
 
     pub fn is_error(self) -> bool { self == HirId::ERROR }
+
+    pub fn is_unknown(self) -> bool { self == HirId::UNKNOWN }
 
     pub(crate) fn next(self) -> Self { HirId(self.0 + 1) }
 }
 
 impl Default for HirId {
-    fn default() -> Self { HirId::ERROR }
+    fn default() -> Self { HirId::first_user_defined() }
 }
 
 unsafe impl IndexType for HirId {
-    fn new(x: usize) -> Self { HirId(x.try_into().unwrap()) }
+    fn new(x: usize) -> Self {
+        let id = HirId(x.try_into().unwrap());
+        assert!(
+            id >= HirId::first_user_defined(),
+            "Can't use one of the builtin HirId values"
+        );
+
+        id
+    }
 
     fn index(&self) -> usize { self.0.try_into().unwrap() }
 

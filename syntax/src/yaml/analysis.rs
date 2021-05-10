@@ -6,9 +6,11 @@ use codespan_reporting::{
 use petgraph::graph::NodeIndex;
 use crate::{
     Diagnostics,
-    analysis::{Builtins, HirIds},
     hir::{self, HirId, Rune, Edge, Primitive},
-    yaml::types::*,
+    yaml::{
+        types::*,
+        utils::{Builtins, HirIds},
+    },
 };
 
 type FileId =
@@ -159,13 +161,15 @@ impl Context {
 
 impl Default for Context {
     fn default() -> Context {
+        let mut rune = Rune::default();
         let mut ids = HirIds::new();
         let builtins = Builtins::new(&mut ids);
+        builtins.copy_into(&mut rune);
 
         Context {
             ids,
             builtins,
-            rune: Rune::default(),
+            rune,
             diags: Diagnostics::default(),
             stages: HashMap::default(),
             input_types: HashMap::default(),
