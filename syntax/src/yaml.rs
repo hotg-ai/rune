@@ -7,13 +7,16 @@ use std::{
 use regex::Regex;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
-use codespan_reporting::files::{Files, SimpleFile};
+use codespan_reporting::{
+    files::{Files, SimpleFile},
+    diagnostic::Diagnostic,
+};
 use codespan::Span;
 use petgraph::graph::NodeIndex;
 use crate::{
     Diagnostics,
     analysis::{Builtins, HirIds},
-    hir::{self, HirId, Rune},
+    hir::{self, HirId, Rune, Edge, Primitive},
     ast::{ArgumentValue, Literal},
 };
 
@@ -202,12 +205,65 @@ pub enum Stage {
     },
 }
 
+impl Stage {
+    fn inputs(&self) -> &[String] {
+        match self {
+            Stage::Model { inputs, .. }
+            | Stage::ProcBlock { inputs, .. }
+            | Stage::Out { inputs, .. } => inputs,
+            Stage::Capability { .. } => &[],
+        }
+    }
+
+    fn output_type(&self) -> Option<&Type> {
+        match self.output_types() {
+            [] => None,
+            [output] => Some(output),
+            _ => unimplemented!("Multiple outputs aren't supported yet"),
+        }
+    }
+
+    fn output_types(&self) -> &[Type] {
+        match self {
+            Stage::Model { outputs, .. }
+            | Stage::ProcBlock { outputs, .. }
+            | Stage::Capability { outputs, .. } => outputs,
+            Stage::Out { .. } => &[],
+        }
+    }
+}
+
+impl<'a> From<&'a Stage> for hir::Stage {
+    fn from(s: &'a Stage) -> hir::Stage {
+        match s {
+            Stage::Model { model, .. } => hir::Stage::Model(hir::Model {
+                model_file: model.into(),
+            }),
+            Stage::ProcBlock {
+                proc_block, args, ..
+            } => hir::Stage::ProcBlock(hir::ProcBlock {
+                path: proc_block.into(),
+                parameters: to_parameters(args),
+            }),
+            Stage::Capability {
+                capability, args, ..
+            } => hir::Stage::Source(hir::Source {
+                kind: capability.as_str().into(),
+                parameters: to_parameters(args),
+            }),
+            Stage::Out { out, .. } => hir::Stage::Sink(hir::Sink {
+                kind: out.as_str().into(),
+            }),
+        }
+    }
+}
+
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub struct Type {
     #[serde(rename = "type")]
-    pub ty: String,
+    pub name: String,
     #[serde(default)]
     pub dimensions: Vec<usize>,
 }
@@ -304,36 +360,111 @@ impl Context {
         for (name, stage) in pipeline {
             let id = self.rune.names[name.as_str()];
 
-            let node = match stage {
-                Stage::Model { model, .. } => hir::Stage::Model(hir::Model {
-                    model_file: model.into(),
-                }),
-                Stage::ProcBlock {
-                    proc_block, args, ..
-                } => hir::Stage::ProcBlock(hir::ProcBlock {
-                    path: proc_block.into(),
-                    parameters: to_parameters(args),
-                }),
-                Stage::Capability {
-                    capability, args, ..
-                } => hir::Stage::Source(hir::Source {
-                    kind: capability.as_str().into(),
-                    parameters: to_parameters(args),
-                }),
-                Stage::Out { out, .. } => hir::Stage::Sink(hir::Sink {
-                    kind: out.as_str().into(),
-                }),
-            };
-
-            let node_index = self.rune.graph.add_node(node);
+            let node_index = self.rune.graph.add_node(hir::Stage::from(stage));
             self.rune.add_hir_id_and_node_index(id, node_index);
         }
     }
 
-    fn get_type(&mut self, ty: &Type) -> HirId { todo!() }
+    fn construct_pipeline(&mut self, pipeline: &HashMap<String, Stage>) {
+        for (name, stage) in pipeline {
+            let node_index = self.node_index_by_name(name).unwrap();
 
-    fn construct_pipeline(&mut self, _steps: &HashMap<String, Stage>) {
-        todo!()
+            for previous in stage.inputs() {
+                let stage = match pipeline.get(previous) {
+                    Some(s) => s,
+                    None => {
+                        let msg = format!("The \"{}\" stage declares \"{}\" as an input, but no such stage exists", name, previous);
+                        let diag = Diagnostic::error().with_message(msg);
+                        self.diags.push(diag);
+
+                        continue;
+                    },
+                };
+                let previous_node_index = match self
+                    .node_index_by_name(previous)
+                {
+                    Some(ix) => ix,
+                    None => {
+                        let msg = format!("The \"{}\" stage declares \"{}\" as an input, but no such stage was added to the pipeline graph", name, previous);
+                        let diag = Diagnostic::error().with_message(msg);
+                        self.diags.push(diag);
+
+                        continue;
+                    },
+                };
+
+                let output_type = match stage.output_type() {
+                    Some(t) => t,
+                    None => {
+                        let msg = format!("\"{}\" is used as an input to \"{}\", but it doesn't declare any outputs", previous, name);
+                        let diag = Diagnostic::error().with_message(msg);
+                        self.diags.push(diag);
+
+                        continue;
+                    },
+                };
+
+                let edge = Edge {
+                    type_id: self.intern_type(output_type),
+                };
+                self.rune
+                    .graph
+                    .add_edge(previous_node_index, node_index, edge);
+            }
+        }
+    }
+
+    fn intern_type(&mut self, ty: &Type) -> HirId {
+        let underlying_type = match self.primitive_type(&ty.name) {
+            Some(p) => p,
+            None => {
+                let msg = format!("Unknown type: {}", ty.name);
+                let diag = Diagnostic::warning().with_message(msg);
+                self.diags.push(diag);
+                return self.builtins.unknown_type;
+            },
+        };
+
+        let ty = if ty.dimensions.is_empty() {
+            hir::Type::Primitive(underlying_type)
+        } else {
+            hir::Type::Buffer {
+                underlying_type: self.builtins.get_id(underlying_type),
+                dimensions: ty.dimensions.clone(),
+            }
+        };
+
+        match self.rune.types.iter().find(|(_, t)| **t == ty) {
+            Some((id, _)) => *id,
+            None => {
+                // new buffer type
+                let id = self.ids.next();
+                self.rune.types.insert(id, ty);
+                id
+            },
+        }
+    }
+
+    fn primitive_type(&mut self, name: &str) -> Option<Primitive> {
+        match name {
+            "u8" | "U8" => Some(Primitive::U8),
+            "i8" | "I8" => Some(Primitive::I8),
+            "u16" | "U16" => Some(Primitive::U16),
+            "i16" | "I16" => Some(Primitive::I16),
+            "u32" | "U32" => Some(Primitive::U32),
+            "i32" | "I32" => Some(Primitive::I32),
+            "u64" | "U64" => Some(Primitive::U64),
+            "i64" | "I64" => Some(Primitive::I64),
+            "f32" | "F32" => Some(Primitive::F32),
+            "f64" | "F64" => Some(Primitive::F64),
+            "utf8" | "UTF8" => Some(Primitive::String),
+            _ => None,
+        }
+    }
+
+    fn node_index_by_name(&self, name: &str) -> Option<NodeIndex> {
+        let id = self.rune.names.get_id(name)?;
+        self.rune.hir_id_to_node_index.get(&id).copied()
     }
 }
 
@@ -371,15 +502,34 @@ mod tests {
     use super::*;
 
     macro_rules! map {
-    // map-like
-    ($($k:expr => $v:expr),* $(,)?) => {
-        std::iter::Iterator::collect(std::array::IntoIter::new([$(($k, $v),)*]))
-    };
-    // set-like
-    ($($v:expr),* $(,)?) => {
-        std::iter::Iterator::collect(std::array::IntoIter::new([$($v,)*]))
-    };
-}
+        // map-like
+        ($($k:ident : $v:expr),* $(,)?) => {
+            std::iter::Iterator::collect(std::array::IntoIter::new([
+                $(
+                    (String::from(stringify!($k)), $v)
+                ),*
+            ]))
+        };
+        // set-like
+        ($($v:expr),* $(,)?) => {
+            std::iter::Iterator::collect(std::array::IntoIter::new([$($v,)*]))
+        };
+    }
+
+    macro_rules! ty {
+        ($type:ident [$($dim:expr),*]) => {
+            Type {
+                name: String::from(stringify!($type)),
+                dimensions: vec![ $($dim),*],
+            }
+        };
+        ($type:ident) => {
+            Type {
+                name: String::from(stringify!($type)),
+                dimensions: vec![],
+            }
+        }
+    }
 
     #[test]
     fn parse_yaml_pipeline() {
@@ -428,25 +578,22 @@ pipeline:
         let should_be = Document {
             image: Path::new("runicos/base", None, None),
             pipeline: map! {
-                "audio".into() => Stage::Capability {
+                audio: Stage::Capability {
                     capability: String::from("SOUND"),
-                    outputs: vec![Type {
-                        ty: String::from("i16"),
-                        dimensions: vec![16000],
-                    }],
-                    args: map! { "hz".to_string() => Value::Int(16000) },
+                    outputs: vec![ty!(i16[16000])],
+                    args: map! { hz: Value::Int(16000) },
                 },
-                "output".into() => Stage::Out {
+                output: Stage::Out {
                     out: String::from("SERIAL"),
                     args: HashMap::new(),
                     inputs: vec![String::from("label")],
                 },
-                "label".into() => Stage::ProcBlock {
+                label: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
                     inputs: vec![String::from("model")],
-                    outputs: vec![Type { ty: String::from("utf8"), dimensions: Vec::new() }],
+                    outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
                     args: map! {
-                        String::from("labels") => Value::from(vec![
+                        labels: Value::from(vec![
                             Value::from("silence"),
                             Value::from("unknown"),
                             Value::from("up"),
@@ -456,16 +603,16 @@ pipeline:
                         ]),
                     },
                 },
-                "fft".into() => Stage::ProcBlock {
+                fft: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
                     inputs: vec![String::from("audio")],
-                    outputs: vec![Type { ty: String::from("i8"), dimensions: vec![1960] }],
+                    outputs: vec![ty!(i8[1960])],
                     args: HashMap::new(),
                 },
-                "model".into() => Stage::Model {
+                model: Stage::Model {
                     model: String::from("./model.tflite"),
                     inputs: vec![String::from("fft")],
-                    outputs: vec![Type { ty: String::from("i8"), dimensions: vec![6] }],
+                    outputs: vec![ty!(i8[6])],
                 },
             },
         };
@@ -488,10 +635,10 @@ pipeline:
         let should_be = Stage::Capability {
             capability: String::from("SOUND"),
             outputs: vec![Type {
-                ty: String::from("i16"),
+                name: String::from("i16"),
                 dimensions: vec![16000],
             }],
-            args: map! { "hz".to_string() => Value::Int(16000) },
+            args: map! { hz: Value::Int(16000) },
         };
 
         let got: Stage = serde_yaml::from_str(src).unwrap();
@@ -559,33 +706,6 @@ pipeline:
         for (src, should_be) in inputs {
             let got: Path = src.parse().unwrap();
             assert_eq!(got, should_be);
-        }
-    }
-
-    macro_rules! map {
-        ($($key:ident : $value:expr),* $(,)?) => {
-            vec![
-                $(
-                    (stringify!($key).to_string(), $value)
-                ),*
-            ]
-            .into_iter()
-            .collect()
-        };
-    }
-
-    macro_rules! ty {
-        ($type:ident [$($dim:expr),*]) => {
-            Type {
-                ty: String::from(stringify!($type)),
-                dimensions: vec![ $($dim),*],
-            }
-        };
-        ($type:ident) => {
-            Type {
-                ty: String::from(stringify!($type)),
-                dimensions: vec![],
-            }
         }
     }
 
@@ -665,9 +785,33 @@ pipeline:
         ctx.register_stages(&doc.pipeline);
 
         for ty in stages {
-            let id = ctx.rune.names[ty];
-            let node_index = ctx.rune.hir_id_to_node_index[&id];
+            let node_index = ctx.node_index_by_name(ty).unwrap();
             assert!(ctx.rune.graph.node_weight(node_index).is_some());
+        }
+    }
+
+    #[test]
+    fn construct_the_pipeline() {
+        let doc = dummy_document();
+        let mut ctx = Context::default();
+        ctx.register_names(&doc.pipeline);
+        ctx.register_stages(&doc.pipeline);
+        let edges = vec![
+            ("audio", "fft"),
+            ("fft", "model"),
+            ("model", "label"),
+            ("label", "output"),
+        ];
+
+        ctx.construct_pipeline(&doc.pipeline);
+
+        assert!(ctx.diags.is_empty(), "{:?}", ctx.diags);
+        for (from, to) in edges {
+            println!("{:?} => {:?}", from, to);
+            let from_ix = ctx.node_index_by_name(from).unwrap();
+            let to_ix = ctx.node_index_by_name(to).unwrap();
+
+            let _edge = ctx.rune.graph.find_edge(from_ix, to_ix).unwrap();
         }
     }
 }

@@ -158,12 +158,12 @@ impl Index<HirId> for NameTable {
     }
 }
 
-impl<'a> Index<&'a str> for NameTable {
+impl<S: AsRef<str>> Index<S> for NameTable {
     type Output = HirId;
 
     #[track_caller]
-    fn index(&self, index: &'a str) -> &Self::Output {
-        self.name_to_id.get(index).unwrap()
+    fn index(&self, index: S) -> &Self::Output {
+        self.name_to_id.get(index.as_ref()).unwrap()
     }
 }
 

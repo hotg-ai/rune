@@ -471,6 +471,22 @@ impl Builtins {
         });
     }
 
+    pub(crate) fn get_id(&self, primitive: Primitive) -> HirId {
+        match primitive {
+            Primitive::U8 => self.u8,
+            Primitive::I8 => self.i8,
+            Primitive::U16 => self.u16,
+            Primitive::I16 => self.i16,
+            Primitive::U32 => self.u32,
+            Primitive::I32 => self.i32,
+            Primitive::U64 => self.u64,
+            Primitive::I64 => self.i64,
+            Primitive::F32 => self.f32,
+            Primitive::F64 => self.f64,
+            Primitive::String => self.string,
+        }
+    }
+
     pub(crate) fn for_each(&self, mut f: impl FnMut(HirId, Type)) {
         let Builtins {
             unknown_type,
