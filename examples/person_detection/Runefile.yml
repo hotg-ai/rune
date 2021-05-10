@@ -1,4 +1,3 @@
----
 image: runicos/base
 pipeline:
   image:

@@ -18,26 +18,14 @@ pipeline:
         dimensions:
           - 1960
   model:
-    model: "./model.tflite"
+    model: "./model_6dim_ver2.tflite"
     inputs:
       - fft
     outputs:
       - type: I8
         dimensions:
-          - 4
-  label:
-    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
-    inputs:
-      - model
-    outputs:
-      - type: UTF8
-    args:
-      labels:
-        - silence
-        - unknown
-        - "yes"
-        - "no"
+          - 6
   serial:
     out: serial
     inputs:
-      - label
+      - model
