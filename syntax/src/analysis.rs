@@ -18,12 +18,8 @@ use petgraph::{
 };
 use std::{collections::HashMap, path::PathBuf};
 
-pub fn analyse<FileId: Copy>(
-    file_id: FileId,
-    runefile: &Runefile,
-    diags: &mut Diagnostics<FileId>,
-) -> Rune {
-    let mut analyser = Analyser::new(file_id, diags);
+pub fn analyse(runefile: &Runefile, diags: &mut Diagnostics) -> Rune {
+    let mut analyser = Analyser::new(diags);
 
     analyser.load_runefile(runefile);
     analyser.infer_types();
@@ -32,9 +28,8 @@ pub fn analyse<FileId: Copy>(
 }
 
 #[derive(Debug)]
-struct Analyser<'diag, FileId> {
-    diags: &'diag mut Diagnostics<FileId>,
-    file_id: FileId,
+struct Analyser<'diag> {
+    diags: &'diag mut Diagnostics,
     rune: Rune,
     ids: HirIds,
     builtins: Builtins,
@@ -43,8 +38,8 @@ struct Analyser<'diag, FileId> {
     output_types: HashMap<NodeIndex, HirId>,
 }
 
-impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
-    fn new(file_id: FileId, diags: &'diag mut Diagnostics<FileId>) -> Self {
+impl<'diag> Analyser<'diag> {
+    fn new(diags: &'diag mut Diagnostics) -> Self {
         let mut rune = Rune::default();
 
         let mut ids = HirIds::new();
@@ -53,7 +48,6 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
         Analyser {
             diags,
-            file_id,
             rune,
             ids,
             builtins,
@@ -67,7 +61,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     fn error(&mut self, msg: impl Into<String>, span: Span) {
         let diag = Diagnostic::error()
             .with_message(msg)
-            .with_labels(vec![Label::primary(self.file_id, span)]);
+            .with_labels(vec![Label::primary((), span)]);
         self.diags.push(diag);
     }
 
@@ -75,7 +69,7 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     fn warn(&mut self, msg: impl Into<String>, span: Span) {
         let diag = Diagnostic::warning()
             .with_message(msg)
-            .with_labels(vec![Label::primary(self.file_id, span)]);
+            .with_labels(vec![Label::primary((), span)]);
         self.diags.push(diag);
     }
 
@@ -346,7 +340,6 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
     fn infer_types(&mut self) {
         let Analyser {
             diags,
-            file_id,
             rune: Rune { graph, types, .. },
             input_types,
             output_types,
@@ -358,7 +351,6 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
             input_types,
             output_types,
             types,
-            *file_id,
             *diags,
         );
 
@@ -383,16 +375,14 @@ impl<'diag, FileId: Copy> Analyser<'diag, FileId> {
 
             let prev = HirId::new(prev.index());
             if let Some(span) = self.rune.spans.get(&prev) {
-                diag =
-                    diag.with_labels(vec![Label::primary(self.file_id, *span)
-                        .with_message("Consider specifying this output type")]);
+                diag = diag.with_labels(vec![Label::primary((), *span)
+                    .with_message("Consider specifying this output type")]);
             }
 
             let next = HirId::new(next.index());
             if let Some(span) = self.rune.spans.get(&next) {
-                diag =
-                    diag.with_labels(vec![Label::primary(self.file_id, *span)
-                        .with_message("Consider specifying this intput type")]);
+                diag = diag.with_labels(vec![Label::primary((), *span)
+                    .with_message("Consider specifying this intput type")]);
             }
 
             self.diags.push(diag);
@@ -514,25 +504,18 @@ mod tests {
     };
     use codespan::Span;
 
-    fn setup_analyser(diags: &mut Diagnostics<()>) -> Analyser<'_, ()> {
-        Analyser::new((), diags)
+    fn setup_analyser(diags: &mut Diagnostics) -> Analyser<'_> {
+        Analyser::new(diags)
     }
 
-    fn setup(src: &str) -> ((), Runefile) {
-        let runefile = match crate::parse(src) {
-            Ok(r) => r,
-            Err(e) => panic!("{}", e),
-        };
-
-        ((), runefile)
-    }
+    fn setup(src: &str) -> Runefile { crate::parse(src).unwrap() }
 
     #[test]
     fn empty_runefile_is_error() {
-        let (id, runefile) = setup("");
+        let runefile = setup("");
         let mut diags = Diagnostics::new();
 
-        let got = analyse(id, &runefile, &mut diags);
+        let got = analyse(&runefile, &mut diags);
 
         assert!(diags.has_errors());
         assert!(got.base_image.is_none());
@@ -540,10 +523,10 @@ mod tests {
 
     #[test]
     fn runefiles_must_start_with_a_from_line() {
-        let (id, runefile) = setup("OUT serial");
+        let runefile = setup("OUT serial");
         let mut diags = Diagnostics::new();
 
-        let got = analyse(id, &runefile, &mut diags);
+        let got = analyse(&runefile, &mut diags);
 
         assert!(diags.has_errors());
         assert!(got.base_image.is_none());
@@ -551,10 +534,10 @@ mod tests {
 
     #[test]
     fn valid_base_image() {
-        let (id, runefile) = setup("FROM runicos/base@1.0");
+        let runefile = setup("FROM runicos/base@1.0");
         let mut diags = Diagnostics::new();
 
-        let got = analyse(id, &runefile, &mut diags);
+        let got = analyse(&runefile, &mut diags);
 
         assert!(!diags.has_errors());
         assert_eq!(
@@ -570,10 +553,10 @@ mod tests {
 
     #[test]
     fn unknown_sink_type() {
-        let (id, runefile) = setup("FROM runicos/base\nOUT asdf");
+        let runefile = setup("FROM runicos/base\nOUT asdf");
         let mut diags = Diagnostics::new();
 
-        let got = analyse(id, &runefile, &mut diags);
+        let got = analyse(&runefile, &mut diags);
 
         assert!(diags.has_errors());
         assert_eq!(got.graph.node_count(), 0);

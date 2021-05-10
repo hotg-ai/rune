@@ -1,9 +1,11 @@
 use codespan_reporting::diagnostic::{Diagnostic, Severity};
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Diagnostics<FileId>(Vec<Diagnostic<FileId>>);
+type FileId = ();
 
-impl<FileId> Diagnostics<FileId> {
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Diagnostics(Vec<Diagnostic<FileId>>);
+
+impl Diagnostics {
     pub fn new() -> Self { Diagnostics(Vec::new()) }
 
     pub fn iter(&self) -> impl Iterator<Item = &'_ Diagnostic<FileId>> + '_ {
@@ -23,7 +25,7 @@ impl<FileId> Diagnostics<FileId> {
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 }
 
-impl<'a, FileId> IntoIterator for &'a Diagnostics<FileId> {
+impl<'a> IntoIterator for &'a Diagnostics {
     type IntoIter = <&'a Vec<Diagnostic<FileId>> as IntoIterator>::IntoIter;
     type Item = &'a Diagnostic<FileId>;
 

@@ -1,6 +1,5 @@
 use std::{collections::HashMap};
 use codespan_reporting::{
-    files::{Files, SimpleFile},
     diagnostic::Diagnostic,
 };
 use petgraph::graph::NodeIndex;
@@ -13,10 +12,7 @@ use crate::{
     },
 };
 
-type FileId =
-    <SimpleFile<&'static str, &'static str> as Files<'static>>::FileId;
-
-pub fn analyse(doc: &Document) -> (Rune, Diagnostics<FileId>) {
+pub fn analyse(doc: &Document) -> (Rune, Diagnostics) {
     let mut ctx = Context::default();
 
     ctx.register_names(&doc.pipeline);
@@ -30,7 +26,7 @@ pub fn analyse(doc: &Document) -> (Rune, Diagnostics<FileId>) {
 
 #[derive(Debug)]
 struct Context {
-    diags: Diagnostics<FileId>,
+    diags: Diagnostics,
     rune: Rune,
     ids: HirIds,
     builtins: Builtins,
