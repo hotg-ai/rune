@@ -595,7 +595,7 @@ mod tests {
     fn parse_runefile(src: &str) -> Rune {
         let parsed = rune_syntax::parse(src).unwrap();
         let mut diags = Diagnostics::new();
-        let rune = rune_syntax::analyse(0, &parsed, &mut diags);
+        let rune = rune_syntax::analyse(&parsed, &mut diags);
         assert!(!diags.has_errors());
 
         rune

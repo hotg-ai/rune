@@ -62,7 +62,7 @@ fn execute_cpp_example() {
             RUN random serial";
     let parsed = rune_syntax::parse(runefile).unwrap();
     let mut diags = Diagnostics::new();
-    let analysed = rune_syntax::analyse((), &parsed, &mut diags);
+    let analysed = rune_syntax::analyse(&parsed, &mut diags);
     assert!(!diags.has_errors());
     let c = Compilation {
         name: String::from("test"),

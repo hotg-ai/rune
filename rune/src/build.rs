@@ -1,6 +1,6 @@
 use anyhow::{Context, Error};
 use codespan_reporting::{
-    files::SimpleFiles,
+    files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use rune_codegen::{Compilation, GitSpecifier, RuneProject};
@@ -158,20 +158,19 @@ pub(crate) fn analyze(
         format!("Unable to read \"{}\"", runefile.display())
     })?;
 
-    let mut files = SimpleFiles::new();
-    let id = files.add(runefile.display().to_string(), &src);
+    let file = SimpleFile::new(runefile.display().to_string(), &src);
 
     log::debug!("Parsing \"{}\"", runefile.display());
     let parsed = rune_syntax::parse(&src).unwrap();
 
     let mut diags = Diagnostics::new();
-    let rune = rune_syntax::analyse(id, &parsed, &mut diags);
+    let rune = rune_syntax::analyse(&parsed, &mut diags);
 
     let mut writer = StandardStream::stdout(color);
     let config = Config::default();
 
     for diag in &diags {
-        codespan_reporting::term::emit(&mut writer, &config, &files, diag)
+        codespan_reporting::term::emit(&mut writer, &config, &file, diag)
             .context("Unable to print the diagnostic")?;
     }
 
