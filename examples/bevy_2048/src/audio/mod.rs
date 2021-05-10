@@ -73,7 +73,7 @@ pub fn start_recording() -> Result<(Stream, Arc<RwLock<AudioSystem>>), Error> {
                     (data.len() as f64 * dest_hz / source_hz).round() as usize;
                 audio.samples.extend(converter.take(sample_count));
             },
-            |err| panic!("Error: {}", err),
+            |err| log::error!("Unable to read audio samples: {}", err),
         )
         .context("Unable to establish the input stream")?;
 
