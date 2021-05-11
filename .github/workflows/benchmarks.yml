@@ -17,13 +17,8 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-      - name: Install wasm32 target
-        run: rustup target add wasm32-unknown-unknown x86_64-unknown-linux-musl
+      - name: Print Rust Versions
+        run: rustup show
       - name: Install cargo-criterion
         uses: actions-rs/install@v0.1
         with:
