@@ -1,0 +1,1 @@
+docker build . -t hotg/inception; docker run -v `pwd`:/app/data -w /app  -i -t hotg/inception ./rune run ./app.rune --capability=image:./data/image.png
