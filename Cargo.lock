@@ -2110,6 +2110,7 @@ dependencies = [
  "serde_json",
  "structopt",
  "tempfile",
+ "tflite",
 ]
 
 [[package]]
@@ -2957,7 +2958,6 @@ dependencies = [
  "serde",
  "serde_json",
  "structopt",
- "tflite",
  "walkdir",
  "zip",
 ]

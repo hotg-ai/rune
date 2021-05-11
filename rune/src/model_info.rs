@@ -10,7 +10,7 @@ use tflite::{
     ops::builtin::BuiltinOpResolver,
 };
 
-#[derive(Debug, Clone, structopt::StructOpt)]
+#[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct ModelInfo {
     #[structopt(
         help = "The TensorFlow Lite model to inspect",
@@ -152,7 +152,7 @@ fn load_model(
     Ok(interpreter)
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum Format {
     Json,
     Text,

@@ -1,19 +1,21 @@
 mod build;
 mod graph;
+mod model_info;
 mod run;
 mod version;
 
 use std::str::FromStr;
-use crate::{
-    build::Build,
-    version::{Format, Version},
-};
 use anyhow::Error;
 use codespan_reporting::term::termcolor;
 use structopt::{clap::AppSettings, StructOpt};
 use env_logger::{Env, WriteStyle};
-use crate::run::Run;
-use crate::graph::Graph;
+use crate::{
+    graph::Graph,
+    model_info::ModelInfo,
+    run::Run,
+    build::Build,
+    version::{Format, Version},
+};
 
 const DEFAULT_RUST_LOG: &str = concat!(
     "info,",
@@ -47,6 +49,7 @@ fn main() -> Result<(), Error> {
             version.verbose |= verbose;
             version.execute()
         },
+        Some(Cmd::ModelInfo(m)) => model_info::model_info(m),
         None if version => {
             let v = Version {
                 format: Format::Text,
@@ -132,4 +135,7 @@ enum Cmd {
     Graph(Graph),
     /// Print detailed version information.
     Version(Version),
+    /// Load a TensorFlow Lite model and print information about it.
+    #[structopt(name = "model-info")]
+    ModelInfo(ModelInfo),
 }
