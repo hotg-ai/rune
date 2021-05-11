@@ -61,8 +61,12 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Print Rust Versions
-        run: rustup show
+      - name: Setup Rust
+        run: |
+          rustup default nightly-2021-05-09
+          rustup target add wasm32-unknown-unknown
+          rustc --version --verbose
+          rustup show
       - name: Build
         run: cargo xtask dist
         env:
@@ -92,8 +96,12 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Print Rust Versions
-        run: rustup show
+      - name: Setup Rust
+        run: |
+          rustup default nightly-2021-05-09
+          rustup target add wasm32-unknown-unknown
+          rustc --version --verbose
+          rustup show
       - name: Install Python
         uses: actions/setup-python@v2
         with:
