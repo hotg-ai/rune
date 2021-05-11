@@ -1,10 +1,13 @@
 use anyhow::{Context, Error};
 use codespan_reporting::{
-    files::SimpleFiles,
+    files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use rune_codegen::{Compilation, GitSpecifier, RuneProject};
-use rune_syntax::{Diagnostics, hir::Rune};
+use rune_syntax::{
+    hir::Rune,
+    yaml::{self, Document},
+};
 use std::{
     env::current_dir,
     path::{Path, PathBuf},
@@ -158,20 +161,24 @@ pub(crate) fn analyze(
         format!("Unable to read \"{}\"", runefile.display())
     })?;
 
-    let mut files = SimpleFiles::new();
-    let id = files.add(runefile.display().to_string(), &src);
+    let file = SimpleFile::new(runefile.display().to_string(), &src);
 
     log::debug!("Parsing \"{}\"", runefile.display());
-    let parsed = rune_syntax::parse(&src).unwrap();
+    let parsed = match runefile.extension().and_then(|ext| ext.to_str()) {
+        Some("yaml") | Some("yml") => Document::parse(&src)?,
+        _ => {
+            let f = rune_syntax::parse(&src)?;
+            yaml::document_from_runefile(f)
+        },
+    };
 
-    let mut diags = Diagnostics::new();
-    let rune = rune_syntax::analyse(id, &parsed, &mut diags);
+    let (rune, diags) = rune_syntax::yaml::analyse(&parsed);
 
     let mut writer = StandardStream::stdout(color);
     let config = Config::default();
 
     for diag in &diags {
-        codespan_reporting::term::emit(&mut writer, &config, &files, diag)
+        codespan_reporting::term::emit(&mut writer, &config, &file, diag)
             .context("Unable to print the diagnostic")?;
     }
 

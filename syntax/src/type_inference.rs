@@ -11,13 +11,12 @@ use crate::{
     hir::{Edge, HirId, Stage, Type},
 };
 
-pub(crate) fn infer<FileId: Copy>(
+pub(crate) fn infer(
     graph: &mut DiGraph<Stage, Edge>,
     input_types: &HashMap<NodeIndex, HirId>,
     output_types: &HashMap<NodeIndex, HirId>,
     _types: &HashMap<HirId, Type>,
-    _file_id: FileId,
-    _diags: &mut Diagnostics<FileId>,
+    _diags: &mut Diagnostics,
 ) {
     // populate the edges we *do* know
     let known_inputs = input_types.iter().flat_map(|(&node_ix, &type_id)| {

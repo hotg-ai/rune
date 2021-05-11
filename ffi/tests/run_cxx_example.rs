@@ -24,15 +24,17 @@ fn execute_cpp_example() {
     // First, generate the header file for our bindings
     cbindgen::generate(ffi_dir).unwrap().write_to_file(&header);
 
-    // make sure the library was built
-    let status = Command::new("cargo")
-        .arg("build")
-        .arg("--manifest-path")
-        .arg(ffi_dir.join("Cargo.toml"))
-        .arg("--quiet")
-        .status()
-        .unwrap();
-    assert!(status.success());
+    if !lib.exists() {
+        // make sure the library was built
+        let status = Command::new("cargo")
+            .arg("build")
+            .arg("--manifest-path")
+            .arg(ffi_dir.join("Cargo.toml"))
+            .arg("--quiet")
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
 
     // Note: We may want to use something like cmake so this is more likely
     // to work on other platforms.
@@ -62,7 +64,7 @@ fn execute_cpp_example() {
             RUN random serial";
     let parsed = rune_syntax::parse(runefile).unwrap();
     let mut diags = Diagnostics::new();
-    let analysed = rune_syntax::analyse((), &parsed, &mut diags);
+    let analysed = rune_syntax::analyse(&parsed, &mut diags);
     assert!(!diags.has_errors());
     let c = Compilation {
         name: String::from("test"),

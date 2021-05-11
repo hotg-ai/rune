@@ -14,12 +14,8 @@ use petgraph::{
     visit::IntoNodeReferences,
 };
 
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Rune {
     pub base_image: Option<Path>,
     pub graph: DiGraph<Stage, Edge>,
@@ -32,6 +28,15 @@ pub struct Rune {
 }
 
 impl Rune {
+    pub(crate) fn add_hir_id_and_node_index(
+        &mut self,
+        hir_id: HirId,
+        node_index: NodeIndex,
+    ) {
+        self.hir_id_to_node_index.insert(hir_id, node_index);
+        self.node_index_to_hir_id.insert(node_index, hir_id);
+    }
+
     pub fn stages(
         &self,
     ) -> impl Iterator<Item = (HirId, NodeIndex, &Stage)> + '_ {
@@ -78,28 +83,49 @@ impl Rune {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub struct HirId(u32);
 
 impl HirId {
     pub const ERROR: HirId = HirId(0);
+    pub const UNKNOWN: HirId = HirId(1);
+
+    /// The first non-builtin [`HirId`] that can be allocated to a HIR object.
+    pub(crate) const fn first_user_defined() -> HirId { HirId(2) }
 
     pub fn is_error(self) -> bool { self == HirId::ERROR }
+
+    pub fn is_unknown(self) -> bool { self == HirId::UNKNOWN }
 
     pub(crate) fn next(self) -> Self { HirId(self.0 + 1) }
 }
 
 impl Default for HirId {
-    fn default() -> Self { HirId::ERROR }
+    fn default() -> Self { HirId::first_user_defined() }
 }
 
 unsafe impl IndexType for HirId {
-    fn new(x: usize) -> Self { HirId(x.try_into().unwrap()) }
+    fn new(x: usize) -> Self {
+        let id = HirId(x.try_into().unwrap());
+        assert!(
+            id >= HirId::first_user_defined(),
+            "Can't use one of the builtin HirId values"
+        );
+
+        id
+    }
 
     fn index(&self) -> usize { self.0.try_into().unwrap() }
 
@@ -107,12 +133,10 @@ unsafe impl IndexType for HirId {
 }
 
 /// A table mapping names to [`HirId`]s.
-#[derive(Debug, Default, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub struct NameTable {
     name_to_id: HashMap<String, HirId>,
     id_to_name: HashMap<HirId, String>,
@@ -148,21 +172,17 @@ impl Index<HirId> for NameTable {
     }
 }
 
-impl<'a> Index<&'a str> for NameTable {
+impl<S: AsRef<str>> Index<S> for NameTable {
     type Output = HirId;
 
     #[track_caller]
-    fn index(&self, index: &'a str) -> &Self::Output {
-        self.name_to_id.get(index).unwrap()
+    fn index(&self, index: S) -> &Self::Output {
+        self.name_to_id.get(index.as_ref()).unwrap()
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case", tag = "type")
-)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum Stage {
     Source(Source),
     Sink(Sink),
@@ -230,39 +250,37 @@ impl TryFrom<Stage> for ProcBlock {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Sink {
     pub kind: SinkKind,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case", tag = "type")
-)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum SinkKind {
     Serial,
     Other(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
+impl<'a> From<&'a str> for SinkKind {
+    fn from(s: &'a str) -> SinkKind {
+        match s {
+            "serial" | "SERIAL" => SinkKind::Serial,
+            _ => SinkKind::Other(s.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Model {
     pub model_file: PathBuf,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case", untagged)
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case", untagged)]
 pub enum Type {
     Primitive(Primitive),
     /// The concrete type isn't yet known.
@@ -353,12 +371,17 @@ fn write_rust_array_type_name<W: Write>(
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub enum Primitive {
     U8,
     I8,
@@ -391,19 +414,14 @@ impl Primitive {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Source {
     pub kind: SourceKind,
     pub parameters: HashMap<String, ArgumentValue>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case", tag = "type")
-)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum SourceKind {
     Random,
     Accelerometer,
@@ -413,12 +431,21 @@ pub enum SourceKind {
     Other(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(
-    feature = "serde-1",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "kebab-case")
-)]
+impl<'a> From<&'a str> for SourceKind {
+    fn from(s: &'a str) -> SourceKind {
+        match s {
+            "rand" | "RAND" => SourceKind::Random,
+            "accel" | "ACCEL" => SourceKind::Accelerometer,
+            "sound" | "SOUND" => SourceKind::Sound,
+            "image" | "IMAGE" => SourceKind::Image,
+            "raw" | "RAW" => SourceKind::Raw,
+            _ => SourceKind::Other(s.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ProcBlock {
     pub path: Path,
     pub parameters: HashMap<String, ArgumentValue>,
@@ -434,15 +461,15 @@ impl ProcBlock {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Pipeline {
     /// The edges associated with this pipeline.
     pub edges: HashSet<HirId>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-1", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 pub struct Edge {
     pub type_id: HirId,
 }

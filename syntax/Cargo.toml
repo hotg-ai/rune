@@ -8,16 +8,16 @@ description = "Runefile parsing and analysis."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codespan = "0.11.0"
+codespan = { version = "0.11.0", features = ["serialization"] }
 codespan-reporting = "0.11.0"
+indexmap = { version = "1.6.2", features = ["serde-1"] }
+once_cell = "1.7.2"
 pest = "2.1.3"
 pest_derive = "2.1.0"
-petgraph = "0.5.1"
-serde = { version = "1.0.124", optional = true, features = ["derive"] }
+petgraph = { version = "0.5.1", features = ["serde-1"] }
+regex = "1.5.4"
+serde = { version = "1.0.124", features = ["derive"] }
+serde_yaml = "0.8.17"
 
 [dev-dependencies]
 pretty_assertions = "0.7.0"
-
-[features]
-default = []
-serde-1 = ["serde", "codespan/serialization", "petgraph/serde-1"]

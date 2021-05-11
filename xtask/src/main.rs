@@ -1,9 +1,10 @@
 mod bulk_copy;
+mod convert;
 mod dist;
 
-pub use bulk_copy::BulkCopy;
-use dist::Dist;
-
+use crate::{
+    bulk_copy::BulkCopy, dist::Dist, convert::Convert,
+};
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
 use devx_pre_commit::PreCommitContext;
@@ -32,6 +33,7 @@ fn main() -> Result<(), Error> {
                 .context("Unable to install the pre-commit hook")?;
         },
         Command::Dist(dist) => dist.run()?,
+        Command::Convert(c) => c.run()?,
     }
 
     Ok(())
@@ -62,6 +64,11 @@ enum Command {
     InstallPreCommit,
     #[structopt(name = "dist", about = "Generate a release bundle")]
     Dist(Dist),
+    #[structopt(
+        name = "convert",
+        about = "Convert an old style Runefile to its YAML equivalent"
+    )]
+    Convert(Convert),
 }
 
 fn project_root() -> Result<PathBuf, Error> {

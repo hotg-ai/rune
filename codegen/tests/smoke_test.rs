@@ -10,7 +10,7 @@ fn we_can_compile_the_sine_example() {
     let parsed = rune_syntax::parse(runefile).unwrap();
 
     let mut diags = Diagnostics::new();
-    let rune = rune_syntax::analyse(0, &parsed, &mut diags);
+    let rune = rune_syntax::analyse(&parsed, &mut diags);
     assert!(!diags.has_errors(), "{:?}", diags);
 
     let temp = TempDir::new().unwrap();
