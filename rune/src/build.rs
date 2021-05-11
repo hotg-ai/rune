@@ -4,14 +4,8 @@ use codespan_reporting::{
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use rune_codegen::{Compilation, GitSpecifier, RuneProject};
-use rune_syntax::{
-    hir::Rune,
-    yaml::{self, Document},
-};
-use std::{
-    env::current_dir,
-    path::{Path, PathBuf},
-};
+use rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
+use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
@@ -97,12 +91,13 @@ impl Build {
             return Ok(dir.clone());
         }
 
-        if let Some(parent) = self.runefile.parent() {
-            return Ok(parent.to_path_buf());
+        if let Some(parent) =
+            self.runefile.parent().and_then(|p| p.canonicalize().ok())
+        {
+            return Ok(parent);
         }
 
-        current_dir()
-            .and_then(|p| p.canonicalize())
+        std::env::current_dir()
             .context("Unable to determine the current directory")
     }
 
@@ -111,16 +106,7 @@ impl Build {
             return Ok(name.clone());
         }
 
-        if let Some(name) = self
-            .output
-            .as_ref()
-            .and_then(|p| p.file_stem())
-            .and_then(|s| s.to_str())
-        {
-            return Ok(name.to_string());
-        }
-
-        let current_dir = self.current_directory()?.canonicalize()?;
+        let current_dir = self.current_directory()?;
 
         if let Some(name) = current_dir.file_name().and_then(|n| n.to_str()) {
             return Ok(name.to_string());
@@ -164,15 +150,21 @@ pub(crate) fn analyze(
     let file = SimpleFile::new(runefile.display().to_string(), &src);
 
     log::debug!("Parsing \"{}\"", runefile.display());
-    let parsed = match runefile.extension().and_then(|ext| ext.to_str()) {
-        Some("yaml") | Some("yml") => Document::parse(&src)?,
+    let (rune, diags) = match runefile.extension().and_then(|ext| ext.to_str())
+    {
+        Some("yaml") | Some("yml") => {
+            let parsed = Document::parse(&src)
+                .context("Unable to parse the Runefile")?;
+            rune_syntax::yaml::analyse(&parsed)
+        },
         _ => {
-            let f = rune_syntax::parse(&src)?;
-            yaml::document_from_runefile(f)
+            let parsed = rune_syntax::parse(&src)
+                .context("Unable to parse the Runefile")?;
+            let mut diags = Diagnostics::new();
+            let rune = rune_syntax::analyse(&parsed, &mut diags);
+            (rune, diags)
         },
     };
-
-    let (rune, diags) = rune_syntax::yaml::analyse(&parsed);
 
     let mut writer = StandardStream::stdout(color);
     let config = Config::default();
