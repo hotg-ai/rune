@@ -68,6 +68,28 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
         .with_context(|| format!("Unable to read \"{}\"", wasm.display()))
 }
 
+fn load_templates() -> Result<Handlebars<'static>, Error> {
+    let mut hbs = Handlebars::new();
+    hbs.set_strict_mode(true);
+    hbs.register_escape_fn(|s| s.to_string());
+
+    hbs.register_template_string(
+        ".cargo/config.toml",
+        include_str!("./boilerplate/config.toml.hbs"),
+    )?;
+    hbs.register_template_string(
+        "Cargo.toml",
+        include_str!("./boilerplate/Cargo.toml.hbs"),
+    )?;
+    hbs.register_template_string(
+        "lib.rs",
+        include_str!("./boilerplate/lib.rs.hbs"),
+    )?;
+    hbs.register_helper("toml", Box::new(to_toml));
+
+    Ok(hbs)
+}
+
 struct Generator {
     name: String,
     hbs: Handlebars<'static>,
@@ -80,29 +102,7 @@ struct Generator {
 
 impl Generator {
     fn new(compilation: Compilation) -> Self {
-        let mut hbs = Handlebars::new();
-        hbs.set_strict_mode(true);
-        hbs.register_escape_fn(|s| s.to_string());
-
-        // Note: all these templates are within our control, so any error here
-        // is the developer's fault.
-        hbs.register_template_string(
-            ".cargo/config.toml",
-            include_str!("./boilerplate/config.toml.hbs"),
-        )
-        .unwrap();
-        hbs.register_template_string(
-            "Cargo.toml",
-            include_str!("./boilerplate/Cargo.toml.hbs"),
-        )
-        .unwrap();
-        hbs.register_template_string(
-            "lib.rs",
-            include_str!("./boilerplate/lib.rs.hbs"),
-        )
-        .unwrap();
-        hbs.register_helper("toml", Box::new(to_toml));
-
+        let hbs = load_templates().expect("Initializing handlebars with hard-coded templates should never fail");
         let Compilation {
             name,
             rune,
@@ -248,7 +248,8 @@ impl Generator {
             if let Some(name) = self.rune.names.get_name(id) {
                 let module_name = proc_block.name();
                 let type_name =
-                    format!("{}::{}", module_name, module_name.to_camel_case()).replace("-", "_");
+                    format!("{}::{}", module_name, module_name.to_camel_case())
+                        .replace("-", "_");
 
                 let parameters = proc_block
                     .parameters
@@ -417,6 +418,10 @@ fn rust_literal(arg: &ArgumentValue) -> String {
             kind: LiteralKind::Float(f),
             ..
         }) => format!("{:.1}", f),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::String(s),
+            ..
+        }) if s.starts_with("@") => format!("{}", &s[1..]),
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::String(s),
             ..
@@ -590,7 +595,10 @@ static NIGHTLY_VERSION: Lazy<String> = Lazy::new(|| {
     let rust_toolchain = include_str!("../../rust-toolchain.toml");
     let parsed: OverrideFile = toml::from_str(rust_toolchain).unwrap();
 
-    parsed.toolchain.channel.unwrap_or_else(|| String::from("nightly"))
+    parsed
+        .toolchain
+        .channel
+        .unwrap_or_else(|| String::from("nightly"))
 });
 
 /// Serialized form of `rust-toolchain.toml`. Copied directly from
@@ -608,8 +616,6 @@ struct ToolchainSection {
     targets: Option<Vec<String>>,
     profile: Option<String>,
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -712,5 +718,41 @@ mod tests {
         let got = pipeline_stage(rune, node_index);
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parameters_can_use_at_symbol_to_include_literals() {
+        let temp = tempfile::tempdir().unwrap();
+        let runefile = r#"
+            FROM runicos/base
+
+            CAPABILITY<_> image IMAGE --pixel-format @PixelFormat::RGB
+        "#;
+        let ctx = Generator::new(Compilation {
+            name: String::from("test"),
+            rune: parse_runefile(runefile),
+            working_directory: temp.path().to_path_buf(),
+            current_directory: temp.path().to_path_buf(),
+            rune_project: RuneProject::Disk(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .unwrap()
+                    .to_path_buf(),
+            ),
+            optimized: false,
+        });
+
+        ctx.render_lib_rs().unwrap();
+
+        let lib_rs =
+            std::fs::read_to_string(temp.path().join("lib.rs")).unwrap();
+
+        let expected = r#".set_parameter("pixel_format", PixelFormat::RGB)"#;
+        assert!(
+            lib_rs.contains(expected),
+            "Unable to find {:?} in lib.rs:\n{}",
+            expected,
+            lib_rs
+        );
     }
 }

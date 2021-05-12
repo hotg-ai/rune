@@ -120,7 +120,6 @@ fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
                 let img = image::open(filename).with_context(|| {
                     format!("Unable to load \"{}\"", filename.display())
                 })?;
-                let img = img.to_rgb8();
                 env.with_image(move || Ok(Box::new(Image::new(img.clone()))));
             },
             Capability::Sound { filename } => {

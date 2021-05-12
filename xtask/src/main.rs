@@ -2,9 +2,7 @@ mod bulk_copy;
 mod convert;
 mod dist;
 
-use crate::{
-    bulk_copy::BulkCopy, dist::Dist, convert::Convert,
-};
+use crate::{bulk_copy::BulkCopy, dist::Dist, convert::Convert};
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
 use devx_pre_commit::PreCommitContext;
