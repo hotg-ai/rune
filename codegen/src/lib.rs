@@ -61,7 +61,7 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
         .join("target")
         .join("wasm32-unknown-unknown")
         .join(build_dir)
-        .join(&generator.name)
+        .join(generator.name.replace("-", "_"))
         .with_extension("wasm");
 
     std::fs::read(&wasm)
@@ -248,7 +248,7 @@ impl Generator {
             if let Some(name) = self.rune.names.get_name(id) {
                 let module_name = proc_block.name();
                 let type_name =
-                    format!("{}::{}", module_name, module_name.to_camel_case());
+                    format!("{}::{}", module_name, module_name.to_camel_case()).replace("-", "_");
 
                 let parameters = proc_block
                     .parameters
