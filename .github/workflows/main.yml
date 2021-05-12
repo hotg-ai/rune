@@ -27,12 +27,14 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Setup Rust
+      - name: Update Rustup
         run: |
-          rustup default nightly-2021-05-09
-          rustup target add wasm32-unknown-unknown
-          rustc --version --verbose
-          rustup show
+          # We need to update rustup because the mac version is out of date and
+          # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
+        if: runner.os == 'macOS'
+      - name: Setup Rust
+        run: rustup show
       - name: Type Check
         uses: actions-rs/cargo@v1
         with:
