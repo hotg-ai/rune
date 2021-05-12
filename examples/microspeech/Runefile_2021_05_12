@@ -1,0 +1,10 @@
+FROM runicos/base
+
+CAPABILITY<I16[16000]> audio SOUND --hz 16000
+PROC_BLOCK<I16[16000],U32[1960]> fft hotg-ai/rune#proc_blocks/fft
+
+
+
+OUT serial
+
+RUN audio fft serial
