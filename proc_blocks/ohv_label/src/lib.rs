@@ -11,10 +11,13 @@ use runic_types::{HasOutputs, Tensor, Transform};
 
 pub const MISSING_LABEL: &'static str = "<MISSING>";
 
+pub const DEFAULT_OUTPUT: usize = 1;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OhvLabel<const N: usize> {
     labels: [&'static str; N],
     unknown_label: &'static str,
+    output_count: usize,
 }
 
 impl<const N: usize> OhvLabel<N> {
@@ -22,6 +25,7 @@ impl<const N: usize> OhvLabel<N> {
         OhvLabel {
             labels: [MISSING_LABEL; N],
             unknown_label: MISSING_LABEL,
+            output_count: DEFAULT_OUTPUT,
         }
     }
 
@@ -29,6 +33,7 @@ impl<const N: usize> OhvLabel<N> {
         let OhvLabel {
             mut labels,
             unknown_label: old_unknown_label,
+            output_count: _output_size,
         } = self;
 
         // Make sure any existing "missing" labels are updated.
@@ -41,11 +46,19 @@ impl<const N: usize> OhvLabel<N> {
         OhvLabel {
             labels,
             unknown_label,
+            output_count: DEFAULT_OUTPUT,
         }
     }
 
     pub fn with_labels(self, labels: [&'static str; N]) -> Self {
         OhvLabel { labels, ..self }
+    }
+
+    pub fn with_output_count(self, output_count: usize) -> Self {
+        OhvLabel {
+            output_count,
+            ..self
+        }
     }
 }
 
@@ -148,7 +161,6 @@ impl<const N: usize> Transform<Tensor<i8>> for OhvLabel<N> {
         }
     }
 }
-
 
 impl<const N: usize> Default for OhvLabel<N> {
     fn default() -> Self { OhvLabel::new() }
