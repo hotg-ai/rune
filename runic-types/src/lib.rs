@@ -128,3 +128,30 @@ impl<'a> Default for SerializableRecord<'a> {
         }
     }
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub enum PixelFormat {
+    RGB = 0,
+    BGR = 1,
+    YUV = 2,
+    GrayScale = 3,
+}
+
+impl From<PixelFormat> for i32 {
+    fn from(p: PixelFormat) -> i32 {
+        p as i32
+    }
+}
+
+impl From<PixelFormat> for u32 {
+    fn from(p: PixelFormat) -> u32 {
+        p as u32
+    }
+}
+
+impl From<PixelFormat> for Value {
+    fn from(p: PixelFormat) -> Value {
+        Value::Integer(p.into())
+    }
+}
