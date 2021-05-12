@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use codespan_reporting::{
-    diagnostic::Diagnostic,
-};
+use codespan_reporting::{diagnostic::Diagnostic};
 use petgraph::graph::NodeIndex;
 use indexmap::IndexMap;
 use crate::{

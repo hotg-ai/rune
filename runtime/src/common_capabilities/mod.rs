@@ -1,8 +1,8 @@
 mod accelerometer;
 mod image;
 mod random;
-mod sound;
 mod raw;
+mod sound;
 
 use crate::ParameterError;
 
