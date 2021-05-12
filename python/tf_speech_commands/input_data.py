@@ -205,10 +205,10 @@ def get_features_range(model_settings):
         features_min = 0.0
         features_max = 26.0
     elif model_settings['preprocess'] == 'rune':
-        #features_min = 0.0
-        #features_max = 26.0
-        features_min = -128.0
-        features_max = 127.0
+        features_min = 0.0
+        features_max = 26.0
+        #features_min = -128.0
+        #features_max = 127.0
     else:
         raise Exception('Unknown preprocess mode "%s" (should be "mfcc",'
                         ' "average", or "micro")' % (model_settings['preprocess']))
@@ -296,7 +296,7 @@ class AudioProcessor(object):
                     sample_rate, signal = wavfile.read(sample["file"])
                 
                 spec = compute_rune_spec(signal).astype(np.float32)
-                #spec = 26.0*(spec-np.min(spec))/(np.max(spec)-np.min(spec))
+                spec = 26.0*(spec-np.min(spec))/(np.max(spec)-np.min(spec))
                 self.specs[fold].append(
                     {"label": sample["label"], "spec": spec})
                 

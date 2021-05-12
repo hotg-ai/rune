@@ -39,6 +39,7 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import numpy as np
 import os.path
 import sys
 
@@ -141,6 +142,10 @@ def create_inference_graph(wanted_words, sample_rate, clip_duration_ms,
         out_scale=1,
         out_type=tf.float32)
     fingerprint_input = tf.multiply(micro_frontend, (10.0 / 256.0))
+    
+  elif preprocess == "rune":
+    fingerprint_input = np.random.uniform(0, 26, 1960).astype(np.float32)
+    
   else:
     raise Exception('Unknown preprocess mode "%s" (should be "mfcc",'
                     ' "average", or "micro")' % (preprocess))
