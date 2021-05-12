@@ -201,12 +201,10 @@ fn person_detection() {
         .arg("--capability")
         .arg(format!("image:{}", image.display()));
 
-    // FIXME: This should actually look for "person_prob" but it looks like our
-    // person detection rune isn't detecting people properly
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("\"not_person_prob\""));
+        .stderr(predicates::str::contains("\"person_prob\""));
 }
 
 #[test]
