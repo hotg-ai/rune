@@ -25,7 +25,7 @@ pub use crate::{
     tensor::{Tensor, TensorView},
     value::{Value, Type, AsType, InvalidConversionError},
 };
-
+use core::convert::TryFrom;
 use alloc::borrow::Cow;
 use log::{Level, Record};
 
@@ -134,24 +134,40 @@ impl<'a> Default for SerializableRecord<'a> {
 pub enum PixelFormat {
     RGB = 0,
     BGR = 1,
-    YUV = 2,
-    GrayScale = 3,
+    GrayScale = 2,
 }
 
 impl From<PixelFormat> for i32 {
-    fn from(p: PixelFormat) -> i32 {
-        p as i32
-    }
+    fn from(p: PixelFormat) -> i32 { p as i32 }
 }
 
 impl From<PixelFormat> for u32 {
-    fn from(p: PixelFormat) -> u32 {
-        p as u32
-    }
+    fn from(p: PixelFormat) -> u32 { p as u32 }
 }
 
 impl From<PixelFormat> for Value {
-    fn from(p: PixelFormat) -> Value {
-        Value::Integer(p.into())
+    fn from(p: PixelFormat) -> Value { Value::Integer(p.into()) }
+}
+
+impl TryFrom<i32> for PixelFormat {
+    type Error = &'static str;
+
+    fn try_from(i: i32) -> Result<PixelFormat, Self::Error> {
+        match i {
+            0 => Ok(PixelFormat::RGB),
+            1 => Ok(PixelFormat::BGR),
+            2 => Ok(PixelFormat::GrayScale),
+            _ => Err("Invalid value"),
+        }
+    }
+}
+
+impl TryFrom<Value> for PixelFormat {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<PixelFormat, Self::Error> {
+        let integer = i32::try_from(value)
+            .map_err(|_| "Converting to an integer failed")?;
+        PixelFormat::try_from(integer)
     }
 }
