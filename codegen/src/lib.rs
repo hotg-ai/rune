@@ -61,7 +61,7 @@ pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
         .join("target")
         .join("wasm32-unknown-unknown")
         .join(build_dir)
-        .join(&generator.name)
+        .join(generator.name.replace("-", "_"))
         .with_extension("wasm");
 
     std::fs::read(&wasm)
