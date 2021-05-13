@@ -98,7 +98,8 @@ fn yes_microspeech() {
 
     let wav = microspeech_dir
         .join("data")
-        .join("yes_01d22d03_nohash_0.wav");
+        .join("up")
+        .join("84d1e469_nohash_0.wav");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run")
@@ -109,7 +110,7 @@ fn yes_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(
-            r#"Serial: {"type_name":"&str","channel":2,"string":"yes"}"#,
+            r#"Serial: {"type_name":"&str","channel":2,"string":"up"}"#,
         ));
 }
 
@@ -129,7 +130,8 @@ fn no_microspeech() {
 
     let wav = microspeech_dir
         .join("data")
-        .join("no_d874a786_nohash_0.wav");
+        .join("down")
+        .join("cd85758f_nohash_0.wav");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("run")
@@ -140,7 +142,7 @@ fn no_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(
-            r#"Serial: {"type_name":"&str","channel":2,"string":"no"}"#,
+            r#"Serial: {"type_name":"&str","channel":2,"string":"down"}"#,
         ));
 }
 
