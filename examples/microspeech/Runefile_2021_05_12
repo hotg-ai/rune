@@ -3,8 +3,11 @@ FROM runicos/base
 CAPABILITY<I16[16000]> audio SOUND --hz 16000
 PROC_BLOCK<I16[16000],U32[1960]> fft hotg-ai/rune#proc_blocks/fft
 
+PROC_BLOCK<U32[1960],I8[1960]> noise_filtering hotg-ai/rune#proc_blocks/noise-filtering
+MODEL<I8[1960],I8[6]> model ./model_2021_05_12.tflite
 
+PROC_BLOCK<I8[6], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=silence,unknown,up,down,left,right
 
 OUT serial
 
-RUN audio fft serial
+RUN audio fft noise_filtering model label serial
