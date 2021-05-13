@@ -109,7 +109,7 @@ impl Default for NoiseReduction {
             even_smoothing: scale(0.025),
             odd_smoothing: scale(0.06),
             min_signal_remaining: scale(0.05),
-            estimate: alloc::vec![],
+            estimate: vec![],
         }
     }
 }

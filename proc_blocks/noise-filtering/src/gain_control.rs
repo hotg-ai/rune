@@ -73,7 +73,7 @@ struct State {
 
 impl State {
     fn new(config: Config, smoothing_bits: u16, correction_bits: i32) -> Self {
-        let mut gain_lut = alloc::vec![0; WIDE_DYNAMIC_FUNCTION_LUT_SIZE];
+        let mut gain_lut = vec![0; WIDE_DYNAMIC_FUNCTION_LUT_SIZE];
         let snr_shift = config.gain_bits - correction_bits - PCAN_SNR_BITS;
         let input_bits = smoothing_bits as i32 - correction_bits;
 
