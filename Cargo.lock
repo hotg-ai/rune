@@ -2449,7 +2449,7 @@ checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 [[package]]
 name = "sonogram"
 version = "0.4.4"
-source = "git+https://github.com/hotg-ai/sonogram?rev=bf666576ccc82ac4b2c8e96425f2c2047724e6d6#bf666576ccc82ac4b2c8e96425f2c2047724e6d6"
+source = "git+https://github.com/hotg-ai/sonogram?rev=009bc0cba44267d8a0807e43c9bb0712f0f334ea#009bc0cba44267d8a0807e43c9bb0712f0f334ea"
 dependencies = [
  "libm",
  "num",
