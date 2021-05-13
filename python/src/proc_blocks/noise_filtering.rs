@@ -5,7 +5,7 @@ use pyo3::{
 use runic_types::Transform;
 use crate::proc_blocks::utils;
 
-#[pyclass(module = "proc_blocks")]
+#[pyclass(module = "rune_py")]
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct NoiseFiltering {
     inner: noise_filtering::NoiseFiltering,

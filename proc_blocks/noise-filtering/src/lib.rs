@@ -52,10 +52,9 @@ impl Transform<Tensor<u32>> for NoiseFiltering {
             .iter()
             .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let scaled = amplified.map(|_, energy| ((255.0 * (energy - min_value) / 
+        let scaled = amplified.map(|_, energy| ((255.0 * (energy - min_value) /
             (max_value - min_value)) - 128.0) as i8);
         scaled
-
     }
 }
 

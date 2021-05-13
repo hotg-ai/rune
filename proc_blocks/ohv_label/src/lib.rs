@@ -149,7 +149,6 @@ impl<const N: usize> Transform<Tensor<i8>> for OhvLabel<N> {
     }
 }
 
-
 impl<const N: usize> Default for OhvLabel<N> {
     fn default() -> Self { OhvLabel::new() }
 }

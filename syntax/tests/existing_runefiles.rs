@@ -1,5 +1,5 @@
 use codespan_reporting::{
-    files::SimpleFiles,
+    files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
 use rune_syntax::Diagnostics;
@@ -28,15 +28,14 @@ macro_rules! parse_and_analyse {
 
             #[test]
             fn analyse() {
-                let mut files = SimpleFiles::new();
-                let id = files.add("Runefile", SRC);
+                let file = SimpleFile::new("Runefile", SRC);
 
-                let parsed = rune_syntax::parse(SRC).unwrap();
+                let parsed = rune_syntax::parse(file.source()).unwrap();
 
                 assert!(parsed.instructions.len() > 1);
 
                 let mut diags = Diagnostics::new();
-                rune_syntax::analyse(id, &parsed, &mut diags);
+                rune_syntax::analyse(&parsed, &mut diags);
 
                 let mut writer = Buffer::no_color();
                 let config = Config::default();
@@ -45,7 +44,7 @@ macro_rules! parse_and_analyse {
                     codespan_reporting::term::emit(
                         &mut writer,
                         &config,
-                        &files,
+                        &file,
                         diag,
                     )
                     .unwrap();

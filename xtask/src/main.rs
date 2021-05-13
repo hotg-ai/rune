@@ -1,18 +1,13 @@
 mod bulk_copy;
+mod convert;
 mod dist;
-mod model_info;
 
-pub use bulk_copy::BulkCopy;
-use dist::Dist;
-
+use crate::{bulk_copy::BulkCopy, dist::Dist, convert::Convert};
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
 use devx_pre_commit::PreCommitContext;
-use model_info::model_info;
 use env_logger::Env;
 use structopt::StructOpt;
-
-use crate::model_info::ModelInfo;
 
 fn main() -> Result<(), Error> {
     let project_root = devx_pre_commit::locate_project_root()
@@ -35,8 +30,8 @@ fn main() -> Result<(), Error> {
             devx_pre_commit::install_self_as_hook(&project_root)
                 .context("Unable to install the pre-commit hook")?;
         },
-        Command::ModelInfo(m) => model_info(m)?,
         Command::Dist(dist) => dist.run()?,
+        Command::Convert(c) => c.run()?,
     }
 
     Ok(())
@@ -65,13 +60,13 @@ enum Command {
         about = "Install the common pre-commit hook"
     )]
     InstallPreCommit,
-    #[structopt(
-        name = "model-info",
-        about = "Load a TensorFlow Lite model and print information about it"
-    )]
-    ModelInfo(ModelInfo),
     #[structopt(name = "dist", about = "Generate a release bundle")]
     Dist(Dist),
+    #[structopt(
+        name = "convert",
+        about = "Convert an old style Runefile to its YAML equivalent"
+    )]
+    Convert(Convert),
 }
 
 fn project_root() -> Result<PathBuf, Error> {

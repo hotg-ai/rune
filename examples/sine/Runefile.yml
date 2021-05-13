@@ -1,0 +1,24 @@
+image: runicos/base
+pipeline:
+  rand:
+    capability: RAND
+    outputs:
+      - type: F32
+  mod360:
+    proc-block: "hotg-ai/rune#proc_blocks/modulo"
+    inputs:
+      - rand
+    outputs:
+      - type: F32
+    args:
+      modulus: 360.0
+  sine:
+    model: "./sinemodel.tflite"
+    inputs:
+      - mod360
+    outputs:
+      - type: F32
+  serial:
+    out: serial
+    inputs:
+      - sine

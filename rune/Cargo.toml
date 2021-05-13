@@ -19,7 +19,7 @@ log = { version = "0.4.11" }
 once_cell = "1.7.0"
 petgraph = "0.5.1"
 rune-codegen = { path = "../codegen" }
-rune-syntax = { path = "../syntax", features = ["serde-1"] }
+rune-syntax = { path = "../syntax" }
 runic-types = { path = "../runic-types" }
 serde_json = "1.0.64"
 structopt = "0.3.21"
@@ -29,6 +29,7 @@ runicos-base = { path = "../images/runicos-base" }
 rand = "0.8.3"
 build-info = { version = "0.0.23", features = ["serde"] }
 serde = { version = "1.0.125", features = ["derive"] }
+tflite = "0.9.5"
 
 [dev-dependencies]
 assert_cmd = "1.0.3"
