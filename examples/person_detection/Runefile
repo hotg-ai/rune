@@ -9,4 +9,4 @@ PROC_BLOCK<U32[1],UTF8[1]> label hotg-ai/rune#proc_blocks/label --labels=unknown
 
 OUT SERIAL
 
-RUN image person_detection most_confident label serial
+RUN image person_detection most_confident_index label serial
