@@ -1462,6 +1462,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
+name = "most-confident-indices"
+version = "0.1.0"
+dependencies = [
+ "runic-types",
+]
+
+[[package]]
 name = "nalgebra"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
