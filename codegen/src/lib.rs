@@ -3,7 +3,7 @@ use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{HirId, Primitive, Rune, SinkKind, SourceKind, Type},
+    hir::{HirId, Rune, SinkKind, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -400,12 +400,8 @@ fn pipeline_stage(rune: &Rune, node: NodeIndex) -> Stage<'_> {
 }
 
 fn rust_type_name(ty: &Type, types: &HashMap<HirId, Type>) -> Option<String> {
-    let primitive = ty.underlying_primitive(types)?;
-
-    match primitive {
-        Primitive::String => Some(format!("&'static str")),
-        _ => Some(format!("Tensor<{}>", primitive.rust_name())),
-    }
+    ty.underlying_primitive(types)
+        .map(|p| format!("Tensor<{}>", p.rust_name()))
 }
 
 fn rust_literal(arg: &ArgumentValue) -> String {

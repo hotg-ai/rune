@@ -28,9 +28,9 @@ pub struct Label {
 }
 
 impl Label {
-    pub fn with_labels(self, labels: &[&'static str]) -> Self {
+    pub fn with_labels(self, labels: impl AsRef<[&'static str]>) -> Self {
         Label {
-            labels: labels.to_vec(),
+            labels: labels.as_ref().to_vec(),
         }
     }
 }
