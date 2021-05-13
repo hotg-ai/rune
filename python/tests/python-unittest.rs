@@ -11,6 +11,10 @@ fn main() {
     runner.python("venv", &[venv]);
     runner.python(
         "pip",
+        &["install", "--upgrade", "pip"],
+    );
+    runner.python(
+        "pip",
         &["install", "maturin", "--disable-pip-version-check"],
     );
     runner.maturin(&["develop"]);
