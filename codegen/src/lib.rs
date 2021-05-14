@@ -3,7 +3,7 @@ use handlebars::{Context, Handlebars, Helper, Output, RenderContext, RenderError
 use heck::CamelCase;
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{HirId, Primitive, Rune, SinkKind, SourceKind, Type},
+    hir::{HirId, Rune, SinkKind, SourceKind, Type},
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -399,12 +399,8 @@ fn pipeline_stage(rune: &Rune, node: NodeIndex) -> Stage<'_> {
 }
 
 fn rust_type_name(ty: &Type, types: &HashMap<HirId, Type>) -> Option<String> {
-    let primitive = ty.underlying_primitive(types)?;
-
-    match primitive {
-        Primitive::String => Some(format!("&'static str")),
-        _ => Some(format!("Tensor<{}>", primitive.rust_name())),
-    }
+    ty.underlying_primitive(types)
+        .map(|p| format!("Tensor<{}>", p.rust_name()))
 }
 
 fn rust_literal(arg: &ArgumentValue) -> String {
@@ -702,15 +698,15 @@ mod tests {
     }
 
     #[test]
-    fn output_type_for_label_is_string() {
+    fn output_type_for_label_is_one_element_string() {
         let rune = &MICROSPEECH_RUNE;
         let id = rune.names["label"];
         let node_index = rune.hir_id_to_node_index[&id];
         let should_be = Stage {
             name: "label",
-            previous: Some("model"),
+            previous: Some("most_confident"),
             next: Some("serial"),
-            output_type: Some("&'static str".to_string()),
+            output_type: Some("Tensor<&'static str>".to_string()),
             output_dimensions: Some(vec![1]),
         };
 

@@ -1,3 +1,4 @@
+---
 image: runicos/base
 pipeline:
   accelerometer:
@@ -26,12 +27,24 @@ pipeline:
       - type: f32
         dimensions:
           - 4
-  label:
-    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+  most_confident_index:
+    proc-block: "hotg-ai/rune#proc_blocks/most_confident_indices"
     inputs:
       - gesture
     outputs:
+      - type: U32
+        dimensions:
+          - 1
+    args:
+      count: 1
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/label"
+    inputs:
+      - most_confident_index
+    outputs:
       - type: UTF8
+        dimensions:
+          - 1
     args:
       labels:
         - Wing

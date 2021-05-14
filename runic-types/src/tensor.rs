@@ -1,4 +1,4 @@
-use core::{convert::TryInto, ops::Index};
+use core::{convert::TryInto, ops::Index, iter::FromIterator};
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -122,6 +122,12 @@ impl<T: PartialEq> PartialEq<Tensor<T>> for [T] {
 
 impl<T: PartialEq, const N: usize> PartialEq<[T; N]> for Tensor<T> {
     fn eq(&self, other: &[T; N]) -> bool { self == &other[..] }
+}
+
+impl<T> FromIterator<T> for Tensor<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Tensor::new_vector(iter)
+    }
 }
 
 impl<T: Clone> Tensor<T> {

@@ -1258,6 +1258,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "label"
+version = "0.1.0"
+dependencies = [
+ "runic-types",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1472,6 +1479,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
+name = "most_confident_indices"
+version = "0.1.0"
+dependencies = [
+ "runic-types",
+]
+
+[[package]]
 name = "nalgebra"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1666,13 +1680,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a5b3dd1c072ee7963717671d1ca129f1048fda25edea6b752bfc71ac8854170"
 
 [[package]]
-name = "ohv_label"
-version = "0.1.0"
-dependencies = [
- "runic-types",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1754,13 +1761,6 @@ name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
-
-[[package]]
-name = "person_detection_agg"
-version = "0.1.0"
-dependencies = [
- "runic-types",
-]
 
 [[package]]
 name = "pest"

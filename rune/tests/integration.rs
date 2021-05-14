@@ -83,7 +83,7 @@ fn gesture() {
 }
 
 #[test]
-fn yes_microspeech() {
+fn up_microspeech() {
     let microspeech_dir = microspeech_dir();
     let runefile = microspeech_dir.join("Runefile");
     let build_dir = TempDir::new().unwrap();
@@ -110,12 +110,12 @@ fn yes_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(
-            r#"Serial: {"type_name":"&str","channel":2,"string":"up"}"#,
+            r#"Serial: {"type_name":"&str","channel":2,"elements":["up"],"dimensions":[1]}"#,
         ));
 }
 
 #[test]
-fn no_microspeech() {
+fn down_microspeech() {
     let microspeech_dir = microspeech_dir();
     let runefile = microspeech_dir.join("Runefile");
     let build_dir = TempDir::new().unwrap();
@@ -142,7 +142,7 @@ fn no_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(
-            r#"Serial: {"type_name":"&str","channel":2,"string":"down"}"#,
+            r#"Serial: {"type_name":"&str","channel":2,"elements":["down"],"dimensions":[1]}"#,
         ));
 }
 

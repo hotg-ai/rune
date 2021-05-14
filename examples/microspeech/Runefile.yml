@@ -1,3 +1,4 @@
+---
 image: runicos/base
 pipeline:
   audio:
@@ -8,11 +9,18 @@ pipeline:
           - 16000
     args:
       hz: 16000
-      sample-duration-ms: 1000
   fft:
     proc-block: "hotg-ai/rune#proc_blocks/fft"
     inputs:
       - audio
+    outputs:
+      - type: U32
+        dimensions:
+          - 1960
+  noise_filtering:
+    proc-block: "hotg-ai/rune#proc_blocks/noise-filtering"
+    inputs:
+      - fft
     outputs:
       - type: I8
         dimensions:
@@ -20,23 +28,37 @@ pipeline:
   model:
     model: "./model.tflite"
     inputs:
-      - fft
+      - noise_filtering
     outputs:
       - type: I8
         dimensions:
-          - 4
-  label:
-    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+          - 6
+  most_confident:
+    proc-block: "hotg-ai/rune#proc_blocks/most_confident_indices"
     inputs:
       - model
     outputs:
+      - type: U32
+        dimensions:
+          - 1
+    args:
+      count: 1
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/label"
+    inputs:
+      - most_confident
+    outputs:
       - type: UTF8
+        dimensions:
+          - 1
     args:
       labels:
         - silence
         - unknown
-        - "yes"
-        - "no"
+        - up
+        - down
+        - left
+        - right
   serial:
     out: serial
     inputs:
