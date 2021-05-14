@@ -9,10 +9,7 @@ fn main() {
     let venv = runner.virtual_env.as_os_str();
 
     runner.python("venv", &[venv]);
-    runner.python(
-        "pip",
-        &["install", "--upgrade", "pip"],
-    );
+    runner.python("pip", &["install", "--upgrade", "pip"]);
     runner.python(
         "pip",
         &["install", "maturin", "--disable-pip-version-check"],
@@ -74,7 +71,8 @@ impl Runner {
     {
         let maturin = self.virtual_env.join("bin").join("maturin");
         let mut cmd = Command::new(maturin);
-        cmd.args(args);
+        cmd.args(args)
+            .env("CARGO_TARGET_DIR", self.manifest_dir.join("target"));
 
         self.run(&mut cmd);
     }
