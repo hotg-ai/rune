@@ -699,15 +699,15 @@ mod tests {
     }
 
     #[test]
-    fn output_type_for_label_is_string() {
+    fn output_type_for_label_is_one_element_string() {
         let rune = &MICROSPEECH_RUNE;
         let id = rune.names["label"];
         let node_index = rune.hir_id_to_node_index[&id];
         let should_be = Stage {
             name: "label",
-            previous: Some("model"),
+            previous: Some("most_confident"),
             next: Some("serial"),
-            output_type: Some("&'static str".to_string()),
+            output_type: Some("Tensor<&'static str>".to_string()),
             output_dimensions: Some(vec![1]),
         };
 
