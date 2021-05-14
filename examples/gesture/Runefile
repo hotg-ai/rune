@@ -3,8 +3,10 @@ FROM runicos/base
 CAPABILITY<F32[128, 3]> accelerometer ACCEL -n 128
 PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
 MODEL<f32[128, 3],f32[4]> gesture ./model.tflite
-PROC_BLOCK<f32[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=Wing,Ring,Slope,Unknown
+
+PROC_BLOCK<F32[4], U32[1]> most_confident_index hotg-ai/rune#proc_blocks/most_confident_indices --count 1
+PROC_BLOCK<U32[1], UTF8[1]> label hotg-ai/rune#proc_blocks/label --labels=Wing,Ring,Slope,Unknown
 
 OUT SERIAL
 
-RUN accelerometer normalize gesture label serial
+RUN accelerometer normalize gesture most_confident_index label serial

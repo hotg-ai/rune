@@ -1,3 +1,4 @@
+---
 image: runicos/base
 pipeline:
   audio:
@@ -25,12 +26,24 @@ pipeline:
       - type: I8
         dimensions:
           - 4
-  label:
-    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+  most_confident:
+    proc-block: "hotg-ai/rune#proc_blocks/most_confident_indices"
     inputs:
       - model
     outputs:
+      - type: U32
+        dimensions:
+          - 1
+    args:
+      count: 1
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/label"
+    inputs:
+      - most_confident
+    outputs:
       - type: UTF8
+        dimensions:
+          - 1
     args:
       labels:
         - silence

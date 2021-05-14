@@ -109,7 +109,7 @@ fn yes_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(
-            r#"Serial: {"type_name":"&str","channel":2,"string":"yes"}"#,
+            r#"Serial: {"type_name":"&str","channel":2,"elements":["yes"],"dimensions":[1]}"#,
         ));
 }
 
@@ -140,7 +140,7 @@ fn no_microspeech() {
         .success()
         .code(0)
         .stderr(predicates::str::contains(
-            r#"Serial: {"type_name":"&str","channel":2,"string":"no"}"#,
+            r#"Serial: {"type_name":"&str","channel":2,"elements":["no"],"dimensions":[1]}"#,
         ));
 }
 
