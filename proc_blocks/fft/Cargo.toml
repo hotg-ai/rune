@@ -9,12 +9,13 @@ edition = "2018"
 [dependencies]
 runic-types = { path = "../../runic-types" }
 hound = "3.4"
-sonogram = {git = "https://github.com/hotg-ai/sonogram", rev = "bf666576ccc82ac4b2c8e96425f2c2047724e6d6" }
+sonogram = {git = "https://github.com/hotg-ai/sonogram", rev = "009bc0cba44267d8a0807e43c9bb0712f0f334ea" }
 nalgebra = { version = "0.26.1", default-features = false, features = ["alloc"] }
 libm = "0.2.1"
 # See https://github.com/hotg-ai/rune/pull/107#issuecomment-825806000
 mel = { git = "https://github.com/hotg-ai/mel", rev = "017694ee3143c11ea9b75ba6cd27fe7c8a69a867", default-features = false }
 paste = "1.0.5"
+normalize = { path = "../normalize" }
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"

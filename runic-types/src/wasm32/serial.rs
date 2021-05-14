@@ -9,7 +9,9 @@ pub struct Serial {
 }
 
 impl Serial {
-    pub const MAX_MESSAGE_SIZE: usize = 8192;
+    // FIXME(Michael-F-Bryan): drop this back down to 8192 or figure out a way
+    // to use a pre-allocated buffer.
+    pub const MAX_MESSAGE_SIZE: usize = 8192 * 16;
 
     pub fn new() -> Self {
         unsafe {

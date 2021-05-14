@@ -21,6 +21,8 @@ pipeline:
           - 3
   most_confident_index:
     proc-block: "hotg-ai/rune#proc_blocks/most_confident_indices"
+    inputs:
+      - person_detection
     outputs:
       - type: U32
         dimensions:
@@ -30,7 +32,7 @@ pipeline:
   label:
     proc-block: "hotg-ai/rune#proc_blocks/label"
     inputs:
-      - most_confident
+      - most_confident_index
     outputs:
       - type: UTF8
         dimensions:
