@@ -26,4 +26,4 @@ path = "tests/python-unittest.rs"
 harness = false
 
 [package.metadata.maturin]
-requires-dist = ["numpy~=1.20.2"]
+requires-dist = ["numpy~=1.15"]
