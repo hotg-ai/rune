@@ -26,6 +26,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
+            python/target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Update Rustup
         run: |

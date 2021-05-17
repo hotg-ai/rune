@@ -59,7 +59,6 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Setup Rust
         run: |
@@ -94,7 +93,6 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Update Rustup
         run: |
@@ -116,8 +114,10 @@ jobs:
                         --manylinux off \
                         --no-sdist \
                         --release
-          pip3 install target/wheels/*.whl
-          python3 -c 'from proc_blocks import Normalize; n = Normalize(); print(n([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))'
+      - name: Sanity Check
+        run: |
+          pip3 install target/wheels/rune_py*.whl
+          python3 -m unittest python/tests/integration_tests.py
       - name: Upload Wheels
         uses: actions/upload-artifact@v2
         with:
@@ -144,6 +144,7 @@ jobs:
       - name: Print Artifacts
         run: ls -la nightly
       - uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.ref == 'refs/heads/master'
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "nightly"
