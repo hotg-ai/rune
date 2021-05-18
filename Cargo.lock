@@ -348,6 +348,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo_toml"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6363f58dc6fc29a72a25132dd1137f38493566002a9e0e8d5ca0670fb5983d6e"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "toml",
+]
+
+[[package]]
 name = "cbindgen"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2170,11 +2181,11 @@ name = "rune-codegen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cargo_toml",
  "handlebars",
  "heck",
  "log",
  "once_cell",
- "petgraph",
  "rune-syntax",
  "serde",
  "serde_json",

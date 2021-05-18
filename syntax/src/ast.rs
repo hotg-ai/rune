@@ -236,7 +236,9 @@ pub enum ArgumentValue {
 /// - `sub_path` is an optional field which is useful when pointing to
 ///   repositories with multiple relevant items because it lets you specify
 ///   which directory the specified item is in.
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, PartialEq, Eq, Hash, Clone, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub struct Path {
     pub base: String,
