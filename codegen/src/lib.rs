@@ -1,3 +1,4 @@
+mod config;
 mod environment;
 mod manifest;
 mod project;
@@ -9,7 +10,7 @@ pub use crate::{
 };
 
 use std::path::{PathBuf};
-use anyhow::Error;
+use anyhow::{Context, Error};
 use rune_syntax::hir::Rune;
 
 #[derive(Debug)]
@@ -39,6 +40,8 @@ pub fn generate_with_env(
 ) -> Result<Vec<u8>, Error> {
     let _manifest =
         crate::manifest::generate(&c.rune, &c.name, &c.rune_project);
+    let _config = crate::config::generate(c.optimized)
+        .context("Unable to construct the \"config.toml\" file")?;
 
     todo!();
 }
