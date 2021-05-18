@@ -2,84 +2,84 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    convert::{TryFrom, TryInto},
+    convert::{TryFrom},
+    hash::Hash,
     io::{Error, ErrorKind, Write},
     ops::Index,
     path::PathBuf,
 };
 use codespan::Span;
 use crate::ast::{ArgumentValue, Path};
-use petgraph::{
-    graph::{DiGraph, IndexType, NodeIndex},
-    visit::IntoNodeReferences,
-};
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Rune {
     pub base_image: Option<Path>,
-    pub graph: DiGraph<Stage, Edge>,
-    pub pipelines: HashMap<HirId, Pipeline>,
+    pub stages: HashMap<HirId, Node>,
+    pub slots: HashMap<HirId, Slot>,
     pub types: HashMap<HirId, Type>,
     pub names: NameTable,
     pub spans: HashMap<HirId, Span>,
-    pub node_index_to_hir_id: HashMap<NodeIndex, HirId>,
-    pub hir_id_to_node_index: HashMap<HirId, NodeIndex>,
 }
 
 impl Rune {
-    pub(crate) fn add_hir_id_and_node_index(
-        &mut self,
-        hir_id: HirId,
-        node_index: NodeIndex,
-    ) {
-        self.hir_id_to_node_index.insert(hir_id, node_index);
-        self.node_index_to_hir_id.insert(node_index, hir_id);
-    }
-
-    pub fn stages(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Stage)> + '_ {
-        self.graph.node_references().map(move |(n, stage)| {
-            let h = self.node_index_to_hir_id[&n];
-            (h, n, stage)
-        })
+    pub fn stages(&self) -> impl Iterator<Item = (HirId, &Stage)> + '_ {
+        self.stages.iter().map(|(id, node)| (*id, &node.stage))
     }
 
     pub fn proc_blocks(
         &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &ProcBlock)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::ProcBlock(pb) => Some((h, n, pb)),
+    ) -> impl Iterator<Item = (HirId, &ProcBlock)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::ProcBlock(pb) => Some((h, pb)),
             _ => None,
         })
     }
 
-    pub fn models(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Model)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::Model(m) => Some((h, n, m)),
+    pub fn models(&self) -> impl Iterator<Item = (HirId, &Model)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::Model(m) => Some((h, m)),
             _ => None,
         })
     }
 
-    pub fn sinks(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Sink)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::Sink(s) => Some((h, n, s)),
+    pub fn sinks(&self) -> impl Iterator<Item = (HirId, &Sink)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::Sink(s) => Some((h, s)),
             _ => None,
         })
     }
 
-    pub fn sources(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Source)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::Source(s) => Some((h, n, s)),
+    pub fn sources(&self) -> impl Iterator<Item = (HirId, &Source)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::Source(s) => Some((h, s)),
             _ => None,
         })
+    }
+
+    pub fn has_connection(&self, from: HirId, to: HirId) -> bool {
+        !self.connecting_slots(from, to).is_empty()
+    }
+
+    pub fn connecting_slots(&self, from: HirId, to: HirId) -> HashSet<HirId> {
+        let from_node = match self.stages.get(&from) {
+            Some(n) => n,
+            None => return HashSet::new(),
+        };
+        let to_node = match self.stages.get(&to) {
+            Some(n) => n,
+            None => return HashSet::new(),
+        };
+
+        let previous_outputs: HashSet<_> =
+            from_node.output_slots.iter().collect();
+        let next_inputs: HashSet<_> = to_node.input_slots.iter().collect();
+
+        previous_outputs
+            .intersection(&next_inputs)
+            .copied()
+            .copied()
+            .collect()
     }
 }
 
@@ -116,22 +116,6 @@ impl Default for HirId {
     fn default() -> Self { HirId::first_user_defined() }
 }
 
-unsafe impl IndexType for HirId {
-    fn new(x: usize) -> Self {
-        let id = HirId(x.try_into().unwrap());
-        assert!(
-            id >= HirId::first_user_defined(),
-            "Can't use one of the builtin HirId values"
-        );
-
-        id
-    }
-
-    fn index(&self) -> usize { self.0.try_into().unwrap() }
-
-    fn max() -> Self { HirId(u32::max_value()) }
-}
-
 /// A table mapping names to [`HirId`]s.
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -143,15 +127,15 @@ pub struct NameTable {
 }
 
 impl NameTable {
-    pub fn register(&mut self, name: &str, id: HirId) {
-        if self.name_to_id.contains_key(name)
-            || self.id_to_name.contains_key(&id)
-        {
-            unimplemented!("How do we want to signal duplicate names?");
+    pub fn register(&mut self, name: &str, id: HirId) -> Result<(), HirId> {
+        if let Some(existing_item_id) = self.get_id(name) {
+            return Err(existing_item_id);
         }
 
         self.name_to_id.insert(name.to_string(), id);
         self.id_to_name.insert(id, name.to_string());
+
+        Ok(())
     }
 
     pub fn get_name(&self, id: HirId) -> Option<&str> {
@@ -472,4 +456,74 @@ pub struct Pipeline {
 )]
 pub struct Edge {
     pub type_id: HirId,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PipelineGraph {}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Node {
+    pub stage: Stage,
+    pub input_slots: Vec<HirId>,
+    pub output_slots: Vec<HirId>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Slot {
+    pub element_type: HirId,
+}
+
+/// A sparse, directed adjacency matrix.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct AdjacencyMatrix<T>(HashMap<T, HashSet<T>>)
+where
+    T: Eq + Hash;
+
+impl<T> AdjacencyMatrix<T>
+where
+    T: Eq + Hash,
+{
+    pub fn new() -> Self { AdjacencyMatrix(HashMap::new()) }
+
+    pub fn add_connection(&mut self, from: T, to: T) {
+        self.0.entry(from).or_default().insert(to);
+    }
+
+    pub fn has_connection(&self, from: &T, to: &T) -> bool {
+        self.outgoing_connections(from).any(|id| id == to)
+    }
+
+    /// Iterate over all the nodes this item points to.
+    ///
+    /// This is a very cheap operation.
+    pub fn outgoing_connections(
+        &self,
+        id: &T,
+    ) -> impl Iterator<Item = &T> + '_ {
+        self.0.get(id).into_iter().flat_map(|s| s.iter())
+    }
+
+    /// Iterate over all the nodes that point to this item.
+    ///
+    /// This is an expensive operation and will traverse the entire
+    /// [`AdjacencyMatrix`].
+    pub fn incoming_connections<'a>(
+        &'a self,
+        id: &'a T,
+    ) -> impl Iterator<Item = &'a T> + '_ {
+        self.0.iter().filter_map(move |(start, ends)| {
+            if ends.contains(id) {
+                Some(start)
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl<T> Default for AdjacencyMatrix<T>
+where
+    T: Eq + Hash,
+{
+    fn default() -> Self { AdjacencyMatrix::new() }
 }

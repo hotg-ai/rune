@@ -1,21 +1,25 @@
-use std::collections::HashMap;
-use codespan_reporting::{diagnostic::Diagnostic};
-use petgraph::graph::NodeIndex;
+use codespan::Span;
+use codespan_reporting::{
+    diagnostic::{Diagnostic, Label},
+};
 use indexmap::IndexMap;
 use crate::{
     Diagnostics,
-    hir::{self, HirId, Rune, Edge, Primitive},
+    hir::{self, HirId, Node, Primitive, Rune, Slot},
     yaml::{
         types::*,
-        utils::{Builtins, HirIds},
+        utils::{Builtins, HirIds, range_span},
     },
 };
 
 pub fn analyse(doc: &Document) -> (Rune, Diagnostics) {
     let mut ctx = Context::default();
 
-    ctx.register_names(&doc.pipeline);
+    let image = &doc.image;
+    ctx.rune.base_image = Some(image.into());
+
     ctx.register_stages(&doc.pipeline);
+    ctx.register_output_slots(&doc.pipeline);
     ctx.construct_pipeline(&doc.pipeline);
 
     let Context { rune, diags, .. } = ctx;
@@ -29,74 +33,118 @@ struct Context {
     rune: Rune,
     ids: HirIds,
     builtins: Builtins,
-    stages: HashMap<HirId, NodeIndex>,
-    input_types: HashMap<NodeIndex, HirId>,
-    output_types: HashMap<NodeIndex, HirId>,
 }
 
 impl Context {
-    fn register_names(&mut self, pipeline: &IndexMap<String, Stage>) {
-        for (name, _step) in pipeline {
-            let id = self.ids.next();
-            self.rune.names.register(name, id);
+    fn register_name(&mut self, name: &str, id: HirId, definition: Span) {
+        if let Err(original_definition_id) = self.rune.names.register(name, id)
+        {
+            let duplicate = Label::primary((), range_span(definition))
+                .with_message("Original definition here");
+            let mut labels = vec![duplicate];
+
+            if let Some(original_definition) =
+                self.rune.spans.get(&original_definition_id)
+            {
+                let original =
+                    Label::secondary((), range_span(*original_definition))
+                        .with_message("Original definition here");
+                labels.push(original);
+            }
+
+            let diag = Diagnostic::error()
+                .with_message(format!("\"{}\" is already defined", name))
+                .with_labels(labels);
+            self.diags.push(diag);
         }
     }
 
     fn register_stages(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let id = self.rune.names[name.as_str()];
+            let id = self.ids.next();
+            self.rune.stages.insert(
+                id,
+                Node {
+                    stage: hir::Stage::from(stage),
+                    input_slots: Vec::new(),
+                    output_slots: Vec::new(),
+                },
+            );
+            self.register_name(name, id, stage.span());
+        }
+    }
 
-            let node_index = self.rune.graph.add_node(hir::Stage::from(stage));
-            self.rune.add_hir_id_and_node_index(id, node_index);
+    fn register_output_slots(&mut self, pipeline: &IndexMap<String, Stage>) {
+        for (name, stage) in pipeline {
+            let node_id = self.rune.names.get_id(name).unwrap();
+
+            let mut output_slots = Vec::new();
+
+            for ty in stage.output_types() {
+                let element_type = self.intern_type(ty);
+                let id = self.ids.next();
+                self.rune.slots.insert(id, Slot { element_type });
+                output_slots.push(id);
+            }
+
+            let node = self.rune.stages.get_mut(&node_id).unwrap();
+            node.output_slots = output_slots;
         }
     }
 
     fn construct_pipeline(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_index = self.node_index_by_name(name).unwrap();
+            let node_id = self.rune.names.get_id(name).unwrap();
 
-            for previous in stage.inputs() {
-                let stage = match pipeline.get(previous) {
-                    Some(s) => s,
-                    None => {
-                        let msg = format!("The \"{}\" stage declares \"{}\" as an input, but no such stage exists", name, previous);
-                        let diag = Diagnostic::error().with_message(msg);
-                        self.diags.push(diag);
+            let mut input_slots = Vec::new();
 
-                        continue;
-                    },
-                };
-                let previous_node_index = match self
-                    .node_index_by_name(previous)
+            for input in stage.inputs() {
+                let incoming_node_id = match self.rune.names.get_id(&input.name)
                 {
-                    Some(ix) => ix,
+                    Some(id) => id,
                     None => {
-                        let msg = format!("The \"{}\" stage declares \"{}\" as an input, but no such stage was added to the pipeline graph", name, previous);
-                        let diag = Diagnostic::error().with_message(msg);
+                        let diag = Diagnostic::error().with_message(format!(
+                            "No node associated with \"{}\"",
+                            input
+                        ));
                         self.diags.push(diag);
-
+                        input_slots.push(HirId::ERROR);
                         continue;
                     },
                 };
 
-                let output_type = match stage.output_type() {
-                    Some(t) => t,
-                    None => {
-                        let msg = format!("\"{}\" is used as an input to \"{}\", but it doesn't declare any outputs", previous, name);
-                        let diag = Diagnostic::error().with_message(msg);
-                        self.diags.push(diag);
+                let incoming_node = &self.rune.stages[&incoming_node_id];
 
+                if incoming_node.output_slots.is_empty() {
+                    let diag = Diagnostic::error().with_message(format!(
+                            "The \"{}\" stage tried to connect to \"{}\" but that stage doesn't have any outputs",
+                            name,
+                            input
+                        ));
+                    self.diags.push(diag);
+                    input_slots.push(HirId::ERROR);
+                    continue;
+                }
+
+                let input_index = input.index.unwrap_or(0);
+                match incoming_node.output_slots.get(input_index) {
+                    Some(slot_id) => input_slots.push(*slot_id),
+                    None => {
+                        let diag = Diagnostic::error().with_message(format!(
+                            "The \"{}\" stage tried to connect to \"{}\" but that stage only has {} outputs",
+                            name,
+                            input,
+                            incoming_node.output_slots.len(),
+                        ));
+                        self.diags.push(diag);
+                        input_slots.push(HirId::ERROR);
                         continue;
                     },
-                };
-
-                let edge = Edge {
-                    type_id: self.intern_type(output_type),
-                };
-                self.rune
-                    .graph
-                    .add_edge(previous_node_index, node_index, edge);
+                }
             }
+
+            let node = self.rune.stages.get_mut(&node_id).unwrap();
+            node.input_slots = input_slots;
         }
     }
 
@@ -147,11 +195,6 @@ impl Context {
             _ => None,
         }
     }
-
-    fn node_index_by_name(&self, name: &str) -> Option<NodeIndex> {
-        let id = self.rune.names.get_id(name)?;
-        self.rune.hir_id_to_node_index.get(&id).copied()
-    }
 }
 
 impl Default for Context {
@@ -166,9 +209,6 @@ impl Default for Context {
             builtins,
             rune,
             diags: Diagnostics::default(),
-            stages: HashMap::default(),
-            input_types: HashMap::default(),
-            output_types: HashMap::default(),
         }
     }
 }
@@ -262,11 +302,11 @@ pipeline:
                 output: Stage::Out {
                     out: String::from("SERIAL"),
                     args: IndexMap::new(),
-                    inputs: vec![String::from("label")],
+                    inputs: vec!["label".parse().unwrap()],
                 },
                 label: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
-                    inputs: vec![String::from("model")],
+                    inputs: vec!["model".parse().unwrap()],
                     outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
                     args: map! {
                         labels: Value::from(vec![
@@ -281,13 +321,13 @@ pipeline:
                 },
                 fft: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
-                    inputs: vec![String::from("audio")],
+                    inputs: vec!["audio".parse().unwrap()],
                     outputs: vec![ty!(i8[1960])],
                     args: IndexMap::new(),
                 },
                 model: Stage::Model {
                     model: String::from("./model.tflite"),
-                    inputs: vec![String::from("fft")],
+                    inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
                 },
             },
@@ -400,7 +440,7 @@ pipeline:
                 },
                 fft: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
-                    inputs: vec![String::from("audio")],
+                    inputs: vec!["audio".parse().unwrap()],
                     outputs: vec![
                         ty!(i8[1960]),
                     ],
@@ -408,14 +448,14 @@ pipeline:
                 },
                 model: Stage::Model {
                     model: String::from("./model.tflite"),
-                    inputs: vec![String::from("fft")],
+                    inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![
                         ty!(i8[6]),
                     ],
                 },
                 label: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
-                    inputs: vec![String::from("model")],
+                    inputs: vec!["model".parse().unwrap()],
                     outputs: vec![
                         ty!(utf8),
                     ],
@@ -429,25 +469,10 @@ pipeline:
                 },
                 output: Stage::Out {
                     out: String::from("SERIAL"),
-                    inputs: vec![String::from("label")],
+                    inputs: vec!["label".parse().unwrap()],
                     args: IndexMap::default(),
                 }
             },
-        }
-    }
-
-    #[test]
-    fn register_all_stage_names() {
-        let doc = dummy_document();
-        let mut ctx = Context::default();
-
-        ctx.register_names(&doc.pipeline);
-
-        let expected = vec!["audio", "fft", "model", "label", "output"];
-        let got = &ctx.rune.names;
-
-        for name in expected {
-            assert!(got.get_id(name).is_some(), "{}", name);
         }
     }
 
@@ -456,13 +481,12 @@ pipeline:
         let doc = dummy_document();
         let mut ctx = Context::default();
         let stages = vec!["audio", "fft", "model", "label", "output"];
-        ctx.register_names(&doc.pipeline);
 
         ctx.register_stages(&doc.pipeline);
 
-        for ty in stages {
-            let node_index = ctx.node_index_by_name(ty).unwrap();
-            assert!(ctx.rune.graph.node_weight(node_index).is_some());
+        for stage_name in stages {
+            let id = ctx.rune.names.get_id(stage_name).unwrap();
+            assert!(ctx.rune.stages.contains_key(&id));
         }
     }
 
@@ -470,8 +494,8 @@ pipeline:
     fn construct_the_pipeline() {
         let doc = dummy_document();
         let mut ctx = Context::default();
-        ctx.register_names(&doc.pipeline);
         ctx.register_stages(&doc.pipeline);
+        ctx.register_output_slots(&doc.pipeline);
         let edges = vec![
             ("audio", "fft"),
             ("fft", "model"),
@@ -484,10 +508,74 @@ pipeline:
         assert!(ctx.diags.is_empty(), "{:?}", ctx.diags);
         for (from, to) in edges {
             println!("{:?} => {:?}", from, to);
-            let from_ix = ctx.node_index_by_name(from).unwrap();
-            let to_ix = ctx.node_index_by_name(to).unwrap();
+            let from_id = ctx.rune.names.get_id(from).unwrap();
+            let to_id = ctx.rune.names.get_id(to).unwrap();
 
-            let _edge = ctx.rune.graph.find_edge(from_ix, to_ix).unwrap();
+            assert!(ctx.rune.has_connection(from_id, to_id));
         }
+    }
+
+    #[test]
+    fn construct_pipeline_graph_with_multiple_inputs_and_outputs() {
+        let doc = Document {
+            image: "runicos/base@latest".parse().unwrap(),
+            pipeline: map! {
+                audio: Stage::Capability {
+                    capability: String::from("SOUND"),
+                    outputs: vec![
+                        ty!(i16[16000]),
+                    ],
+                    args: map! {
+                        hz: Value::from(16000),
+                    },
+                },
+                fft: Stage::ProcBlock {
+                    proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
+                    inputs: vec![
+                        "audio".parse().unwrap(),
+                        "audio".parse().unwrap(),
+                        "audio".parse().unwrap(),
+                        ],
+                    outputs: vec![
+                        ty!(i8[1960]),
+                        ty!(i8[1960]),
+                        ty!(i8[1960]),
+                    ],
+                    args: IndexMap::new(),
+                },
+                serial: Stage::Out {
+                    out: String::from("SERIAL"),
+                    inputs: vec![
+                        "fft.0".parse().unwrap(),
+                        "fft.1".parse().unwrap(),
+                        "fft.2".parse().unwrap(),
+                    ],
+                    args: IndexMap::new(),
+                },
+            },
+        };
+
+        let (rune, diags) = analyse(&doc);
+
+        assert!(!diags.has_errors() && !diags.has_warnings(), "{:#?}", diags);
+
+        let audio_id = rune.names["audio"];
+        let audio_node = &rune.stages[&audio_id];
+        assert!(audio_node.input_slots.is_empty());
+        assert_eq!(audio_node.output_slots.len(), 1);
+        let audio_output = audio_node.output_slots[0];
+
+        let fft_id = rune.names["fft"];
+        let fft_node = &rune.stages[&fft_id];
+        assert_eq!(
+            fft_node.input_slots,
+            &[audio_output, audio_output, audio_output]
+        );
+
+        let output_id = rune.names["serial"];
+        let output_node = &rune.stages[&output_id];
+        assert_eq!(fft_node.output_slots, output_node.input_slots);
+
+        panic!("{:#?}\n\n{}", rune, serde_yaml::to_string(&rune).unwrap());
     }
 }

@@ -1813,8 +1813,6 @@ checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
 dependencies = [
  "fixedbitset",
  "indexmap",
- "serde",
- "serde_derive",
 ]
 
 [[package]]
@@ -2225,7 +2223,6 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
- "petgraph",
  "pretty_assertions",
  "regex",
  "serde",
@@ -2401,8 +2398,7 @@ dependencies = [
 [[package]]
 name = "serde_yaml"
 version = "0.8.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15654ed4ab61726bf918a39cb8d98a2e2995b002387807fa6ba58fdf7f59bb23"
+source = "git+https://github.com/hotg-ai/serde-yaml?branch=spans#91348d9fa88c945967691c555bccd2d26225332e"
 dependencies = [
  "dtoa",
  "linked-hash-map",
