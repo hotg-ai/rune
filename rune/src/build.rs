@@ -150,19 +150,20 @@ pub(crate) fn analyze(
     let file = SimpleFile::new(runefile.display().to_string(), &src);
 
     log::debug!("Parsing \"{}\"", runefile.display());
-    let (rune, diags) = match runefile.extension().and_then(|ext| ext.to_str())
-    {
+
+    let mut diags = Diagnostics::new();
+
+    let rune = match runefile.extension().and_then(|ext| ext.to_str()) {
         Some("yaml") | Some("yml") => {
             let parsed = Document::parse(&src)
                 .context("Unable to parse the Runefile")?;
-            rune_syntax::yaml::analyse(&parsed)
+            rune_syntax::analyse_yaml_runefile(&parsed, &mut diags)
         },
         _ => {
             let parsed = rune_syntax::parse(&src)
                 .context("Unable to parse the Runefile")?;
-            let mut diags = Diagnostics::new();
             let rune = rune_syntax::analyse(&parsed, &mut diags);
-            (rune, diags)
+            rune
         },
     };
 

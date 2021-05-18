@@ -49,7 +49,7 @@ pub fn generate_with_env(
         .context("Unable to generate the \"lib.rs\" file")?;
 
     let project = Project {
-        name: c.name.replace("-", "_"),
+        name: c.name,
         manifest,
         config,
         lib_rs,

@@ -117,7 +117,7 @@ impl Environment for DefaultEnvironment {
             .join("target")
             .join("wasm32-unknown-unknown")
             .join(dir)
-            .join(&project.name)
+            .join(project.name.replace("-", "_"))
             .with_extension("wasm");
 
         read(binary)
