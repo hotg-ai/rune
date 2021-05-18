@@ -61,7 +61,8 @@ RANDOM_SEED = 59185
 
 
 def compute_rune_spec(data):
-
+    """ Compute the spectrogram using the Rune proc block equivalent to the TensorFlow spectrogram computer """
+    
     fft = Fft()
     noise_filtering = NoiseFiltering()
 
@@ -215,6 +216,7 @@ def get_features_range(model_settings):
     return features_min, features_max
 
 def prepare_tf_micro_spectrogram_computer():
+    """ For pre-computing Tensorflow spectrograms """
     
     sample_rate = 16000
     # Step 1: Windowing
@@ -266,10 +268,7 @@ class AudioProcessor(object):
 
     def __init__(self, data_url, data_dir, silence_percentage, unknown_percentage,
                  wanted_words, validation_percentage, testing_percentage,
-                 model_settings, summaries_dir, file_path='data.pkl'):
-
-        with open(file_path, 'rb') as f:
-            self.precomputed_samples = pickle.load(f)
+                 model_settings, summaries_dir, precompute_spectrograms=True):
 
         if data_dir:
             self.data_dir = data_dir
@@ -279,10 +278,11 @@ class AudioProcessor(object):
                                     testing_percentage)
             self.prepare_background_data()
         self.prepare_processing_graph(model_settings, summaries_dir)
-        if model_settings["preprocess"] == "rune":
-            self.precompute_rust_spectrograms()
-        else:
-            self.precompute_tf_spectrograms()
+        if precompute_spectrograms:
+            if model_settings["preprocess"] == "rune":
+                self.precompute_rust_spectrograms()
+            else:
+                self.precompute_tf_spectrograms()
 
     def precompute_rust_spectrograms(self):
         self.specs = {"training": [], "validation": [], "testing": []}
@@ -505,7 +505,7 @@ class AudioProcessor(object):
                     'No background wav files were found in ' + search_path)
 
     def prepare_processing_graph(self, model_settings, summaries_dir):
-        """Builds a TensorFlow graph to apply the input distortions.
+        """Builds a TensorFlow graph to apply the input distortions (noise & time shift).
 
         Creates a graph that 
             - loads a WAVE file, 
@@ -584,14 +584,8 @@ class AudioProcessor(object):
                     magnitude_squared=True)
                 tf.compat.v1.summary.image(
                     'spectrogram', tf.expand_dims(spectrogram, -1), max_outputs=1)
-                # The number of buckets in each FFT row in the spectrogram will depend on
-                # how many input samples there are in each window. This can be quite
-                # large, with a 160 sample window producing 127 buckets for example. We
-                # don't need this level of detail for classification, so we often want to
-                # shrink them down to produce a smaller result. That's what this section
-                # implements. One method is to use average pooling to merge adjacent
-                # buckets, but a more sophisticated approach is to apply the MFCC
-                # algorithm to shrink the representation.
+                
+                # Reduce the number of frequency buckets in the FFT spectrogram, using average pooling or MFCC.
                 if model_settings['preprocess'] == 'average':
                     self.output_ = tf.nn.pool(
                         input=tf.expand_dims(spectrogram, -1),
