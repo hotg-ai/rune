@@ -7,5 +7,7 @@ pub struct Project {
     pub manifest: Manifest,
     pub config: toml::Value,
     pub lib_rs: String,
+    /// TensorFlow Lite binaries that should be included in the generated
+    /// project, with paths relative to the project root.
     pub models: HashMap<PathBuf, Vec<u8>>,
 }

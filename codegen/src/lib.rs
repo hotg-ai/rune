@@ -1,8 +1,10 @@
+mod code;
 mod config;
 mod environment;
 mod manifest;
+mod models;
 mod project;
-mod rustup;
+pub mod rustup;
 
 pub use crate::{
     environment::{Environment, DefaultEnvironment},
@@ -30,20 +32,30 @@ pub struct Compilation {
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {
-    let env = DefaultEnvironment::for_compilation(&c);
-    generate_with_env(c, env)
+    let mut env = DefaultEnvironment::for_compilation(&c);
+    generate_with_env(c, &mut env)
 }
 
 pub fn generate_with_env(
     c: Compilation,
-    _env: impl Environment,
+    env: &mut dyn Environment,
 ) -> Result<Vec<u8>, Error> {
-    let _manifest =
-        crate::manifest::generate(&c.rune, &c.name, &c.rune_project);
-    let _config = crate::config::generate(c.optimized)
+    let manifest = crate::manifest::generate(&c.rune, &c.name, &c.rune_project);
+    let config = crate::config::generate(c.optimized)
         .context("Unable to construct the \"config.toml\" file")?;
+    let models = crate::models::load(&c.rune, env)
+        .context("Unable to load the models")?;
+    let lib_rs = crate::code::generate()
+        .context("Unable to generate the \"lib.rs\" file")?;
 
-    todo!();
+    let project = Project {
+        manifest,
+        config,
+        lib_rs,
+        models,
+    };
+
+    env.compile(project)
 }
 
 #[derive(Debug, Clone, PartialEq)]
