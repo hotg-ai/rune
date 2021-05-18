@@ -4,14 +4,20 @@
 #[macro_use]
 extern crate pretty_assertions;
 
-// mod analysis;
+mod analysis;
 pub mod ast;
 mod diagnostics;
 pub mod hir;
 pub mod parse;
-// mod type_inference;
+mod utils;
 pub mod yaml;
 
-// pub use analysis::analyse;
-pub use diagnostics::Diagnostics;
-pub use parse::parse;
+pub use crate::{
+    analysis::analyse as analyse_yaml_runefile, diagnostics::Diagnostics,
+    parse::parse,
+};
+
+pub fn analyse(runefile: &ast::Runefile, diags: &mut Diagnostics) -> hir::Rune {
+    let document = yaml::document_from_runefile(runefile, diags);
+    analyse_yaml_runefile(&document, diags)
+}

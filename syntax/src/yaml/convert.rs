@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use crate::{
     Diagnostics,
     ast::{
@@ -7,21 +5,21 @@ use crate::{
         Instruction, Literal, LiteralKind, ModelInstruction, OutInstruction,
         ProcBlockInstruction, RunInstruction, Runefile,
     },
-    yaml::{Document, Input, Path, Stage, Type, Value, utils},
+    utils,
+    yaml::{Document, Input, Path, Stage, Type, Value},
 };
-use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 
-pub fn document_from_runefile(runefile: Runefile) -> (Document, Diagnostics) {
-    let mut diags = Diagnostics::new();
+pub fn document_from_runefile(
+    runefile: &Runefile,
+    diags: &mut Diagnostics,
+) -> Document {
+    let image = determine_image(&runefile.instructions, diags);
+    let mut pipeline = determine_pipeline(&runefile.instructions, diags);
+    connect_inputs(&runefile.instructions, &mut pipeline, diags);
 
-    let image = determine_image(&runefile.instructions, &mut diags);
-    let mut pipeline = determine_pipeline(&runefile.instructions, &mut diags);
-
-    connect_inputs(&runefile.instructions, &mut pipeline, &mut diags);
-
-    (Document { image, pipeline }, diags)
+    Document { image, pipeline }
 }
 
 fn connect_inputs(
@@ -369,8 +367,9 @@ mod tests {
                 },
             },
         };
+        let mut diags = Diagnostics::new();
 
-        let (got, diags) = document_from_runefile(runefile);
+        let got = document_from_runefile(&runefile, &mut diags);
 
         assert!(!diags.has_errors());
         for (key, should_be) in &should_be.pipeline {

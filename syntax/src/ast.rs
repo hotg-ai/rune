@@ -94,12 +94,6 @@ impl Ident {
             span,
         }
     }
-
-    /// Create an [`Ident`] with a placeholder span.
-    #[cfg(test)]
-    pub(crate) fn dangling(value: impl Into<String>) -> Self {
-        Ident::new(value, Span::new(0, 0))
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
@@ -116,23 +110,6 @@ pub struct CapabilityInstruction {
 pub struct Type {
     pub kind: TypeKind,
     pub span: Span,
-}
-
-#[cfg(test)]
-impl Type {
-    pub(crate) fn named_dangling(name: impl Into<String>) -> Self {
-        Type {
-            kind: TypeKind::Named(Ident::dangling(name)),
-            span: Span::new(0, 0),
-        }
-    }
-
-    pub(crate) fn inferred_dangling() -> Self {
-        Type {
-            kind: TypeKind::Inferred,
-            span: Span::new(0, 0),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
