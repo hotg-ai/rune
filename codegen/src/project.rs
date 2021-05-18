@@ -4,6 +4,7 @@ use cargo_toml::Manifest;
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct Project {
+    pub name: String,
     pub manifest: Manifest,
     pub config: toml::Value,
     pub lib_rs: String,

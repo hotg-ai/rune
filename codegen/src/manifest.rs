@@ -14,7 +14,9 @@ pub(crate) fn generate(
     project: &RuneProject,
 ) -> Manifest {
     let product = Product {
-        path: Some("lib.rs".into()),
+        path: Some("lib.rs".to_string()),
+        edition: Some(Edition::E2018),
+        crate_type: Some(vec!["cdylib".to_string()]),
         ..Default::default()
     };
 
@@ -51,7 +53,7 @@ fn dependencies(rune: &Rune, project: &RuneProject) -> DepsSet {
     deps.insert(String::from("log"), log);
 
     deps.insert(
-        String::from("runic_types"),
+        String::from("runic-types"),
         Dependency::Detailed(rune_project_dependency(project)),
     );
 
@@ -221,7 +223,7 @@ mod tests {
 
         assert_eq!(got.len(), 2);
         assert!(got.contains_key("log"));
-        assert!(got.contains_key("runic_types"));
+        assert!(got.contains_key("runic-types"));
     }
 
     #[test]
@@ -256,5 +258,16 @@ mod tests {
         let got = proc_block_dependency("whatever", &path, &project);
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn manifest_generates_cdylib() {
+        let project = RuneProject::default();
+        let rune = Rune::default();
+
+        let got = generate(&rune, "foo", &project);
+
+        let crate_type = got.lib.unwrap().crate_type.unwrap();
+        assert!(crate_type.contains(&String::from("cdylib")));
     }
 }

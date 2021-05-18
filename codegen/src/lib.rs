@@ -49,13 +49,14 @@ pub fn generate_with_env(
         .context("Unable to generate the \"lib.rs\" file")?;
 
     let project = Project {
+        name: c.name.replace("-", "_"),
         manifest,
         config,
         lib_rs,
         models,
     };
 
-    env.compile(project)
+    env.compile(project).context("Compilation failed")
 }
 
 #[derive(Debug, Clone, PartialEq)]
