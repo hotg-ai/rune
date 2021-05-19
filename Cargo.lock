@@ -2286,6 +2286,7 @@ name = "rune_py"
 version = "0.1.0"
 dependencies = [
  "fft",
+ "image-normalization",
  "noise-filtering",
  "normalize",
  "numpy",

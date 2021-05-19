@@ -32,6 +32,21 @@ impl Default for Distribution {
     }
 }
 
+impl From<[f32; 2]> for Distribution {
+    fn from([mean, standard_deviation]: [f32; 2]) -> Self {
+        Distribution {
+            mean,
+            standard_deviation,
+        }
+    }
+}
+
+impl From<[i32; 2]> for Distribution {
+    fn from([mean, standard_deviation]: [i32; 2]) -> Self {
+        Distribution::new(mean as f32, standard_deviation as f32)
+    }
+}
+
 impl<'a> TryFrom<[&'a str; 2]> for Distribution {
     type Error = DistributionConversionError<'a>;
 
@@ -50,21 +65,6 @@ impl<'a> TryFrom<[&'a str; 2]> for Distribution {
             mean,
             standard_deviation,
         })
-    }
-}
-
-impl From<[f32; 2]> for Distribution {
-    fn from([mean, standard_deviation]: [f32; 2]) -> Self {
-        Distribution {
-            mean,
-            standard_deviation,
-        }
-    }
-}
-
-impl From<[i32; 2]> for Distribution {
-    fn from([mean, standard_deviation]: [i32; 2]) -> Self {
-        Distribution::new(mean as f32, standard_deviation as f32)
     }
 }
 
