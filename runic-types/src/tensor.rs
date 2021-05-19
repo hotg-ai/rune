@@ -1,4 +1,8 @@
-use core::{convert::TryInto, ops::Index, iter::FromIterator};
+use core::{
+    convert::TryInto,
+    iter::FromIterator,
+    ops::{Index, IndexMut},
+};
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -75,6 +79,22 @@ impl<T> Tensor<T> {
 
         Some(TensorView {
             elements: &self.elements,
+            dimensions,
+        })
+    }
+
+    pub fn view_mut<'a, 'this: 'a, const RANK: usize>(
+        &'this mut self,
+    ) -> Option<TensorViewMut<'a, T, RANK>>
+    where
+        T: Clone,
+    {
+        let dimensions: &[usize; RANK] =
+            self.dimensions.as_slice().try_into().ok()?;
+        let dimensions = *dimensions;
+
+        Some(TensorViewMut {
+            elements: self.make_elements_mut(),
             dimensions,
         })
     }
@@ -162,13 +182,13 @@ impl<'a, T: Clone> From<&'a [T]> for Tensor<T> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TensorView<'t, T, const RANK: usize> {
     elements: &'t [T],
-    dimensions: &'t [usize; RANK],
+    dimensions: [usize; RANK],
 }
 
 impl<'t, T, const RANK: usize> TensorView<'t, T, RANK> {
     pub fn elements(&self) -> &'t [T] { self.elements }
 
-    pub fn dimensions(&self) -> &'t [usize] { self.dimensions }
+    pub fn dimensions(&self) -> [usize; RANK] { self.dimensions }
 
     pub fn get(&self, indices: [usize; RANK]) -> Option<&T> {
         let ix = self.index_of(indices)?;
@@ -176,7 +196,7 @@ impl<'t, T, const RANK: usize> TensorView<'t, T, RANK> {
     }
 
     fn index_of(&self, indices: [usize; RANK]) -> Option<usize> {
-        index_of(self.dimensions, &indices)
+        index_of(&self.dimensions, &indices)
     }
 }
 
@@ -218,6 +238,73 @@ impl<'t, T> Index<usize> for TensorView<'t, T, 1> {
 
     #[track_caller]
     fn index(&self, index: usize) -> &Self::Output { &self[[index]] }
+}
+
+/// A mutable view into a [`Tensor`] with a particular rank (number of
+/// dimensions).
+#[derive(Debug, PartialEq)]
+pub struct TensorViewMut<'t, T, const RANK: usize> {
+    elements: &'t mut [T],
+    dimensions: [usize; RANK],
+}
+
+impl<'t, T, const RANK: usize> TensorViewMut<'t, T, RANK> {
+    pub fn elements(&mut self) -> &mut [T] { self.elements }
+
+    pub fn dimensions(&self) -> [usize; RANK] { self.dimensions }
+
+    pub fn get(&self, indices: [usize; RANK]) -> Option<&T> {
+        let ix = self.index_of(indices)?;
+        Some(&self.elements[ix])
+    }
+
+    pub fn get_mut(&mut self, indices: [usize; RANK]) -> Option<&mut T> {
+        let ix = self.index_of(indices)?;
+        Some(&mut self.elements[ix])
+    }
+
+    fn index_of(&self, indices: [usize; RANK]) -> Option<usize> {
+        index_of(&self.dimensions, &indices)
+    }
+}
+
+impl<'t, T, const RANK: usize> Index<[usize; RANK]>
+    for TensorViewMut<'t, T, RANK>
+{
+    type Output = T;
+
+    #[track_caller]
+    fn index(&self, index: [usize; RANK]) -> &Self::Output {
+        match self.get(index) {
+            Some(value) => value,
+            None => panic!("index out of bounds: the index was {:?} but the tensor has dimensions of {:?}", index, self.dimensions)
+        }
+    }
+}
+impl<'t, T, const RANK: usize> IndexMut<[usize; RANK]>
+    for TensorViewMut<'t, T, RANK>
+{
+    #[track_caller]
+    fn index_mut(&mut self, index: [usize; RANK]) -> &mut Self::Output {
+        match self.index_of(index) {
+            Some(ix) => &mut self.elements[ix],
+            None => panic!("index out of bounds: the index was {:?} but the tensor has dimensions of {:?}", index, self.dimensions)
+        }
+    }
+}
+
+impl<'t, T> Index<usize> for TensorViewMut<'t, T, 1> {
+    type Output = T;
+
+    #[track_caller]
+    fn index(&self, index: usize) -> &Self::Output { &self[[index]] }
+}
+
+impl<'t, T> IndexMut<usize> for TensorViewMut<'t, T, 1> {
+    #[track_caller]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self[[index]]
+    }
 }
 
 impl<T: Serialize> Serialize for Tensor<T> {
