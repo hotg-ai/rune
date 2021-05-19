@@ -1,29 +1,50 @@
 #![no_std]
 
-use runic_types::{HasOutputs, Tensor, Transform};
+mod distribution;
 
-#[derive(Debug, Clone, PartialEq)]
+pub use crate::distribution::{Distribution, DistributionConversionError};
+
+use core::{convert::TryInto, fmt::Display};
+use runic_types::{HasOutputs, Tensor, Transform, TensorViewMut};
+
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct ImageNormalization {
-    mean: f32,
-    standard_deviation: f32,
+    red: Distribution,
+    green: Distribution,
+    blue: Distribution,
 }
 
 impl ImageNormalization {
-    pub const fn with_mean(self, mean: f32) -> Self {
-        ImageNormalization { mean, ..self }
+    pub fn with_red<D>(self, distribution: D) -> Self
+    where
+        D: TryInto<Distribution>,
+        D::Error: Display,
+    {
+        match distribution.try_into() {
+            Ok(d) => ImageNormalization { red: d, ..self },
+            Err(e) => panic!("Invalid distribution: {}", e),
+        }
     }
 
-    pub const fn with_std_dev(self, std_dev: f32) -> Self {
-        self.with_standard_deviation(std_dev)
+    pub fn with_green<D>(self, distribution: D) -> Self
+    where
+        D: TryInto<Distribution>,
+        D::Error: Display,
+    {
+        match distribution.try_into() {
+            Ok(d) => ImageNormalization { green: d, ..self },
+            Err(e) => panic!("Invalid distribution: {}", e),
+        }
     }
 
-    pub const fn with_standard_deviation(
-        self,
-        standard_deviation: f32,
-    ) -> Self {
-        ImageNormalization {
-            standard_deviation,
-            ..self
+    pub fn with_blue<D>(self, distribution: D) -> Self
+    where
+        D: TryInto<Distribution>,
+        D::Error: Display,
+    {
+        match distribution.try_into() {
+            Ok(d) => ImageNormalization { blue: d, ..self },
+            Err(e) => panic!("Invalid distribution: {}", e),
         }
     }
 }
@@ -43,20 +64,34 @@ impl Transform<Tensor<f32>> for ImageNormalization {
         let mut view = input.view_mut::<3>()
             .expect("The image normalization proc block only supports outputs of the form [channels, rows, columns]");
 
-        let [channels, rows, columns] = view.dimensions();
+        let [channels, _, _] = view.dimensions();
 
-        for y in 0..rows {
-            for x in 0..columns {
-                for channel in 0..channels {
-                    let ix = [channel, x, y];
-                    let current_value = view[ix];
-                    view[ix] =
-                        (current_value - self.mean) / self.standard_deviation;
-                }
-            }
-        }
+        assert_eq!(
+            channels, 3,
+            "The image must have 3 channels - red, green, and blue"
+        );
+
+        transform(self.red, 0, &mut view);
+        transform(self.green, 1, &mut view);
+        transform(self.blue, 2, &mut view);
 
         input
+    }
+}
+
+fn transform(
+    d: Distribution,
+    channel: usize,
+    view: &mut TensorViewMut<'_, f32, 3>,
+) {
+    let [_, rows, columns] = view.dimensions();
+
+    for y in 0..rows {
+        for x in 0..columns {
+            let ix = [channel, x, y];
+            let current_value = view[ix];
+            view[ix] = d.z_score(current_value);
+        }
     }
 }
 
@@ -69,15 +104,6 @@ impl HasOutputs for ImageNormalization {
                 channels
             ),
             _ => panic!("The image normalization proc block only supports outputs of the form [channels, rows, columns], found {:?}", dimensions),
-        }
-    }
-}
-
-impl Default for ImageNormalization {
-    fn default() -> Self {
-        ImageNormalization {
-            mean: 0.0,
-            standard_deviation: 1.0,
         }
     }
 }
