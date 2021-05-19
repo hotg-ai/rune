@@ -4,7 +4,7 @@ use quote::{ToTokens, quote};
 /// Generate the Rune's `lib.rs` file.
 pub fn generate() -> Result<String, Error> {
     let preamble = generate_preamble();
-    let manifest = quote! {};
+    let manifest = generate_manifest();
     let call = generate_call();
 
     let tokens = quote! {
@@ -14,6 +14,25 @@ pub fn generate() -> Result<String, Error> {
     };
 
     Ok(tokens.to_token_stream().to_string())
+}
+
+fn generate_manifest() -> impl ToTokens {
+    quote! {
+        #[no_mangle]
+        pub extern "C" fn _manifest() -> u32 {
+            let _setup = SetupGuard::default();
+
+            let pipeline = move || {
+                let _guard = PipelineGuard::default();
+            };
+
+            unsafe {
+                PIPELINE = Some(Box::new(pipeline));
+            }
+
+            1
+        }
+    }
 }
 
 fn generate_preamble() -> impl ToTokens {

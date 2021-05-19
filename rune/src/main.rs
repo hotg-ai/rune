@@ -1,5 +1,5 @@
 mod build;
-mod graph;
+// mod graph;
 mod model_info;
 mod run;
 mod version;
@@ -10,7 +10,7 @@ use codespan_reporting::term::termcolor;
 use structopt::{clap::AppSettings, StructOpt};
 use env_logger::{Env, WriteStyle};
 use crate::{
-    graph::Graph,
+    // graph::Graph,
     model_info::ModelInfo,
     run::Run,
     build::Build,
@@ -44,7 +44,7 @@ fn main() -> Result<(), Error> {
     match cmd {
         Some(Cmd::Build(build)) => build.execute(colour.into()),
         Some(Cmd::Run(run)) => run.execute(),
-        Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
+        // Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
         Some(Cmd::Version(mut version)) => {
             version.verbose |= verbose;
             version.execute()
@@ -131,8 +131,8 @@ enum Cmd {
     Build(Build),
     /// Run a rune.
     Run(Run),
-    /// Parse a Runefile and generate a DOT graph showing the pipelines inside.
-    Graph(Graph),
+    // /// Parse a Runefile and generate a DOT graph showing the pipelines
+    // inside. Graph(Graph),
     /// Print detailed version information.
     Version(Version),
     /// Load a TensorFlow Lite model and print information about it.
