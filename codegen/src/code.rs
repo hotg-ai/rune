@@ -7,8 +7,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
     hir::{
-        HirId, Model, Node, ProcBlock, Rune, Sink, SinkKind, Source,
-        SourceKind, Stage,
+        HirId, Node, ProcBlock, Rune, Sink, SinkKind, Source, SourceKind, Stage,
     },
 };
 
@@ -70,8 +69,8 @@ fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> impl ToTokens {
                 let mut #name = #type_name::default();
             }
         },
-        Stage::Model(Model { model_file }) => {
-            let model_file = model_file.display().to_string();
+        Stage::Model(_) => {
+            let model_file = format!("{}.tflite", name);
             quote! {
                 let mut #name = Model::load(include_bytes!(#model_file));
             }
@@ -338,7 +337,7 @@ mod tests {
 
         pipeline:
           sine:
-            model: ./sine.tflite
+            model: ./sine_model.tflite
         "#,
         );
         let id = rune.names["sine"];
@@ -347,7 +346,7 @@ mod tests {
         let got = initialize_node(&rune, id, node).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = Model::load(include_bytes!("./sine.tflite"));
+            let mut sine = Model::load(include_bytes!("sine.tflite"));
         };
         assert_quote_eq!(got, should_be);
     }
