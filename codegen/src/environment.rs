@@ -101,12 +101,37 @@ impl DefaultEnvironment {
             ))
         }
     }
+
+    fn rustfmt(&self) -> Result<(), Error> {
+        log::debug!("Formatting the generate code");
+
+        let status = Command::new("cargo")
+            .arg("fmt")
+            .current_dir(&self.working_directory)
+            .status()
+            .context("unable to call `cargo fmt`")?;
+
+        anyhow::ensure!(
+            status.success(),
+            "`cargo fmt` failed with return code: {}",
+            status.code().unwrap_or(1)
+        );
+
+        Ok(())
+    }
 }
 
 impl Environment for DefaultEnvironment {
     fn compile(&mut self, project: Project) -> Result<Vec<u8>, Error> {
         self.write_project_to_disk(&project)
             .context("Unable to write the project to disk")?;
+
+        if let Err(e) = self
+            .rustfmt()
+            .context("Unable to format the generated code")
+        {
+            log::warn!("{:?}", e);
+        }
 
         self.cargo_build().context("Compilation failed")?;
 
@@ -146,6 +171,10 @@ fn write(path: impl AsRef<Path>, data: &[u8]) -> Result<(), Error> {
 
 fn create_dir_all(path: impl AsRef<Path>) -> Result<(), Error> {
     let path = path.as_ref();
+
+    if path.exists() {
+        return Ok(());
+    }
 
     log::debug!("Making sure the \"{}\" directory exists", path.display());
     std::fs::create_dir_all(path).with_context(|| {
