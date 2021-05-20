@@ -168,7 +168,7 @@ impl Literal {
 #[serde(rename_all = "kebab-case", tag = "type", content = "value")]
 pub enum LiteralKind {
     Integer(i64),
-    Float(f64),
+    Float(f32),
     String(String),
 }
 
@@ -176,8 +176,8 @@ impl From<i64> for LiteralKind {
     fn from(other: i64) -> Self { LiteralKind::Integer(other) }
 }
 
-impl From<f64> for LiteralKind {
-    fn from(other: f64) -> Self { LiteralKind::Float(other) }
+impl From<f32> for LiteralKind {
+    fn from(other: f32) -> Self { LiteralKind::Float(other) }
 }
 
 impl<'a> From<&'a str> for LiteralKind {

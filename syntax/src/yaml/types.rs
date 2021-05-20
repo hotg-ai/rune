@@ -315,13 +315,13 @@ pub struct Type {
 #[serde(rename = "kebab-case", untagged)]
 pub enum Value {
     Int(i64),
-    Float(f64),
+    Float(f32),
     String(String),
     List(Vec<Value>),
 }
 
-impl From<f64> for Value {
-    fn from(f: f64) -> Value { Value::Float(f) }
+impl From<f32> for Value {
+    fn from(f: f32) -> Value { Value::Float(f) }
 }
 
 impl From<i64> for Value {

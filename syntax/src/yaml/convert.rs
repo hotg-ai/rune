@@ -229,7 +229,7 @@ fn convert_type(t: ast::Type) -> Type {
         },
         ast::TypeKind::Named(name) => Type {
             name: name.value,
-            dimensions: Vec::new(),
+            dimensions: vec![1],
         },
         ast::TypeKind::Inferred => todo!(),
     }
