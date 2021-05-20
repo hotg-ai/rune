@@ -7,7 +7,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
     hir::{
-        HirId, Node, ProcBlock, Rune, Sink, SinkKind, Source, SourceKind, Stage,
+        HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
+        SourceKind, Stage, Type,
     },
 };
 
@@ -34,6 +35,11 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
         .copied()
         .map(|(id, node)| initialize_node(rune, id, node));
 
+    let transform = sorted_pipeline
+        .iter()
+        .copied()
+        .map(|(id, node)| evaluate_node(rune, id, node));
+
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> u32 {
@@ -43,6 +49,8 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
 
             let pipeline = move || {
                 let _guard = PipelineGuard::default();
+
+                #( #transform )*
             };
 
             unsafe {
@@ -54,7 +62,154 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
     }
 }
 
-fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> impl ToTokens {
+fn evaluate_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
+    match node.stage {
+        Stage::Source(_) => evaluate_source_node(rune, id, &node.output_slots),
+        Stage::Sink(_) => evaluate_sink_node(rune, id, &node.input_slots),
+        Stage::Model(_) | Stage::ProcBlock(_) => evaluate_transform_node(
+            rune,
+            id,
+            &node.input_slots,
+            &node.output_slots,
+        ),
+    }
+}
+
+fn evaluate_transform_node(
+    rune: &Rune,
+    node_id: HirId,
+    input_slots: &[HirId],
+    output_slots: &[HirId],
+) -> TokenStream {
+    let name = &rune.names[node_id];
+    let output_bindings = output_bindings(rune, name, output_slots);
+    let input_bindings = input_bindings(rune, input_slots);
+    let name = Ident::new(name, Span::call_site());
+
+    quote! {
+        let #output_bindings = #name.transform(#input_bindings);
+    }
+}
+
+fn evaluate_sink_node(
+    rune: &Rune,
+    node_id: HirId,
+    input_slots: &[HirId],
+) -> TokenStream {
+    let name = &rune.names[node_id];
+    let input_bindings = input_bindings(rune, input_slots);
+    let name = Ident::new(name, Span::call_site());
+
+    quote! {
+        #name.consume(#input_bindings);
+    }
+}
+
+fn evaluate_source_node(
+    rune: &Rune,
+    node_id: HirId,
+    output_slots: &[HirId],
+) -> TokenStream {
+    let name = &rune.names[node_id];
+    let rets = output_bindings(rune, name, output_slots);
+    let name = Ident::new(name, Span::call_site());
+
+    quote! {
+        let #rets = #name.generate();
+    }
+}
+
+fn output_bindings(
+    rune: &Rune,
+    name: &str,
+    output_slots: &[HirId],
+) -> TokenStream {
+    let return_values: Vec<_> = output_slots
+        .iter()
+        .enumerate()
+        .map(|(i, id)| slot_type(rune, name, *id, i))
+        .collect();
+
+    match return_values.as_slice() {
+        [(name, ty)] => quote!(#name : #ty),
+        [] => unreachable!(),
+        [..] => {
+            let names = return_values.iter().map(|(name, _)| name);
+            let types = return_values.iter().map(|(_, ty)| ty);
+            quote! {
+                (#(#names),*) : (#(#types),*)
+            }
+        },
+    }
+}
+
+fn input_bindings(rune: &Rune, input_slots: &[HirId]) -> TokenStream {
+    let input_names: Vec<Ident> = input_slots
+        .iter()
+        .map(|id| {
+            let slot = &rune.slots[id];
+            let input = slot.input_node;
+            let input_node = &rune.stages[&input];
+            let input_name = rune.names.get_name(input).unwrap();
+            let index = input_node
+                .output_slots
+                .iter()
+                .position(|s| s == id)
+                .unwrap();
+
+            format!("{}_out_{}", input_name, index)
+        })
+        .map(|name| Ident::new(&name, Span::call_site()))
+        .collect();
+
+    match input_names.as_slice() {
+        [name] => quote!(#name),
+        [] => unreachable!(),
+        [..] => {
+            quote! {
+                (#(#input_names),*)
+            }
+        },
+    }
+}
+
+fn slot_type(
+    rune: &Rune,
+    node_name: &str,
+    slot: HirId,
+    index: usize,
+) -> (Ident, TokenStream) {
+    let name = format!("{}_out_{}", node_name, index);
+    let name = Ident::new(&name, Span::call_site());
+
+    let Slot { element_type, .. } = &rune.slots[&slot];
+
+    (name, rust_type(element_type, rune))
+}
+
+fn rust_type(element_type: &HirId, rune: &Rune) -> TokenStream {
+    match &rune.types[element_type] {
+        Type::Primitive(Primitive::U8) => quote!(u8),
+        Type::Primitive(Primitive::I8) => quote!(i8),
+        Type::Primitive(Primitive::U16) => quote!(u16),
+        Type::Primitive(Primitive::I16) => quote!(i16),
+        Type::Primitive(Primitive::U32) => quote!(u32),
+        Type::Primitive(Primitive::I32) => quote!(i32),
+        Type::Primitive(Primitive::F32) => quote!(f32),
+        Type::Primitive(Primitive::U64) => quote!(u64),
+        Type::Primitive(Primitive::I64) => quote!(i64),
+        Type::Primitive(Primitive::F64) => quote!(f64),
+        Type::Primitive(Primitive::String) => quote!(&str),
+        Type::Buffer { underlying_type, .. } => {
+            let underlying_type = rust_type(underlying_type, rune);
+            quote!(Tensor<#underlying_type>)
+        },
+        Type::Unknown |
+        Type::Any => unreachable!("The parsing and type checking phase should have resolved all types"),
+    }
+}
+
+fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
     let name = &rune.names[id];
     let name = Ident::new(name, Span::call_site());
 
@@ -279,6 +434,9 @@ mod tests {
             capability: SOUND
             args:
               hz: 16000
+            outputs:
+            - type: u8
+              dimensions: [18000]
         "#,
         );
 
@@ -293,6 +451,7 @@ mod tests {
 
                 let pipeline = move || {
                     let _guard = PipelineGuard::default();
+                    let audio_out_0: Tensor<u8> = audio.generate();
                 };
 
                 unsafe {
@@ -407,6 +566,163 @@ mod tests {
         let should_be = quote! {
             let mut normalize = label::Label::default();
             normalize.set_labels(["silence", "unknown", "up", "down", "left", "right"]);
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn evaluate_audio_capability() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          audio:
+            capability: SOUND
+            args:
+              hz: 16000
+            outputs:
+            - type: u8
+              dimensions: [18000]
+        "#,
+        );
+        let id = rune.names["audio"];
+        let node = &rune.stages[&id];
+
+        let got = evaluate_node(&rune, id, &node).to_token_stream();
+
+        let should_be = quote! {
+            let audio_out_0: Tensor<u8> = audio.generate();
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn evaluate_capability_with_multiple_outputs() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          audio:
+            capability: SOUND
+            args:
+              hz: 16000
+            outputs:
+            - type: u8
+              dimensions: [18000]
+            - type: u8
+              dimensions: [18000]
+        "#,
+        );
+        let id = rune.names["audio"];
+        let node = &rune.stages[&id];
+
+        let got = evaluate_node(&rune, id, &node).to_token_stream();
+
+        let should_be = quote! {
+            let (audio_out_0, audio_out_1): (Tensor<u8>, Tensor<u8>) = audio.generate();
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn evaluate_sink_with_single_input() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          audio:
+            capability: SOUND
+            args:
+              hz: 16000
+            outputs:
+            - type: u8
+              dimensions: [18000]
+          debug:
+            out: SERIAL
+            inputs:
+              - audio
+        "#,
+        );
+        let id = rune.names["debug"];
+        let node = &rune.stages[&id];
+
+        let got = evaluate_node(&rune, id, &node).to_token_stream();
+
+        let should_be = quote! {
+            debug.consume(audio_out_0);
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn evaluate_sink_with_multiple_inputs() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          audio:
+            capability: SOUND
+            args:
+              hz: 16000
+            outputs:
+            - type: u8
+              dimensions: [18000]
+            - type: f32
+              dimensions: [8]
+          debug:
+            out: SERIAL
+            inputs:
+              - audio.0
+              - audio.1
+        "#,
+        );
+        let id = rune.names["debug"];
+        let node = &rune.stages[&id];
+
+        let got = evaluate_node(&rune, id, &node).to_token_stream();
+
+        let should_be = quote! {
+            debug.consume((audio_out_0, audio_out_1));
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn evaluate_model_with_single_input_and_output() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          audio:
+            capability: SOUND
+            outputs:
+            - type: u8
+              dimensions: [18000]
+          sine:
+            model: ./sine.tflite
+            inputs:
+            - audio
+            outputs:
+              - type: u8
+                dimensions: [1]
+          debug:
+            out: SERIAL
+            inputs:
+              - sine
+        "#,
+        );
+        let id = rune.names["sine"];
+        let node = &rune.stages[&id];
+
+        let got = evaluate_node(&rune, id, &node).to_token_stream();
+
+        let should_be = quote! {
+            let sine_out_0: Tensor<u8> = sine.transform(audio_out_0);
         };
         assert_quote_eq!(got, should_be);
     }
