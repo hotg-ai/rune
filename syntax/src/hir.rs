@@ -11,7 +11,9 @@ use std::{
 use codespan::Span;
 use crate::ast::{ArgumentValue, Path};
 
-#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub struct Rune {
     pub base_image: Option<Path>,
@@ -84,6 +86,8 @@ impl Rune {
 
     /// Get a topological sorting of the pipeline graph.
     pub fn sorted_pipeline(&self) -> impl Iterator<Item = (HirId, &Node)> + '_ {
+        // https://www.geeksforgeeks.org/topological-sorting/
+
         let mut visited = HashSet::with_capacity(self.stages.len());
         let mut stack = Vec::with_capacity(self.stages.len());
 

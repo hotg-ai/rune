@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 mod code;
 mod config;
 mod environment;
@@ -45,7 +49,7 @@ pub fn generate_with_env(
         .context("Unable to construct the \"config.toml\" file")?;
     let models = crate::models::load(&c.rune, env)
         .context("Unable to load the models")?;
-    let lib_rs = crate::code::generate()
+    let lib_rs = crate::code::generate(&c.rune)
         .context("Unable to generate the \"lib.rs\" file")?;
 
     let project = Project {
