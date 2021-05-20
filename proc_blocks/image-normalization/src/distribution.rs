@@ -141,6 +141,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn calculate_z_score() {
+        let distribution = Distribution::new(100.0, 15.0);
+        let value = 110.0;
+
+        let got = distribution.z_score(value);
+
+        assert_eq!(got, 0.6666667);
+    }
+
+    #[test]
     fn parse_distribution_from_two_strings() {
         let src = &["1.75", "5"];
         let should_be = Distribution::new(1.75, 5.0);

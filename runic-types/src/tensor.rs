@@ -170,6 +170,30 @@ impl<T, const N: usize> From<[T; N]> for Tensor<T> {
     }
 }
 
+impl<T: Clone, const WIDTH: usize, const HEIGHT: usize>
+    From<[[T; WIDTH]; HEIGHT]> for Tensor<T>
+{
+    fn from(array: [[T; WIDTH]; HEIGHT]) -> Self {
+        let elements =
+            array.iter().flat_map(|row| row.iter()).cloned().collect();
+        Tensor::new_row_major(elements, alloc::vec![HEIGHT, WIDTH])
+    }
+}
+
+impl<T: Clone, const WIDTH: usize, const HEIGHT: usize, const DEPTH: usize>
+    From<[[[T; WIDTH]; HEIGHT]; DEPTH]> for Tensor<T>
+{
+    fn from(array: [[[T; WIDTH]; HEIGHT]; DEPTH]) -> Self {
+        let elements = array
+            .iter()
+            .flat_map(|row| row.iter())
+            .flat_map(|column| column.iter())
+            .cloned()
+            .collect();
+        Tensor::new_row_major(elements, alloc::vec![DEPTH, HEIGHT, WIDTH])
+    }
+}
+
 impl<'a, T: Clone> From<&'a [T]> for Tensor<T> {
     fn from(array: &'a [T]) -> Self {
         let dims = alloc::vec![array.len()];
@@ -493,5 +517,54 @@ mod tests {
         let got = collect_counter(counter);
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn convert_from_1d_array() {
+        let input = [1.0, 2.0, 3.0];
+
+        let got = Tensor::from(input);
+
+        assert_eq!(got.dimensions(), &[3]);
+        assert_eq!(got.elements(), input);
+    }
+
+    #[test]
+    fn convert_from_2d_array() {
+        let input = [[0, 1, 2], [3, 4, 5]];
+
+        let got: Tensor<i32> = input.into();
+
+        let view = got.view::<2>().unwrap();
+        let coordinates_and_indices = vec![
+            ([0, 0], 0),
+            ([0, 1], 1),
+            ([0, 2], 2),
+            ([1, 0], 3),
+            ([1, 1], 4),
+            ([1, 2], 5),
+        ];
+        for (index, should_be) in coordinates_and_indices {
+            assert_eq!(view[index], should_be);
+        }
+    }
+
+    #[test]
+    fn convert_from_3d_array() {
+        // double-checked using numpy
+        let input = [
+            [[1, 2], [3, 4], [4, 5], [6, 7]],
+            [[8, 9], [10, 11], [12, 13], [14, 15]],
+            [[16, 17], [18, 19], [20, 21], [22, 23]],
+        ];
+        let elements_should_be = [
+            1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+            19, 20, 21, 22, 23,
+        ];
+
+        let got: Tensor<i32> = input.into();
+
+        assert_eq!(got.dimensions(), &[3, 4, 2]);
+        assert_eq!(got.elements(), elements_should_be);
     }
 }
