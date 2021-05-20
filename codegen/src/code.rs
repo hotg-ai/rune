@@ -1,9 +1,15 @@
+use std::collections::HashMap;
+
 use anyhow::Error;
+use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
 use proc_macro2::{Ident, Span, TokenStream};
 use rune_syntax::{
     ast::{ArgumentValue, Literal, LiteralKind},
-    hir::{HirId, Node, Rune, Source, SourceKind},
+    hir::{
+        HirId, Model, Node, ProcBlock, Rune, Sink, SinkKind, Source,
+        SourceKind, Stage,
+    },
 };
 
 /// Generate the Rune's `lib.rs` file.
@@ -54,40 +60,96 @@ fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> impl ToTokens {
     let name = Ident::new(name, Span::call_site());
 
     match &node.stage {
-        rune_syntax::hir::Stage::Source(Source { kind, parameters }) => {
-            let type_name = source_type_name(kind);
-            let set_parameters = parameters.iter().map(|(key, value)| {
-                let arg = quote_value(value);
-                quote! {
-                    #name.set_parameter(#key, #arg);
-                }
-            });
+        Stage::Source(Source { kind, parameters }) => {
+            initialize_source(name, kind, parameters)
+        },
+        Stage::Sink(Sink { kind }) => {
+            let type_name = sink_type_name(kind);
+
             quote! {
                 let mut #name = #type_name::default();
-                #( #set_parameters )*
             }
         },
-        rune_syntax::hir::Stage::Sink(_) => quote! {},
-        rune_syntax::hir::Stage::Model(_) => quote! {},
-        rune_syntax::hir::Stage::ProcBlock(_) => quote! {},
+        Stage::Model(Model { model_file }) => {
+            let model_file = model_file.display().to_string();
+            quote! {
+                let mut #name = Model::load(include_bytes!(#model_file));
+            }
+        },
+        Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
     }
 }
 
-fn quote_value(value: &ArgumentValue) -> impl ToTokens {
+fn initialize_proc_block(name: Ident, proc_block: &ProcBlock) -> TokenStream {
+    let type_name = proc_block_type_name(proc_block);
+
+    let setters = proc_block.parameters.iter().map(|(key, value)| {
+        let arg = quote_value(value);
+        let setter = format!("set_{}", key);
+        let setter = Ident::new(&setter, Span::call_site());
+        quote! { #name.#setter(#arg); }
+    });
+
+    quote! {
+        let mut #name = #type_name::default();
+
+        #( #setters )*
+    }
+}
+
+fn proc_block_type_name(proc_block: &ProcBlock) -> TokenStream {
+    let module_name = proc_block.name().to_snake_case();
+    let type_name = module_name.to_camel_case();
+
+    let module_name = Ident::new(&module_name, Span::call_site());
+    let type_name = Ident::new(&type_name, Span::call_site());
+
+    quote!(#module_name::#type_name)
+}
+
+fn sink_type_name(kind: &SinkKind) -> TokenStream {
+    match kind {
+        SinkKind::Serial => quote!(runic_types::wasm32::Serial),
+        SinkKind::Other(other) => ident(other),
+    }
+}
+
+fn initialize_source(
+    name: Ident,
+    kind: &SourceKind,
+    parameters: &HashMap<String, ArgumentValue>,
+) -> TokenStream {
+    let type_name = source_type_name(kind);
+    let setters = parameters.iter().map(|(key, value)| {
+        let arg = quote_value(value);
+        quote! { #name.set_parameter(#key, #arg); }
+    });
+
+    quote! {
+        let mut #name = #type_name::default();
+        #( #setters )*
+    }
+}
+
+fn quote_value(value: &ArgumentValue) -> TokenStream {
     match value {
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::Integer(i),
             ..
-        }) => quote! {#i},
+        }) => quote!(#i),
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::Float(f),
             ..
-        }) => quote! {#f},
+        }) => quote!(#f),
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::String(s),
             ..
-        }) => quote! {#s},
-        ArgumentValue::List(_) => todo!(),
+        }) if s.starts_with("@") => todo!("Verbatim Rust"),
+        ArgumentValue::Literal(Literal {
+            kind: LiteralKind::String(s),
+            ..
+        }) => quote!(#s),
+        ArgumentValue::List(strings) => quote!([ #(#strings),* ]),
     }
 }
 
@@ -100,14 +162,17 @@ fn source_type_name(kind: &SourceKind) -> TokenStream {
         SourceKind::Raw => "runic_types::wasm32::Raw",
         SourceKind::Other(other) => other.as_str(),
     };
-    let segments = name
+
+    ident(name)
+}
+
+fn ident(fully_qualified_path: &str) -> TokenStream {
+    let segments = fully_qualified_path
         .split("::")
         .map(|segment| Ident::new(segment, Span::call_site()));
 
     let mut tokens = TokenStream::new();
-
     tokens.append_separated(segments, quote! {::});
-
     tokens
 }
 
@@ -163,13 +228,22 @@ mod tests {
             .spawn()
             .unwrap();
 
-        writeln!(child.stdin.take().unwrap(), "{}", tokens).unwrap();
+        // Note: We need to wrap the fragment in a function so it'll parse
+        let mut stdin = child.stdin.take().unwrap();
+        writeln!(stdin, "fn main() {{").unwrap();
+        writeln!(stdin, "{}", tokens).unwrap();
+        writeln!(stdin, "}}").unwrap();
+        stdin.flush().unwrap();
+        drop(stdin);
 
         let mut stdout = child.stdout.take().unwrap();
         let mut pretty = String::new();
         stdout.read_to_string(&mut pretty).unwrap();
 
-        pretty
+        let opening_curly = pretty.find("{").unwrap();
+        let closing_curly = pretty.rfind("}").unwrap();
+
+        pretty[opening_curly + 1..closing_curly].trim().to_string()
     }
 
     macro_rules! assert_quote_eq {
@@ -181,7 +255,7 @@ mod tests {
                 let pretty_left = rustfmt($left);
                 let pretty_right = rustfmt($right);
                 assert_eq!(pretty_left, pretty_right);
-                unreachable!();
+                assert_eq!(left, right);
             }
         }};
     }
@@ -222,8 +296,6 @@ mod tests {
                     let _guard = PipelineGuard::default();
                 };
 
-                let x = 90;
-
                 unsafe {
                     PIPELINE = Some(Box::new(pipeline));
                 }
@@ -234,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn initialize_audio_capacity() {
+    fn initialize_audio_capability() {
         let rune = rune(
             r#"
         image: runicos/base
@@ -254,6 +326,88 @@ mod tests {
         let should_be = quote! {
             let mut audio = runic_types::wasm32::Sound::default();
             audio.set_parameter("hz", 16000i64);
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn initialize_model() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          sine:
+            model: ./sine.tflite
+        "#,
+        );
+        let id = rune.names["sine"];
+        let node = &rune.stages[&id];
+
+        let got = initialize_node(&rune, id, node).to_token_stream();
+
+        let should_be = quote! {
+            let mut sine = Model::load(include_bytes!("./sine.tflite"));
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn initialize_outputs() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          serial:
+            out: SERIAL
+        "#,
+        );
+        let id = rune.names["serial"];
+        let node = &rune.stages[&id];
+
+        let got = initialize_node(&rune, id, node).to_token_stream();
+
+        let should_be = quote! {
+            let mut serial = runic_types::wasm32::Serial::default();
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn initialize_proc_block() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+
+        pipeline:
+          audio:
+            capability: SOUND
+            outputs:
+              - type: u8
+                dimensions: [18000]
+          normalize:
+            proc-block: hotg-ai/rune#proc_blocks/label
+            inputs:
+              - audio
+            args:
+              labels:
+                - silence
+                - unknown
+                - up
+                - down
+                - left
+                - right
+        "#,
+        );
+        let id = rune.names["normalize"];
+        let node = &rune.stages[&id];
+
+        let got = initialize_node(&rune, id, node).to_token_stream();
+
+        let should_be = quote! {
+            let mut normalize = label::Label::default();
+            normalize.set_labels(["silence", "unknown", "up", "down", "left", "right"]);
         };
         assert_quote_eq!(got, should_be);
     }
