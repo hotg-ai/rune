@@ -81,6 +81,42 @@ impl Rune {
             .copied()
             .collect()
     }
+
+    /// Get a topological sorting of the pipeline graph.
+    pub fn sorted_pipeline(&self) -> impl Iterator<Item = (HirId, &Node)> + '_ {
+        let mut visited = HashSet::with_capacity(self.stages.len());
+        let mut stack = Vec::with_capacity(self.stages.len());
+
+        for key in self.stages.keys() {
+            if !visited.contains(key) {
+                topo_sort(*key, self, &mut visited, &mut stack);
+            }
+        }
+
+        stack.into_iter().map(move |id| (id, &self.stages[&id]))
+    }
+}
+
+fn topo_sort(
+    id: HirId,
+    rune: &Rune,
+    visited: &mut HashSet<HirId>,
+    stack: &mut Vec<HirId>,
+) {
+    visited.insert(id);
+
+    let node = &rune.stages[&id];
+
+    for incoming in &node.input_slots {
+        let slot = &rune.slots[incoming];
+        let input = slot.input_node;
+
+        if !visited.contains(&input) {
+            topo_sort(input, rune, visited, stack);
+        }
+    }
+
+    stack.push(id);
 }
 
 #[derive(
@@ -464,11 +500,15 @@ pub struct PipelineGraph {}
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Node {
     pub stage: Stage,
+    /// The [`Slot`]s that this [`Node`] receives data from.
     pub input_slots: Vec<HirId>,
+    /// The [`Slot`]s that this [`Node`] sends data to.
     pub output_slots: Vec<HirId>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Slot {
     pub element_type: HirId,
+    pub input_node: HirId,
+    pub output_node: HirId,
 }

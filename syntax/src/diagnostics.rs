@@ -12,8 +12,15 @@ impl Diagnostics {
         self.0.iter()
     }
 
+    pub fn iter_severity(
+        &self,
+        severity: Severity,
+    ) -> impl Iterator<Item = &'_ Diagnostic<FileId>> + '_ {
+        self.iter().filter(move |diag| diag.severity >= severity)
+    }
+
     pub fn has_severity(&self, severity: Severity) -> bool {
-        self.iter().any(|diag| diag.severity >= severity)
+        self.iter_severity(severity).next().is_some()
     }
 
     pub fn has_errors(&self) -> bool { self.has_severity(Severity::Error) }

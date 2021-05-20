@@ -1,3 +1,5 @@
+use std::collections::{HashSet, VecDeque};
+
 use codespan::Span;
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
@@ -19,6 +21,7 @@ pub fn analyse(doc: &Document, diags: &mut Diagnostics) -> Rune {
     ctx.register_stages(&doc.pipeline);
     ctx.register_output_slots(&doc.pipeline);
     ctx.construct_pipeline(&doc.pipeline);
+    ctx.check_for_loops();
 
     ctx.rune
 }
@@ -93,7 +96,14 @@ impl<'diag> Context<'diag> {
             for ty in stage.output_types() {
                 let element_type = self.intern_type(ty);
                 let id = self.ids.next();
-                self.rune.slots.insert(id, Slot { element_type });
+                self.rune.slots.insert(
+                    id,
+                    Slot {
+                        element_type,
+                        input_node: node_id,
+                        output_node: HirId::ERROR,
+                    },
+                );
                 output_slots.push(id);
             }
 
@@ -138,7 +148,11 @@ impl<'diag> Context<'diag> {
 
                 let input_index = input.index.unwrap_or(0);
                 match incoming_node.output_slots.get(input_index) {
-                    Some(slot_id) => input_slots.push(*slot_id),
+                    Some(slot_id) => {
+                        input_slots.push(*slot_id);
+                        let slot = self.rune.slots.get_mut(slot_id).unwrap();
+                        slot.output_node = node_id;
+                    },
                     None => {
                         let diag = Diagnostic::error().with_message(format!(
                             "The \"{}\" stage tried to connect to \"{}\" but that stage only has {} outputs",
@@ -205,6 +219,94 @@ impl<'diag> Context<'diag> {
             _ => None,
         }
     }
+
+    fn check_for_loops(&mut self) {
+        if let Some(cycle) = self.next_cycle() {
+            let (first, middle) = match cycle.as_slice() {
+                [first, middle @ ..] => (first, middle),
+                _ => unreachable!("A cycle must have at least 2 items"),
+            };
+
+            let mut diag = Diagnostic::error().with_message(format!(
+                "Cycle detected when checking \"{}\"",
+                self.rune.names.get_name(*first).unwrap()
+            ));
+
+            if let Some(span) = self.rune.spans.get(first) {
+                diag = diag.with_labels(vec![Label::primary((), *span)]);
+            }
+
+            let mut notes = Vec::new();
+
+            for middle_id in middle {
+                let msg = format!(
+                    "... which receives input from \"{}\"...",
+                    self.rune.names.get_name(*middle_id).unwrap()
+                );
+                notes.push(msg);
+            }
+
+            let closing_message = format!(
+                "... which receives input from \"{}\", completing the cycle.",
+                self.rune.names.get_name(*first).unwrap()
+            );
+            notes.push(closing_message);
+
+            self.diags.push(diag.with_notes(notes));
+        }
+    }
+
+    fn next_cycle(&self) -> Option<Vec<HirId>> {
+        // https://www.geeksforgeeks.org/detect-cycle-in-a-graph/
+        let mut stack = VecDeque::new();
+        let mut visited = HashSet::new();
+
+        for id in self.rune.stages.keys().copied() {
+            if detect_cycles(id, &self.rune, &mut visited, &mut stack) {
+                return Some(stack.into());
+            }
+        }
+
+        None
+    }
+}
+
+fn detect_cycles(
+    id: HirId,
+    rune: &Rune,
+    visited: &mut HashSet<HirId>,
+    stack: &mut VecDeque<HirId>,
+) -> bool {
+    if stack.contains(&id) {
+        // We've detected a cycle, remove everything before our id so the stack
+        // is left just containing the cycle
+        while stack.front() != Some(&id) {
+            stack.pop_front();
+        }
+
+        return true;
+    } else if visited.contains(&id) {
+        return false;
+    }
+
+    visited.insert(id);
+    stack.push_back(id);
+
+    let incoming_nodes = rune.stages[&id]
+        .input_slots
+        .iter()
+        .map(|slot_id| rune.slots[slot_id].input_node);
+
+    for incoming_node in incoming_nodes {
+        if detect_cycles(incoming_node, rune, visited, stack) {
+            return true;
+        }
+    }
+
+    let got = stack.pop_back();
+    debug_assert_eq!(got, Some(id));
+
+    return false;
 }
 
 #[cfg(test)]
@@ -574,5 +676,67 @@ pipeline:
         let output_id = rune.names["serial"];
         let output_node = &rune.stages[&output_id];
         assert_eq!(fft_node.output_slots, output_node.input_slots);
+    }
+
+    #[test]
+    fn topological_sorting() {
+        let doc = dummy_document();
+        let mut diags = Diagnostics::new();
+        let rune = analyse(&doc, &mut diags);
+        let should_be = ["audio", "fft", "model", "label", "output"];
+
+        let got: Vec<_> = rune.sorted_pipeline().collect();
+
+        let should_be: Vec<_> = should_be
+            .iter()
+            .copied()
+            .map(|name| rune.names.get_id(name).unwrap())
+            .map(|id| (id, &rune.stages[&id]))
+            .collect();
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn detect_pipeline_cycle() {
+        let src = r#"
+image: runicos/base
+
+pipeline:
+  audio:
+    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    inputs:
+    - model
+    outputs:
+    - type: i16
+      dimensions: [16000]
+
+  fft:
+    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    inputs:
+    - audio
+    outputs:
+    - type: i8
+      dimensions: [1960]
+
+  model:
+    model: "./model.tflite"
+    inputs:
+    - fft
+    outputs:
+    - type: i8
+      dimensions: [6]
+            "#;
+        let doc = Document::parse(src).unwrap();
+        let mut diags = Diagnostics::new();
+
+        let _ = analyse(&doc, &mut diags);
+
+        assert!(diags.has_errors());
+        let errors: Vec<_> = diags
+            .iter_severity(codespan_reporting::diagnostic::Severity::Error)
+            .collect();
+        assert_eq!(errors.len(), 1);
+        let error_message = errors[0];
+        panic!("{:#?}", error_message);
     }
 }
