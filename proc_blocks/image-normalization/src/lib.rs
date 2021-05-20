@@ -8,13 +8,34 @@ use core::{convert::TryInto, fmt::Display};
 use runic_types::{HasOutputs, Tensor, Transform, TensorViewMut};
 
 #[derive(Debug, Default, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct ImageNormalization {
-    red: Distribution,
-    green: Distribution,
-    blue: Distribution,
+    pub red: Distribution,
+    pub green: Distribution,
+    pub blue: Distribution,
 }
 
 impl ImageNormalization {
+    /// A shortcut for initializing the red, green, and blue distributions in
+    /// one call.
+    pub fn with_rgb<D>(self, distribution: D) -> Self
+    where
+        D: TryInto<Distribution>,
+        D::Error: Display,
+    {
+        let d = match distribution.try_into() {
+            Ok(d) => d,
+            Err(e) => panic!("Invalid distribution: {}", e),
+        };
+
+        ImageNormalization {
+            red: d,
+            green: d,
+            blue: d,
+            ..self
+        }
+    }
+
     pub fn with_red<D>(self, distribution: D) -> Self
     where
         D: TryInto<Distribution>,
@@ -86,9 +107,9 @@ fn transform(
 ) {
     let [_, rows, columns] = view.dimensions();
 
-    for y in 0..rows {
-        for x in 0..columns {
-            let ix = [channel, x, y];
+    for row in 0..rows {
+        for column in 0..columns {
+            let ix = [channel, row, column];
             let current_value = view[ix];
             view[ix] = d.z_score(current_value);
         }
@@ -105,5 +126,23 @@ impl HasOutputs for ImageNormalization {
             ),
             _ => panic!("The image normalization proc block only supports outputs of the form [channels, rows, columns], found {:?}", dimensions),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizing_with_default_distribution_is_noop() {
+        let red = [[1.0], [4.0], [7.0], [10.0]];
+        let green = [[2.0], [5.0], [8.0], [11.0]];
+        let blue = [[3.0], [6.0], [9.0], [12.0]];
+        let image: Tensor<f32> = Tensor::from([red, green, blue]);
+        let mut norm = ImageNormalization::default();
+
+        let got = norm.transform(image.clone());
+
+        assert_eq!(got, image);
     }
 }

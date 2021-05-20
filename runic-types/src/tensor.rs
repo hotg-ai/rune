@@ -240,7 +240,13 @@ fn index_of(dimensions: &[usize], indices: &[usize]) -> Option<usize> {
         }
     }
 
-    Some(index)
+    let num_elements: usize = dimensions.iter().product();
+
+    if index < num_elements {
+        Some(index)
+    } else {
+        None
+    }
 }
 
 impl<'t, T, const RANK: usize> Index<[usize; RANK]>

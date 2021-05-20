@@ -11,7 +11,12 @@ pub struct Distribution {
 }
 
 impl Distribution {
-    pub const fn new(mean: f32, standard_deviation: f32) -> Self {
+    pub fn new(mean: f32, standard_deviation: f32) -> Self {
+        assert_ne!(
+            standard_deviation, 0.0,
+            "The standard deviation must be non-zero"
+        );
+
         Distribution {
             mean,
             standard_deviation,
