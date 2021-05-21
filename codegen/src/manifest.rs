@@ -84,7 +84,7 @@ fn proc_block_dependency(
     if is_builtin(path) {
         return builtin_proc_block(name, path, project);
     } else if path.base.starts_with(".") {
-        return local_proc_block(name, path, current_dir);
+        return local_proc_block(path, current_dir);
     }
 
     if path.sub_path.is_none() && !path.base.contains("/") {
@@ -107,7 +107,6 @@ fn proc_block_dependency(
 }
 
 fn local_proc_block(
-    name: &str,
     path: &rune_syntax::ast::Path,
     current_dir: &Path,
 ) -> DependencyDetail {

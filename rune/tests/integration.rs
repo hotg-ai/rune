@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use walkdir::WalkDir;
 use std::path::{Path, PathBuf};
 use tempfile::{NamedTempFile, TempDir};
 use std::io::Write;
@@ -211,14 +212,16 @@ fn person_detection() {
 
 #[test]
 fn build_all_examples() {
-    for entry in example_dir().read_dir().unwrap() {
-        let entry = entry.unwrap();
-        let runefile = entry.path().join("Runefile");
+    let runefiles = WalkDir::new(example_dir())
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry.file_name() == "Runefile"
+                || entry.file_name() == "Runefile.yml"
+        });
 
-        if runefile.exists() {
-            let mut cmd = Command::cargo_bin("rune").unwrap();
-
-            cmd.arg("build").arg(&runefile).assert().success();
-        }
+    for runefile in runefiles {
+        let mut cmd = Command::cargo_bin("rune").unwrap();
+        cmd.arg("build").arg(runefile.path()).assert().success();
     }
 }

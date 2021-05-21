@@ -2174,6 +2174,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "tflite",
+ "walkdir",
 ]
 
 [[package]]

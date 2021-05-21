@@ -35,6 +35,7 @@ tflite = "0.9.5"
 assert_cmd = "1.0.3"
 predicates = "1.0.7"
 tempfile = "3.2.0"
+walkdir = "2.3.2"
 
 [build-dependencies]
 build-info-build = "0.0.23"
