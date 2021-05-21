@@ -54,7 +54,7 @@ pub fn generate_with_env(
         .context("Unable to construct the \"config.toml\" file")?;
     let models = crate::models::load(&c.rune, env)
         .context("Unable to load the models")?;
-    let lib_rs = crate::code::generate(&c.rune)
+    let lib_rs = crate::code::generate(&c.rune, env.build_info())
         .context("Unable to generate the \"lib.rs\" file")?;
 
     let project = Project {

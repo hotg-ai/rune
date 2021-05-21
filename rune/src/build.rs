@@ -3,7 +3,7 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use rune_codegen::{Compilation, GitSpecifier, RuneProject};
+use rune_codegen::{Compilation, DefaultEnvironment, GitSpecifier, RuneProject};
 use rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
@@ -74,7 +74,9 @@ impl Build {
             working_directory,
             optimized: !self.debug,
         };
-        let blob = rune_codegen::generate(compilation)
+        let mut env = DefaultEnvironment::for_compilation(&compilation)
+            .with_build_info(crate::version::version().clone());
+        let blob = rune_codegen::generate_with_env(compilation, &mut env)
             .context("Rune compilation failed")?;
 
         log::debug!("Generated {} bytes", blob.len());
