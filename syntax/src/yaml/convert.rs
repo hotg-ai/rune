@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::{
     Diagnostics,
     ast::{
@@ -250,7 +252,7 @@ fn convert_value(value: ArgumentValue) -> Value {
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::Integer(i),
             ..
-        }) => i.into(),
+        }) => Value::Int(i.try_into().unwrap()),
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::Float(f),
             ..

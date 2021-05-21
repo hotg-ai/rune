@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use core::convert::TryInto;
+use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
 use runic_types::{HasOutputs, Tensor, Transform};
@@ -20,8 +20,13 @@ impl MostConfidentIndices {
     pub fn new(count: usize) -> Self { MostConfidentIndices { count } }
 
     /// Set the number of indices to return.
-    pub const fn with_count(self, count: usize) -> Self {
-        MostConfidentIndices { count, ..self }
+    pub fn set_count<T>(&mut self, count: T) -> &mut Self
+    where
+        T: TryInto<usize>,
+        T::Error: Debug,
+    {
+        self.count = count.try_into().unwrap();
+        self
     }
 }
 

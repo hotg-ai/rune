@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::{self, Formatter, Display},
     str::FromStr,
 };
@@ -272,33 +271,27 @@ impl<'a> From<&'a Stage> for hir::Stage {
                 proc_block, args, ..
             } => hir::Stage::ProcBlock(hir::ProcBlock {
                 path: proc_block.into(),
-                parameters: to_parameters(args),
+                parameters: args
+                    .clone()
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
             }),
             Stage::Capability {
                 capability, args, ..
             } => hir::Stage::Source(hir::Source {
                 kind: capability.as_str().into(),
-                parameters: to_parameters(args),
+                parameters: args
+                    .clone()
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
             }),
             Stage::Out { out, .. } => hir::Stage::Sink(hir::Sink {
                 kind: out.as_str().into(),
             }),
         }
     }
-}
-
-fn to_parameters(
-    yaml: &IndexMap<String, Value>,
-) -> HashMap<String, ArgumentValue> {
-    let mut map = HashMap::new();
-
-    for (key, value) in yaml {
-        let key = key.replace("-", "_");
-        let value = value.clone().into();
-        map.insert(key, value);
-    }
-
-    map
 }
 
 #[derive(
@@ -314,7 +307,7 @@ pub struct Type {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename = "kebab-case", untagged)]
 pub enum Value {
-    Int(i64),
+    Int(i32),
     Float(f32),
     String(String),
     List(Vec<Value>),
@@ -324,8 +317,8 @@ impl From<f32> for Value {
     fn from(f: f32) -> Value { Value::Float(f) }
 }
 
-impl From<i64> for Value {
-    fn from(i: i64) -> Value { Value::Int(i) }
+impl From<i32> for Value {
+    fn from(i: i32) -> Value { Value::Int(i) }
 }
 
 impl From<String> for Value {
@@ -344,7 +337,7 @@ impl From<Value> for ArgumentValue {
     fn from(v: Value) -> ArgumentValue {
         match v {
             Value::Int(i) => {
-                ArgumentValue::Literal(Literal::new(i, Span::new(0, 0)))
+                ArgumentValue::Literal(Literal::new(i as i64, Span::new(0, 0)))
             },
             Value::Float(f) => {
                 ArgumentValue::Literal(Literal::new(f, Span::new(0, 0)))

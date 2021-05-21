@@ -9,7 +9,7 @@ use std::{
     path::PathBuf,
 };
 use codespan::Span;
-use crate::ast::{ArgumentValue, Path};
+use crate::{ast::Path, yaml::Value};
 
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -441,7 +441,7 @@ impl Primitive {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Source {
     pub kind: SourceKind,
-    pub parameters: HashMap<String, ArgumentValue>,
+    pub parameters: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -472,7 +472,7 @@ impl<'a> From<&'a str> for SourceKind {
 #[serde(rename_all = "kebab-case")]
 pub struct ProcBlock {
     pub path: Path,
-    pub parameters: HashMap<String, ArgumentValue>,
+    pub parameters: HashMap<String, Value>,
 }
 
 impl ProcBlock {

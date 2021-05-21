@@ -5,11 +5,11 @@ use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
 use proc_macro2::{Ident, Span, TokenStream};
 use rune_syntax::{
-    ast::{ArgumentValue, Literal, LiteralKind},
     hir::{
         HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
         SourceKind, Stage, Type,
     },
+    yaml::Value,
 };
 
 /// Generate the Rune's `lib.rs` file.
@@ -271,7 +271,7 @@ fn sink_type_name(kind: &SinkKind) -> TokenStream {
 fn initialize_source(
     name: Ident,
     kind: &SourceKind,
-    parameters: &HashMap<String, ArgumentValue>,
+    parameters: &HashMap<String, Value>,
 ) -> TokenStream {
     let type_name = source_type_name(kind);
     let setters = parameters.iter().map(|(key, value)| {
@@ -285,25 +285,27 @@ fn initialize_source(
     }
 }
 
-fn quote_value(value: &ArgumentValue) -> TokenStream {
+fn quote_value(value: &Value) -> TokenStream {
     match value {
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::Integer(i),
-            ..
-        }) => quote!(#i),
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::Float(f),
-            ..
-        }) => quote!(#f),
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::String(s),
-            ..
-        }) if s.starts_with("@") => todo!("Verbatim Rust"),
-        ArgumentValue::Literal(Literal {
-            kind: LiteralKind::String(s),
-            ..
-        }) => quote!(#s),
-        ArgumentValue::List(strings) => quote!([ #(#strings),* ]),
+        Value::Int(i) => quote!(#i),
+        Value::Float(f) => quote!(#f),
+        Value::String(s) if s.starts_with("@") => {
+            let rust_code = &s[1..];
+            match rust_code.parse() {
+                Ok(tokens) => tokens,
+                // TODO: validate this as part of rune-syntax so users can't
+                // make `rune build` blow up
+                Err(e) => panic!(
+                    "Unable to parse \"{}\" as valid Rust: {}",
+                    rust_code, e
+                ),
+            }
+        },
+        Value::String(s) => quote!(#s),
+        Value::List(list) => {
+            let values = list.iter().map(quote_value);
+            quote!([#(#values),*])
+        },
     }
 }
 

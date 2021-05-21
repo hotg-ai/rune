@@ -1,0 +1,54 @@
+image: "runicos/base"
+
+pipeline:
+  audio:
+    capability: SOUND
+    outputs:
+    - type: i16
+      dimensions: [16000]
+    args:
+      hz: 16000
+
+  accelerometer:
+    capability: ACCEL
+    outputs:
+    - type: f32
+      dimensions: [128, 3]
+
+  normalize:
+    proc-block: "hotg-ai/rune#proc_blocks/normalize"
+    inputs:
+    - accelerometer
+    outputs:
+    - type: f32
+      dimensions: [128, 3]
+
+  model:
+    model: "./model.tflite"
+    inputs:
+    - audio
+    - accelerometer
+    outputs:
+    - type: f32
+      dimensions: [4]
+
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    inputs:
+    - model
+    outputs:
+    - type: utf8
+    args:
+      labels: ["Wing", "Ring", "Slope", "Unknown"]
+
+  output:
+    out: SERIAL
+    inputs:
+    - label
+
+  debug:
+    out: SERIAL
+    inputs:
+    - fft
+    - model
+    - label

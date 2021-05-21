@@ -28,10 +28,12 @@ pub struct Label {
 }
 
 impl Label {
-    pub fn with_labels(self, labels: impl AsRef<[&'static str]>) -> Self {
-        Label {
-            labels: labels.as_ref().to_vec(),
-        }
+    pub fn set_labels(
+        &mut self,
+        labels: impl AsRef<[&'static str]>,
+    ) -> &mut Self {
+        self.labels = labels.as_ref().to_vec();
+        self
     }
 }
 
@@ -89,7 +91,8 @@ mod tests {
     #[test]
     #[should_panic = "Index out of bounds: there are 2 labels but label 42 was requested"]
     fn label_index_out_of_bounds() {
-        let mut proc_block = Label::default().with_labels(&["first", "second"]);
+        let mut proc_block = Label::default();
+        proc_block.set_labels(&["first", "second"]);
         let input = Tensor::new_vector(alloc::vec![0_usize, 42]);
 
         let _ = proc_block.transform(input);
@@ -97,8 +100,8 @@ mod tests {
 
     #[test]
     fn get_the_correct_labels() {
-        let mut proc_block =
-            Label::default().with_labels(&["zero", "one", "two", "three"]);
+        let mut proc_block = Label::default();
+        proc_block.set_labels(&["zero", "one", "two", "three"]);
         let input = Tensor::new_vector(alloc::vec![3, 1, 2]);
         let should_be = Tensor::new_vector(alloc::vec!["three", "one", "two"]);
 
