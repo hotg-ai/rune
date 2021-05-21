@@ -40,12 +40,19 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
         .copied()
         .map(|(id, node)| evaluate_node(rune, id, node));
 
+    let set_output_dimensions = sorted_pipeline
+        .iter()
+        .copied()
+        .map(|(id, node)| set_output_dimensions(rune, id, node));
+
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> u32 {
             let _setup = SetupGuard::default();
 
             #( #initialized_node )*
+
+            #( #set_output_dimensions )*
 
             let pipeline = move || {
                 let _guard = PipelineGuard::default();
@@ -59,6 +66,29 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
 
             1
         }
+    }
+}
+
+fn set_output_dimensions(
+    rune: &Rune,
+    node_id: HirId,
+    node: &Node,
+) -> Option<TokenStream> {
+    let output_slot_id = match *node.output_slots {
+        [] => return None,
+        [output] => output,
+        [..] => unimplemented!("Set multiple output dimensions"),
+    };
+
+    let name = Ident::new(&rune.names[node_id], Span::call_site());
+    let slot = &rune.slots[&output_slot_id];
+
+    if let Type::Buffer { dimensions, .. } = &rune.types[&slot.element_type] {
+        Some(quote! {
+            #name.set_output_dimensions(&[ #(#dimensions),* ]);
+        })
+    } else {
+        None
     }
 }
 
@@ -449,7 +479,9 @@ mod tests {
             pub extern "C" fn _manifest() -> u32 {
                 let _setup = SetupGuard::default();
                 let mut audio = runic_types::wasm32::Sound::default();
-                audio.set_parameter("hz", 16000i64);
+                audio.set_parameter("hz", 16000i32);
+
+                audio.set_output_dimensions(&[18000usize]);
 
                 let pipeline = move || {
                     let _guard = PipelineGuard::default();
@@ -485,7 +517,7 @@ mod tests {
 
         let should_be = quote! {
             let mut audio = runic_types::wasm32::Sound::default();
-            audio.set_parameter("hz", 16000i64);
+            audio.set_parameter("hz", 16000i32);
         };
         assert_quote_eq!(got, should_be);
     }
