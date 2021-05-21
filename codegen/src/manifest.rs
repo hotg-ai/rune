@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
     Manifest, Package, PatchSet, Product, Profiles, Publish, TargetDepsSet,
@@ -12,6 +12,7 @@ pub(crate) fn generate(
     rune: &Rune,
     name: &str,
     project: &RuneProject,
+    current_dir: &Path,
 ) -> Manifest {
     let product = Product {
         path: Some("lib.rs".to_string()),
@@ -23,7 +24,7 @@ pub(crate) fn generate(
     Manifest {
         package: Some(package(name)),
         lib: Some(product),
-        dependencies: dependencies(rune, project),
+        dependencies: dependencies(rune, project, current_dir),
         ..empty_manifest()
     }
 }
@@ -38,7 +39,11 @@ fn package(name: &str) -> Package {
     }
 }
 
-fn dependencies(rune: &Rune, project: &RuneProject) -> DepsSet {
+fn dependencies(
+    rune: &Rune,
+    project: &RuneProject,
+    current_dir: &Path,
+) -> DepsSet {
     let mut deps = DepsSet::new();
 
     // We always need the log crate
@@ -63,7 +68,7 @@ fn dependencies(rune: &Rune, project: &RuneProject) -> DepsSet {
         .collect();
 
     for (name, path) in proc_blocks {
-        let dep = proc_block_dependency(name, path, project);
+        let dep = proc_block_dependency(name, path, project, current_dir);
         deps.insert(name.to_string(), Dependency::Detailed(dep));
     }
 
@@ -74,9 +79,12 @@ fn proc_block_dependency(
     name: &str,
     path: &rune_syntax::ast::Path,
     project: &RuneProject,
+    current_dir: &Path,
 ) -> DependencyDetail {
     if is_builtin(path) {
-        return builtin_proc_block(name, project);
+        return builtin_proc_block(name, path, project);
+    } else if path.base.starts_with(".") {
+        return local_proc_block(path, current_dir);
     }
 
     if path.sub_path.is_none() && !path.base.contains("/") {
@@ -98,12 +106,27 @@ fn proc_block_dependency(
     }
 }
 
-fn builtin_proc_block(name: &str, project: &RuneProject) -> DependencyDetail {
+fn local_proc_block(
+    path: &rune_syntax::ast::Path,
+    current_dir: &Path,
+) -> DependencyDetail {
+    DependencyDetail {
+        path: Some(current_dir.join(&path.base).display().to_string()),
+        ..empty_dependency_detail()
+    }
+}
+
+fn builtin_proc_block(
+    name: &str,
+    path: &rune_syntax::ast::Path,
+    project: &RuneProject,
+) -> DependencyDetail {
     match project {
         RuneProject::Disk(root_dir) => {
-            let path = root_dir.join("proc_blocks").join(name);
+            let path = path.sub_path.as_deref().unwrap_or(name);
+
             DependencyDetail {
-                path: Some(path.display().to_string()),
+                path: Some(root_dir.join(path).display().to_string()),
                 ..empty_dependency_detail()
             }
         },
@@ -219,7 +242,7 @@ mod tests {
         let rune = Rune::default();
         let project = RuneProject::default();
 
-        let got = dependencies(&rune, &project);
+        let got = dependencies(&rune, &project, Path::new("."));
 
         assert_eq!(got.len(), 2);
         assert!(got.contains_key("log"));
@@ -241,7 +264,8 @@ mod tests {
             ..empty_dependency_detail()
         };
 
-        let got = proc_block_dependency("normalize", &path, &project);
+        let got =
+            proc_block_dependency("normalize", &path, &project, Path::new("."));
 
         assert_eq!(got, should_be);
     }
@@ -255,7 +279,8 @@ mod tests {
             ..empty_dependency_detail()
         };
 
-        let got = proc_block_dependency("whatever", &path, &project);
+        let got =
+            proc_block_dependency("whatever", &path, &project, Path::new("."));
 
         assert_eq!(got, should_be);
     }
@@ -265,7 +290,7 @@ mod tests {
         let project = RuneProject::default();
         let rune = Rune::default();
 
-        let got = generate(&rune, "foo", &project);
+        let got = generate(&rune, "foo", &project, Path::new("."));
 
         let crate_type = got.lib.unwrap().crate_type.unwrap();
         assert!(crate_type.contains(&String::from("cdylib")));

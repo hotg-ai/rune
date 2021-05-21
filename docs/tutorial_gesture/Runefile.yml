@@ -33,6 +33,8 @@ pipeline:
       - gesture
     outputs:
       - type: UTF8
+        dimensions:
+          - 1
     args:
       labels:
         - Wing
