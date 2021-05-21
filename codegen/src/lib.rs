@@ -44,7 +44,12 @@ pub fn generate_with_env(
     c: Compilation,
     env: &mut dyn Environment,
 ) -> Result<Vec<u8>, Error> {
-    let manifest = crate::manifest::generate(&c.rune, &c.name, &c.rune_project);
+    let manifest = crate::manifest::generate(
+        &c.rune,
+        &c.name,
+        &c.rune_project,
+        &c.current_directory,
+    );
     let config = crate::config::generate(c.optimized)
         .context("Unable to construct the \"config.toml\" file")?;
     let models = crate::models::load(&c.rune, env)
