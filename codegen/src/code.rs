@@ -48,14 +48,14 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> u32 {
-            let _setup = SetupGuard::default();
+            let _setup = runic_types::wasm32::SetupGuard::default();
 
             #( #initialized_node )*
 
             #( #set_output_dimensions )*
 
             let pipeline = move || {
-                let _guard = PipelineGuard::default();
+                let _guard = runic_types::wasm32::PipelineGuard::default();
 
                 #( #transform )*
             };
@@ -77,7 +77,10 @@ fn set_output_dimensions(
     let output_slot_id = match *node.output_slots {
         [] => return None,
         [output] => output,
-        [..] => unimplemented!("Set multiple output dimensions"),
+        // TODO: Create a mechanism for notifying a pipeline stage about
+        // multiple outputs. A proper solution will probably require a
+        // more sophisticated "reflection" system.
+        [..] => return None,
     };
 
     let name = Ident::new(&rune.names[node_id], Span::call_site());
@@ -262,7 +265,7 @@ fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
         Stage::Model(_) => {
             let model_file = format!("{}.tflite", name);
             quote! {
-                let mut #name = Model::load(include_bytes!(#model_file));
+                let mut #name = runic_types::wasm32::Model::load(include_bytes!(#model_file));
             }
         },
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
@@ -377,7 +380,7 @@ fn preamble() -> impl ToTokens {
 
         extern crate alloc;
 
-        use runic_types::{*, wasm32::*};
+        use runic_types::*;
         use alloc::boxed::Box;
 
         static mut PIPELINE: Option<Box<dyn FnMut()>> = None;
@@ -482,14 +485,14 @@ mod tests {
         let should_be = quote! {
             #[no_mangle]
             pub extern "C" fn _manifest() -> u32 {
-                let _setup = SetupGuard::default();
+                let _setup = runic_types::wasm32::SetupGuard::default();
                 let mut audio = runic_types::wasm32::Sound::default();
                 audio.set_parameter("hz", 16000i32);
 
                 audio.set_output_dimensions(&[18000usize]);
 
                 let pipeline = move || {
-                    let _guard = PipelineGuard::default();
+                    let _guard = runic_types::wasm32::PipelineGuard::default();
                     let audio_out_0: Tensor<u8> = audio.generate();
                 };
 
@@ -544,7 +547,7 @@ mod tests {
         let got = initialize_node(&rune, id, node).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = Model::load(include_bytes!("sine.tflite"));
+            let mut sine = runic_types::wasm32::Model::load(include_bytes!("sine.tflite"));
         };
         assert_quote_eq!(got, should_be);
     }

@@ -28,11 +28,24 @@ pipeline:
     inputs:
       - rand
 
+  # An example of using multiple inputs and outputs
+  identity:
+    proc-block: "hotg-ai/rune#proc_blocks/identity"
+    inputs:
+      - mod360
+      - sine
+    outputs:
+      - type: F32
+        dimensions: [1]
+      - type: F32
+        dimensions: [1]
+
+
   # Add another stage which captures the output from all the other stages so
   # we can inspect it
   debug_output:
     out: serial
     inputs:
       - rand
-      - mod360
-      - sine
+      - identity.0 # mod360
+      - identity.1 # The sine output
