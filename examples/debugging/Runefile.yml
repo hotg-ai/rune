@@ -30,7 +30,7 @@ pipeline:
 
   # An example of using multiple inputs and outputs
   identity:
-    proc-block: "hotg-ai/rune#proc_blocks/identity"
+    proc-block: "./identity"
     inputs:
       - mod360
       - sine
