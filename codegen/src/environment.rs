@@ -4,14 +4,20 @@ use std::{
 };
 use anyhow::{Context, Error};
 use serde::Serialize;
-
+use build_info::BuildInfo;
 use crate::{Compilation, Project};
 
 pub trait Environment {
     /// Compile a Rust project to WebAssembly, returning the contents of the
     /// compiled binary.
     fn compile(&mut self, project: Project) -> Result<Vec<u8>, Error>;
+
+    /// Read a file from the file system, relative to the "current" directory.
     fn read_file(&mut self, filename: &Path) -> Result<Vec<u8>, Error>;
+
+    /// Get a JSON object which contains information about the program compiling
+    /// this Rune.
+    fn build_info(&self) -> Option<serde_json::Value> { None }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,6 +26,7 @@ pub struct DefaultEnvironment {
     current_directory: PathBuf,
     optimize: bool,
     rust_version: String,
+    build_info: Option<BuildInfo>,
 }
 
 impl DefaultEnvironment {
@@ -29,6 +36,14 @@ impl DefaultEnvironment {
             current_directory: c.current_directory.clone(),
             optimize: c.optimized,
             rust_version: crate::rustup::NIGHTLY_VERSION.clone(),
+            build_info: None,
+        }
+    }
+
+    pub fn with_build_info(self, info: impl Into<Option<BuildInfo>>) -> Self {
+        DefaultEnvironment {
+            build_info: info.into(),
+            ..self
         }
     }
 
@@ -151,6 +166,12 @@ impl Environment for DefaultEnvironment {
     fn read_file(&mut self, filename: &Path) -> Result<Vec<u8>, Error> {
         let path = self.current_directory.join(filename);
         read(&path)
+    }
+
+    fn build_info(&self) -> Option<serde_json::Value> {
+        self.build_info
+            .as_ref()
+            .and_then(|info| serde_json::to_value(info).ok())
     }
 }
 

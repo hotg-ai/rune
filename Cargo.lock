@@ -2182,6 +2182,7 @@ name = "rune-codegen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-info",
  "cargo_toml",
  "handlebars",
  "heck",
