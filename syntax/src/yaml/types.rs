@@ -1,13 +1,15 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::{self, Formatter, Display},
     str::FromStr,
 };
 use indexmap::IndexMap;
 use regex::Regex;
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+use serde::{
+    de::{Error as _, Deserialize, Deserializer},
+    ser::{Serialize, Serializer},
+};
 use codespan::Span;
 use crate::{
     ast::{ArgumentValue, Literal},
@@ -84,6 +86,19 @@ impl<'a> From<&'a Path> for crate::ast::Path {
             version.clone(),
             Span::new(0, 0),
         )
+    }
+}
+
+impl<'a> From<&'a crate::ast::Path> for Path {
+    fn from(p: &'a crate::ast::Path) -> Path {
+        let crate::ast::Path {
+            base,
+            sub_path,
+            version,
+            ..
+        } = p;
+
+        Path::new(base.clone(), sub_path.clone(), version.clone())
     }
 }
 
@@ -174,7 +189,7 @@ pub enum Stage {
     Model {
         model: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        inputs: Vec<String>,
+        inputs: Vec<Input>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
     },
@@ -182,7 +197,7 @@ pub enum Stage {
         #[serde(rename = "proc-block")]
         proc_block: Path,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        inputs: Vec<String>,
+        inputs: Vec<Input>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         outputs: Vec<Type>,
         #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -198,14 +213,14 @@ pub enum Stage {
     Out {
         out: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        inputs: Vec<String>,
+        inputs: Vec<Input>,
         #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
         args: IndexMap<String, Value>,
     },
 }
 
 impl Stage {
-    pub fn inputs(&self) -> &[String] {
+    pub fn inputs(&self) -> &[Input] {
         match self {
             Stage::Model { inputs, .. }
             | Stage::ProcBlock { inputs, .. }
@@ -214,7 +229,7 @@ impl Stage {
         }
     }
 
-    pub fn inputs_mut(&mut self) -> Option<&mut Vec<String>> {
+    pub fn inputs_mut(&mut self) -> Option<&mut Vec<Input>> {
         match self {
             Stage::Model { inputs, .. }
             | Stage::ProcBlock { inputs, .. }
@@ -239,6 +254,11 @@ impl Stage {
             Stage::Out { .. } => &[],
         }
     }
+
+    pub fn span(&self) -> Span {
+        // TODO: Get span from serde_yaml
+        Span::new(0, 0)
+    }
 }
 
 impl<'a> From<&'a Stage> for hir::Stage {
@@ -251,33 +271,27 @@ impl<'a> From<&'a Stage> for hir::Stage {
                 proc_block, args, ..
             } => hir::Stage::ProcBlock(hir::ProcBlock {
                 path: proc_block.into(),
-                parameters: to_parameters(args),
+                parameters: args
+                    .clone()
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
             }),
             Stage::Capability {
                 capability, args, ..
             } => hir::Stage::Source(hir::Source {
                 kind: capability.as_str().into(),
-                parameters: to_parameters(args),
+                parameters: args
+                    .clone()
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
             }),
             Stage::Out { out, .. } => hir::Stage::Sink(hir::Sink {
                 kind: out.as_str().into(),
             }),
         }
     }
-}
-
-fn to_parameters(
-    yaml: &IndexMap<String, Value>,
-) -> HashMap<String, ArgumentValue> {
-    let mut map = HashMap::new();
-
-    for (key, value) in yaml {
-        let key = key.replace("-", "_");
-        let value = value.clone().into();
-        map.insert(key, value);
-    }
-
-    map
 }
 
 #[derive(
@@ -293,18 +307,18 @@ pub struct Type {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename = "kebab-case", untagged)]
 pub enum Value {
-    Int(i64),
-    Float(f64),
+    Int(i32),
+    Float(f32),
     String(String),
     List(Vec<Value>),
 }
 
-impl From<f64> for Value {
-    fn from(f: f64) -> Value { Value::Float(f) }
+impl From<f32> for Value {
+    fn from(f: f32) -> Value { Value::Float(f) }
 }
 
-impl From<i64> for Value {
-    fn from(i: i64) -> Value { Value::Int(i) }
+impl From<i32> for Value {
+    fn from(i: i32) -> Value { Value::Int(i) }
 }
 
 impl From<String> for Value {
@@ -323,7 +337,7 @@ impl From<Value> for ArgumentValue {
     fn from(v: Value) -> ArgumentValue {
         match v {
             Value::Int(i) => {
-                ArgumentValue::Literal(Literal::new(i, Span::new(0, 0)))
+                ArgumentValue::Literal(Literal::new(i as i64, Span::new(0, 0)))
             },
             Value::Float(f) => {
                 ArgumentValue::Literal(Literal::new(f, Span::new(0, 0)))
@@ -343,6 +357,144 @@ impl From<Value> for ArgumentValue {
 
                 ArgumentValue::List(items)
             },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
+pub struct Input {
+    pub name: String,
+    pub index: Option<usize>,
+}
+
+impl Input {
+    pub fn new(
+        name: impl Into<String>,
+        index: impl Into<Option<usize>>,
+    ) -> Self {
+        Input {
+            name: name.into(),
+            index: index.into(),
+        }
+    }
+}
+
+impl FromStr for Input {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        static PATTERN: Lazy<Regex> = Lazy::new(|| {
+            Regex::new(r"^(?P<name>[a-zA-Z_][\w-]*)(?:\.(?P<index>\d+))?$")
+                .unwrap()
+        });
+
+        let captures = PATTERN
+            .captures(s)
+            .ok_or("Expected something like \"fft\" or \"fft.2\"")?;
+
+        let name = &captures["name"];
+        let index = captures.name("index").map(|m| {
+            m.as_str()
+                .parse::<usize>()
+                .expect("Guaranteed by the regex")
+        });
+
+        Ok(Input::new(name, index))
+    }
+}
+
+impl Display for Input {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.index {
+            Some(index) => write!(f, "{}.{}", self.name, index),
+            None => write!(f, "{}", self.name),
+        }
+    }
+}
+
+impl Serialize for Input {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for Input {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = Cow::<str>::deserialize(deserializer)?;
+        Input::from_str(&raw).map_err(|e| D::Error::custom(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_normal_input_specifier() {
+        let src = "audio";
+        let should_be = Input::new("audio", None);
+
+        let got = Input::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+        assert_eq!(got.to_string(), src);
+    }
+
+    #[test]
+    fn input_specifier_with_tuple() {
+        let src = "audio.2";
+        let should_be = Input::new("audio", 2);
+
+        let got = Input::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+        assert_eq!(got.to_string(), src);
+    }
+
+    #[test]
+    fn parse_paths() {
+        let inputs = vec![
+            ("asdf", Path::new("asdf", None, None)),
+            ("runicos/base", Path::new("runicos/base", None, None)),
+            (
+                "runicos/base@0.1.2",
+                Path::new("runicos/base", None, Some(String::from("0.1.2"))),
+            ),
+            (
+                "runicos/base@latest",
+                Path::new("runicos/base", None, Some(String::from("latest"))),
+            ),
+            (
+                "hotg-ai/rune#proc_blocks/normalize",
+                Path::new(
+                    "hotg-ai/rune",
+                    Some(String::from("proc_blocks/normalize")),
+                    None,
+                ),
+            ),
+            (
+                "https://github.com/hotg-ai/rune",
+                Path::new("https://github.com/hotg-ai/rune", None, None),
+            ),
+            (
+                "https://github.com/hotg-ai/rune@2",
+                Path::new(
+                    "https://github.com/hotg-ai/rune",
+                    None,
+                    Some(String::from("2")),
+                ),
+            ),
+        ];
+
+        for (src, should_be) in inputs {
+            let got: Path = src.parse().unwrap();
+            assert_eq!(got, should_be, "{}", src);
         }
     }
 }

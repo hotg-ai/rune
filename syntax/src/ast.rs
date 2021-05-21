@@ -94,12 +94,6 @@ impl Ident {
             span,
         }
     }
-
-    /// Create an [`Ident`] with a placeholder span.
-    #[cfg(test)]
-    pub(crate) fn dangling(value: impl Into<String>) -> Self {
-        Ident::new(value, Span::new(0, 0))
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
@@ -116,23 +110,6 @@ pub struct CapabilityInstruction {
 pub struct Type {
     pub kind: TypeKind,
     pub span: Span,
-}
-
-#[cfg(test)]
-impl Type {
-    pub(crate) fn named_dangling(name: impl Into<String>) -> Self {
-        Type {
-            kind: TypeKind::Named(Ident::dangling(name)),
-            span: Span::new(0, 0),
-        }
-    }
-
-    pub(crate) fn inferred_dangling() -> Self {
-        Type {
-            kind: TypeKind::Inferred,
-            span: Span::new(0, 0),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -191,7 +168,7 @@ impl Literal {
 #[serde(rename_all = "kebab-case", tag = "type", content = "value")]
 pub enum LiteralKind {
     Integer(i64),
-    Float(f64),
+    Float(f32),
     String(String),
 }
 
@@ -199,8 +176,8 @@ impl From<i64> for LiteralKind {
     fn from(other: i64) -> Self { LiteralKind::Integer(other) }
 }
 
-impl From<f64> for LiteralKind {
-    fn from(other: f64) -> Self { LiteralKind::Float(other) }
+impl From<f32> for LiteralKind {
+    fn from(other: f32) -> Self { LiteralKind::Float(other) }
 }
 
 impl<'a> From<&'a str> for LiteralKind {
@@ -259,7 +236,9 @@ pub enum ArgumentValue {
 /// - `sub_path` is an optional field which is useful when pointing to
 ///   repositories with multiple relevant items because it lets you specify
 ///   which directory the specified item is in.
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, PartialEq, Eq, Hash, Clone, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub struct Path {
     pub base: String,

@@ -36,7 +36,7 @@ fn we_can_compile_the_sine_example() {
 
     if let Err(e) = rune_codegen::generate(compilation) {
         let path = temp.into_path();
-        panic!("Unable to compile in \"{}\": {}", path.display(), e);
+        panic!("Unable to compile in \"{}\": {:?}", path.display(), e);
     }
 }
 
@@ -62,7 +62,7 @@ fn paths_can_contain_hyphens() {
 
     if let Err(e) = rune_codegen::generate(compilation) {
         let path = temp.into_path();
-        panic!("Unable to compile in \"{}\": {}", path.display(), e);
+        panic!("Unable to compile in \"{}\": {:?}", path.display(), e);
     }
 }
 

@@ -23,7 +23,10 @@ impl<T: One> Modulo<T> {
 }
 
 impl<T> Modulo<T> {
-    pub fn with_modulus(self, modulus: T) -> Self { Modulo { modulus } }
+    pub fn set_modulus(&mut self, modulus: T) -> &mut Self {
+        self.modulus = modulus;
+        self
+    }
 }
 
 impl<T: One> Default for Modulo<T> {
@@ -72,7 +75,8 @@ mod tests {
     #[test]
     fn mod_360() {
         let number = 42 + 360;
-        let mut m = Modulo::new().with_modulus(360);
+        let mut m = Modulo::new();
+        m.set_modulus(360);
 
         let got = m.transform(number);
 

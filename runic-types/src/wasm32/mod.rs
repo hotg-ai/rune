@@ -4,7 +4,7 @@ mod guards;
 pub mod intrinsics;
 mod logging;
 mod model;
-mod serial;
+pub mod serial;
 mod stats_allocator;
 
 pub use self::{

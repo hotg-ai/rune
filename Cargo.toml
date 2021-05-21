@@ -12,3 +12,6 @@ members = [
     "xtask",
     "wasmer-runtime",
 ]
+
+[patch.crates-io]
+serde_yaml = { git = "https://github.com/hotg-ai/serde-yaml", branch = "spans" }

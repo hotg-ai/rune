@@ -2,85 +2,126 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    convert::{TryFrom, TryInto},
+    convert::{TryFrom},
+    hash::Hash,
     io::{Error, ErrorKind, Write},
     ops::Index,
     path::PathBuf,
 };
 use codespan::Span;
-use crate::ast::{ArgumentValue, Path};
-use petgraph::{
-    graph::{DiGraph, IndexType, NodeIndex},
-    visit::IntoNodeReferences,
-};
+use indexmap::IndexMap;
+use crate::{ast::Path, yaml::Value};
 
-#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub struct Rune {
     pub base_image: Option<Path>,
-    pub graph: DiGraph<Stage, Edge>,
-    pub pipelines: HashMap<HirId, Pipeline>,
-    pub types: HashMap<HirId, Type>,
+    pub stages: IndexMap<HirId, Node>,
+    pub slots: IndexMap<HirId, Slot>,
+    pub types: IndexMap<HirId, Type>,
     pub names: NameTable,
-    pub spans: HashMap<HirId, Span>,
-    pub node_index_to_hir_id: HashMap<NodeIndex, HirId>,
-    pub hir_id_to_node_index: HashMap<HirId, NodeIndex>,
+    pub spans: IndexMap<HirId, Span>,
 }
 
 impl Rune {
-    pub(crate) fn add_hir_id_and_node_index(
-        &mut self,
-        hir_id: HirId,
-        node_index: NodeIndex,
-    ) {
-        self.hir_id_to_node_index.insert(hir_id, node_index);
-        self.node_index_to_hir_id.insert(node_index, hir_id);
-    }
-
-    pub fn stages(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Stage)> + '_ {
-        self.graph.node_references().map(move |(n, stage)| {
-            let h = self.node_index_to_hir_id[&n];
-            (h, n, stage)
-        })
+    pub fn stages(&self) -> impl Iterator<Item = (HirId, &Stage)> + '_ {
+        self.stages.iter().map(|(id, node)| (*id, &node.stage))
     }
 
     pub fn proc_blocks(
         &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &ProcBlock)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::ProcBlock(pb) => Some((h, n, pb)),
+    ) -> impl Iterator<Item = (HirId, &ProcBlock)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::ProcBlock(pb) => Some((h, pb)),
             _ => None,
         })
     }
 
-    pub fn models(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Model)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::Model(m) => Some((h, n, m)),
+    pub fn models(&self) -> impl Iterator<Item = (HirId, &Model)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::Model(m) => Some((h, m)),
             _ => None,
         })
     }
 
-    pub fn sinks(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Sink)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::Sink(s) => Some((h, n, s)),
+    pub fn sinks(&self) -> impl Iterator<Item = (HirId, &Sink)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::Sink(s) => Some((h, s)),
             _ => None,
         })
     }
 
-    pub fn sources(
-        &self,
-    ) -> impl Iterator<Item = (HirId, NodeIndex, &Source)> + '_ {
-        self.stages().filter_map(|(h, n, stage)| match stage {
-            Stage::Source(s) => Some((h, n, s)),
+    pub fn sources(&self) -> impl Iterator<Item = (HirId, &Source)> + '_ {
+        self.stages().filter_map(|(h, stage)| match stage {
+            Stage::Source(s) => Some((h, s)),
             _ => None,
         })
     }
+
+    pub fn has_connection(&self, from: HirId, to: HirId) -> bool {
+        !self.connecting_slots(from, to).is_empty()
+    }
+
+    pub fn connecting_slots(&self, from: HirId, to: HirId) -> HashSet<HirId> {
+        let from_node = match self.stages.get(&from) {
+            Some(n) => n,
+            None => return HashSet::new(),
+        };
+        let to_node = match self.stages.get(&to) {
+            Some(n) => n,
+            None => return HashSet::new(),
+        };
+
+        let previous_outputs: HashSet<_> =
+            from_node.output_slots.iter().collect();
+        let next_inputs: HashSet<_> = to_node.input_slots.iter().collect();
+
+        previous_outputs
+            .intersection(&next_inputs)
+            .copied()
+            .copied()
+            .collect()
+    }
+
+    /// Get a topological sorting of the pipeline graph.
+    pub fn sorted_pipeline(&self) -> impl Iterator<Item = (HirId, &Node)> + '_ {
+        // https://www.geeksforgeeks.org/topological-sorting/
+
+        let mut visited = HashSet::with_capacity(self.stages.len());
+        let mut stack = Vec::with_capacity(self.stages.len());
+
+        for key in self.stages.keys() {
+            if !visited.contains(key) {
+                topo_sort(*key, self, &mut visited, &mut stack);
+            }
+        }
+
+        stack.into_iter().map(move |id| (id, &self.stages[&id]))
+    }
+}
+
+fn topo_sort(
+    id: HirId,
+    rune: &Rune,
+    visited: &mut HashSet<HirId>,
+    stack: &mut Vec<HirId>,
+) {
+    visited.insert(id);
+
+    let node = &rune.stages[&id];
+
+    for incoming in &node.input_slots {
+        let slot = &rune.slots[incoming];
+        let input = slot.input_node;
+
+        if !visited.contains(&input) {
+            topo_sort(input, rune, visited, stack);
+        }
+    }
+
+    stack.push(id);
 }
 
 #[derive(
@@ -116,22 +157,6 @@ impl Default for HirId {
     fn default() -> Self { HirId::first_user_defined() }
 }
 
-unsafe impl IndexType for HirId {
-    fn new(x: usize) -> Self {
-        let id = HirId(x.try_into().unwrap());
-        assert!(
-            id >= HirId::first_user_defined(),
-            "Can't use one of the builtin HirId values"
-        );
-
-        id
-    }
-
-    fn index(&self) -> usize { self.0.try_into().unwrap() }
-
-    fn max() -> Self { HirId(u32::max_value()) }
-}
-
 /// A table mapping names to [`HirId`]s.
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -143,15 +168,15 @@ pub struct NameTable {
 }
 
 impl NameTable {
-    pub fn register(&mut self, name: &str, id: HirId) {
-        if self.name_to_id.contains_key(name)
-            || self.id_to_name.contains_key(&id)
-        {
-            unimplemented!("How do we want to signal duplicate names?");
+    pub fn register(&mut self, name: &str, id: HirId) -> Result<(), HirId> {
+        if let Some(existing_item_id) = self.get_id(name) {
+            return Err(existing_item_id);
         }
 
         self.name_to_id.insert(name.to_string(), id);
         self.id_to_name.insert(id, name.to_string());
+
+        Ok(())
     }
 
     pub fn get_name(&self, id: HirId) -> Option<&str> {
@@ -417,7 +442,7 @@ impl Primitive {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Source {
     pub kind: SourceKind,
-    pub parameters: HashMap<String, ArgumentValue>,
+    pub parameters: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -448,7 +473,7 @@ impl<'a> From<&'a str> for SourceKind {
 #[serde(rename_all = "kebab-case")]
 pub struct ProcBlock {
     pub path: Path,
-    pub parameters: HashMap<String, ArgumentValue>,
+    pub parameters: HashMap<String, Value>,
 }
 
 impl ProcBlock {
@@ -472,4 +497,23 @@ pub struct Pipeline {
 )]
 pub struct Edge {
     pub type_id: HirId,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PipelineGraph {}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Node {
+    pub stage: Stage,
+    /// The [`Slot`]s that this [`Node`] receives data from.
+    pub input_slots: Vec<HirId>,
+    /// The [`Slot`]s that this [`Node`] sends data to.
+    pub output_slots: Vec<HirId>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Slot {
+    pub element_type: HirId,
+    pub input_node: HirId,
+    pub output_node: HirId,
 }

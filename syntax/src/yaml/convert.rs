@@ -1,35 +1,119 @@
+use std::convert::TryInto;
+
 use crate::{
+    Diagnostics,
     ast::{
-        self, Runefile, Instruction, CapabilityInstruction, Argument,
-        ArgumentValue, Literal, LiteralKind, ProcBlockInstruction,
-        ModelInstruction, OutInstruction,
+        self, Argument, ArgumentValue, CapabilityInstruction, FromInstruction,
+        Instruction, Literal, LiteralKind, ModelInstruction, OutInstruction,
+        ProcBlockInstruction, RunInstruction, Runefile,
     },
-    yaml::{Path, Document, Stage, Value, Type},
+    utils,
+    yaml::{Document, Input, Path, Stage, Type, Value},
 };
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 
-pub fn document_from_runefile(runefile: Runefile) -> Document {
-    let mut image = Path::new("runicos/base", None, None);
+pub fn document_from_runefile(
+    runefile: &Runefile,
+    diags: &mut Diagnostics,
+) -> Document {
+    let image = determine_image(&runefile.instructions, diags);
+    let mut pipeline = determine_pipeline(&runefile.instructions, diags);
+    connect_inputs(&runefile.instructions, &mut pipeline, diags);
+
+    Document { image, pipeline }
+}
+
+fn connect_inputs(
+    instructions: &[Instruction],
+    pipeline: &mut IndexMap<String, Stage>,
+    diags: &mut Diagnostics,
+) {
+    let run_instructions = instructions.iter().filter_map(|i| match i {
+        Instruction::Run(r) => Some(r),
+        _ => None,
+    });
+
+    for run in run_instructions {
+        let RunInstruction { steps, .. } = run;
+
+        // first we make sure all the steps exist
+        let mut steps_missing = false;
+        for step in steps {
+            if !pipeline.contains_key(&step.value) {
+                let label = Label::primary((), utils::range_span(step.span));
+                diags.push(
+                    Diagnostic::error()
+                        .with_message(format!("Can't find \"{}\"", step.value,))
+                        .with_labels(vec![label]),
+                );
+
+                steps_missing = true;
+            }
+        }
+
+        if steps_missing {
+            continue;
+        }
+
+        // now we can wire up their inputs
+        for window in steps.windows(2) {
+            let from = &window[0];
+            let to = &window[1];
+            let stage = &mut pipeline[&to.value];
+            match stage.inputs_mut() {
+                Some(inputs) => inputs.push(Input::new(&from.value, None)),
+                None => {
+                    let label = Label::primary((), utils::range_span(to.span));
+                    diags.push(
+                        Diagnostic::error()
+                            .with_message(format!(
+                                "The \"{}\" stage doesn't accept any inputs",
+                                to.value
+                            ))
+                            .with_labels(vec![label]),
+                    );
+                },
+            }
+
+            if pipeline[&from.value].output_types().is_empty() {
+                let label = Label::primary((), utils::range_span(from.span));
+                diags.push(
+                    Diagnostic::error()
+                        .with_message(format!(
+                            "The \"{}\" stage doesn't have any outputs",
+                            from.value
+                        ))
+                        .with_labels(vec![label]),
+                );
+            }
+        }
+    }
+}
+
+fn determine_pipeline(
+    instructions: &[Instruction],
+    diags: &mut Diagnostics,
+) -> IndexMap<String, Stage> {
     let mut pipeline = IndexMap::new();
 
-    for instruction in runefile.instructions {
-        match instruction {
-            Instruction::From(from) => {
-                image = yaml_path(from.image);
-            },
+    for instruction in instructions.to_vec() {
+        let (name, stage, span) = match instruction {
+            Instruction::From(_) => continue,
             Instruction::Model(m) => {
                 let ModelInstruction {
                     name,
                     file,
                     output_type,
+                    span,
                     ..
                 } = m;
                 let stage = Stage::Model {
-                    model: file,
+                    model: file.clone(),
                     inputs: Vec::new(),
                     outputs: vec![convert_type(output_type)],
                 };
-                pipeline.insert(name.value, stage);
+                (name.value, stage, span)
             },
             Instruction::Capability(cap) => {
                 let CapabilityInstruction {
@@ -37,7 +121,7 @@ pub fn document_from_runefile(runefile: Runefile) -> Document {
                     name,
                     output_type,
                     parameters,
-                    ..
+                    span,
                 } = cap;
 
                 let stage = Stage::Capability {
@@ -45,17 +129,17 @@ pub fn document_from_runefile(runefile: Runefile) -> Document {
                     outputs: vec![convert_type(output_type)],
                     args: convert_args(parameters),
                 };
-                pipeline.insert(name.value, stage);
+                (name.value, stage, span)
             },
             Instruction::Out(out) => {
-                let OutInstruction { out_type, .. } = out;
+                let OutInstruction { out_type, span } = out;
                 let name = out_type.value.to_lowercase();
                 let stage = Stage::Out {
                     out: out_type.value.clone(),
                     inputs: Vec::new(),
                     args: IndexMap::default(),
                 };
-                pipeline.insert(name, stage);
+                (name, stage, span)
             },
             Instruction::ProcBlock(pb) => {
                 let ProcBlockInstruction {
@@ -63,6 +147,7 @@ pub fn document_from_runefile(runefile: Runefile) -> Document {
                     output_type,
                     name,
                     params,
+                    span,
                     ..
                 } = pb;
 
@@ -72,24 +157,67 @@ pub fn document_from_runefile(runefile: Runefile) -> Document {
                     outputs: vec![convert_type(output_type)],
                     args: convert_args(params),
                 };
-                pipeline.insert(name.value, stage);
+                (name.value, stage, span)
             },
-            Instruction::Run(r) => {
-                for window in r.steps.windows(2) {
-                    let prev = &window[0].value;
-                    let next = &window[1].value;
+            Instruction::Run(_) => continue,
+        };
 
-                    if let Some(stage) = pipeline.get_mut(next) {
-                        if let Some(inputs) = stage.inputs_mut() {
-                            inputs.push(prev.to_string());
-                        }
-                    }
-                }
-            },
+        if pipeline.contains_key(&name) {
+            let label = Label::primary((), utils::range_span(span))
+                .with_message("Duplicate defined here");
+            let diag = Diagnostic::error()
+                .with_message(format!(
+                    "The \"{}\" stage is already defined",
+                    name
+                ))
+                .with_labels(vec![label]);
+            diags.push(diag);
+        } else {
+            pipeline.insert(name, stage);
         }
     }
 
-    Document { image, pipeline }
+    pipeline
+}
+
+fn determine_image(
+    instructions: &[Instruction],
+    diags: &mut Diagnostics,
+) -> Path {
+    let mut from: Option<&FromInstruction> = None;
+
+    for instruction in instructions {
+        if let Instruction::From(instruction) = instruction {
+            if let Some(previous_image) = from {
+                // Let the user know they used the FROM instruction twice
+                let duplicate_label =
+                    Label::primary((), utils::range_span(instruction.span))
+                        .with_message("Duplicate defined here");
+                let original_label = Label::secondary(
+                    (),
+                    utils::range_span(previous_image.span),
+                )
+                .with_message("Original defined here");
+
+                let diag = Diagnostic::error()
+                    .with_message("Base image already specified")
+                    .with_labels(vec![duplicate_label, original_label]);
+                diags.push(diag);
+            }
+
+            from = Some(instruction);
+        }
+    }
+
+    match from {
+        Some(from) => Path::from(&from.image),
+        None => {
+            diags.push(
+                Diagnostic::error().with_message("No base image specified"),
+            );
+            Path::new("runicos/base", None, None)
+        },
+    }
 }
 
 fn convert_type(t: ast::Type) -> Type {
@@ -103,7 +231,7 @@ fn convert_type(t: ast::Type) -> Type {
         },
         ast::TypeKind::Named(name) => Type {
             name: name.value,
-            dimensions: Vec::new(),
+            dimensions: vec![1],
         },
         ast::TypeKind::Inferred => todo!(),
     }
@@ -124,7 +252,7 @@ fn convert_value(value: ArgumentValue) -> Value {
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::Integer(i),
             ..
-        }) => i.into(),
+        }) => Value::Int(i.try_into().unwrap()),
         ArgumentValue::Literal(Literal {
             kind: LiteralKind::Float(f),
             ..
@@ -180,7 +308,7 @@ mod tests {
         ($type:ident) => {
             Type {
                 name: String::from(stringify!($type)),
-                dimensions: vec![],
+                dimensions: vec![1],
             }
         }
     }
@@ -212,7 +340,7 @@ mod tests {
                 },
                 label: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
-                    inputs: vec![String::from("model")],
+                    inputs: vec!["model".parse().unwrap()],
                     outputs: vec![ty!(UTF8)],
                     args: map! {
                         labels: Value::from(vec![
@@ -225,25 +353,27 @@ mod tests {
                 },
                 fft: Stage::ProcBlock {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
-                    inputs: vec![String::from("audio")],
+                    inputs: vec!["audio".parse().unwrap()],
                     outputs: vec![ty!(I8[1960])],
                     args: IndexMap::new(),
                 },
                 model: Stage::Model {
                     model: String::from("./model.tflite"),
-                    inputs: vec![String::from("fft")],
+                    inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(I8[4])],
                 },
                 serial: Stage::Out {
                     out: String::from("serial"),
                     args: IndexMap::new(),
-                    inputs: vec![String::from("label")],
+                    inputs: vec!["label".parse().unwrap()],
                 },
             },
         };
+        let mut diags = Diagnostics::new();
 
-        let got = document_from_runefile(runefile);
+        let got = document_from_runefile(&runefile, &mut diags);
 
+        assert!(!diags.has_errors());
         for (key, should_be) in &should_be.pipeline {
             println!("{}", key);
             assert_eq!(&got.pipeline[key], should_be);

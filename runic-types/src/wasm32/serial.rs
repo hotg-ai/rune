@@ -1,5 +1,5 @@
 use crate::{wasm32::intrinsics, Sink, outputs, Tensor};
-use serde::Serialize;
+use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::fmt::Debug;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -40,40 +40,107 @@ impl Default for Serial {
     fn default() -> Self { Serial::new() }
 }
 
-impl<T: Serialize> Sink<Tensor<T>> for Serial {
-    fn consume(&mut self, input: Tensor<T>) {
-        let msg = TensorMessage {
+impl<T> Sink<T> for Serial
+where
+    T: IntoSerialMessage,
+{
+    fn consume(&mut self, input: T) {
+        let msg = input.into_serial_message(self.id);
+        self.consume_serializable(&msg);
+    }
+}
+
+/// An intermediate trait which lets you convert from some input into a
+/// serializable form suitable for sending back to the Rune runtime.
+pub trait IntoSerialMessage {
+    type Message: Serialize;
+
+    fn into_serial_message(self, channel: u32) -> Self::Message;
+}
+
+impl<T: Serialize> IntoSerialMessage for Tensor<T> {
+    type Message = TensorMessage<T>;
+
+    fn into_serial_message(self, channel: u32) -> Self::Message {
+        TensorMessage {
             type_name: core::any::type_name::<T>(),
-            channel: self.id,
-            elements: input.elements(),
-            dimensions: input.dimensions(),
-        };
-        self.consume_serializable(&msg);
+            channel,
+            tensor: self,
+        }
     }
 }
 
-impl<'a> Sink<&'a str> for Serial {
-    fn consume(&mut self, input: &'a str) {
-        let msg = StringMessage {
+impl IntoSerialMessage for &'static str {
+    type Message = StringMessage<'static>;
+
+    fn into_serial_message(self, channel: u32) -> Self::Message {
+        StringMessage {
             type_name: "&str",
-            channel: self.id,
-            string: input,
-        };
-        self.consume_serializable(&msg);
+            string: self,
+            channel,
+        }
     }
 }
 
-#[derive(serde::Serialize)]
-struct TensorMessage<'a, T> {
+pub struct TensorMessage<T> {
     type_name: &'static str,
     channel: u32,
-    elements: &'a [T],
-    dimensions: &'a [usize],
+    tensor: Tensor<T>,
+}
+
+impl<T: Serialize> Serialize for TensorMessage<T> {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        let mut map = ser.serialize_map(Some(4))?;
+
+        map.serialize_key("type_name")?;
+        map.serialize_value(&self.type_name)?;
+        map.serialize_key("channel")?;
+        map.serialize_value(&self.channel)?;
+        map.serialize_key("elements")?;
+        map.serialize_value(self.tensor.elements())?;
+        map.serialize_key("dimensions")?;
+        map.serialize_value(self.tensor.dimensions())?;
+
+        map.end()
+    }
 }
 
 #[derive(serde::Serialize)]
-struct StringMessage<'a> {
+pub struct StringMessage<'a> {
     type_name: &'static str,
     channel: u32,
     string: &'a str,
 }
+
+macro_rules! tuple_serial_message {
+    ($first:ident $(, $rest:ident)* $(,)?) => {
+        impl<$first, $($rest),*> IntoSerialMessage for ($first, $($rest),*)
+        where
+            $first: IntoSerialMessage,
+            $(
+                $rest: IntoSerialMessage,
+            )*
+        {
+            type Message = (
+                <$first as IntoSerialMessage>::Message,
+                $( <$rest as IntoSerialMessage>::Message),*
+            );
+
+            #[allow(non_snake_case)]
+            fn into_serial_message(self, channel: u32) -> Self::Message {
+                let ($first, $($rest),*) = self;
+
+                (
+                    $first.into_serial_message(channel),
+                    $($rest.into_serial_message(channel)),*
+                )
+            }
+
+        }
+
+        tuple_serial_message!($($rest),*);
+    };
+    ($(,)?) => {};
+}
+
+tuple_serial_message!(A, B, C, D, E, F, G, H, I, J, K);

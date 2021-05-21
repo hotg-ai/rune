@@ -1,3 +1,7 @@
+use std::ops::Range;
+
+use codespan::Span;
+
 use crate::hir::{HirId, Primitive, Rune, Type};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,4 +109,8 @@ impl Builtins {
         f(f64, Type::Primitive(Primitive::F64));
         f(string, Type::Primitive(Primitive::String));
     }
+}
+
+pub(crate) fn range_span(span: Span) -> Range<usize> {
+    span.start().to_usize()..span.end().to_usize()
 }

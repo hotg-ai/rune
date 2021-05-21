@@ -348,6 +348,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo_toml"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6363f58dc6fc29a72a25132dd1137f38493566002a9e0e8d5ca0670fb5983d6e"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "toml",
+]
+
+[[package]]
 name = "cbindgen"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1133,6 +1144,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "identity"
+version = "0.1.0"
+dependencies = [
+ "runic-types",
+]
+
+[[package]]
 name = "idna"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1813,8 +1831,6 @@ checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
 dependencies = [
  "fixedbitset",
  "indexmap",
- "serde",
- "serde_derive",
 ]
 
 [[package]]
@@ -1920,9 +1936,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a152013215dca273577e18d2bf00fa862b89b24169fb78c4c95aeb07992c9cec"
+checksum = "f0d8caf72986c1a598726adc988bb5984792ef84f5ee5aa50209145ee8077038"
 dependencies = [
  "unicode-xid",
 ]
@@ -2172,11 +2188,14 @@ name = "rune-codegen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cargo_toml",
  "handlebars",
  "heck",
  "log",
  "once_cell",
- "petgraph",
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
  "rune-syntax",
  "serde",
  "serde_json",
@@ -2225,7 +2244,6 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
- "petgraph",
  "pretty_assertions",
  "regex",
  "serde",
@@ -2401,8 +2419,7 @@ dependencies = [
 [[package]]
 name = "serde_yaml"
 version = "0.8.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15654ed4ab61726bf918a39cb8d98a2e2995b002387807fa6ba58fdf7f59bb23"
+source = "git+https://github.com/hotg-ai/serde-yaml?branch=spans#91348d9fa88c945967691c555bccd2d26225332e"
 dependencies = [
  "dtoa",
  "linked-hash-map",
@@ -3034,6 +3051,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cbindgen",
+ "codespan-reporting",
  "devx-pre-commit",
  "env_logger 0.8.3",
  "globset",
