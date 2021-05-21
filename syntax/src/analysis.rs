@@ -736,7 +736,13 @@ pipeline:
             .iter_severity(codespan_reporting::diagnostic::Severity::Error)
             .collect();
         assert_eq!(errors.len(), 1);
-        let error_message = errors[0];
-        panic!("{:#?}", error_message);
+        let diag = errors[0];
+        assert_eq!(diag.message, "Cycle detected when checking \"audio\"");
+        assert!(diag.notes[0].contains("model"));
+        assert!(diag.notes[1].contains("fft"));
+        assert_eq!(
+            diag.notes[2],
+            "... which receives input from \"audio\", completing the cycle."
+        );
     }
 }

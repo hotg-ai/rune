@@ -691,7 +691,7 @@ mod tests {
         let got = evaluate_node(&rune, id, &node).to_token_stream();
 
         let should_be = quote! {
-            debug.consume(audio_out_0);
+            debug.consume(audio_out_0.clone());
         };
         assert_quote_eq!(got, should_be);
     }
@@ -725,7 +725,7 @@ mod tests {
         let got = evaluate_node(&rune, id, &node).to_token_stream();
 
         let should_be = quote! {
-            debug.consume((audio_out_0, audio_out_1));
+            debug.consume((audio_out_0.clone(), audio_out_1.clone()));
         };
         assert_quote_eq!(got, should_be);
     }
@@ -761,7 +761,7 @@ mod tests {
         let got = evaluate_node(&rune, id, &node).to_token_stream();
 
         let should_be = quote! {
-            let sine_out_0: Tensor<u8> = sine.transform(audio_out_0);
+            let sine_out_0: Tensor<u8> = sine.transform(audio_out_0.clone());
         };
         assert_quote_eq!(got, should_be);
     }

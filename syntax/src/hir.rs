@@ -9,6 +9,7 @@ use std::{
     path::PathBuf,
 };
 use codespan::Span;
+use indexmap::IndexMap;
 use crate::{ast::Path, yaml::Value};
 
 #[derive(
@@ -17,11 +18,11 @@ use crate::{ast::Path, yaml::Value};
 #[serde(rename_all = "kebab-case")]
 pub struct Rune {
     pub base_image: Option<Path>,
-    pub stages: HashMap<HirId, Node>,
-    pub slots: HashMap<HirId, Slot>,
-    pub types: HashMap<HirId, Type>,
+    pub stages: IndexMap<HirId, Node>,
+    pub slots: IndexMap<HirId, Slot>,
+    pub types: IndexMap<HirId, Type>,
     pub names: NameTable,
-    pub spans: HashMap<HirId, Span>,
+    pub spans: IndexMap<HirId, Span>,
 }
 
 impl Rune {

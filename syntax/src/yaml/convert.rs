@@ -308,7 +308,7 @@ mod tests {
         ($type:ident) => {
             Type {
                 name: String::from(stringify!($type)),
-                dimensions: vec![],
+                dimensions: vec![1],
             }
         }
     }
