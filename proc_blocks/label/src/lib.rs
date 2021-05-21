@@ -14,8 +14,8 @@ use runic_types::{HasOutputs, Tensor, Transform};
 /// ```rust
 /// # use label::Label;
 /// # use runic_types::{Tensor, Transform};
-/// let mut proc_block = Label::default()
-///    .with_labels(&["zero", "one", "two", "three"]);
+/// let mut proc_block = Label::default();
+/// proc_block.set_labels(&["zero", "one", "two", "three"]);
 /// let input = Tensor::new_vector(vec![3, 1, 2]);
 ///
 /// let got = proc_block.transform(input);
