@@ -35,15 +35,15 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
         .copied()
         .map(|(id, node)| initialize_node(rune, id, node));
 
-    let transform = sorted_pipeline
-        .iter()
-        .copied()
-        .map(|(id, node)| evaluate_node(rune, id, node));
-
     let set_output_dimensions = sorted_pipeline
         .iter()
         .copied()
         .map(|(id, node)| set_output_dimensions(rune, id, node));
+
+    let transform = sorted_pipeline
+        .iter()
+        .copied()
+        .map(|(id, node)| evaluate_node(rune, id, node));
 
     quote! {
         #[no_mangle]
@@ -174,7 +174,7 @@ fn output_bindings(
 }
 
 fn input_bindings(rune: &Rune, input_slots: &[HirId]) -> TokenStream {
-    let input_names: Vec<Ident> = input_slots
+    let input_names: Vec<_> = input_slots
         .iter()
         .map(|id| {
             let slot = &rune.slots[id];
@@ -187,9 +187,14 @@ fn input_bindings(rune: &Rune, input_slots: &[HirId]) -> TokenStream {
                 .position(|s| s == id)
                 .unwrap();
 
-            format!("{}_out_{}", input_name, index)
+            let name = format!("{}_out_{}", input_name, index);
+            let ident = Ident::new(&name, Span::call_site());
+
+            // TODO: be smart and only add a clone() call when this slot is used
+            // multiple times
+
+            quote!(#ident.clone())
         })
-        .map(|name| Ident::new(&name, Span::call_site()))
         .collect();
 
     match input_names.as_slice() {
