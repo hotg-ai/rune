@@ -28,9 +28,10 @@ pipeline:
     inputs:
       - rand
 
-  # An example of using multiple inputs and outputs
+  # An example of using multiple inputs and outputs on a proc block next to the
+  # Runefile.yml
   identity:
-    proc-block: "hotg-ai/rune#proc_blocks/identity"
+    proc-block: "./identity"
     inputs:
       - mod360
       - sine

@@ -11,7 +11,13 @@ pub trait Environment {
     /// Compile a Rust project to WebAssembly, returning the contents of the
     /// compiled binary.
     fn compile(&mut self, project: Project) -> Result<Vec<u8>, Error>;
+
+    /// Read a file from the file system, relative to the "current" directory.
     fn read_file(&mut self, filename: &Path) -> Result<Vec<u8>, Error>;
+
+    /// Get a JSON object which contains information about the program compiling
+    /// this Rune.
+    fn build_info(&self) -> Option<serde_json::Value> { None }
 }
 
 #[derive(Debug, Clone, PartialEq)]
