@@ -11,6 +11,8 @@ pipeline:
           - 96
     args:
       pixel-format: "@PixelFormat::GrayScale"
+      height: 96
+      width: 96
   person_detection:
     model: "./model.tflite"
     inputs:
