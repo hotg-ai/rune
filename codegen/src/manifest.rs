@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::Path};
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
     Manifest, Package, PatchSet, Product, Profiles, Publish, TargetDepsSet,
+    Workspace,
 };
 use rune_syntax::hir::Rune;
 
@@ -25,6 +26,11 @@ pub(crate) fn generate(
         package: Some(package(name)),
         lib: Some(product),
         dependencies: dependencies(rune, project, current_dir),
+        workspace: Some(Workspace {
+            members: vec![String::from(".")],
+            default_members: vec![String::from(".")],
+            ..Default::default()
+        }),
         ..empty_manifest()
     }
 }
@@ -294,5 +300,15 @@ mod tests {
 
         let crate_type = got.lib.unwrap().crate_type.unwrap();
         assert!(crate_type.contains(&String::from("cdylib")));
+    }
+
+    #[test]
+    fn manifest_is_in_its_own_workspace() {
+        let project = RuneProject::default();
+        let rune = Rune::default();
+
+        let got = generate(&rune, "foo", &project, Path::new("."));
+
+        assert!(got.workspace.is_some());
     }
 }
