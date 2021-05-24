@@ -119,10 +119,5 @@ impl TestContext {
         })
     }
 
-    pub fn rune_cmd(&self) -> Command {
-        let mut cmd = Command::new(&self.rune_binary);
-        cmd.env("CARGO_TARGET_DIR", self.cache_dir.join("target"));
-
-        cmd
-    }
+    pub fn rune_cmd(&self) -> Command { Command::new(&self.rune_binary) }
 }

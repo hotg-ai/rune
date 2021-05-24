@@ -3,7 +3,7 @@ use compiletest::{Callbacks, Name, TestContext};
 use once_cell::sync::Lazy;
 use structopt::StructOpt;
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Output, Stdio},
 };
 use env_logger::Env;
@@ -36,7 +36,7 @@ fn main() -> Result<(), Error> {
 pub struct Args {
     #[structopt(
         help = "The directory containing all your tests",
-        default_value = ".",
+        default_value = &*DEFAULT_TEST_DIRECTORY,
         parse(from_os_str)
     )]
     test_directory: PathBuf,
@@ -72,6 +72,13 @@ static RUNE_PROJECT_DIR: Lazy<String> = Lazy::new(|| {
 
     // Oh well, we tried...
     String::from(".")
+});
+
+static DEFAULT_TEST_DIRECTORY: Lazy<String> = Lazy::new(|| {
+    Path::new(&*RUNE_PROJECT_DIR)
+        .join("integration-tests")
+        .display()
+        .to_string()
 });
 
 #[derive(Debug, Default)]
