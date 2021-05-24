@@ -3,6 +3,7 @@ members = [
     "codegen",
     "ffi",
     "images/*",
+    "integration-tests/compiletest",
     "proc_blocks/*",
     "python",
     "rune",
