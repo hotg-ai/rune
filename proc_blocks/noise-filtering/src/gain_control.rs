@@ -184,8 +184,8 @@ mod tests {
     /// https://github.com/tensorflow/tensorflow/blob/0f6d728b920e9b0286171bdfec9917d8486ac08b/tensorflow/lite/experimental/microfrontend/lib/pcan_gain_control_test.cc#L43-L63
     #[test]
     fn test_pcan_gain_control() {
-        let mut gain_control =
-            GainControl::default().with_strength(0.95).with_offset(80.0);
+        let mut gain_control = GainControl::default();
+        gain_control.set_strength(0.95).set_offset(80.0);
         let input = Tensor::new_vector(vec![241137, 478104]);
         // Note: we get this from a the noise reduction step
         let noise_estimate = vec![6321887, 31248341];

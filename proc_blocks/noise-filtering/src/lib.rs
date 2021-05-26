@@ -35,7 +35,6 @@ impl Transform<Tensor<u32>> for NoiseFiltering {
     type Output = Tensor<i8>;
 
     fn transform(&mut self, input: Tensor<u32>) -> Tensor<i8> {
-
         let cleaned = self.noise_reduction.transform(input);
 
         let amplified = self
@@ -43,18 +42,22 @@ impl Transform<Tensor<u32>> for NoiseFiltering {
             .transform(cleaned, &self.noise_reduction.noise_estimate())
             .map(|_, energy| libm::log2((*energy as f64) + 1.0));
 
-        let min_value = amplified.elements()
+        let min_value = amplified
+            .elements()
             .to_vec()
             .iter()
             .fold(f64::INFINITY, |a, &b| a.min(b));
 
-        let max_value = amplified.elements()
+        let max_value = amplified
+            .elements()
             .to_vec()
             .iter()
             .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-        let scaled = amplified.map(|_, energy| ((255.0 * (energy - min_value) /
-            (max_value - min_value)) - 128.0) as i8);
+        let scaled = amplified.map(|_, energy| {
+            ((255.0 * (energy - min_value) / (max_value - min_value)) - 128.0)
+                as i8
+        });
         scaled
     }
 }

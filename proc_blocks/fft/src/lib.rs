@@ -83,7 +83,8 @@ impl ShortTimeFourierTransform {
         let power_spectrum_matrix: DMatrix<f64> =
             DMatrix::from_rows(&power_spectrum_vec);
         let mel_spectrum_matrix = &mel_filter_matrix * &power_spectrum_matrix;
-        let mel_spectrum_matrix = mel_spectrum_matrix.map(|energy| libm::sqrt(energy));
+        let mel_spectrum_matrix =
+            mel_spectrum_matrix.map(|energy| libm::sqrt(energy));
 
         let min_value = mel_spectrum_matrix
             .data
@@ -100,9 +101,7 @@ impl ShortTimeFourierTransform {
             .data
             .as_vec()
             .iter()
-            .map(|freq| {
-                65536.0 * (freq - min_value) / (max_value - min_value)
-            })
+            .map(|freq| 65536.0 * (freq - min_value) / (max_value - min_value))
             .map(|freq| freq as u32)
             .collect();
         let mut out = [0; 1960];
@@ -141,8 +140,8 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let mut fft_pb =
-            ShortTimeFourierTransform::new().with_sample_rate(16000);
+        let mut fft_pb = ShortTimeFourierTransform::new();
+        fft_pb.set_sample_rate(16000);
         let input = Tensor::new_vector(vec![0; 16000]);
 
         let got = fft_pb.transform(input);
