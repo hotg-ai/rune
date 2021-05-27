@@ -49,7 +49,7 @@ impl Inspect {
 }
 
 fn print_meta(meta: &Metadata) {
-    if let Some(build_info) = &meta.build_info {
+    if let Some(build_info) = &meta.rune_cli_build_info {
         let git = build_info
             .version_control
             .as_ref()
@@ -102,7 +102,7 @@ fn print_capabilities(capabilities: &BTreeMap<String, SimplifiedCapability>) {
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct Metadata {
-    build_info: Option<BuildInfo>,
+    rune_cli_build_info: Option<BuildInfo>,
     rune: Option<SimplifiedRune>,
 }
 
@@ -110,7 +110,7 @@ impl Metadata {
     fn from_custom_sections<'a>(
         sections: impl Iterator<Item = CustomSection<'a>>,
     ) -> Self {
-        let mut version = None;
+        let mut rune_cli_build_info = None;
         let mut graph = None;
 
         for section in sections {
@@ -131,7 +131,7 @@ impl Metadata {
                 rune_codegen::VERSION_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(v) => {
-                            version = Some(v);
+                            rune_cli_build_info = Some(v);
                         },
                         Err(e) => {
                             log::warn!(
@@ -146,7 +146,7 @@ impl Metadata {
         }
 
         Metadata {
-            build_info: version,
+            rune_cli_build_info,
             rune: graph,
         }
     }
