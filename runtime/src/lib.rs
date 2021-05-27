@@ -86,3 +86,15 @@ pub enum ParameterError {
     #[error("{}", _0)]
     IncorrectType(InvalidConversionError),
 }
+
+impl ParameterError {
+    pub fn invalid_value<E>(value: Value, reason: E) -> Self
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        ParameterError::InvalidValue {
+            value,
+            reason: reason.into(),
+        }
+    }
+}

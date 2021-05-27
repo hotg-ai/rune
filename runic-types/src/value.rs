@@ -218,3 +218,6 @@ impl Display for InvalidConversionError {
         )
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for InvalidConversionError {}
