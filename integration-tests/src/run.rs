@@ -1,21 +1,47 @@
 use std::{path::Path, process::Output};
 use anyhow::{Context, Error};
-
-use crate::TestContext;
+use crate::{FullName, TestContext};
 
 pub(crate) fn rune_output(
-    name: &str,
+    full_name: &FullName,
     directory: &Path,
     ctx: &TestContext,
 ) -> Result<Output, Error> {
     log::debug!("Compiling");
-    let output = crate::compile::rune_output(name, directory, ctx)?;
+    let output = crate::compile::rune_output(full_name, directory, ctx)?;
     anyhow::ensure!(output.status.success(), "Unable to compile the Rune");
 
-    ctx.rune_cmd()
-        .arg("run")
-        .arg(format!("{}.rune", name))
-        .current_dir(directory)
+    let mut cmd = ctx.rune_cmd();
+
+    cmd.arg("run").arg(format!("{}.rune", full_name.name));
+
+    for entry in directory
+        .read_dir()
+        .context("Unable to read the directory")?
+    {
+        let entry = entry?;
+        let filename = entry.path();
+        let extension = match filename.extension().and_then(|ext| ext.to_str())
+        {
+            Some(ext) => ext,
+            None => continue,
+        };
+
+        let argument = match extension {
+            "png" => "--image",
+            "wav" => "--sound",
+            "csv" => "--accelerometer",
+            "rand" => "--random",
+            "bin" => "--raw",
+            _ => continue,
+        };
+
+        cmd.arg(argument).arg(filename);
+    }
+
+    log::debug!("Executing {:?}", cmd);
+
+    cmd.current_dir(directory)
         .output()
         .context("Unable to run `rune`")
 }

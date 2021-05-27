@@ -3,7 +3,7 @@ mod compile;
 mod loader;
 mod run;
 
-use crate::loader::Test;
+pub use crate::loader::{Category, Test, ExitCondition, FullName};
 
 use std::{
     fmt::Debug,
@@ -29,25 +29,25 @@ pub struct TestSuite {
 impl TestSuite {
     pub fn run(&self, ctx: &TestContext, cb: &mut dyn Callbacks) {
         for test in &self.tests {
-            let name = test.to_string();
+            let name = &test.name;
 
             match test.run(ctx) {
-                Outcome::Skipped => cb.on_skip(&name),
-                Outcome::Pass => cb.on_pass(&name),
+                Outcome::Skipped => cb.on_skip(name),
+                Outcome::Pass => cb.on_pass(name),
                 Outcome::Fail { errors, output } => {
-                    cb.on_fail(&name, errors, output)
+                    cb.on_fail(name, errors, output)
                 },
-                Outcome::Bug(error) => cb.on_bug(&name, error),
+                Outcome::Bug(error) => cb.on_bug(name, error),
             }
         }
     }
 }
 
 pub trait Callbacks {
-    fn on_pass(&mut self, name: &str);
-    fn on_skip(&mut self, name: &str);
-    fn on_bug(&mut self, name: &str, error: Error);
-    fn on_fail(&mut self, name: &str, errors: Vec<Error>, output: Output);
+    fn on_pass(&mut self, name: &FullName);
+    fn on_skip(&mut self, name: &FullName);
+    fn on_bug(&mut self, name: &FullName, error: Error);
+    fn on_fail(&mut self, name: &FullName, errors: Vec<Error>, output: Output);
 }
 
 #[derive(Debug)]
@@ -60,7 +60,7 @@ pub enum Outcome {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TestContext {
-    pub cache_dir: PathBuf,
+    cache_dir: PathBuf,
     pub rune_binary: PathBuf,
     pub rune_project_dir: PathBuf,
     pub target_dir: PathBuf,
@@ -72,7 +72,7 @@ impl TestContext {
     ) -> Result<Self, Error> {
         let rune_project_dir = rune_project_dir.into();
         let target_dir = rune_project_dir.join("target");
-        let cache_dir = target_dir.join("compiletest");
+        let cache_dir = target_dir.join("integration-tests");
 
         log::debug!("Compiling `rune` in release mode");
 
@@ -102,4 +102,14 @@ impl TestContext {
     }
 
     pub fn rune_cmd(&self) -> Command { Command::new(&self.rune_binary) }
+
+    fn cache_dir(&self, name: &FullName) -> PathBuf {
+        let FullName {
+            category,
+            exit_condition,
+            name,
+        } = name;
+        let family = format!("{}-{}", category, exit_condition);
+        self.cache_dir.join(family).join(name)
+    }
 }

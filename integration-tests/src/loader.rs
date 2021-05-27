@@ -37,20 +37,33 @@ pub fn load(test_root: &Path) -> Result<Vec<Test>, Error> {
             format!("Unable to load tests from \"{}\"", directory.display())
         })?;
 
-        log::debug!("Found \"{}\"", test);
+        log::debug!("Found \"{}\"", test.name);
         tests.push(test);
     }
 
     Ok(tests)
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FullName {
+    pub category: Category,
+    pub exit_condition: ExitCondition,
+    pub name: String,
+}
+
+impl Display for FullName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-{}/{}", self.category, self.exit_condition, self.name)?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct Test {
     pub directory: PathBuf,
-    pub category: Category,
-    pub exit_condition: ExitCondition,
     pub expected_output: Vec<MatchStderr>,
-    pub name: String,
+    pub name: FullName,
 }
 
 impl Test {
@@ -89,19 +102,23 @@ impl Test {
             ExitCondition::Fail(ExitUnsuccessfully)
         };
 
-        Ok(Test {
-            directory,
+        let name = FullName {
             name,
             category,
             exit_condition,
+        };
+
+        Ok(Test {
+            name,
+            directory,
             expected_output,
         })
     }
 
-    pub fn is_ignored(&self) -> bool { self.name.starts_with("_") }
+    pub fn is_ignored(&self) -> bool { self.name.name.starts_with("_") }
 
     fn get_rune_output(&self, ctx: &TestContext) -> Result<Output, Error> {
-        match self.category {
+        match self.name.category {
             Category::Run => {
                 crate::run::rune_output(&self.name, &self.directory, ctx)
             },
@@ -140,24 +157,18 @@ impl Test {
         }
     }
 
+    fn exit_condition(&self) -> &dyn Assertion {
+        match &self.name.exit_condition {
+            ExitCondition::Success(s) => s,
+            ExitCondition::Fail(f) => f,
+        }
+    }
+
     fn assertions(&self) -> impl Iterator<Item = &dyn Assertion> + '_ {
         let expected_output =
             self.expected_output.iter().map(|a| a as &dyn Assertion);
 
-        std::iter::once(&self.exit_condition as &dyn Assertion)
-            .chain(expected_output)
-    }
-}
-
-impl Display for Test {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}-{}/{}", self.category, self.exit_condition, self.name)?;
-
-        if self.is_ignored() {
-            write!(f, " (ignored)")?;
-        }
-
-        Ok(())
+        std::iter::once(self.exit_condition()).chain(expected_output)
     }
 }
 

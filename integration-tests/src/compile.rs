@@ -2,13 +2,11 @@ use std::{
     path::Path,
     process::{Output, Stdio},
 };
-
 use anyhow::{Context, Error};
-
-use crate::TestContext;
+use crate::{FullName, TestContext};
 
 pub(crate) fn rune_output(
-    name: &str,
+    name: &FullName,
     directory: &Path,
     ctx: &TestContext,
 ) -> Result<Output, Error> {
@@ -18,7 +16,7 @@ pub(crate) fn rune_output(
         .arg(directory.join("Runefile.yml"))
         .arg("--debug")
         .arg("--cache-dir")
-        .arg(ctx.cache_dir.join("compile").join(name))
+        .arg(ctx.cache_dir(name))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

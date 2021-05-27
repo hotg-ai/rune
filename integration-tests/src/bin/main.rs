@@ -1,5 +1,5 @@
 use anyhow::{Context, Error};
-use rune_integration_tests::{Callbacks, TestContext};
+use rune_integration_tests::{Callbacks, FullName, TestContext};
 use once_cell::sync::Lazy;
 use structopt::StructOpt;
 use std::{
@@ -99,34 +99,33 @@ impl Printer {
 }
 
 impl Callbacks for Printer {
-    fn on_pass(&mut self, name: &str) {
+    fn on_pass(&mut self, name: &FullName) {
         self.pass += 1;
         log::info!("{} ... ✓", name);
     }
 
-    fn on_skip(&mut self, name: &str) {
+    fn on_skip(&mut self, name: &FullName) {
         self.skip += 1;
         log::info!("{} ... (skip)", name);
     }
 
-    fn on_bug(&mut self, name: &str, error: Error) {
+    fn on_bug(&mut self, name: &FullName, error: Error) {
         self.bug += 1;
         log::error!("{} ... 🐛", name);
         log::error!("Bug: {:?}", error);
     }
 
-    fn on_fail(&mut self, name: &str, errors: Vec<Error>, output: Output) {
+    fn on_fail(
+        &mut self,
+        name: &FullName,
+        errors: Vec<Error>,
+        _output: Output,
+    ) {
         self.fail += 1;
         log::error!("{} ... ✗", name);
 
         for error in &errors {
             log::error!("{:?}", error);
-        }
-
-        if !output.stderr.is_empty() {
-            if let Ok(stderr) = std::str::from_utf8(&output.stderr) {
-                log::error!("{}", stderr);
-            }
         }
     }
 }
