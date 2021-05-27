@@ -33,8 +33,7 @@ impl Inspect {
         let wasm = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
-        let meta = Metadata::from_custom_sections(wasm_custom_sections(&wasm))
-            .context("unable to parse the Rune's metadata")?;
+        let meta = Metadata::from_custom_sections(wasm_custom_sections(&wasm));
 
         match self.format {
             Format::Json => {
@@ -58,31 +57,46 @@ struct Metadata {
 impl Metadata {
     fn from_custom_sections<'a>(
         sections: impl Iterator<Item = CustomSection<'a>>,
-    ) -> Result<Self, Error> {
+    ) -> Self {
         let mut version = None;
         let mut graph = None;
 
         for section in sections {
             match section.name {
-                "rune_graph" => {
-                    let rune: Rune = serde_json::from_slice(section.data)
-                        .context("Unable to deserialize the graph")?;
-                    graph = Some(SimplifiedRune::from(rune));
+                rune_codegen::GRAPH_CUSTOM_SECTION => {
+                    match serde_json::from_slice(section.data) {
+                        Ok(rune) => {
+                            graph = Some(SimplifiedRune::from_rune(rune));
+                        },
+                        Err(e) => {
+                            log::warn!(
+                                "Unable to deserialize the Rune graph: {}",
+                                e
+                            );
+                        },
+                    }
                 },
-                "rune_version" => {
-                    version = Some(
-                        serde_json::from_slice(section.data)
-                            .context("Unable to deserialize the version")?,
-                    );
+                rune_codegen::VERSION_CUSTOM_SECTION => {
+                    match serde_json::from_slice(section.data) {
+                        Ok(v) => {
+                            version = Some(v);
+                        },
+                        Err(e) => {
+                            log::warn!(
+                                "Unable to deserialize the version: {}",
+                                e
+                            );
+                        },
+                    }
                 },
                 _ => {},
             }
         }
 
-        Ok(Metadata {
+        Metadata {
             version,
             rune: graph,
-        })
+        }
     }
 }
 
@@ -91,8 +105,8 @@ struct SimplifiedRune {
     capabilities: BTreeMap<String, SimplifiedCapability>,
 }
 
-impl From<Rune> for SimplifiedRune {
-    fn from(rune: Rune) -> Self {
+impl SimplifiedRune {
+    fn from_rune(rune: Rune) -> Self {
         let mut capabilities = BTreeMap::new();
 
         for (&id, node) in &rune.stages {

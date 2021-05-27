@@ -394,9 +394,12 @@ fn preamble(
     rune: &Rune,
     build_info: Option<serde_json::Value>,
 ) -> Result<TokenStream, Error> {
-    let rune_graph = custom_section("rune_graph", "RUNE_GRAPH", rune)?;
+    let rune_graph =
+        custom_section(crate::GRAPH_CUSTOM_SECTION, "RUNE_GRAPH", rune)?;
     let build_info = match build_info {
-        Some(v) => custom_section("rune_version", "RUNE_VERSION", &v)?,
+        Some(v) => {
+            custom_section(crate::VERSION_CUSTOM_SECTION, "RUNE_VERSION", &v)?
+        },
         None => quote!(),
     };
 
