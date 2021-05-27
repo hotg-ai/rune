@@ -13,7 +13,8 @@ pub struct Run {
     /// The number of times to execute this rune
     #[structopt(short, long, default_value = "1")]
     repeats: usize,
-    /// Pass information to a capability as `key:value` pairs.
+    /// Initialize capabilities based on `key:value` pairs. Prefer to use
+    /// aliases like "--image" and "--sound" when the capability is builtin.
     ///
     /// For example:
     ///
@@ -34,6 +35,38 @@ pub struct Run {
     /// - `raw:data.bin` is a file who's bytes will be used as-is
     #[structopt(short, long = "capability")]
     capabilities: Vec<Capability>,
+    #[structopt(
+        long = "accelerometer",
+        aliases = &["accel"],
+        parse(from_os_str),
+        help = "A CSV file containing [X, Y, Z] vectors to be returned by the ACCEL capability"
+    )]
+    accelerometer: Option<Vec<PathBuf>>,
+    #[structopt(
+        long,
+        parse(from_os_str),
+        help = "A WAV file containing samples returned by the SOUND capability"
+    )]
+    sound: Option<Vec<PathBuf>>,
+    #[structopt(
+        long,
+        aliases = &["img"],
+        parse(from_os_str),
+        help = "An image to be returned by the IMAGE capability"
+    )]
+    image: Option<Vec<PathBuf>>,
+    #[structopt(
+        long,
+        parse(from_os_str),
+        help = "A file who's bytes will be returned as-is by the RAW capability"
+    )]
+    raw: Option<Vec<PathBuf>>,
+    #[structopt(
+        long,
+        aliases = &["rand"],
+        help = "Seed the runtime's Random Number Generator"
+    )]
+    random: Option<u64>,
 }
 
 impl Run {
@@ -44,7 +77,9 @@ impl Run {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
 
-        let env = self.env().context("Unable to initialize the environment")?;
+        let capabilities = self.all_capabilities();
+        let env = initialize_image(&capabilities)
+            .context("Unable to initialize the environment")?;
 
         let mut runtime = Runtime::load(&rune, env)
             .context("Unable to initialize the virtual machine")?;
@@ -59,8 +94,50 @@ impl Run {
         Ok(())
     }
 
-    fn env(&self) -> Result<BaseImage, Error> {
-        initialize_image(&self.capabilities)
+    fn all_capabilities(&self) -> Vec<Capability> {
+        let Run {
+            capabilities,
+            accelerometer,
+            sound,
+            image,
+            raw,
+            random,
+            rune: _,
+            repeats: _,
+        } = self;
+        let mut caps = capabilities.clone();
+
+        if let Some(accel) = accelerometer {
+            extend_caps(&mut caps, accel, |p| Capability::accel(p));
+        }
+        if let Some(sound) = sound {
+            extend_caps(&mut caps, sound, |p| Capability::sound(p));
+        }
+        if let Some(raw) = raw {
+            extend_caps(&mut caps, raw, |p| Capability::raw(p));
+        }
+        if let Some(image) = image {
+            extend_caps(&mut caps, image, |p| Capability::image(p));
+        }
+        if let Some(random) = random {
+            caps.push(Capability::RandomSeed { seed: *random });
+        }
+
+        caps
+    }
+}
+
+fn extend_caps<'a, I, F, T>(
+    capabilities: &mut Vec<Capability>,
+    items: I,
+    mut map: F,
+) where
+    I: IntoIterator<Item = &'a T> + 'a,
+    T: 'a,
+    F: FnMut(&T) -> Capability,
+{
+    for item in items {
+        capabilities.push(map(item));
     }
 }
 
@@ -164,6 +241,32 @@ enum Capability {
     Image { filename: PathBuf },
     Sound { filename: PathBuf },
     Raw { filename: PathBuf },
+}
+
+impl Capability {
+    fn accel(filename: impl Into<PathBuf>) -> Self {
+        Capability::Accelerometer {
+            filename: filename.into(),
+        }
+    }
+
+    fn image(filename: impl Into<PathBuf>) -> Self {
+        Capability::Image {
+            filename: filename.into(),
+        }
+    }
+
+    fn sound(filename: impl Into<PathBuf>) -> Self {
+        Capability::Sound {
+            filename: filename.into(),
+        }
+    }
+
+    fn raw(filename: impl Into<PathBuf>) -> Self {
+        Capability::Raw {
+            filename: filename.into(),
+        }
+    }
 }
 
 impl FromStr for Capability {
