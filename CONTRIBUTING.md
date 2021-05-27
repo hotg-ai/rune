@@ -24,15 +24,149 @@ Workspaces][workspaces], with the main crates being:
 - `runtime` - Common abstractions and types used by the various Rune runtimes
 - `wasmer-runtime` - A runtime which uses `wasmer` to execute WebAssembly using
   a user-provided `Image`
-- `web-runtime` - A runtime intended to be used inside a web browser
 - `rune` - The `rune` command-line program, used for compiling and running
   Runes
 - `runic-types` - Types shared between Runes, Proc Blocks, Images, and Runtimes
 - `proc_blocks/*` - The various Rust crates that can be used as Proc Blocks
 - `images/*` The various Rust crates that can be used as base images for a
   Runefile
+- `integration-tests` - Our end-to-end test suite
 - `xtask` - A helper program for various internal tasks
 - `ffi` - FFI bindings for using `wasmer-runtime` from non-Rust programs
+- `python` - Python bindings to various proc blocks and Rune functionality
+
+## Integration Tests
+
+As well as the normal unit tests that you would run with `cargo test` we've
+developed a test suite which runs the `rune` program against real Runes.
+
+All integration tests live inside the `integration-tests` folder and are split
+up based on the how they are meant to be run by `rune`.
+
+- `compile-pass` - the Rune should build
+- `compile-fail` - The Rune should fail to build (e.g. so you can test error
+  messages)
+- `run-pass` - the Rune should be able to run with the specified capabilities
+- `run-fail` - running the Rune should fail (due to a missing capability,
+  crash, etc.)
+
+Let's go through the process of adding an integration test which evaluates
+the `microspeech` Rune and makes sure it can detect the word, "up".
+
+The first thing to do is create a folder for it:
+
+```console
+$ mkdir integration-tests/run-pass/microspeech-up
+$ cd integration-tests/run-pass/microspeech-up
+```
+
+Next we need to add our Runefile. Normally you'd write it from scratch but
+because we are already using it as an example, we'll just symlink it into the
+`microspeech-up/` directory.
+
+```console
+$ ln -s ../../../examples/microspeech/Runefile.yml ./Runefile.yml
+```
+
+This Rune also requires a `model.tflite` so we'll symlink that too.
+
+```console
+$ ln -s ../../../examples/microspeech/model.tflite ./model.tflite
+```
+
+If this was just testing `rune build` (i.e. a `compile-pass` or `compile-fail`
+test) we could stop here. However, because we want to actually run the Rune we
+need to supply it with any capabilities it will need.
+
+The way this works is pretty simple. Say you would normally run the Rune with
+`rune run ./microspeech-up.rune --sound up.wav` then just add an `up.wav` file
+to the test directory.
+
+```console
+$ ln -s ../../../examples/microspeech/data/up/84d1e469_nohash_0.wav ./up.wav
+```
+
+Capabilities are determined based on their extension, so a `*.png` will be
+passed in using `--image`, `*.wav` files are `--audio`, and so on.
+
+By default, the only things that get checked are the exit code from `rune`.
+
+|             | **pass**            | **fail**           |
+| ----------- | ------------------- | ------------------ |
+| **compile** | `rune build` passes | `rune build` fails |
+| **rune**    | `rune run` passes   | `rune run` fails   |
+
+However, you can add additional checks to make sure particular strings are
+printed to the screen. This is really useful when trying to improve error
+messages and the end-user's experience, but for now let's just make sure
+the Rune correctly outputs "up".
+
+The first thing to do is run the Rune manually.
+
+```console
+$ rune build ./Runefile.yml
+$ rune run microspeech-up.rune --sound up.wav
+[2021-05-27T15:36:17.117Z INFO  rune::run] Running rune: microspeech-up.rune
+[2021-05-27T15:36:17.153Z DEBUG rune_wasmer_runtime] Loading image
+[2021-05-27T15:36:17.153Z DEBUG rune_wasmer_runtime] Instantiating the WebAssembly module
+[2021-05-27T15:36:17.153Z DEBUG rune_wasmer_runtime] Loaded the Rune
+[2021-05-27T15:36:17.154Z DEBUG rune_wasmer_runtime] Running the rune
+[2021-05-27T15:36:17.163Z INFO  runicos_base::image] Serial: {"type_name":"&str","channel":2,"elements":["up"],"dimensions":[1]}
+```
+
+We just care about that last log message so let's copy it to a new file. The
+file can be called whatever you want as long as it has the `stderr` extension.
+
+```console
+$ cat expected.stderr
+Serial: {"type_name":"&str","channel":2,"elements":["up"],"dimensions":[1]}
+```
+
+The integration test suite will scan a directory for `*.stderr` files and assert
+that the output from `rune run` contains exactly that text.
+
+Now the integration test is set up and we can run the test suite.
+
+```console
+$ cargo integration-tests
+[2021-05-27T15:38:43.027Z INFO  rune_integration_tests] Looking for tests
+[2021-05-27T15:38:43.183Z INFO  main] compile-fail/image-is-required ... ✓
+[2021-05-27T15:38:43.186Z INFO  main] compile-fail/pipeline-is-required ... ✓
+[2021-05-27T15:38:43.562Z INFO  main] run-fail/missing-raw-capability ... ✓
+[2021-05-27T15:38:43.974Z INFO  main] run-pass/noop ... ✓
+[2021-05-27T15:38:43.974Z INFO  main] run-pass/_gesture-slope ... (skip)
+[2021-05-27T15:38:45.834Z INFO  main] run-pass/sine ... ✓
+[2021-05-27T15:38:46.975Z INFO  main] run-pass/gesture-ring ... ✓
+[2021-05-27T15:38:45.417Z INFO  main] run-pass/microspeech-right ... ✓
+[2021-05-27T15:38:46.551Z INFO  main] run-pass/microspeech-left ... ✓
+[2021-05-27T15:38:47.712Z INFO  main] run-pass/microspeech-down ... ✓
+[2021-05-27T15:38:44.697Z INFO  main] run-pass/microspeech-up ... ✓
+[2021-05-27T15:38:48.057Z INFO  main] compile-pass/noop ... ✓
+```
+
+If you look carefully you'll see `run-pass/microspeech-up ... ✓` indicating that
+our test passed.
+
+As a sanity check, let's modify `expected.stderr` to make sure the test is actually
+doing something.
+
+```console
+$ cargo integration-tests
+...
+
+[2021-05-27T15:40:18.681Z ERROR main] run-pass/microspeech-up ... ✗
+[2021-05-27T15:40:18.681Z ERROR main] Unable to find the expected output in stderr.
+  Expected:
+  	Serial: {"type_name":"&str","channel":2,"elements":["something else"],"dimensions":[1]}
+
+  Actual:
+  	[2021-05-27T15:40:18.340Z INFO  rune::run] Running rune: microspeech-up.rune
+  	[2021-05-27T15:40:18.494Z DEBUG rune_wasmer_runtime] Loading image
+  	[2021-05-27T15:40:18.494Z DEBUG rune_wasmer_runtime] Instantiating the WebAssembly module
+  	[2021-05-27T15:40:18.496Z DEBUG rune_wasmer_runtime] Loaded the Rune
+  	[2021-05-27T15:40:18.496Z DEBUG rune_wasmer_runtime] Running the rune
+  	[2021-05-27T15:40:18.677Z INFO  runicos_base::image] Serial: {"type_name":"&str","channel":2,"elements":["up"],"dimensions":[1]}
+```
 
 ## Common Tasks
 
