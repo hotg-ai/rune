@@ -1,12 +1,9 @@
 mod assertions;
 mod compile;
-mod fs;
+mod loader;
 mod run;
 
-pub use crate::{
-    compile::{CompilationTest, discover_compile_pass},
-    assertions::Assertion,
-};
+use crate::loader::Test;
 
 use std::{
     fmt::Debug,
@@ -19,47 +16,28 @@ pub fn discover(test_directory: impl AsRef<Path>) -> Result<TestSuite, Error> {
     log::info!("Looking for tests");
     let test_directory = test_directory.as_ref();
 
-    let compile_pass =
-        compile::discover_compile_pass(test_directory.join("compile-pass"))?;
-    let compile_fail =
-        compile::discover_compile_fail(test_directory.join("compile-fail"))?;
+    let tests = loader::load(test_directory)?;
 
-    Ok(TestSuite {
-        compile_pass,
-        compile_fail,
-    })
-}
-
-pub trait TestCase {
-    fn name(&self) -> &str;
-    fn run(&self, ctx: &TestContext) -> Outcome;
+    Ok(TestSuite { tests })
 }
 
 #[derive(Debug)]
 pub struct TestSuite {
-    compile_pass: Vec<CompilationTest>,
-    compile_fail: Vec<CompilationTest>,
+    tests: Vec<Test>,
 }
 
 impl TestSuite {
-    fn tests(&self) -> impl Iterator<Item = &dyn TestCase> + '_ {
-        let compile_pass = self.compile_pass.iter().map(|c| c as &dyn TestCase);
-        let compile_fail = self.compile_fail.iter().map(|c| c as &dyn TestCase);
-
-        compile_pass.chain(compile_fail)
-    }
-
     pub fn run(&self, ctx: &TestContext, cb: &mut dyn Callbacks) {
-        for test in self.tests() {
-            let name = test.name();
+        for test in &self.tests {
+            let name = test.to_string();
 
             match test.run(ctx) {
-                Outcome::Skipped => cb.on_skip(name),
-                Outcome::Pass => cb.on_pass(name),
+                Outcome::Skipped => cb.on_skip(&name),
+                Outcome::Pass => cb.on_pass(&name),
                 Outcome::Fail { errors, output } => {
-                    cb.on_fail(name, errors, output)
+                    cb.on_fail(&name, errors, output)
                 },
-                Outcome::Bug(error) => cb.on_bug(name, error),
+                Outcome::Bug(error) => cb.on_bug(&name, error),
             }
         }
     }

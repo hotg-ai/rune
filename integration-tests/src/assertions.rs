@@ -1,5 +1,7 @@
 use std::{
+    ffi::OsStr,
     fmt::{self, Debug, Display, Formatter},
+    path::Path,
     process::Output,
 };
 use anyhow::{Context, Error};
@@ -14,6 +16,21 @@ pub struct MatchStderr {
 }
 
 impl MatchStderr {
+    pub fn for_file(filename: impl AsRef<Path>) -> Result<Option<Self>, Error> {
+        let filename = filename.as_ref();
+
+        if filename.extension() != Some(OsStr::new("stderr")) {
+            return Ok(None);
+        }
+
+        let expected =
+            std::fs::read_to_string(filename).with_context(|| {
+                format!("Unable to read \"{}\"", filename.display())
+            })?;
+
+        Ok(Some(MatchStderr::new(expected.trim())))
+    }
+
     pub fn new(expected: impl Into<String>) -> Self {
         MatchStderr {
             expected: expected.into(),

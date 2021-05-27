@@ -2225,6 +2225,7 @@ dependencies = [
  "log",
  "once_cell",
  "structopt",
+ "walkdir",
 ]
 
 [[package]]
