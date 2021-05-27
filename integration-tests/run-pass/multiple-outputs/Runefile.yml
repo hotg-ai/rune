@@ -1,0 +1,20 @@
+image: runicos/base
+
+pipeline:
+  byte_input:
+    capability: RAW
+    outputs:
+      - type: u8
+        dimensions: [16]
+  integer_input:
+    capability: RAW
+    outputs:
+      - type: i32
+        dimensions: [4]
+
+  output:
+    out: SERIAL
+    inputs:
+    - byte_input
+    - integer_input
+

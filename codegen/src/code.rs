@@ -251,8 +251,8 @@ fn rust_type(element_type: &HirId, rune: &Rune) -> TokenStream {
 }
 
 fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
-    let name = &rune.names[id];
-    let name = Ident::new(name, Span::call_site());
+    let name = rune.names[id].replace("-", "_");
+    let name = Ident::new(&name, Span::call_site());
 
     match &node.stage {
         Stage::Source(Source { kind, parameters }) => {
