@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 use anyhow::{Context, Error};
 use serde::Serialize;
@@ -123,6 +123,7 @@ impl DefaultEnvironment {
         let status = Command::new("cargo")
             .arg("fmt")
             .current_dir(&self.working_directory)
+            .stderr(Stdio::null()) // Note: we don't care if it prints any output
             .status()
             .context("unable to call `cargo fmt`")?;
 
