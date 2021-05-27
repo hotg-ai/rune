@@ -1,6 +1,7 @@
 mod assertions;
 mod compile;
 mod fs;
+mod run;
 
 pub use crate::{
     compile::{CompilationTest, discover_compile_pass},
@@ -20,23 +21,49 @@ pub fn discover(test_directory: impl AsRef<Path>) -> Result<TestSuite, Error> {
 
     let compile_pass =
         compile::discover_compile_pass(test_directory.join("compile-pass"))?;
+    let compile_fail =
+        compile::discover_compile_fail(test_directory.join("compile-fail"))?;
 
-    Ok(TestSuite { compile_pass })
+    Ok(TestSuite {
+        compile_pass,
+        compile_fail,
+    })
 }
 
 #[derive(Debug)]
 pub struct TestSuite {
     compile_pass: Vec<CompilationTest>,
+    compile_fail: Vec<CompilationTest>,
 }
 
 impl TestSuite {
-    pub fn run(&self, ctx: &TestContext, cb: &mut dyn Callbacks) {
-        for test in &self.compile_pass {
-            let name = Name {
-                family: "compile-pass",
-                name: &test.name,
-            };
+    fn compilation_tests(
+        &self,
+    ) -> impl Iterator<Item = (Name<'_>, &CompilationTest)> + '_ {
+        let pass = self.compile_pass.iter().map(|c| {
+            (
+                Name {
+                    family: "compile-pass",
+                    name: &c.name,
+                },
+                c,
+            )
+        });
+        let fail = self.compile_fail.iter().map(|c| {
+            (
+                Name {
+                    family: "compile-fail",
+                    name: &c.name,
+                },
+                c,
+            )
+        });
 
+        pass.chain(fail)
+    }
+
+    pub fn run(&self, ctx: &TestContext, cb: &mut dyn Callbacks) {
+        for (name, test) in self.compilation_tests() {
             match test.run(ctx) {
                 Outcome::Skipped => cb.on_skip(name),
                 Outcome::Pass => cb.on_pass(name),

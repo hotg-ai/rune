@@ -8,14 +8,40 @@ use anyhow::{Context, Error};
 
 use crate::{
     Outcome, TestContext,
-    assertions::{Assertion, ExitSuccessfully, MatchStderr},
+    assertions::{
+        Assertion, ExitSuccessfully, ExitUnsuccessfully, MatchStderr,
+    },
 };
 
 pub fn discover_compile_pass(
     dir: impl AsRef<Path>,
 ) -> Result<Vec<CompilationTest>, Error> {
+    let mut test_cases = discover_compile_tests(dir)?;
+
+    for test_case in &mut test_cases {
+        test_case.assertions.push(Box::new(ExitSuccessfully));
+    }
+
+    Ok(test_cases)
+}
+
+pub fn discover_compile_fail(
+    dir: impl AsRef<Path>,
+) -> Result<Vec<CompilationTest>, Error> {
+    let mut test_cases = discover_compile_tests(dir)?;
+
+    for test_case in &mut test_cases {
+        test_case.assertions.push(Box::new(ExitUnsuccessfully));
+    }
+
+    Ok(test_cases)
+}
+
+pub fn discover_compile_tests(
+    dir: impl AsRef<Path>,
+) -> Result<Vec<CompilationTest>, Error> {
     let dir = dir.as_ref();
-    log::debug!("Looking for compile-pass tests in \"{}\"", dir.display());
+    log::debug!("Looking for tests in \"{}\"", dir.display());
 
     if !dir.exists() {
         log::debug!("The directory doesn't exist");
@@ -34,26 +60,15 @@ pub fn discover_compile_pass(
     for entry in entries {
         let path = entry.path();
 
-        if let Some(test_case) = compile_pass_test_case(&path)
+        if let Some(test_case) = compilation_test(&path)
             .with_context(|| format!("Unable to check\"{}\"", path.display()))?
         {
+            log::debug!("Found \"{}\"", test_case.name);
             test_cases.push(test_case);
         }
     }
 
     Ok(test_cases)
-}
-
-fn compile_pass_test_case(
-    test_case_dir: &Path,
-) -> Result<Option<CompilationTest>, Error> {
-    let mut result = compilation_test(test_case_dir);
-
-    if let Ok(Some(ref mut test_case)) = result {
-        test_case.assertions.push(Box::new(ExitSuccessfully));
-    }
-
-    result
 }
 
 fn compilation_test(
@@ -99,7 +114,8 @@ fn compilation_test(
 
         if path.extension() == Some(OsStr::new("stderr")) {
             let expected = crate::fs::read_to_string(&path)?;
-            assertions.push(Box::new(MatchStderr::new(expected)));
+            assertions
+                .push(Box::new(MatchStderr::new(expected.trim().to_string())));
         }
     }
 
@@ -151,7 +167,9 @@ impl CompilationTest {
         let mut errors = Vec::new();
 
         for assertion in &self.assertions {
-            errors.extend(assertion.check_for_errors(&output));
+            if let Err(e) = assertion.check_for_errors(&output) {
+                errors.push(e);
+            }
         }
 
         if errors.is_empty() {

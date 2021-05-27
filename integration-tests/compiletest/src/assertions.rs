@@ -1,8 +1,11 @@
-use std::{fmt::Debug, process::Output};
-use anyhow::Error;
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    process::Output,
+};
+use anyhow::{Context, Error};
 
 pub trait Assertion: Debug {
-    fn check_for_errors(&self, output: &Output) -> Vec<Error>;
+    fn check_for_errors(&self, output: &Output) -> Result<(), Error>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,28 +22,78 @@ impl MatchStderr {
 }
 
 impl Assertion for MatchStderr {
-    fn check_for_errors(&self, _output: &Output) -> Vec<Error> { todo!() }
+    fn check_for_errors(&self, output: &Output) -> Result<(), Error> {
+        let stderr = std::str::from_utf8(&output.stderr)
+            .context("Unable to parse stderr as UTF-8")?;
+
+        if !stderr.contains(&self.expected) {
+            return Err(Error::from(MismatchedStderr {
+                expected: self.expected.clone(),
+                actual: stderr.to_string(),
+            }));
+        }
+
+        Ok(())
+    }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+struct MismatchedStderr {
+    expected: String,
+    actual: String,
+}
+
+impl Display for MismatchedStderr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Unable to find the expected output in stderr.")?;
+        writeln!(f, "Expected:")?;
+
+        for line in self.expected.lines() {
+            writeln!(f, "\t{}", line)?;
+        }
+        writeln!(f)?;
+
+        writeln!(f, "Actual:")?;
+
+        for line in self.actual.lines() {
+            writeln!(f, "\t{}", line)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::error::Error for MismatchedStderr {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExitSuccessfully;
 
 impl Assertion for ExitSuccessfully {
-    fn check_for_errors(&self, output: &Output) -> Vec<Error> {
-        let mut errors = Vec::new();
-
+    fn check_for_errors(&self, output: &Output) -> Result<(), Error> {
         if !output.status.success() {
-            let err = match output.status.code() {
-                Some(code) => anyhow::anyhow!(
+            match output.status.code() {
+                Some(code) => anyhow::bail!(
                     "Completed unsuccessfully with error code {}",
                     code
                 ),
-                None => anyhow::anyhow!("Completed unsuccessfully"),
+                None => anyhow::bail!("Completed unsuccessfully"),
             };
-
-            errors.push(err);
         }
 
-        errors
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExitUnsuccessfully;
+
+impl Assertion for ExitUnsuccessfully {
+    fn check_for_errors(&self, output: &Output) -> Result<(), Error> {
+        anyhow::ensure!(
+            !output.status.success(),
+            "The command should have failed but it exited successfully"
+        );
+
+        Ok(())
     }
 }

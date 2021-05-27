@@ -21,7 +21,6 @@ fn main() -> Result<(), Error> {
 
     let tests = compiletest::discover(&args.test_directory)
         .context("Unable to discover tests")?;
-    println!("{:?}", tests);
 
     let ctx = TestContext::release(&args.rune_project_dir)
         .context("Unable to establish the test context")?;
@@ -119,6 +118,7 @@ impl Callbacks for Printer {
     fn on_fail(&mut self, name: Name<'_>, errors: Vec<Error>, output: Output) {
         self.fail += 1;
         log::error!("{} ... ✗", name);
+
         for error in &errors {
             log::error!("{:?}", error);
         }
