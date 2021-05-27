@@ -41,16 +41,68 @@ impl Inspect {
                     .context("Unable to format the metadata as JSON")?;
                 println!("{}", s);
             },
-            Format::Text => todo!(),
+            Format::Text => print_meta(&meta),
         }
 
         Ok(())
     }
 }
 
+fn print_meta(meta: &Metadata) {
+    if let Some(build_info) = &meta.build_info {
+        let git = build_info
+            .version_control
+            .as_ref()
+            .expect("The project uses version control")
+            .git()
+            .expect("The project uses git");
+
+        println!(
+            "Compiled by: {} v{} ({} {})",
+            build_info.crate_info.name,
+            build_info.crate_info.version,
+            git.commit_short_id,
+            git.commit_timestamp.date().naive_utc(),
+        );
+    }
+
+    if let Some(SimplifiedRune { capabilities }) = &meta.rune {
+        if !capabilities.is_empty() {
+            print_capabilities(&capabilities);
+        }
+    }
+}
+
+fn print_capabilities(capabilities: &BTreeMap<String, SimplifiedCapability>) {
+    println!("Capabilities:");
+
+    for (name, value) in capabilities {
+        let SimplifiedCapability {
+            capability_type,
+            outputs,
+            parameters,
+        } = value;
+        println!("  {} ({})", name, capability_type);
+
+        if !outputs.is_empty() {
+            println!("    Outputs:");
+            for output in outputs {
+                println!("    - {}{:?}", output.name, output.dimensions);
+            }
+        }
+
+        if !parameters.is_empty() {
+            println!("    Parameters:");
+            for (key, value) in parameters {
+                println!("    - {}: {:?}", key, value);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 struct Metadata {
-    version: Option<BuildInfo>,
+    build_info: Option<BuildInfo>,
     rune: Option<SimplifiedRune>,
 }
 
@@ -94,7 +146,7 @@ impl Metadata {
         }
 
         Metadata {
-            version,
+            build_info: version,
             rune: graph,
         }
     }
