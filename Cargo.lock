@@ -2217,6 +2217,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger 0.8.3",
+ "log",
+ "once_cell",
+ "structopt",
+ "walkdir",
+]
+
+[[package]]
 name = "rune-runtime"
 version = "0.1.0"
 dependencies = [

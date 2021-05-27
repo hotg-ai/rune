@@ -1,0 +1,8 @@
+image: runicos/base
+pipeline:
+  input:
+    capability: RAW
+    outputs:
+      - type: F32
+        dimensions:
+          - 1

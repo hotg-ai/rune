@@ -1,8 +1,7 @@
----
 image: runicos/base
 pipeline:
   rand:
-    capability: RAND
+    capability: RAW
     outputs:
       - type: F32
         dimensions:
