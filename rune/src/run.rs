@@ -13,7 +13,8 @@ pub struct Run {
     /// The number of times to execute this rune
     #[structopt(short, long, default_value = "1")]
     repeats: usize,
-    /// Pass information to a capability as `key:value` pairs.
+    /// Initialize capabilities based on `key:value` pairs. Prefer to use
+    /// aliases like "--image" and "--sound" when the capability is builtin.
     ///
     /// For example:
     ///
