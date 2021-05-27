@@ -2,13 +2,15 @@ use std::{
     fmt::{self, Display, Formatter},
     io::Write,
     path::{Path, PathBuf},
-    str::FromStr,
 };
+use strum::VariantNames;
 use anyhow::{Error, Context};
 use tflite::{
     FlatBufferModel, Interpreter, InterpreterBuilder,
     ops::builtin::BuiltinOpResolver,
 };
+
+use crate::Format;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct ModelInfo {
@@ -20,8 +22,9 @@ pub struct ModelInfo {
     #[structopt(
         short,
         long,
-        help = "The format to print output in (supported: json, text)",
+        help = "The format to print output in",
         default_value = "text",
+        possible_values = Format::VARIANTS,
         parse(try_from_str)
     )]
     format: Format,
@@ -150,22 +153,4 @@ fn load_model(
         .context("Unable to initialize the model interpreter")?;
 
     Ok(interpreter)
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum Format {
-    Json,
-    Text,
-}
-
-impl FromStr for Format {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Error> {
-        match s {
-            "json" => Ok(Format::Json),
-            "text" => Ok(Format::Text),
-            _ => Err(Error::msg("Expected \"json\" or \"text\"")),
-        }
-    }
 }

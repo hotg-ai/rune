@@ -3,7 +3,9 @@ use build_info::{
     chrono::{DateTime, NaiveDate, Utc},
 };
 use structopt::StructOpt;
-use std::{borrow::Cow, io::Write, path::Path, str::FromStr};
+use std::{borrow::Cow, io::Write, path::Path};
+use strum::VariantNames;
+use crate::Format;
 
 build_info::build_info!(pub fn version);
 
@@ -11,7 +13,7 @@ build_info::build_info!(pub fn version);
 pub struct Version {
     #[structopt(short, long)]
     pub verbose: bool,
-    #[structopt(short, long, default_value = "text")]
+    #[structopt(short, long, default_value = "text", possible_values = Format::VARIANTS)]
     pub format: Format,
 }
 
@@ -111,23 +113,5 @@ fn print_text(info: &VersionInfo<'_>, verbose: bool) {
     }
     if let Some(commit_date) = rustc_commit_date {
         println!("rustc-commit-date: {}", commit_date.format("%Y-%m-%d"));
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Format {
-    Text,
-    Json,
-}
-
-impl FromStr for Format {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "text" => Ok(Format::Text),
-            "json" => Ok(Format::Json),
-            _ => Err(Error::msg("Expected \"text\" or \"json\"")),
-        }
     }
 }

@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     convert::{TryFrom},
+    fmt::{self, Display, Formatter},
     hash::Hash,
     io::{Error, ErrorKind, Write},
     ops::Index,
@@ -465,6 +466,15 @@ impl<'a> From<&'a str> for SourceKind {
             "image" | "IMAGE" => SourceKind::Image,
             "raw" | "RAW" => SourceKind::Raw,
             _ => SourceKind::Other(s.to_string()),
+        }
+    }
+}
+
+impl Display for SourceKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SourceKind::Other(custom) => Display::fmt(custom, f),
+            _ => write!(f, "{:?}", self),
         }
     }
 }
