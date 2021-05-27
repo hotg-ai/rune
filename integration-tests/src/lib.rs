@@ -9,7 +9,7 @@ pub use crate::{
 };
 
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    fmt::Debug,
     path::{Path, PathBuf},
     process::{Command, Output},
 };
@@ -30,6 +30,11 @@ pub fn discover(test_directory: impl AsRef<Path>) -> Result<TestSuite, Error> {
     })
 }
 
+pub trait TestCase {
+    fn name(&self) -> &str;
+    fn run(&self, ctx: &TestContext) -> Outcome;
+}
+
 #[derive(Debug)]
 pub struct TestSuite {
     compile_pass: Vec<CompilationTest>,
@@ -37,33 +42,17 @@ pub struct TestSuite {
 }
 
 impl TestSuite {
-    fn compilation_tests(
-        &self,
-    ) -> impl Iterator<Item = (Name<'_>, &CompilationTest)> + '_ {
-        let pass = self.compile_pass.iter().map(|c| {
-            (
-                Name {
-                    family: "compile-pass",
-                    name: &c.name,
-                },
-                c,
-            )
-        });
-        let fail = self.compile_fail.iter().map(|c| {
-            (
-                Name {
-                    family: "compile-fail",
-                    name: &c.name,
-                },
-                c,
-            )
-        });
+    fn tests(&self) -> impl Iterator<Item = &dyn TestCase> + '_ {
+        let compile_pass = self.compile_pass.iter().map(|c| c as &dyn TestCase);
+        let compile_fail = self.compile_fail.iter().map(|c| c as &dyn TestCase);
 
-        pass.chain(fail)
+        compile_pass.chain(compile_fail)
     }
 
     pub fn run(&self, ctx: &TestContext, cb: &mut dyn Callbacks) {
-        for (name, test) in self.compilation_tests() {
+        for test in self.tests() {
+            let name = test.name();
+
             match test.run(ctx) {
                 Outcome::Skipped => cb.on_skip(name),
                 Outcome::Pass => cb.on_pass(name),
@@ -77,22 +66,10 @@ impl TestSuite {
 }
 
 pub trait Callbacks {
-    fn on_pass(&mut self, name: Name<'_>);
-    fn on_skip(&mut self, name: Name<'_>);
-    fn on_bug(&mut self, name: Name<'_>, error: Error);
-    fn on_fail(&mut self, name: Name<'_>, errors: Vec<Error>, output: Output);
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Name<'a> {
-    family: &'static str,
-    name: &'a str,
-}
-
-impl<'a> Display for Name<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.family, self.name)
-    }
+    fn on_pass(&mut self, name: &str);
+    fn on_skip(&mut self, name: &str);
+    fn on_bug(&mut self, name: &str, error: Error);
+    fn on_fail(&mut self, name: &str, errors: Vec<Error>, output: Output);
 }
 
 #[derive(Debug)]

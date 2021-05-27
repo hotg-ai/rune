@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 
 use crate::{
-    Outcome, TestContext,
+    Outcome, TestCase, TestContext,
     assertions::{
         Assertion, ExitSuccessfully, ExitUnsuccessfully, MatchStderr,
     },
@@ -19,6 +19,7 @@ pub fn discover_compile_pass(
     let mut test_cases = discover_compile_tests(dir)?;
 
     for test_case in &mut test_cases {
+        test_case.name.insert_str(0, "compile-pass/");
         test_case.assertions.push(Box::new(ExitSuccessfully));
     }
 
@@ -31,6 +32,7 @@ pub fn discover_compile_fail(
     let mut test_cases = discover_compile_tests(dir)?;
 
     for test_case in &mut test_cases {
+        test_case.name.insert_str(0, "compile-fail/");
         test_case.assertions.push(Box::new(ExitUnsuccessfully));
     }
 
@@ -135,8 +137,10 @@ pub struct CompilationTest {
     pub assertions: Vec<Box<dyn Assertion>>,
 }
 
-impl CompilationTest {
-    pub fn run(&self, ctx: &TestContext) -> Outcome {
+impl TestCase for CompilationTest {
+    fn name(&self) -> &str { &self.name }
+
+    fn run(&self, ctx: &TestContext) -> Outcome {
         if self.name.starts_with("_") {
             return Outcome::Skipped;
         }

@@ -1,5 +1,5 @@
 use anyhow::{Context, Error};
-use compiletest::{Callbacks, Name, TestContext};
+use rune_integration_tests::{Callbacks, TestContext};
 use once_cell::sync::Lazy;
 use structopt::StructOpt;
 use std::{
@@ -19,7 +19,7 @@ fn main() -> Result<(), Error> {
         .init();
     let args = Args::from_args();
 
-    let tests = compiletest::discover(&args.test_directory)
+    let tests = rune_integration_tests::discover(&args.test_directory)
         .context("Unable to discover tests")?;
 
     let ctx = TestContext::release(&args.rune_project_dir)
@@ -99,23 +99,23 @@ impl Printer {
 }
 
 impl Callbacks for Printer {
-    fn on_pass(&mut self, name: Name<'_>) {
+    fn on_pass(&mut self, name: &str) {
         self.pass += 1;
         log::info!("{} ... ✓", name);
     }
 
-    fn on_skip(&mut self, name: Name<'_>) {
+    fn on_skip(&mut self, name: &str) {
         self.skip += 1;
         log::info!("{} ... (skip)", name);
     }
 
-    fn on_bug(&mut self, name: Name<'_>, error: Error) {
+    fn on_bug(&mut self, name: &str, error: Error) {
         self.bug += 1;
         log::error!("{} ... 🐛", name);
         log::error!("Bug: {:?}", error);
     }
 
-    fn on_fail(&mut self, name: Name<'_>, errors: Vec<Error>, output: Output) {
+    fn on_fail(&mut self, name: &str, errors: Vec<Error>, output: Output) {
         self.fail += 1;
         log::error!("{} ... ✗", name);
 

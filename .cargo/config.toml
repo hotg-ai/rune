@@ -1,7 +1,7 @@
 [alias]
 xtask = "run --package xtask --bin xtask --release --"
 rune = "run --package rune --release --quiet --"
-integration-tests = "run --package compiletest --"
+integration-tests = "run --package rune-integration-tests --"
 it = "integration-tests"
 
 [target.x86_64-apple-darwin]
