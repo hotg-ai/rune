@@ -300,6 +300,15 @@ pub enum SinkKind {
     Other(String),
 }
 
+impl Display for SinkKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SinkKind::Serial => write!(f, "serial"),
+            SinkKind::Other(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl<'a> From<&'a str> for SinkKind {
     fn from(s: &'a str) -> SinkKind {
         match s {

@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
-use rune_syntax::hir::{HirId, NameTable, Node, Rune, Slot};
+use rune_syntax::hir::{HirId, NameTable, Node, Rune};
 use codespan_reporting::term::termcolor::ColorChoice;
 use indexmap::IndexMap;
 
@@ -64,32 +64,46 @@ impl Graph {
 
 fn generate_graph(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
     writeln!(w, "digraph {{")?;
-    writeln!(w, "  rankdir=LR;")?;
-    writeln!(w, "  node [shape=record];")?;
+    writeln!(w, "  rankdir=TD;")?;
+    writeln!(w, "  node [shape=plaintext];")?;
 
     declare_nodes(w, &rune.stages, &rune.names)?;
-    declare_edges(w, &rune.stages, &rune.slots)?;
+    declare_edges(w, &rune)?;
 
     writeln!(w, "}}")?;
 
     Ok(())
 }
 
-fn declare_edges(
-    w: &mut dyn Write,
-    stages: &IndexMap<HirId, Node>,
-    slots: &IndexMap<HirId, Slot>,
-) -> Result<(), Error> {
-    for (id, slot) in slots {
-        let Slot {
-            input_node,
-            output_node,
-            ..
-        } = slot;
-        write!(w, "  node_{}:output_{}", input_node, id)?;
-        write!(w, " -> ")?;
+fn declare_edges(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
+    for (&id, node) in &rune.stages {
+        declare_input_edges(w, rune, id, &node.input_slots)?;
+    }
 
-        writeln!(w, "node_{}:input_{};", output_node, id)?;
+    Ok(())
+}
+
+fn declare_input_edges(
+    w: &mut dyn Write,
+    rune: &Rune,
+    id: HirId,
+    input_slots: &[HirId],
+) -> Result<(), Error> {
+    for (i, slot_id) in input_slots.iter().enumerate() {
+        let slot = &rune.slots[slot_id];
+        let input = slot.input_node;
+        let input_node = &rune.stages[&input];
+        let index = input_node
+            .output_slots
+            .iter()
+            .position(|s| s == slot_id)
+            .unwrap();
+
+        writeln!(
+            w,
+            "  node_{}:output_{}:s -> node_{}:input_{}:n;",
+            input, index, id, i,
+        )?;
     }
 
     Ok(())
@@ -119,33 +133,45 @@ fn format_node_label(
     name: &str,
     node: &Node,
 ) -> Result<(), Error> {
-    write!(w, "\"")?;
+    writeln!(w, "<")?;
+    writeln!(
+        w,
+        r#"    <table border="1" cellborder="0" cellspacing="5">"#
+    )?;
 
     if !node.input_slots.is_empty() {
-        write!(w, "{{")?;
-        for (i, slot) in node.input_slots.iter().enumerate() {
-            if i > 0 {
-                write!(w, "|")?;
-            }
-            write!(w, "<input_{}> {}", slot, i)?;
+        write!(
+            w,
+            r#"      <tr><td><table cellborder="1" cellspacing="0"><tr>"#
+        )?;
+        for i in 0..node.input_slots.len() {
+            write!(w, "<td port=\"input_{}\">{}</td>", i, i)?;
         }
-        write!(w, "}}|")?;
+        writeln!(w, "</tr></table></td></tr>")?;
     }
 
-    write!(w, "{}", name)?;
+    let qualifier = match &node.stage {
+        rune_syntax::hir::Stage::Source(s) => s.kind.to_string(),
+        rune_syntax::hir::Stage::Sink(s) => s.kind.to_string(),
+        rune_syntax::hir::Stage::Model(m) => m.model_file.display().to_string(),
+        rune_syntax::hir::Stage::ProcBlock(p) => p.path.to_string(),
+    };
+
+    writeln!(w, "      <tr><td>{}: {}</td></tr>", name, qualifier)?;
 
     if !node.output_slots.is_empty() {
-        write!(w, "|{{")?;
-        for (i, slot) in node.output_slots.iter().enumerate() {
-            if i > 0 {
-                write!(w, "|")?;
-            }
-            write!(w, "<output_{}> {}", slot, i)?;
+        write!(
+            w,
+            r#"      <tr><td><table cellborder="1" cellspacing="0"><tr>"#
+        )?;
+        for i in 0..node.output_slots.len() {
+            write!(w, "<td port=\"output_{}\">{}</td>", i, i)?;
         }
-        write!(w, "}}")?;
+        writeln!(w, "</tr></table></td></tr>")?;
     }
 
-    write!(w, "\"")?;
+    writeln!(w, "    </table>")?;
+    write!(w, "  >")?;
 
     Ok(())
 }
