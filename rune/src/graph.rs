@@ -1,3 +1,5 @@
+//! Generate a DOT graph using a poor man's graph generator.
+
 use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
 use rune_syntax::hir::{HirId, NameTable, Node, Rune};
@@ -119,8 +121,18 @@ fn declare_nodes(
             format!("Unable to get the name for node {}", id)
         })?;
 
-        write!(w, "  node_{} [label=", id)?;
+        let colour = match &node.stage {
+            rune_syntax::hir::Stage::Source(_) => "lightgreen",
+            rune_syntax::hir::Stage::Model(_) => "violet",
+            rune_syntax::hir::Stage::ProcBlock(_) => "tan1",
+            rune_syntax::hir::Stage::Sink(_) => "indianred1",
+        };
 
+        write!(
+            w,
+            r#"  node_{} [fillcolor={}, style="filled",label="#,
+            id, colour,
+        )?;
         format_node_label(w, name, node)?;
         writeln!(w, "];")?;
     }
@@ -136,7 +148,7 @@ fn format_node_label(
     writeln!(w, "<")?;
     writeln!(
         w,
-        r#"    <table border="1" cellborder="0" cellspacing="5">"#
+        r#"    <table border="0" cellborder="0" cellspacing="5">"#
     )?;
 
     if !node.input_slots.is_empty() {
