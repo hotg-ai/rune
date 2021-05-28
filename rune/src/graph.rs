@@ -2,7 +2,7 @@
 
 use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
-use rune_syntax::hir::{HirId, NameTable, Node, Rune};
+use rune_syntax::hir::{HirId, NameTable, Node, Rune, Slot, Type};
 use codespan_reporting::term::termcolor::ColorChoice;
 use indexmap::IndexMap;
 
@@ -92,23 +92,53 @@ fn declare_input_edges(
     input_slots: &[HirId],
 ) -> Result<(), Error> {
     for (i, slot_id) in input_slots.iter().enumerate() {
-        let slot = &rune.slots[slot_id];
-        let input = slot.input_node;
-        let input_node = &rune.stages[&input];
-        let index = input_node
+        let Slot {
+            element_type,
+            input_node,
+            ..
+        } = &rune.slots[slot_id];
+
+        let input = &rune.stages[input_node];
+        let index = input
             .output_slots
             .iter()
             .position(|s| s == slot_id)
             .unwrap();
 
-        writeln!(
+        write!(
             w,
-            "  node_{}:output_{}:s -> node_{}:input_{}:n;",
-            input, index, id, i,
+            "  node_{}:output_{}:s -> node_{}:input_{}:n",
+            input_node, index, id, i,
         )?;
+
+        if let Some(type_name) = type_name(element_type, &rune.types) {
+            write!(w, " [label=\"{}\"]", type_name)?;
+        }
+        writeln!(w, ";")?;
     }
 
     Ok(())
+}
+
+fn type_name(type_id: &HirId, types: &IndexMap<HirId, Type>) -> Option<String> {
+    match types.get(type_id)? {
+        Type::Primitive(p) => Some(p.rust_name().to_string()),
+        Type::Buffer {
+            underlying_type,
+            dimensions,
+        } => {
+            let underlying_type = type_name(underlying_type, types)?;
+
+            // as a special case, let's avoid writing a trailing "[1]" if it can
+            // be simplified
+            if dimensions == &[1] {
+                Some(underlying_type)
+            } else {
+                Some(format!("{}{:?}", underlying_type, dimensions))
+            }
+        },
+        _ => None,
+    }
 }
 
 fn declare_nodes(
