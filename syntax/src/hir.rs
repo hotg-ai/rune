@@ -154,6 +154,18 @@ impl HirId {
     pub(crate) fn next(self) -> Self { HirId(self.0 + 1) }
 }
 
+impl Display for HirId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.is_error() {
+            write!(f, "(error)")
+        } else if self.is_unknown() {
+            write!(f, "(unknown)")
+        } else {
+            write!(f, "{}", self.0)
+        }
+    }
+}
+
 impl Default for HirId {
     fn default() -> Self { HirId::first_user_defined() }
 }
@@ -286,6 +298,15 @@ pub struct Sink {
 pub enum SinkKind {
     Serial,
     Other(String),
+}
+
+impl Display for SinkKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SinkKind::Serial => write!(f, "serial"),
+            SinkKind::Other(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 impl<'a> From<&'a str> for SinkKind {

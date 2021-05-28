@@ -2158,6 +2158,7 @@ dependencies = [
  "env_logger 0.8.3",
  "hound",
  "image",
+ "indexmap",
  "log",
  "once_cell",
  "petgraph",

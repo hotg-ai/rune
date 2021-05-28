@@ -1,11 +1,14 @@
-use std::{fs::File, io::Write, path::PathBuf, str::FromStr};
+//! Generate a DOT graph using a poor man's graph generator.
+
+use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
+use rune_syntax::hir::{HirId, NameTable, Node, Rune, Slot, Type};
 use codespan_reporting::term::termcolor::ColorChoice;
-use petgraph::{
-    dot::{Config, Dot},
-    graph::{EdgeReference},
-};
-use rune_syntax::hir::{Edge, Rune, Stage};
+use indexmap::IndexMap;
+
+use crate::inspect::Metadata;
+
+const WASM_MAGIC_BYTES: &[u8; 4] = b"\0asm";
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Graph {
@@ -16,35 +19,35 @@ pub struct Graph {
         help = "Where to write the generated file (stdout by default)"
     )]
     output: Option<PathBuf>,
-    #[structopt(
-        short,
-        long,
-        parse(try_from_str),
-        help = "The format to print the graph in",
-        possible_values = &["dot", "json"],
-        default_value = "dot"
-    )]
-    format: Format,
-    #[structopt(
-        default_value = "Runefile",
-        parse(from_os_str),
-        help = "The Runefile to graph"
-    )]
-    runefile: PathBuf,
+    #[structopt(parse(from_os_str), help = "The Rune or Runefile to graph")]
+    input: PathBuf,
 }
 
 impl Graph {
     pub fn execute(self, color: ColorChoice) -> Result<(), Error> {
-        let rune = crate::build::analyze(&self.runefile, color)?;
+        let rune = self.load_rune(color).context("unable to load the input")?;
 
         let mut writer = self.writer()?;
-        match self.format {
-            Format::Dot => dot_graph(&mut writer, &rune)?,
-            Format::Json => json_graph(&mut *writer, &rune)?,
-        }
+        generate_graph(&mut *writer, &rune)?;
         writer.flush()?;
 
         Ok(())
+    }
+
+    fn load_rune(&self, color: ColorChoice) -> Result<Rune, Error> {
+        let bytes = std::fs::read(&self.input).with_context(|| {
+            format!("Unable to read \"{}\"", self.input.display())
+        })?;
+
+        if bytes.starts_with(WASM_MAGIC_BYTES) {
+            // It's a compiled Rune
+            Metadata::from_wasm_binary(&bytes)
+                .take_rune()
+                .context("Unable to load the Rune metadata from the input")
+        } else {
+            // Try to analyse it as a Runefile
+            crate::build::analyze(&self.input, color)
+        }
     }
 
     fn writer(&self) -> Result<Box<dyn Write>, Error> {
@@ -61,78 +64,156 @@ impl Graph {
     }
 }
 
-fn json_graph(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
-    serde_json::to_writer_pretty(&mut *w, rune)?;
-    writeln!(w)?;
-    Ok(())
-}
+fn generate_graph(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
+    writeln!(w, "digraph {{")?;
+    writeln!(w, "  rankdir=TD;")?;
+    writeln!(w, "  node [shape=plaintext];")?;
 
-fn dot_graph(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
-    let format_edge = |_, edge: EdgeReference<Edge>| {
-        let type_id = edge.weight().type_id;
-        let ty = &rune.types[&type_id];
-        let name = ty.rust_type_name(&rune.types).unwrap_or_default();
+    declare_nodes(w, &rune.stages, &rune.names)?;
+    declare_edges(w, &rune)?;
 
-        format!("label = \"{}\"", name)
-    };
-    let format_node = |_, (node_ix, stage): (_, &Stage)| {
-        let name = rune
-            .node_index_to_hir_id
-            .get(&node_ix)
-            .and_then(|id| rune.names.get_name(*id))
-            .unwrap_or("<anon>");
-
-        match stage {
-            Stage::ProcBlock(pb) => {
-                format!(
-                    "label=\"{}: {}\", fillcolor=lightgoldenrod1,style=filled",
-                    name, pb.path
-                )
-            },
-            Stage::Model(m) => {
-                format!(
-                    "label=\"{}: {}\", fillcolor=\"#FF6F00\",style=filled",
-                    name,
-                    m.model_file.display()
-                )
-            },
-            Stage::Source(s) => format!(
-                "label=\"{}: {:?}\", fillcolor=seagreen2, style=filled",
-                name, s.kind
-            ),
-            Stage::Sink(s) => format!(
-                "label=\"{}: {:?}\", fillcolor=crimson, fontcolor=white, style=filled",
-                name, s.kind
-            ),
-        }
-    };
-
-    let dot = Dot::with_attr_getters(
-        &rune.graph,
-        &[Config::NodeNoLabel, Config::EdgeNoLabel],
-        &format_edge,
-        &format_node,
-    );
-
-    writeln!(w, "{:?}", dot)?;
+    writeln!(w, "}}")?;
 
     Ok(())
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum Format {
-    Dot,
-    Json,
-}
-
-impl FromStr for Format {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "dot" => Ok(Format::Dot),
-            "json" => Ok(Format::Json),
-            _ => Err(Error::msg("Expected \"dot\" or \"json\"")),
-        }
+fn declare_edges(w: &mut dyn Write, rune: &Rune) -> Result<(), Error> {
+    for (&id, node) in &rune.stages {
+        declare_input_edges(w, rune, id, &node.input_slots)?;
     }
+
+    Ok(())
+}
+
+fn declare_input_edges(
+    w: &mut dyn Write,
+    rune: &Rune,
+    id: HirId,
+    input_slots: &[HirId],
+) -> Result<(), Error> {
+    for (i, slot_id) in input_slots.iter().enumerate() {
+        let Slot {
+            element_type,
+            input_node,
+            ..
+        } = &rune.slots[slot_id];
+
+        let input = &rune.stages[input_node];
+        let index = input
+            .output_slots
+            .iter()
+            .position(|s| s == slot_id)
+            .unwrap();
+
+        write!(
+            w,
+            "  node_{}:output_{}:s -> node_{}:input_{}:n",
+            input_node, index, id, i,
+        )?;
+
+        if let Some(type_name) = type_name(element_type, &rune.types) {
+            write!(w, " [label=\"{}\"]", type_name)?;
+        }
+        writeln!(w, ";")?;
+    }
+
+    Ok(())
+}
+
+fn type_name(type_id: &HirId, types: &IndexMap<HirId, Type>) -> Option<String> {
+    match types.get(type_id)? {
+        Type::Primitive(p) => Some(p.rust_name().to_string()),
+        Type::Buffer {
+            underlying_type,
+            dimensions,
+        } => {
+            let underlying_type = type_name(underlying_type, types)?;
+
+            // as a special case, let's avoid writing a trailing "[1]" if it can
+            // be simplified
+            if dimensions == &[1] {
+                Some(underlying_type)
+            } else {
+                Some(format!("{}{:?}", underlying_type, dimensions))
+            }
+        },
+        _ => None,
+    }
+}
+
+fn declare_nodes(
+    w: &mut dyn Write,
+    stages: &IndexMap<HirId, Node>,
+    names: &NameTable,
+) -> Result<(), Error> {
+    for (&id, node) in stages {
+        let name = names.get_name(id).with_context(|| {
+            format!("Unable to get the name for node {}", id)
+        })?;
+
+        let colour = match &node.stage {
+            rune_syntax::hir::Stage::Source(_) => "lightgreen",
+            rune_syntax::hir::Stage::Model(_) => "violet",
+            rune_syntax::hir::Stage::ProcBlock(_) => "tan1",
+            rune_syntax::hir::Stage::Sink(_) => "indianred1",
+        };
+
+        write!(
+            w,
+            r#"  node_{} [fillcolor={}, style="filled",label="#,
+            id, colour,
+        )?;
+        format_node_label(w, name, node)?;
+        writeln!(w, "];")?;
+    }
+
+    Ok(())
+}
+
+fn format_node_label(
+    w: &mut dyn Write,
+    name: &str,
+    node: &Node,
+) -> Result<(), Error> {
+    writeln!(w, "<")?;
+    writeln!(
+        w,
+        r#"    <table border="0" cellborder="0" cellspacing="5">"#
+    )?;
+
+    if !node.input_slots.is_empty() {
+        write!(
+            w,
+            r#"      <tr><td><table cellborder="1" cellspacing="0"><tr>"#
+        )?;
+        for i in 0..node.input_slots.len() {
+            write!(w, "<td port=\"input_{}\">{}</td>", i, i)?;
+        }
+        writeln!(w, "</tr></table></td></tr>")?;
+    }
+
+    let qualifier = match &node.stage {
+        rune_syntax::hir::Stage::Source(s) => s.kind.to_string(),
+        rune_syntax::hir::Stage::Sink(s) => s.kind.to_string(),
+        rune_syntax::hir::Stage::Model(m) => m.model_file.display().to_string(),
+        rune_syntax::hir::Stage::ProcBlock(p) => p.path.to_string(),
+    };
+
+    writeln!(w, "      <tr><td>{}: {}</td></tr>", name, qualifier)?;
+
+    if !node.output_slots.is_empty() {
+        write!(
+            w,
+            r#"      <tr><td><table cellborder="1" cellspacing="0"><tr>"#
+        )?;
+        for i in 0..node.output_slots.len() {
+            write!(w, "<td port=\"output_{}\">{}</td>", i, i)?;
+        }
+        writeln!(w, "</tr></table></td></tr>")?;
+    }
+
+    writeln!(w, "    </table>")?;
+    write!(w, "  >")?;
+
+    Ok(())
 }
