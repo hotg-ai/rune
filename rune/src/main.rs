@@ -1,5 +1,5 @@
 mod build;
-// mod graph;
+mod graph;
 mod inspect;
 mod model_info;
 mod run;
@@ -11,12 +11,8 @@ use codespan_reporting::term::termcolor;
 use structopt::{clap::AppSettings, StructOpt};
 use env_logger::{Env, WriteStyle};
 use crate::{
-    // graph::Graph,
-    model_info::ModelInfo,
-    inspect::Inspect,
-    run::Run,
-    build::Build,
-    version::Version,
+    graph::Graph, model_info::ModelInfo, inspect::Inspect, run::Run,
+    build::Build, version::Version,
 };
 
 const DEFAULT_RUST_LOG: &str = concat!(
@@ -46,7 +42,7 @@ fn main() -> Result<(), Error> {
     match cmd {
         Some(Cmd::Build(build)) => build.execute(colour.into()),
         Some(Cmd::Run(run)) => run.execute(),
-        // Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
+        Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
         Some(Cmd::Version(mut version)) => {
             version.verbose |= verbose;
             version.execute()
@@ -131,6 +127,8 @@ enum Cmd {
     ModelInfo(ModelInfo),
     /// Inspect a Rune.
     Inspect(Inspect),
+    /// Visualise a Rune's pipeline graph.
+    Graph(Graph),
 }
 
 #[derive(

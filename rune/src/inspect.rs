@@ -33,7 +33,7 @@ impl Inspect {
         let wasm = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
-        let meta = Metadata::from_custom_sections(wasm_custom_sections(&wasm));
+        let meta = Metadata::from_wasm_binary(&wasm);
 
         match self.format {
             Format::Json => {
@@ -66,7 +66,7 @@ fn print_meta(meta: &Metadata) {
         );
     }
 
-    if let Some(SimplifiedRune { capabilities }) = &meta.rune {
+    if let Some(SimplifiedRune { capabilities }) = &meta.simplified_rune {
         if !capabilities.is_empty() {
             print_capabilities(&capabilities);
         }
@@ -100,25 +100,31 @@ fn print_capabilities(capabilities: &BTreeMap<String, SimplifiedCapability>) {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-struct Metadata {
+#[derive(Debug, Default, Clone, serde::Serialize)]
+pub(crate) struct Metadata {
     rune_cli_build_info: Option<BuildInfo>,
-    rune: Option<SimplifiedRune>,
+    rune: Option<Rune>,
+    simplified_rune: Option<SimplifiedRune>,
 }
 
 impl Metadata {
+    pub(crate) fn from_wasm_binary(wasm: &[u8]) -> Self {
+        Metadata::from_custom_sections(wasm_custom_sections(wasm))
+    }
+
     fn from_custom_sections<'a>(
         sections: impl Iterator<Item = CustomSection<'a>>,
     ) -> Self {
-        let mut rune_cli_build_info = None;
-        let mut graph = None;
+        let mut meta = Metadata::default();
 
         for section in sections {
             match section.name {
                 rune_codegen::GRAPH_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(rune) => {
-                            graph = Some(SimplifiedRune::from_rune(rune));
+                            meta.simplified_rune =
+                                Some(SimplifiedRune::from_rune(&rune));
+                            meta.rune = Some(rune);
                         },
                         Err(e) => {
                             log::warn!(
@@ -131,7 +137,7 @@ impl Metadata {
                 rune_codegen::VERSION_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(v) => {
-                            rune_cli_build_info = Some(v);
+                            meta.rune_cli_build_info = Some(v);
                         },
                         Err(e) => {
                             log::warn!(
@@ -145,11 +151,10 @@ impl Metadata {
             }
         }
 
-        Metadata {
-            rune_cli_build_info,
-            rune: graph,
-        }
+        meta
     }
+
+    pub(crate) fn take_rune(&mut self) -> Option<Rune> { self.rune.take() }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -158,7 +163,7 @@ struct SimplifiedRune {
 }
 
 impl SimplifiedRune {
-    fn from_rune(rune: Rune) -> Self {
+    fn from_rune(rune: &Rune) -> Self {
         let mut capabilities = BTreeMap::new();
 
         for (&id, node) in &rune.stages {
