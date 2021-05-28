@@ -1,10 +1,11 @@
 mod build;
 // mod graph;
+mod inspect;
 mod model_info;
 mod run;
 mod version;
 
-use std::str::FromStr;
+use strum::VariantNames;
 use anyhow::Error;
 use codespan_reporting::term::termcolor;
 use structopt::{clap::AppSettings, StructOpt};
@@ -12,9 +13,10 @@ use env_logger::{Env, WriteStyle};
 use crate::{
     // graph::Graph,
     model_info::ModelInfo,
+    inspect::Inspect,
     run::Run,
     build::Build,
-    version::{Format, Version},
+    version::Version,
 };
 
 const DEFAULT_RUST_LOG: &str = concat!(
@@ -50,6 +52,7 @@ fn main() -> Result<(), Error> {
             version.execute()
         },
         Some(Cmd::ModelInfo(m)) => model_info::model_info(m),
+        Some(Cmd::Inspect(i)) => i.execute(),
         None if version => {
             let v = Version {
                 format: Format::Text,
@@ -73,7 +76,7 @@ pub struct Args {
         default_value = "auto",
         aliases = &["color"],
         parse(try_from_str),
-        possible_values = &["always", "never", "auto"])
+        possible_values = ColorChoice::VARIANTS)
     ]
     colour: ColorChoice,
     #[structopt(short = "V", long, help = "Print out version information")]
@@ -84,7 +87,10 @@ pub struct Args {
     cmd: Option<Cmd>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, strum::EnumVariantNames, strum::EnumString,
+)]
+#[strum(serialize_all = "snake_case")]
 enum ColorChoice {
     Always,
     Auto,
@@ -111,19 +117,6 @@ impl From<ColorChoice> for WriteStyle {
     }
 }
 
-impl FromStr for ColorChoice {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Error> {
-        match s {
-            "always" => Ok(ColorChoice::Always),
-            "auto" => Ok(ColorChoice::Auto),
-            "never" => Ok(ColorChoice::Never),
-            __ => Err(Error::msg("Invalid colour choice")),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 #[structopt(setting(AppSettings::DisableVersion))]
 enum Cmd {
@@ -131,11 +124,20 @@ enum Cmd {
     Build(Build),
     /// Run a rune.
     Run(Run),
-    // /// Parse a Runefile and generate a DOT graph showing the pipelines
-    // inside. Graph(Graph),
     /// Print detailed version information.
     Version(Version),
     /// Load a TensorFlow Lite model and print information about it.
     #[structopt(name = "model-info")]
     ModelInfo(ModelInfo),
+    /// Inspect a Rune.
+    Inspect(Inspect),
+}
+
+#[derive(
+    Debug, Copy, Clone, PartialEq, strum::EnumVariantNames, strum::EnumString,
+)]
+#[strum(serialize_all = "snake_case")]
+pub enum Format {
+    Json,
+    Text,
 }

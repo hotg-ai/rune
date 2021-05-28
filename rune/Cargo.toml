@@ -30,6 +30,8 @@ rand = "0.8.3"
 build-info = { version = "0.0.23", features = ["serde"] }
 serde = { version = "1.0.125", features = ["derive"] }
 tflite = "0.9.5"
+strum = { version = "0.20.0", features = ["derive"] }
+wasmparser = "0.78.2"
 
 [dev-dependencies]
 assert_cmd = "1.0.3"

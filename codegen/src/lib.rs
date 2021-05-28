@@ -15,6 +15,9 @@ pub use crate::{
     project::Project,
 };
 
+pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
+pub const VERSION_CUSTOM_SECTION: &str = ".rune_version";
+
 use std::path::{PathBuf};
 use anyhow::{Context, Error};
 use rune_syntax::hir::Rune;
