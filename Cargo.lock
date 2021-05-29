@@ -2247,6 +2247,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-pb-core"
+version = "0.1.0"
+dependencies = [
+ "rune-pb-macros",
+ "runic-types",
+]
+
+[[package]]
+name = "rune-pb-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "rune-runtime"
 version = "0.1.0"
 dependencies = [
