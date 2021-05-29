@@ -2,9 +2,10 @@ extern crate proc_macro;
 
 use quote::quote;
 use syn::{
-    Attribute, DeriveInput, Error, Ident, LitInt, LitStr, Path, Token,
+    Attribute, DeriveInput, Error, ExprLit, Ident, Lit, LitStr, Token,
+    TypeArray,
     parse::{Parse, ParseStream},
-    punctuated::Punctuated,
+    spanned::Spanned,
 };
 
 #[proc_macro_derive(ProcBlock, attributes(transform))]
@@ -83,34 +84,51 @@ impl Parse for Transform {
 #[derive(Debug, Clone, PartialEq)]
 struct TensorType {
     element: Ident,
-    dimensions: Vec<usize>,
+    rank: Option<usize>,
 }
 
 impl Parse for TensorType {
     fn parse(input: ParseStream) -> Result<Self, Error> {
-        let element: Ident = input.parse()?;
+        if input.peek(syn::token::Bracket) {
+            let TypeArray { elem, len, .. } = input.parse()?;
 
-        let mut dimensions: Vec<usize> = Vec::new();
+            let element = match &*elem {
+                syn::Type::Path(p) => match p.path.get_ident() {
+                    Some(id) => id.clone(),
+                    None => {
+                        return Err(Error::new(
+                            elem.span(),
+                            "Expected a type name",
+                        ))
+                    },
+                },
+                _ => {
+                    return Err(Error::new(elem.span(), "Expected a type name"))
+                },
+            };
+            let dimensions = match len {
+                syn::Expr::Lit(ExprLit {
+                    lit: Lit::Int(int), ..
+                }) => int.base10_parse()?,
+                _ => {
+                    return Err(Error::new(
+                        len.span(),
+                        "Expected a constant length",
+                    ))
+                },
+            };
 
-        if input.lookahead1().peek(syn::token::Bracket) {
-            let inner;
-            let _ = syn::bracketed!(inner in input);
-            let dims: Punctuated<LitInt, Token![,]> =
-                inner.parse_terminated(LitInt::parse)?;
-
-            for dim in dims {
-                dimensions.push(dim.base10_parse()?);
-            }
+            Ok(TensorType {
+                element,
+                rank: Some(dimensions),
+            })
+        } else {
+            let element: Ident = input.parse()?;
+            Ok(TensorType {
+                element,
+                rank: None,
+            })
         }
-
-        if dimensions.is_empty() {
-            dimensions.push(1);
-        }
-
-        Ok(TensorType {
-            element,
-            dimensions,
-        })
     }
 }
 
@@ -136,10 +154,10 @@ mod tests {
 
     #[test]
     fn parse_a_tensor_type() {
-        let src = "f32[1, 2, 3]";
+        let src = "[f32; 3]";
         let should_be = TensorType {
             element: syn::parse_str("f32").unwrap(),
-            dimensions: vec![1, 2, 3],
+            rank: Some(3),
         };
 
         let got: TensorType = syn::parse_str(src).unwrap();
@@ -152,7 +170,7 @@ mod tests {
         let src = "f32";
         let should_be = TensorType {
             element: syn::parse_str("f32").unwrap(),
-            dimensions: vec![1],
+            rank: None,
         };
 
         let got: TensorType = syn::parse_str(src).unwrap();

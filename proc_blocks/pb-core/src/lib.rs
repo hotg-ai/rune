@@ -14,5 +14,5 @@ pub trait ProcBlock: Default + 'static {}
 
 /// A really interesting type.
 #[derive(ProcBlock, Default, PartialEq)]
-#[transform(input = f32[1], output = u8)]
+#[transform(input = [f32; 3], output = u8)]
 struct Foo {}
