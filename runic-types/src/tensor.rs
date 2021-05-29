@@ -1,4 +1,9 @@
-use core::{convert::TryInto, ops::Index, iter::FromIterator};
+use core::{
+    convert::TryInto,
+    iter::FromIterator,
+    ops::{Index, IndexMut},
+    fmt::{self, Formatter, Display},
+};
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -79,6 +84,22 @@ impl<T> Tensor<T> {
         })
     }
 
+    pub fn view_mut<'a, 'this: 'a, const RANK: usize>(
+        &'this mut self,
+    ) -> Option<TensorViewMut<'a, T, RANK>>
+    where
+        T: Clone,
+    {
+        let dimensions: &[usize; RANK] =
+            self.dimensions.as_slice().try_into().ok()?;
+        let dimensions = *dimensions;
+
+        Some(TensorViewMut {
+            elements: self.make_elements_mut(),
+            dimensions,
+        })
+    }
+
     pub fn as_ptr_and_byte_length(&self) -> (*const u8, usize) {
         let elements = self.elements();
         let byte_length = elements.len() * core::mem::size_of::<T>();
@@ -150,10 +171,114 @@ impl<T, const N: usize> From<[T; N]> for Tensor<T> {
     }
 }
 
+impl<T: Clone, const WIDTH: usize, const HEIGHT: usize>
+    From<[[T; WIDTH]; HEIGHT]> for Tensor<T>
+{
+    fn from(array: [[T; WIDTH]; HEIGHT]) -> Self {
+        let elements =
+            array.iter().flat_map(|row| row.iter()).cloned().collect();
+        Tensor::new_row_major(elements, alloc::vec![HEIGHT, WIDTH])
+    }
+}
+
+impl<T: Clone, const WIDTH: usize, const HEIGHT: usize, const DEPTH: usize>
+    From<[[[T; WIDTH]; HEIGHT]; DEPTH]> for Tensor<T>
+{
+    fn from(array: [[[T; WIDTH]; HEIGHT]; DEPTH]) -> Self {
+        let elements = array
+            .iter()
+            .flat_map(|row| row.iter())
+            .flat_map(|column| column.iter())
+            .cloned()
+            .collect();
+        Tensor::new_row_major(elements, alloc::vec![DEPTH, HEIGHT, WIDTH])
+    }
+}
+
 impl<'a, T: Clone> From<&'a [T]> for Tensor<T> {
     fn from(array: &'a [T]) -> Self {
         let dims = alloc::vec![array.len()];
         Tensor::new_row_major(array.iter().cloned().collect(), dims)
+    }
+}
+
+fn index_of(
+    dimensions: &[usize],
+    indices: &[usize],
+) -> Result<usize, IndexError> {
+    if dimensions.len() != indices.len() {
+        return Err(IndexError::MismatchedRank {
+            dimension_length: dimensions.len(),
+            indices_length: indices.len(),
+        });
+    }
+    if dimensions.is_empty() {
+        return Err(IndexError::ZeroVector);
+    }
+
+    assert_eq!(dimensions.len(), indices.len());
+    assert!(!indices.is_empty());
+
+    let rank = dimensions.len();
+    let mut index = indices[rank - 1];
+
+    for i in 0..rank - 1 {
+        let ix = indices[i];
+        let dim = dimensions[i];
+
+        if ix >= dim {
+            return Err(IndexError::IndexTooLarge {
+                dimension: i,
+                max_value: dim,
+                found: ix,
+            });
+        }
+
+        let stride = dimensions[i + 1];
+        #[cfg(test)]
+        dbg!(index, ix, stride, dim, i);
+        index += ix * stride;
+    }
+
+    Ok(index)
+}
+
+#[cold]
+#[track_caller]
+fn on_index_error(
+    e: IndexError,
+    indices: impl AsRef<[usize]>,
+    dimensions: impl AsRef<[usize]>,
+) -> ! {
+    panic!(
+        "{} (index: {:?}, dimensions: {:?})",
+        e,
+        indices.as_ref(),
+        dimensions.as_ref(),
+    );
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum IndexError {
+    MismatchedRank {
+        dimension_length: usize,
+        indices_length: usize,
+    },
+    IndexTooLarge {
+        dimension: usize,
+        max_value: usize,
+        found: usize,
+    },
+    ZeroVector,
+}
+
+impl Display for IndexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            IndexError::MismatchedRank { dimension_length, indices_length } => write!(f, "Unable to index into a {}-dimension tensor with a {}-dimension index", dimension_length, indices_length),
+            IndexError::IndexTooLarge { dimension, max_value, found } => write!(f, "Index {} should be less than {}, but found {}", dimension, max_value, found),
+            IndexError::ZeroVector => write!(f, "Unable to index into the zero vector"),
+        }
     }
 }
 
@@ -162,41 +287,22 @@ impl<'a, T: Clone> From<&'a [T]> for Tensor<T> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct TensorView<'t, T, const RANK: usize> {
     elements: &'t [T],
-    dimensions: &'t [usize; RANK],
+    dimensions: [usize; RANK],
 }
 
 impl<'t, T, const RANK: usize> TensorView<'t, T, RANK> {
     pub fn elements(&self) -> &'t [T] { self.elements }
 
-    pub fn dimensions(&self) -> &'t [usize] { self.dimensions }
+    pub fn dimensions(&self) -> [usize; RANK] { self.dimensions }
 
     pub fn get(&self, indices: [usize; RANK]) -> Option<&T> {
-        let ix = self.index_of(indices)?;
+        let ix = self.index_of(indices).ok()?;
         Some(&self.elements[ix])
     }
 
-    fn index_of(&self, indices: [usize; RANK]) -> Option<usize> {
-        index_of(self.dimensions, &indices)
+    fn index_of(&self, indices: [usize; RANK]) -> Result<usize, IndexError> {
+        index_of(&self.dimensions, &indices)
     }
-}
-
-fn index_of(dimensions: &[usize], indices: &[usize]) -> Option<usize> {
-    if indices.iter().zip(dimensions).any(|(ix, max)| ix >= max) {
-        return None;
-    }
-    if dimensions.len() != indices.len() {
-        return None;
-    }
-
-    let mut index = *indices.last().unwrap();
-
-    for k in 0..dimensions.len() {
-        for l in (k + 1)..dimensions.len() {
-            index += dimensions[l] * indices[k];
-        }
-    }
-
-    Some(index)
 }
 
 impl<'t, T, const RANK: usize> Index<[usize; RANK]>
@@ -206,9 +312,9 @@ impl<'t, T, const RANK: usize> Index<[usize; RANK]>
 
     #[track_caller]
     fn index(&self, index: [usize; RANK]) -> &Self::Output {
-        match self.get(index) {
-            Some(value) => value,
-            None => panic!("index out of bounds: the index was {:?} but the tensor has dimensions of {:?}", index, self.dimensions)
+        match self.index_of(index) {
+            Ok(value) => &self.elements[value],
+            Err(e) => on_index_error(e, index, self.dimensions),
         }
     }
 }
@@ -218,6 +324,73 @@ impl<'t, T> Index<usize> for TensorView<'t, T, 1> {
 
     #[track_caller]
     fn index(&self, index: usize) -> &Self::Output { &self[[index]] }
+}
+
+/// A mutable view into a [`Tensor`] with a particular rank (number of
+/// dimensions).
+#[derive(Debug, PartialEq)]
+pub struct TensorViewMut<'t, T, const RANK: usize> {
+    elements: &'t mut [T],
+    dimensions: [usize; RANK],
+}
+
+impl<'t, T, const RANK: usize> TensorViewMut<'t, T, RANK> {
+    pub fn elements(&mut self) -> &mut [T] { self.elements }
+
+    pub fn dimensions(&self) -> [usize; RANK] { self.dimensions }
+
+    pub fn get(&self, indices: [usize; RANK]) -> Option<&T> {
+        let ix = self.index_of(indices).ok()?;
+        Some(&self.elements[ix])
+    }
+
+    pub fn get_mut(&mut self, indices: [usize; RANK]) -> Option<&mut T> {
+        let ix = self.index_of(indices).ok()?;
+        Some(&mut self.elements[ix])
+    }
+
+    fn index_of(&self, indices: [usize; RANK]) -> Result<usize, IndexError> {
+        index_of(&self.dimensions, &indices)
+    }
+}
+
+impl<'t, T, const RANK: usize> Index<[usize; RANK]>
+    for TensorViewMut<'t, T, RANK>
+{
+    type Output = T;
+
+    #[track_caller]
+    fn index(&self, index: [usize; RANK]) -> &Self::Output {
+        match self.index_of(index) {
+            Ok(value) => &self.elements[value],
+            Err(e) => on_index_error(e, index, self.dimensions),
+        }
+    }
+}
+impl<'t, T, const RANK: usize> IndexMut<[usize; RANK]>
+    for TensorViewMut<'t, T, RANK>
+{
+    #[track_caller]
+    fn index_mut(&mut self, index: [usize; RANK]) -> &mut Self::Output {
+        match self.index_of(index) {
+            Ok(ix) => &mut self.elements[ix],
+            Err(e) => on_index_error(e, index, self.dimensions),
+        }
+    }
+}
+
+impl<'t, T> Index<usize> for TensorViewMut<'t, T, 1> {
+    type Output = T;
+
+    #[track_caller]
+    fn index(&self, index: usize) -> &Self::Output { &self[[index]] }
+}
+
+impl<'t, T> IndexMut<usize> for TensorViewMut<'t, T, 1> {
+    #[track_caller]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self[[index]]
+    }
 }
 
 impl<T: Serialize> Serialize for Tensor<T> {
@@ -350,7 +523,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "index out of bounds: the index was [2, 0] but the tensor has dimensions of [2, 3]"
+        expected = "Index 0 should be less than 2, but found 2 (index: [2, 0], dimensions: [2, 3])"
     )]
     fn index_out_of_bounds() {
         let tensor: Tensor<u32> = Tensor::zeroed(vec![2_usize, 3]);
@@ -406,5 +579,54 @@ mod tests {
         let got = collect_counter(counter);
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn convert_from_1d_array() {
+        let input = [1.0, 2.0, 3.0];
+
+        let got = Tensor::from(input);
+
+        assert_eq!(got.dimensions(), &[3]);
+        assert_eq!(got.elements(), input);
+    }
+
+    #[test]
+    fn convert_from_2d_array() {
+        let input = [[0, 1, 2], [3, 4, 5]];
+
+        let got: Tensor<i32> = input.into();
+
+        let view = got.view::<2>().unwrap();
+        let coordinates_and_indices = vec![
+            ([0, 0], 0),
+            ([0, 1], 1),
+            ([0, 2], 2),
+            ([1, 0], 3),
+            ([1, 1], 4),
+            ([1, 2], 5),
+        ];
+        for (index, should_be) in coordinates_and_indices {
+            assert_eq!(view[index], should_be);
+        }
+    }
+
+    #[test]
+    fn convert_from_3d_array() {
+        // double-checked using numpy
+        let input = [
+            [[1, 2], [3, 4], [4, 5], [6, 7]],
+            [[8, 9], [10, 11], [12, 13], [14, 15]],
+            [[16, 17], [18, 19], [20, 21], [22, 23]],
+        ];
+        let elements_should_be = [
+            1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+            19, 20, 21, 22, 23,
+        ];
+
+        let got: Tensor<i32> = input.into();
+
+        assert_eq!(got.dimensions(), &[3, 4, 2]);
+        assert_eq!(got.elements(), elements_should_be);
     }
 }

@@ -1180,6 +1180,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "image-normalization"
+version = "0.1.0"
+dependencies = [
+ "runic-types",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2279,6 +2286,7 @@ name = "rune_py"
 version = "0.1.0"
 dependencies = [
  "fft",
+ "image-normalization",
  "noise-filtering",
  "normalize",
  "numpy",

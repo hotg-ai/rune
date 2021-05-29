@@ -13,6 +13,7 @@ doctest = false
 
 [dependencies]
 fft = { path = "../proc_blocks/fft" }
+image-normalization = { path = "../proc_blocks/image-normalization" }
 noise-filtering = { path = "../proc_blocks/noise-filtering" }
 normalize = { path = "../proc_blocks/normalize" }
 numpy = "0.13.1"
