@@ -118,16 +118,16 @@ impl From<ColorChoice> for WriteStyle {
 enum Cmd {
     /// Compile a Runefile into a Rune.
     Build(Build),
-    /// Run a rune.
+    /// Execute a Rune on the current device.
     Run(Run),
-    /// Print detailed version information.
+    /// Print version information about the rune CLI.
     Version(Version),
     /// Load a TensorFlow Lite model and print information about it.
     #[structopt(name = "model-info")]
     ModelInfo(ModelInfo),
-    /// Inspect a Rune.
+    /// Show which capabilities are used by a compiled Rune.
     Inspect(Inspect),
-    /// Visualise a Rune's pipeline graph.
+    /// Visualise the flow of data through a Rune.
     Graph(Graph),
 }
 
