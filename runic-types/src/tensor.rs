@@ -2,6 +2,7 @@ use core::{
     convert::TryInto,
     iter::FromIterator,
     ops::{Index, IndexMut},
+    fmt::{self, Formatter, Display},
 };
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -201,6 +202,86 @@ impl<'a, T: Clone> From<&'a [T]> for Tensor<T> {
     }
 }
 
+fn index_of(
+    dimensions: &[usize],
+    indices: &[usize],
+) -> Result<usize, IndexError> {
+    if dimensions.len() != indices.len() {
+        return Err(IndexError::MismatchedRank {
+            dimension_length: dimensions.len(),
+            indices_length: indices.len(),
+        });
+    }
+    if dimensions.is_empty() {
+        return Err(IndexError::ZeroVector);
+    }
+
+    assert_eq!(dimensions.len(), indices.len());
+    assert!(!indices.is_empty());
+
+    let rank = dimensions.len();
+    let mut index = indices[rank - 1];
+
+    for i in 0..rank - 1 {
+        let ix = indices[i];
+        let dim = dimensions[i];
+
+        if ix >= dim {
+            return Err(IndexError::IndexTooLarge {
+                dimension: i,
+                max_value: dim,
+                found: ix,
+            });
+        }
+
+        let stride = dimensions[i + 1];
+        #[cfg(test)]
+        dbg!(index, ix, stride, dim, i);
+        index += ix * stride;
+    }
+
+    Ok(index)
+}
+
+#[cold]
+#[track_caller]
+fn on_index_error(
+    e: IndexError,
+    indices: impl AsRef<[usize]>,
+    dimensions: impl AsRef<[usize]>,
+) -> ! {
+    panic!(
+        "{} (index: {:?}, dimensions: {:?})",
+        e,
+        indices.as_ref(),
+        dimensions.as_ref(),
+    );
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum IndexError {
+    MismatchedRank {
+        dimension_length: usize,
+        indices_length: usize,
+    },
+    IndexTooLarge {
+        dimension: usize,
+        max_value: usize,
+        found: usize,
+    },
+    ZeroVector,
+}
+
+impl Display for IndexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            IndexError::MismatchedRank { dimension_length, indices_length } => write!(f, "Unable to index into a {}-dimension tensor with a {}-dimension index", dimension_length, indices_length),
+            IndexError::IndexTooLarge { dimension, max_value, found } => write!(f, "Index {} should be less than {}, but found {}", dimension, max_value, found),
+            IndexError::ZeroVector => write!(f, "Unable to index into the zero vector"),
+        }
+    }
+}
+
 /// An immutable view into a [`Tensor`] with a particular rank (number of
 /// dimensions).
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -215,37 +296,12 @@ impl<'t, T, const RANK: usize> TensorView<'t, T, RANK> {
     pub fn dimensions(&self) -> [usize; RANK] { self.dimensions }
 
     pub fn get(&self, indices: [usize; RANK]) -> Option<&T> {
-        let ix = self.index_of(indices)?;
+        let ix = self.index_of(indices).ok()?;
         Some(&self.elements[ix])
     }
 
-    fn index_of(&self, indices: [usize; RANK]) -> Option<usize> {
+    fn index_of(&self, indices: [usize; RANK]) -> Result<usize, IndexError> {
         index_of(&self.dimensions, &indices)
-    }
-}
-
-fn index_of(dimensions: &[usize], indices: &[usize]) -> Option<usize> {
-    if indices.iter().zip(dimensions).any(|(ix, max)| ix >= max) {
-        return None;
-    }
-    if dimensions.len() != indices.len() {
-        return None;
-    }
-
-    let mut index = *indices.last().unwrap();
-
-    for k in 0..dimensions.len() {
-        for l in (k + 1)..dimensions.len() {
-            index += dimensions[l] * indices[k];
-        }
-    }
-
-    let num_elements: usize = dimensions.iter().product();
-
-    if index < num_elements {
-        Some(index)
-    } else {
-        None
     }
 }
 
@@ -256,9 +312,9 @@ impl<'t, T, const RANK: usize> Index<[usize; RANK]>
 
     #[track_caller]
     fn index(&self, index: [usize; RANK]) -> &Self::Output {
-        match self.get(index) {
-            Some(value) => value,
-            None => panic!("index out of bounds: the index was {:?} but the tensor has dimensions of {:?}", index, self.dimensions)
+        match self.index_of(index) {
+            Ok(value) => &self.elements[value],
+            Err(e) => on_index_error(e, index, self.dimensions),
         }
     }
 }
@@ -284,16 +340,16 @@ impl<'t, T, const RANK: usize> TensorViewMut<'t, T, RANK> {
     pub fn dimensions(&self) -> [usize; RANK] { self.dimensions }
 
     pub fn get(&self, indices: [usize; RANK]) -> Option<&T> {
-        let ix = self.index_of(indices)?;
+        let ix = self.index_of(indices).ok()?;
         Some(&self.elements[ix])
     }
 
     pub fn get_mut(&mut self, indices: [usize; RANK]) -> Option<&mut T> {
-        let ix = self.index_of(indices)?;
+        let ix = self.index_of(indices).ok()?;
         Some(&mut self.elements[ix])
     }
 
-    fn index_of(&self, indices: [usize; RANK]) -> Option<usize> {
+    fn index_of(&self, indices: [usize; RANK]) -> Result<usize, IndexError> {
         index_of(&self.dimensions, &indices)
     }
 }
@@ -305,9 +361,9 @@ impl<'t, T, const RANK: usize> Index<[usize; RANK]>
 
     #[track_caller]
     fn index(&self, index: [usize; RANK]) -> &Self::Output {
-        match self.get(index) {
-            Some(value) => value,
-            None => panic!("index out of bounds: the index was {:?} but the tensor has dimensions of {:?}", index, self.dimensions)
+        match self.index_of(index) {
+            Ok(value) => &self.elements[value],
+            Err(e) => on_index_error(e, index, self.dimensions),
         }
     }
 }
@@ -317,8 +373,8 @@ impl<'t, T, const RANK: usize> IndexMut<[usize; RANK]>
     #[track_caller]
     fn index_mut(&mut self, index: [usize; RANK]) -> &mut Self::Output {
         match self.index_of(index) {
-            Some(ix) => &mut self.elements[ix],
-            None => panic!("index out of bounds: the index was {:?} but the tensor has dimensions of {:?}", index, self.dimensions)
+            Ok(ix) => &mut self.elements[ix],
+            Err(e) => on_index_error(e, index, self.dimensions),
         }
     }
 }
@@ -467,7 +523,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "index out of bounds: the index was [2, 0] but the tensor has dimensions of [2, 3]"
+        expected = "Index 0 should be less than 2, but found 2 (index: [2, 0], dimensions: [2, 3])"
     )]
     fn index_out_of_bounds() {
         let tensor: Tensor<u32> = Tensor::zeroed(vec![2_usize, 3]);
