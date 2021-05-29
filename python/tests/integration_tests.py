@@ -71,9 +71,6 @@ class ImageNormalizationTest(unittest.TestCase):
         )
         mean = image.mean(axis=(1, 2))
         std = image.std(axis=(1, 2))
-        print("shape", image.shape)
-        print("mean", mean)
-        print("std", std)
         norm = ImageNormalization(
             red=(mean[0], std[0]), green=(mean[1], std[1]), blue=(mean[2], std[2])
         )
@@ -81,9 +78,7 @@ class ImageNormalizationTest(unittest.TestCase):
 
         got = norm(image)
 
-        print(Distribution(10, 0.75))
-
-        self.assertEqual(got, should_be)
+        self.assertTrue(np.array_equal(got, should_be))
 
 
 def normalize_with_numpy(image: np.ndarray, mean: np.ndarray, std: np.ndarray):
