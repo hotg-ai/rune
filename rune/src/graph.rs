@@ -12,14 +12,11 @@ const WASM_MAGIC_BYTES: &[u8; 4] = b"\0asm";
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Graph {
-    #[structopt(
-        short,
-        long,
-        parse(from_os_str),
-        help = "Where to write the generated file (stdout by default)"
-    )]
+    /// Where to write the generated file (stdout by default).
+    #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
-    #[structopt(parse(from_os_str), help = "The Rune or Runefile to graph")]
+    /// A Rune or Runefile to graph.
+    #[structopt(parse(from_os_str))]
     input: PathBuf,
 }
 

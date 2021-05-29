@@ -103,6 +103,7 @@ fn print_capabilities(capabilities: &BTreeMap<String, SimplifiedCapability>) {
 #[derive(Debug, Default, Clone, serde::Serialize)]
 pub(crate) struct Metadata {
     rune_cli_build_info: Option<BuildInfo>,
+    #[serde(skip)]
     rune: Option<Rune>,
     simplified_rune: Option<SimplifiedRune>,
 }
