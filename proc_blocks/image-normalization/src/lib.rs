@@ -18,7 +18,7 @@ pub struct ImageNormalization {
 impl ImageNormalization {
     /// A shortcut for initializing the red, green, and blue distributions in
     /// one call.
-    pub fn with_rgb<D>(self, distribution: D) -> Self
+    pub fn set_rgb<D>(&mut self, distribution: D) -> &mut Self
     where
         D: TryInto<Distribution>,
         D::Error: Display,
@@ -28,45 +28,46 @@ impl ImageNormalization {
             Err(e) => panic!("Invalid distribution: {}", e),
         };
 
-        ImageNormalization {
-            red: d,
-            green: d,
-            blue: d,
-            ..self
-        }
+        self.set_red(d).set_green(d).set_blue(d)
     }
 
-    pub fn with_red<D>(self, distribution: D) -> Self
+    pub fn set_red<D>(&mut self, distribution: D) -> &mut Self
     where
         D: TryInto<Distribution>,
         D::Error: Display,
     {
         match distribution.try_into() {
-            Ok(d) => ImageNormalization { red: d, ..self },
+            Ok(d) => self.red = d,
             Err(e) => panic!("Invalid distribution: {}", e),
         }
+
+        self
     }
 
-    pub fn with_green<D>(self, distribution: D) -> Self
+    pub fn set_green<D>(&mut self, distribution: D) -> &mut Self
     where
         D: TryInto<Distribution>,
         D::Error: Display,
     {
         match distribution.try_into() {
-            Ok(d) => ImageNormalization { green: d, ..self },
+            Ok(d) => self.green = d,
             Err(e) => panic!("Invalid distribution: {}", e),
         }
+
+        self
     }
 
-    pub fn with_blue<D>(self, distribution: D) -> Self
+    pub fn set_blue<D>(&mut self, distribution: D) -> &mut Self
     where
         D: TryInto<Distribution>,
         D::Error: Display,
     {
         match distribution.try_into() {
-            Ok(d) => ImageNormalization { blue: d, ..self },
+            Ok(d) => self.blue = d,
             Err(e) => panic!("Invalid distribution: {}", e),
         }
+
+        self
     }
 }
 
