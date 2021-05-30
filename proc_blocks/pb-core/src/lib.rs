@@ -1,6 +1,6 @@
 #![no_std]
 
-pub use runic_types::{Tensor, TensorView, TensorViewMut};
+pub use runic_types;
 pub use rune_pb_macros::ProcBlock;
 
 /// Process some data, transforming it from one form to another.
