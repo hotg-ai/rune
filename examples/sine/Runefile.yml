@@ -1,31 +1,33 @@
----
 image: runicos/base
+
+types:
+  RNG_F32: 
+    - type: F32
+      dimensions:
+        - 1
+
 pipeline:
-  rand:
-    capability: RAND
-    outputs:
-      - type: F32
-        dimensions:
-          - 1
-  mod360:
-    proc-block: "hotg-ai/rune#proc_blocks/modulo"
-    inputs:
-      - rand
-    outputs:
-      - type: F32
-        dimensions:
-          - 1
-    args:
-      modulus: 360.0
-  sine:
-    model: "./sinemodel.tflite"
-    inputs:
-      - mod360
-    outputs:
-      - type: F32
-        dimensions:
-          - 1
-  serial:
-    out: serial
-    inputs:
-      - sine
+  capabilities:
+    RAND:
+      default_rng:
+        outputs: RNG_F32
+  proc_blocks:
+    pb_mod360:
+      proc-block: "hotg-ai/rune#proc_blocks/modulo"
+      outputs: RNG_F32
+      args:
+        modulus: 360.0
+  models:
+    sine_model:
+      model: "./sinemodel.tflite"
+      outputs: RNG_F32
+  out:
+    serial
+    ble:
+      service_id: 4as2bad
+
+run:
+  - default_rng
+  - pb_mod360
+  - sine_model
+  - [serial, ble]
