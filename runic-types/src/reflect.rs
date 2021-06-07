@@ -50,6 +50,28 @@ macro_rules! declare_type {
                         type_name: core::any::type_name::<T>(),
                     }
                 }
+
+                pub fn from_rust_name(name: &str) -> Option<Type> {
+                    match name {
+                        "str" | "&str" => Some(Type::str),
+                        $(
+                            stringify!($name) => Some(Type::$name),
+                        )*
+                        _ => None,
+                    }
+                }
+
+                /// Get the common name for this type.
+                pub fn rust_name(&self) -> Option<&str> {
+                    match *self {
+                        Type::String => Some("&str"),
+                        $(
+                          Type::$name => Some(stringify!($name)),
+                        )*
+                        Type::Opaque { type_name } => Some(type_name),
+                        _ => None,
+                    }
+                }
             }
 
             $(
@@ -65,18 +87,18 @@ macro_rules! declare_type {
     }
 
 declare_type! {
-    u8 => Type::Integer {signed: false, bit_width: 8},
-    i8 => Type::Integer {signed: true, bit_width: 8},
-    u16 => Type::Integer {signed: false, bit_width: 16},
-    i16 => Type::Integer {signed: true, bit_width: 16},
-    u32 => Type::Integer {signed: false, bit_width: 32},
-    i32 => Type::Integer {signed: true, bit_width: 32},
-    u64 => Type::Integer {signed: false, bit_width: 64},
-    i64 => Type::Integer {signed: true, bit_width: 64},
-    u128 => Type::Integer {signed: false, bit_width: 128},
-    i128 => Type::Integer {signed: true, bit_width: 128},
-    f32 => Type::Float {bit_width: 32 },
-    f64 => Type::Float {bit_width: 64 },
+    u8 => Type::Integer { signed: false, bit_width: 8 },
+    i8 => Type::Integer { signed: true, bit_width: 8 },
+    u16 => Type::Integer { signed: false, bit_width: 16 },
+    i16 => Type::Integer { signed: true, bit_width: 16 },
+    u32 => Type::Integer { signed: false, bit_width: 32 },
+    i32 => Type::Integer { signed: true, bit_width: 32 },
+    u64 => Type::Integer { signed: false, bit_width: 64 },
+    i64 => Type::Integer { signed: true, bit_width: 64 },
+    u128 => Type::Integer { signed: false, bit_width: 128 },
+    i128 => Type::Integer { signed: true, bit_width: 128 },
+    f32 => Type::Float { bit_width: 32 },
+    f64 => Type::Float { bit_width: 64 },
 }
 
 impl Type {
