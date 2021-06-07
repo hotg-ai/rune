@@ -16,7 +16,7 @@ rune-runtime = { path = "../runtime" }
 rune-wasmer-runtime = { path = "../wasmer-runtime" }
 rune-syntax = { path = "../syntax" }
 runic-types = { path = "../runic-types" }
-runicos-base = { path = "../images/runicos-base" }
+runicos-base-runtime = { path = "../images/runicos-base/runtime" }
 
 [lib]
 name = "rune"

@@ -2168,6 +2168,7 @@ dependencies = [
  "assert_cmd",
  "build-info",
  "build-info-build",
+ "chrono",
  "clap",
  "codespan-reporting",
  "dirs",
@@ -2185,7 +2186,7 @@ dependencies = [
  "rune-syntax",
  "rune-wasmer-runtime",
  "runic-types",
- "runicos-base",
+ "runicos-base-runtime",
  "serde",
  "serde_json",
  "structopt",
@@ -2230,7 +2231,7 @@ dependencies = [
  "rune-syntax",
  "rune-wasmer-runtime",
  "runic-types",
- "runicos-base",
+ "runicos-base-runtime",
  "tempfile",
 ]
 
@@ -2337,7 +2338,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "runicos-base"
+name = "runicos-base-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
