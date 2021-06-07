@@ -15,6 +15,10 @@ pub struct ProcBlockDescriptor<'a> {
     pub available_transforms: Cow<'a, [TransformDescriptor<'a>]>,
 }
 
+impl<'a> ProcBlockDescriptor<'a> {
+    pub const CUSTOM_SECTION_NAME: &'static str = ".rune_proc_block";
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ParameterDescriptor<'a> {
     pub name: Cow<'a, str>,

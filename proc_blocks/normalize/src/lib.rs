@@ -25,7 +25,7 @@ where
 }
 
 /// Normalize the input to the range `[0, 1]`.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, rune_pb_core::ProcBlock)]
 pub struct Normalize {
     _private: (),
 }

@@ -7,5 +7,5 @@ edition = "2018"
 
 [dependencies]
 rune-pb-macros = { path = "../macros" }
-runic-types = { path = "../../runic-types" }
+runic-types = { path = "../../runic-types", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }

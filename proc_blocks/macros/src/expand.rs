@@ -18,8 +18,8 @@ pub(crate) fn implement_proc_block_trait(analysis: Analysis) -> TokenStream {
     let descriptor = expand_descriptor(&name, &exports, &descriptor);
 
     quote! {
-        impl ProcBlock for #name {
-            const DESCRIPTOR: ProcBlockDescriptor<'static> = #descriptor;
+        impl #exports::ProcBlock for #name {
+            const DESCRIPTOR: #exports::ProcBlockDescriptor<'static> = #descriptor;
         }
 
         #custom_section
@@ -38,8 +38,11 @@ fn expand_custom_section(
     let len = serialized.len();
     let serialized = LitByteStr::new(serialized.as_bytes(), Span::call_site());
 
+    let section_name = ProcBlockDescriptor::CUSTOM_SECTION_NAME;
+
     quote! {
-        #[link_name = ".rune_proc_block"]
+        #[link_section = #section_name]
+        #[no_mangle]
         pub static #name: [u8; #len] = *#serialized;
     }
 }
@@ -58,7 +61,7 @@ fn expand_descriptor(
     } = descriptor;
 
     quote! {
-        ProcBlockDescriptor {
+        #exports::ProcBlockDescriptor {
             type_name: #exports::Cow::Borrowed(concat!(module_path!(), "::", #name)),
             description: #exports::Cow::Borrowed(#description),
             parameters: #exports::Cow::Borrowed(&[
