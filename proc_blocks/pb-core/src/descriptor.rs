@@ -1,7 +1,7 @@
 use alloc::borrow::Cow;
 
 /// A description of everything a particular proc block is capable of.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ProcBlockDescriptor<'a> {
     /// The fully qualified name for this proc block's type (typically
     /// retrieved via [`core::any::type_name()`]).
@@ -16,26 +16,28 @@ pub struct ProcBlockDescriptor<'a> {
     pub available_transforms: Cow<'a, [TransformDescriptor<'a>]>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ParameterDescriptor<'a> {
     pub name: Cow<'a, str>,
     pub description: Cow<'a, str>,
     pub parameter_type: runic_types::reflect::Type,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TransformDescriptor<'a> {
     pub input: TensorDescriptor<'a>,
     pub output: TensorDescriptor<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TensorDescriptor<'a> {
     pub element_type: runic_types::reflect::Type,
     pub dimensions: Cow<'a, [Dimension]>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 pub enum Dimension {
     Any,
     Value(usize),

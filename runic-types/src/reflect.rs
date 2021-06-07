@@ -1,13 +1,24 @@
 //! A simple reflection system.
 
 use core::any::TypeId;
+use alloc::borrow::Cow;
 
 /// A type known to the reflection system.
 pub trait ReflectionType {
     const TYPE: Type;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum Type {
     /// An integer type.
     Integer { signed: bool, bit_width: usize },
@@ -16,7 +27,7 @@ pub enum Type {
     /// A `&'static str`.
     String,
     /// An opaque type.
-    Opaque { type_name: &'static str },
+    Opaque { type_name: Cow<'static, str> },
 }
 
 macro_rules! declare_type {
@@ -47,7 +58,7 @@ macro_rules! declare_type {
                     }
 
                     Type::Opaque {
-                        type_name: core::any::type_name::<T>(),
+                        type_name: core::any::type_name::<T>().into(),
                     }
                 }
 
@@ -68,7 +79,7 @@ macro_rules! declare_type {
                         $(
                           Type::$name => Some(stringify!($name)),
                         )*
-                        Type::Opaque { type_name } => Some(type_name),
+                        Type::Opaque { ref type_name } => Some(type_name.as_ref()),
                         _ => None,
                     }
                 }
