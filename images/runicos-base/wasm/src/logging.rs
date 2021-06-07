@@ -1,5 +1,6 @@
 use log::{Log, Metadata, Record};
-use crate::{SerializableRecord, wasm32::intrinsics, BufWriter};
+use runic_types::{SerializableRecord, BufWriter};
+use crate::intrinsics;
 use alloc::borrow::Cow;
 use core::fmt::{Display, Write};
 

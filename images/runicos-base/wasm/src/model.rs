@@ -1,4 +1,5 @@
-use crate::{wasm32::intrinsics, Transform, Tensor, HasOutputs};
+use runic_types::{Transform, Tensor, HasOutputs};
+use crate::intrinsics;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 

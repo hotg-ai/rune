@@ -3,7 +3,7 @@ use core::{
     alloc::Layout,
     ops::{Deref, DerefMut},
 };
-use crate::wasm32::stats_allocator::StatsAllocator;
+use crate::stats_allocator::StatsAllocator;
 
 #[derive(Debug, Default)]
 pub struct Allocator<A>(StatsAllocator<A>);

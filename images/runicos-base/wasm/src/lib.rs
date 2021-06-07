@@ -1,4 +1,11 @@
-pub mod alloc;
+#![cfg(target_arch = "wasm32")]
+#![no_std]
+// Note: The WebAssembly bindings need to provide alloc error handling.
+#![feature(core_intrinsics, lang_items, alloc_error_handler)]
+
+extern crate alloc;
+
+pub mod allocator;
 mod capability;
 mod guards;
 pub mod intrinsics;
@@ -16,7 +23,8 @@ pub use self::{
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use crate::{BufWriter, wasm32::alloc::Allocator};
+use runic_types::BufWriter;
+use crate::allocator::Allocator;
 use dlmalloc::GlobalDlmalloc;
 
 #[global_allocator]

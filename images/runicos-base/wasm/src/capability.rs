@@ -1,12 +1,14 @@
-use crate::{Tensor, Source, wasm32::intrinsics, Value, HasOutputs};
+use runic_types::{Tensor, Source, Value, HasOutputs};
+use crate::intrinsics;
 use core::marker::PhantomData;
 use alloc::vec::Vec;
 
-pub type Random<T> = GenericCapability<T, { crate::capabilities::RAND }>;
-pub type Accelerometer = GenericCapability<f32, { crate::capabilities::ACCEL }>;
-pub type Image = GenericCapability<u8, { crate::capabilities::IMAGE }>;
-pub type Sound = GenericCapability<i16, { crate::capabilities::SOUND }>;
-pub type Raw<T> = GenericCapability<T, { crate::capabilities::RAW }>;
+pub type Random<T> = GenericCapability<T, { runic_types::capabilities::RAND }>;
+pub type Accelerometer =
+    GenericCapability<f32, { runic_types::capabilities::ACCEL }>;
+pub type Image = GenericCapability<u8, { runic_types::capabilities::IMAGE }>;
+pub type Sound = GenericCapability<i16, { runic_types::capabilities::SOUND }>;
+pub type Raw<T> = GenericCapability<T, { runic_types::capabilities::RAW }>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericCapability<T, const KIND: u32> {

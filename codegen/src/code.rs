@@ -17,8 +17,9 @@ pub fn generate(
     rune: &Rune,
     build_info: Option<serde_json::Value>,
 ) -> Result<String, Error> {
+    let image_crate = quote!(runicos_base_wasm);
     let preamble = preamble(rune, build_info)?;
-    let manifest = manifest_function(rune);
+    let manifest = manifest_function(rune, &image_crate);
     let call = call();
 
     let tokens = quote! {
@@ -30,13 +31,13 @@ pub fn generate(
     Ok(tokens.to_token_stream().to_string())
 }
 
-fn manifest_function(rune: &Rune) -> impl ToTokens {
+fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
     let sorted_pipeline: Vec<_> = rune.sorted_pipeline().collect();
 
     let initialized_node = sorted_pipeline
         .iter()
         .copied()
-        .map(|(id, node)| initialize_node(rune, id, node));
+        .map(|(id, node)| initialize_node(rune, id, node, image_crate));
 
     let set_output_dimensions = sorted_pipeline
         .iter()
@@ -51,14 +52,14 @@ fn manifest_function(rune: &Rune) -> impl ToTokens {
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> u32 {
-            let _setup = runic_types::wasm32::SetupGuard::default();
+            let _setup = #image_crate::SetupGuard::default();
 
             #( #initialized_node )*
 
             #( #set_output_dimensions )*
 
             let pipeline = move || {
-                let _guard = runic_types::wasm32::PipelineGuard::default();
+                let _guard = #image_crate::PipelineGuard::default();
 
                 #( #transform )*
             };
@@ -250,16 +251,21 @@ fn rust_type(element_type: &HirId, rune: &Rune) -> TokenStream {
     }
 }
 
-fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
+fn initialize_node(
+    rune: &Rune,
+    id: HirId,
+    node: &Node,
+    image_crate: &TokenStream,
+) -> TokenStream {
     let name = rune.names[id].replace("-", "_");
     let name = Ident::new(&name, Span::call_site());
 
     match &node.stage {
         Stage::Source(Source { kind, parameters }) => {
-            initialize_source(name, kind, parameters)
+            initialize_source(name, kind, parameters, image_crate)
         },
         Stage::Sink(Sink { kind }) => {
-            let type_name = sink_type_name(kind);
+            let type_name = sink_type_name(kind, image_crate);
 
             quote! {
                 let mut #name = #type_name::default();
@@ -268,7 +274,7 @@ fn initialize_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
         Stage::Model(_) => {
             let model_file = format!("{}.tflite", name);
             quote! {
-                let mut #name = runic_types::wasm32::Model::load(include_bytes!(#model_file));
+                let mut #name = #image_crate::Model::load(include_bytes!(#model_file));
             }
         },
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
@@ -302,9 +308,9 @@ fn proc_block_type_name(proc_block: &ProcBlock) -> TokenStream {
     quote!(#module_name::#type_name)
 }
 
-fn sink_type_name(kind: &SinkKind) -> TokenStream {
+fn sink_type_name(kind: &SinkKind, image_crate: &TokenStream) -> TokenStream {
     match kind {
-        SinkKind::Serial => quote!(runic_types::wasm32::Serial),
+        SinkKind::Serial => quote!(#image_crate::Serial),
         SinkKind::Other(other) => ident(other),
     }
 }
@@ -313,8 +319,9 @@ fn initialize_source(
     name: Ident,
     kind: &SourceKind,
     parameters: &HashMap<String, Value>,
+    image_crate: &TokenStream,
 ) -> TokenStream {
-    let type_name = source_type_name(kind);
+    let type_name = source_type_name(kind, image_crate);
     let setters = parameters.iter().map(|(key, value)| {
         let arg = quote_value(value);
         quote! { #name.set_parameter(#key, #arg); }
@@ -350,17 +357,18 @@ fn quote_value(value: &Value) -> TokenStream {
     }
 }
 
-fn source_type_name(kind: &SourceKind) -> TokenStream {
-    let name = match kind {
-        SourceKind::Random => "runic_types::wasm32::Random",
-        SourceKind::Accelerometer => "runic_types::wasm32::Accelerometer",
-        SourceKind::Sound => "runic_types::wasm32::Sound",
-        SourceKind::Image => "runic_types::wasm32::Image",
-        SourceKind::Raw => "runic_types::wasm32::Raw",
-        SourceKind::Other(other) => other.as_str(),
-    };
-
-    ident(name)
+fn source_type_name(
+    kind: &SourceKind,
+    image_crate: &TokenStream,
+) -> TokenStream {
+    match kind {
+        SourceKind::Random => quote!(#image_crate::Random),
+        SourceKind::Accelerometer => quote!(#image_crate::Accelerometer),
+        SourceKind::Sound => quote!(#image_crate::Sound),
+        SourceKind::Image => quote!(#image_crate::Image),
+        SourceKind::Raw => quote!(#image_crate::Raw),
+        SourceKind::Other(other) => ident(other),
+    }
 }
 
 fn ident(fully_qualified_path: &str) -> TokenStream {
@@ -412,8 +420,8 @@ fn preamble(
 
         extern crate alloc;
 
-        use runic_types::*;
         use alloc::boxed::Box;
+        use runic_types::*;
 
         #rune_graph
         #build_info
@@ -515,20 +523,21 @@ mod tests {
               dimensions: [18000]
         "#,
         );
+        let image_crate = quote!(runicos_base_wasm);
 
-        let got = manifest_function(&rune).to_token_stream();
+        let got = manifest_function(&rune, &image_crate).to_token_stream();
 
         let should_be = quote! {
             #[no_mangle]
             pub extern "C" fn _manifest() -> u32 {
-                let _setup = runic_types::wasm32::SetupGuard::default();
-                let mut audio = runic_types::wasm32::Sound::default();
+                let _setup = runicos_base_wasm::SetupGuard::default();
+                let mut audio = runicos_base_wasm::Sound::default();
                 audio.set_parameter("hz", 16000i32);
 
                 audio.set_output_dimensions(&[18000usize]);
 
                 let pipeline = move || {
-                    let _guard = runic_types::wasm32::PipelineGuard::default();
+                    let _guard = runicos_base_wasm::PipelineGuard::default();
                     let audio_out_0: Tensor<u8> = audio.generate();
                 };
 
@@ -557,11 +566,13 @@ mod tests {
         );
         let id = rune.names["audio"];
         let node = &rune.stages[&id];
+        let image_crate = quote!(runicos_base_wasm);
 
-        let got = initialize_node(&rune, id, node).to_token_stream();
+        let got =
+            initialize_node(&rune, id, node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut audio = runic_types::wasm32::Sound::default();
+            let mut audio = runicos_base_wasm::Sound::default();
             audio.set_parameter("hz", 16000i32);
         };
         assert_quote_eq!(got, should_be);
@@ -581,11 +592,13 @@ mod tests {
         );
         let id = rune.names["sine"];
         let node = &rune.stages[&id];
+        let image_crate = quote!(runicos_base_wasm);
 
-        let got = initialize_node(&rune, id, node).to_token_stream();
+        let got =
+            initialize_node(&rune, id, node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = runic_types::wasm32::Model::load(include_bytes!("sine.tflite"));
+            let mut sine = runicos_base_wasm::Model::load(include_bytes!("sine.tflite"));
         };
         assert_quote_eq!(got, should_be);
     }
@@ -604,11 +617,13 @@ mod tests {
         );
         let id = rune.names["serial"];
         let node = &rune.stages[&id];
+        let image_crate = quote!(runicos_base_wasm);
 
-        let got = initialize_node(&rune, id, node).to_token_stream();
+        let got =
+            initialize_node(&rune, id, node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut serial = runic_types::wasm32::Serial::default();
+            let mut serial = runicos_base_wasm::Serial::default();
         };
         assert_quote_eq!(got, should_be);
     }
@@ -642,8 +657,10 @@ mod tests {
         );
         let id = rune.names["normalize"];
         let node = &rune.stages[&id];
+        let image_crate = quote!(runicos_base_wasm);
 
-        let got = initialize_node(&rune, id, node).to_token_stream();
+        let got =
+            initialize_node(&rune, id, node, &image_crate).to_token_stream();
 
         let should_be = quote! {
             let mut normalize = label::Label::default();

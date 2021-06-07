@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::Path};
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
-    Manifest, Package, PatchSet, Product, Profiles, Publish, TargetDepsSet,
-    Workspace,
+    Manifest, Package, PatchSet, Product, Profiles, Publish, Resolver,
+    TargetDepsSet, Workspace,
 };
 use rune_syntax::hir::Rune;
 
@@ -41,6 +41,7 @@ fn package(name: &str) -> Package {
         edition: Edition::E2018,
         version: String::from("0.0.0"),
         publish: Publish::Flag(false),
+        resolver: Some(Resolver::V2),
         ..empty_package()
     }
 }
@@ -65,7 +66,15 @@ fn dependencies(
 
     deps.insert(
         String::from("runic-types"),
-        Dependency::Detailed(rune_project_dependency(project)),
+        Dependency::Detailed(rune_project_dependency("runic-types", project)),
+    );
+    // hard-code the "runicos/base" image
+    deps.insert(
+        String::from("runicos-base-wasm"),
+        Dependency::Detailed(rune_project_dependency(
+            "images/runicos-base/wasm",
+            project,
+        )),
     );
 
     let proc_blocks: HashMap<_, _> = rune
@@ -144,10 +153,13 @@ fn is_builtin(path: &rune_syntax::ast::Path) -> bool {
     path.base == "hotg-ai/rune"
 }
 
-fn rune_project_dependency(project: &RuneProject) -> DependencyDetail {
+fn rune_project_dependency(
+    name: &str,
+    project: &RuneProject,
+) -> DependencyDetail {
     match project {
         RuneProject::Disk(root_dir) => {
-            let path = root_dir.join("runic-types");
+            let path = root_dir.join(name);
 
             DependencyDetail {
                 path: Some(path.display().to_string()),
@@ -250,9 +262,10 @@ mod tests {
 
         let got = dependencies(&rune, &project, Path::new("."));
 
-        assert_eq!(got.len(), 2);
+        assert_eq!(got.len(), 3);
         assert!(got.contains_key("log"));
         assert!(got.contains_key("runic-types"));
+        assert!(got.contains_key("runicos-base-wasm"));
     }
 
     #[test]

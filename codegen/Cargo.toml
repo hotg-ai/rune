@@ -9,7 +9,7 @@ description = "Code generation for compiling a Runefile to WebAssembly."
 
 [dependencies]
 anyhow = "1.0.38"
-build-info = "0.0.23"
+build-info = { version = "0.0.23", features = ["serde"] }
 cargo_toml = "0.9.1"
 heck = "0.3.2"
 log = "0.4.14"

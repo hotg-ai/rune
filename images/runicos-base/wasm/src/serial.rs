@@ -1,4 +1,5 @@
-use crate::{wasm32::intrinsics, Sink, outputs, Tensor};
+use runic_types::{Sink, outputs, Tensor};
+use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::fmt::Debug;
 
