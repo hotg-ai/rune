@@ -8,7 +8,12 @@ edition = "2018"
 [dependencies]
 proc-macro2 = "1.0.27"
 quote = "1.0.9"
+runic-types = { path = "../../runic-types" }
 syn = { version = "1.0.72", features = ["extra-traits"] }
+
+[dev-dependencies]
+pretty_assertions = "0.7.2"
+rune-pb-core = { path = "../pb-core" }
 
 [lib]
 proc-macro = true
