@@ -58,8 +58,6 @@ fn transforms(
 ) -> Result<Vec<TransformDescriptor<'static>>, Error> {
     let mut transforms = Vec::new();
 
-    return Ok(transforms);
-
     for attr in attrs {
         if let Some(name) = attr.path.get_ident() {
             if name == "transform" {

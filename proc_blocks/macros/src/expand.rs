@@ -1,8 +1,10 @@
 use proc_macro2::{Ident, TokenStream, Span};
-use quote::{ToTokens, quote};
+use quote::quote;
+use runic_types::reflect::Type;
 use crate::{
     descriptor::{
         ProcBlockDescriptor, ParameterDescriptor, TransformDescriptor,
+        TensorDescriptor, Dimension,
     },
     analysis::Analysis,
 };
@@ -60,6 +62,13 @@ fn expand_descriptor(
         parameters,
     } = descriptor;
 
+    let available_transforms = available_transforms
+        .iter()
+        .map(|d| expand_transform_descriptor(exports, d));
+    let parameters = parameters
+        .iter()
+        .map(|p| expand_parameter_descriptor(exports, p));
+
     quote! {
         #exports::ProcBlockDescriptor {
             type_name: #exports::Cow::Borrowed(concat!(module_path!(), "::", #name)),
@@ -74,10 +83,86 @@ fn expand_descriptor(
     }
 }
 
-impl<'a> ToTokens for ParameterDescriptor<'a> {
-    fn to_tokens(&self, _tokens: &mut TokenStream) { todo!("{:?}", self) }
+fn expand_transform_descriptor(
+    exports: &Path,
+    d: &TransformDescriptor<'_>,
+) -> TokenStream {
+    let TransformDescriptor { input, output } = d;
+    let input = expand_tensor_descriptor(exports, input);
+    let output = expand_tensor_descriptor(exports, output);
+
+    quote! {
+       #exports::TransformDescriptor {
+           input: #input,
+           output: #output,
+       }
+    }
 }
 
-impl<'a> ToTokens for TransformDescriptor<'a> {
-    fn to_tokens(&self, _tokens: &mut TokenStream) { todo!("{:?}", self) }
+fn expand_tensor_descriptor(
+    exports: &Path,
+    d: &TensorDescriptor<'_>,
+) -> TokenStream {
+    let TensorDescriptor {
+        element_type,
+        dimensions,
+    } = d;
+
+    let element_type = expand_type(exports, element_type);
+    let dimensions = expand_dimensions(exports, dimensions);
+
+    quote! {
+        #exports::TensorDescriptor {
+            element_type: #element_type,
+            dimensions: #dimensions,
+        }
+    }
+}
+
+fn expand_dimensions(exports: &Path, dimensions: &[Dimension]) -> TokenStream {
+    let dimensions = dimensions
+        .iter()
+        .copied()
+        .map(|d| expand_dimension(exports, d));
+
+    quote! {
+        #exports::Cow::Borrowed(&[
+            #( #dimensions ),*
+        ])
+    }
+}
+
+fn expand_dimension(exports: &Path, dimension: Dimension) -> TokenStream {
+    match dimension {
+        Dimension::Any => quote!(#exports::Dimension::Any),
+        Dimension::Value(v) => quote!(#exports::Dimension::Value(#v)),
+    }
+}
+
+fn expand_type(exports: &Path, t: &Type) -> TokenStream {
+    match *t {
+        Type::Integer { signed, bit_width } => quote!(#exports::Type::Integer {
+            signed: #signed,
+            bit_width: #bit_width,
+        }),
+        Type::Float { bit_width } => {
+            quote!(#exports::Type::Float { bit_width: #bit_width })
+        },
+        Type::String => quote!(#exports::Type::String),
+        Type::Opaque { ref type_name } => {
+            let type_name = &*type_name;
+            quote!(#exports::Type::Opaque {
+               type_name: #exports::Cow::Borrowed(#type_name),
+            })
+        },
+    }
+}
+
+fn expand_parameter_descriptor(
+    exports: &Path,
+    _d: &ParameterDescriptor<'_>,
+) -> TokenStream {
+    quote! {
+       #exports::ParameterDescriptor {}
+    }
 }
