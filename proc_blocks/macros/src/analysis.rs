@@ -18,6 +18,8 @@ pub struct Analysis {
 }
 
 pub fn parse(input: &DeriveInput) -> Result<Analysis, Error> {
+    let name = &input.ident;
+
     let description = doc_comments(&input.attrs)?;
     let transforms = transforms(&input.attrs)?;
     let exports = exports(&input.attrs)?;
@@ -25,9 +27,9 @@ pub fn parse(input: &DeriveInput) -> Result<Analysis, Error> {
 
     Ok(Analysis {
         exports,
-        name: input.ident.clone(),
+        name: name.clone(),
         descriptor: ProcBlockDescriptor {
-            type_name: "<invalid>".into(),
+            type_name: name.to_string().into(),
             description: description.into(),
             parameters: parameters.into(),
             available_transforms: transforms.into(),

@@ -3,8 +3,7 @@ use alloc::borrow::Cow;
 /// A description of everything a particular proc block is capable of.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ProcBlockDescriptor<'a> {
-    /// The fully qualified name for this proc block's type (typically
-    /// retrieved via [`core::any::type_name()`]).
+    /// The name for this proc block's type.
     pub type_name: Cow<'a, str>,
     /// A human-friendly description of what this proc block does.
     ///
