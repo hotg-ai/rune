@@ -53,8 +53,8 @@ fn expand_setters(
             syn::parse_str(parameter_type.rust_name().unwrap()).unwrap();
 
         quote!(
-            pub fn #method_name(&mut self, #name: #ty) -> &mut Self {
-                self.#name = #name;
+            pub fn #method_name(&mut self, #name: impl Into<#ty>) -> &mut Self {
+                self.#name = #name.into();
                 self
             }
         )
