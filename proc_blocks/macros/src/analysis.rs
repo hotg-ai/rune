@@ -1,7 +1,9 @@
+use quote::ToTokens;
 use syn::{
-    Attribute, DeriveInput, Error, ExprLit, Ident, Lit, LitStr, Token,
-    TypeArray, Path,
+    Attribute, Data, DataStruct, DeriveInput, Error, ExprLit, Fields, Ident,
+    Lit, LitStr, Path, Token, TypeArray, TypePath,
     parse::{Parse, ParseStream},
+    punctuated::Punctuated,
     spanned::Spanned,
 };
 use runic_types::reflect::Type;
@@ -23,7 +25,7 @@ pub fn parse(input: &DeriveInput) -> Result<Analysis, Error> {
     let description = doc_comments(&input.attrs)?;
     let transforms = transforms(&input.attrs)?;
     let exports = exports(&input.attrs)?;
-    let parameters = parse_parameters(input);
+    let parameters = parse_parameters(input)?;
 
     Ok(Analysis {
         exports,
@@ -49,8 +51,129 @@ fn exports(_attrs: &Vec<Attribute>) -> Result<Path, Error> {
     Ok(exports)
 }
 
-fn parse_parameters(_input: &DeriveInput) -> Vec<ParameterDescriptor<'static>> {
-    Vec::new()
+fn parse_parameters(
+    input: &DeriveInput,
+) -> Result<Vec<ParameterDescriptor<'static>>, Error> {
+    let fields = match &input.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(f),
+            ..
+        }) => f,
+        _ => {
+            return Err(Error::new(
+                input.span(),
+                "This macro only works on structs with named fields",
+            ))
+        },
+    };
+
+    let mut parameters = Vec::new();
+
+    for field in &fields.named {
+        if let Some(p) = parse_parameter(field)? {
+            parameters.push(p);
+        }
+    }
+
+    Ok(parameters)
+}
+
+fn parse_parameter(
+    field: &syn::Field,
+) -> Result<Option<ParameterDescriptor<'static>>, Error> {
+    if is_skipped(&field.attrs)? {
+        return Ok(None);
+    }
+    let name = match &field.ident {
+        Some(id) => id.to_string(),
+        None => return Ok(None),
+    };
+
+    let description = doc_comments(&field.attrs)?;
+    let parameter_type = syn_type_to_reflect(&field.ty)?;
+
+    Ok(Some(ParameterDescriptor {
+        name: name.into(),
+        description: description.into(),
+        parameter_type,
+    }))
+}
+
+fn syn_type_to_reflect(t: &syn::Type) -> Result<Type, Error> {
+    match t {
+        syn::Type::Array(_) => unimplemented!("Array Parameters"),
+        syn::Type::Reference(_) => unimplemented!("Reference Parameters"),
+        syn::Type::Path(TypePath {
+            qself: None,
+            ref path,
+        }) => {
+            if let Some(ident) = path.get_ident() {
+                let single_word = ident.to_string();
+
+                match Type::from_rust_name(&single_word) {
+                    Some(t) => return Ok(t),
+                    None => todo!("Handle \"{}\"", path.to_token_stream()),
+                }
+            }
+        },
+        syn::Type::Slice(_) => unimplemented!("Slice Parameters"),
+        _ => {},
+    }
+
+    return Err(Error::new(
+        t.span(),
+        "This type is too complex to be used as a parameter",
+    ));
+}
+
+fn field_attributes(attrs: &[Attribute]) -> Result<Vec<FieldAttribute>, Error> {
+    let mut pairs = Vec::new();
+
+    for attr in attrs {
+        if attr.path.is_ident("proc_block") {
+            let NameValuePairs(got) = attr.parse_args()?;
+            pairs.extend(got);
+        }
+    }
+
+    Ok(pairs)
+}
+
+enum FieldAttribute {
+    Skipped,
+}
+
+impl Parse for FieldAttribute {
+    fn parse(input: ParseStream) -> Result<Self, Error> {
+        let ident: Ident = input.parse()?;
+
+        if input.peek(Token![=]) {
+            todo!("Handle key=value attributes: {:?}", input);
+        }
+
+        if ident == "skip" {
+            return Ok(FieldAttribute::Skipped);
+        } else {
+            todo!()
+        }
+    }
+}
+
+struct NameValuePairs(Vec<FieldAttribute>);
+
+impl Parse for NameValuePairs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let pairs: Punctuated<FieldAttribute, Token![,]> =
+            Punctuated::parse_terminated(input)?;
+
+        Ok(NameValuePairs(pairs.into_iter().collect()))
+    }
+}
+
+fn is_skipped(attrs: &[Attribute]) -> Result<bool, Error> {
+    let attrs = field_attributes(attrs)?;
+
+    Ok(attrs.iter().any(|f| matches!(f, &FieldAttribute::Skipped)))
 }
 
 fn transforms(
@@ -202,6 +325,7 @@ impl Parse for DocAttr {
 
 #[cfg(test)]
 mod tests {
+    use syn::ItemConst;
     use super::*;
 
     #[test]
@@ -228,5 +352,18 @@ mod tests {
         let got: TensorDescriptor = syn::parse_str(src).unwrap();
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn detect_a_skip_attribute() {
+        let tokens = quote::quote! {
+            #[proc_block(skip)]
+            const _: () = ();
+        };
+        let ItemConst { attrs, .. } = syn::parse2(tokens).unwrap();
+
+        let skipped = is_skipped(&attrs).unwrap();
+
+        assert!(skipped);
     }
 }

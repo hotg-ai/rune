@@ -15,6 +15,8 @@ use runic_types::reflect::Type;
 struct Foo {
     /// Some parameter.
     a: u32,
+    #[proc_block(skip)]
+    skipped: Vec<String>,
 }
 
 #[test]

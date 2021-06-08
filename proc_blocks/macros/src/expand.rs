@@ -160,9 +160,20 @@ fn expand_type(exports: &Path, t: &Type) -> TokenStream {
 
 fn expand_parameter_descriptor(
     exports: &Path,
-    _d: &ParameterDescriptor<'_>,
+    d: &ParameterDescriptor<'_>,
 ) -> TokenStream {
+    let ParameterDescriptor {
+        name,
+        description,
+        parameter_type,
+    } = d;
+    let parameter_type = expand_type(exports, parameter_type);
+
     quote! {
-       #exports::ParameterDescriptor {}
+       #exports::ParameterDescriptor {
+           name: #exports::Cow::Borrowed(#name),
+           description: #exports::Cow::Borrowed(#description),
+           parameter_type: #parameter_type,
+       }
     }
 }

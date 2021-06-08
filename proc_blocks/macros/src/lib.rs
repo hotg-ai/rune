@@ -13,7 +13,7 @@ mod descriptor;
 use proc_macro::TokenStream;
 use syn::DeriveInput;
 
-#[proc_macro_derive(ProcBlock, attributes(transform))]
+#[proc_macro_derive(ProcBlock, attributes(transform, proc_block))]
 pub fn proc_block(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
 
