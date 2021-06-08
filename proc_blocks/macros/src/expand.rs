@@ -18,6 +18,7 @@ pub(crate) fn implement_proc_block_trait(analysis: Analysis) -> TokenStream {
     } = analysis;
     let custom_section = expand_custom_section(&name, &descriptor);
     let assertions = expand_assertions(&name, &exports, &descriptor);
+    let setters = expand_setters(&name, &descriptor.parameters);
     let descriptor = expand_descriptor(&name, &exports, &descriptor);
 
     quote! {
@@ -25,8 +26,44 @@ pub(crate) fn implement_proc_block_trait(analysis: Analysis) -> TokenStream {
             const DESCRIPTOR: #exports::ProcBlockDescriptor<'static> = #descriptor;
         }
 
+        #setters
         #custom_section
         #assertions
+    }
+}
+
+fn expand_setters(
+    name: &Ident,
+    parameters: &[ParameterDescriptor<'_>],
+) -> TokenStream {
+    if parameters.is_empty() {
+        return TokenStream::new();
+    }
+
+    let setters = parameters.iter().map(|p| {
+        let ParameterDescriptor {
+            name,
+            parameter_type,
+            ..
+        } = p;
+        let method_name = format!("set_{}", name);
+        let method_name = Ident::new(&method_name, Span::call_site());
+        let name = Ident::new(&name, Span::call_site());
+        let ty: syn::Type =
+            syn::parse_str(parameter_type.rust_name().unwrap()).unwrap();
+
+        quote!(
+            pub fn #method_name(&mut self, #name: #ty) -> &mut Self {
+                self.#name = #name;
+                self
+            }
+        )
+    });
+
+    quote! {
+        impl #name {
+            #( #setters )*
+        }
     }
 }
 
