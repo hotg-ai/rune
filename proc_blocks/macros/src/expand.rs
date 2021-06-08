@@ -17,6 +17,7 @@ pub(crate) fn implement_proc_block_trait(analysis: Analysis) -> TokenStream {
         descriptor,
     } = analysis;
     let custom_section = expand_custom_section(&name, &descriptor);
+    let assertions = expand_assertions(&name, &exports, &descriptor);
     let descriptor = expand_descriptor(&name, &exports, &descriptor);
 
     quote! {
@@ -25,6 +26,7 @@ pub(crate) fn implement_proc_block_trait(analysis: Analysis) -> TokenStream {
         }
 
         #custom_section
+        #assertions
     }
 }
 
@@ -46,6 +48,81 @@ fn expand_custom_section(
         #[link_section = #section_name]
         #[no_mangle]
         pub static #name: [u8; #len] = *#serialized;
+    }
+}
+
+/// Add static assertions to ensure the proc block's implementation matches
+/// what they have declared.
+fn expand_assertions(
+    name: &Ident,
+    exports: &Path,
+    descriptor: &ProcBlockDescriptor<'_>,
+) -> TokenStream {
+    let transform_assertions = expand_transform_assertions(
+        name,
+        exports,
+        &descriptor.available_transforms,
+    );
+
+    quote! {
+        const _: () = {
+            #transform_assertions
+        };
+    }
+}
+
+/// Adds a bunch of static assertions to make sure you have the appropriate
+/// `Transform` impl when you say `#[transform(input = f32, output = [u8; 3])]`.
+fn expand_transform_assertions(
+    name: &Ident,
+    exports: &Path,
+    available_transforms: &[TransformDescriptor<'_>],
+) -> TokenStream {
+    if available_transforms.is_empty() {
+        return TokenStream::new();
+    }
+
+    let assertions = available_transforms.iter().map(
+        |TransformDescriptor {
+             input:
+                 TensorDescriptor {
+                     element_type: input,
+                     ..
+                 },
+             output:
+                 TensorDescriptor {
+                     element_type: output,
+                     ..
+                 },
+         }| {
+            let input = expand_tensor_type(exports, input);
+            let output = expand_tensor_type(exports, output);
+
+            quote! {
+                assert_implements_transform::<#name, #input, #output>();
+            }
+        },
+    );
+
+    quote! {
+        fn assert_implements_transform<T, Inputs, Outputs>()
+        where
+            T: #exports::Transform<Inputs, Output=Outputs>
+        { }
+
+        fn transform_assertions() {
+            #( #assertions )*
+        }
+    }
+}
+
+fn expand_tensor_type(exports: &Path, t: &Type) -> TokenStream {
+    match t
+        .rust_name()
+        .and_then(|name| syn::parse_str::<syn::Type>(name).ok())
+    {
+        Some(ref name) => quote!(#exports::Tensor<#name>),
+        None => panic!("Unable to get the tensor representation of {:?}", t),
     }
 }
 

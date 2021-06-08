@@ -2,10 +2,10 @@
 extern crate pretty_assertions;
 
 use rune_pb_core::{
-    Dimension, ParameterDescriptor, ProcBlock, ProcBlockDescriptor,
-    TensorDescriptor, TransformDescriptor, Dimensions,
+    Dimension, Dimensions, ParameterDescriptor, ProcBlock, ProcBlockDescriptor,
+    TensorDescriptor, Transform, TransformDescriptor,
 };
-use runic_types::reflect::Type;
+use runic_types::{Tensor, reflect::Type};
 
 /// A dummy proc block.
 ///
@@ -18,6 +18,18 @@ struct Foo {
     a: u32,
     #[proc_block(skip)]
     skipped: Vec<String>,
+}
+
+impl Transform<Tensor<f32>> for Foo {
+    type Output = Tensor<u8>;
+
+    fn transform(&mut self, _: Tensor<f32>) -> Self::Output { unimplemented!() }
+}
+
+impl Transform<Tensor<u8>> for Foo {
+    type Output = Tensor<f32>;
+
+    fn transform(&mut self, _: Tensor<u8>) -> Self::Output { unimplemented!() }
 }
 
 #[test]

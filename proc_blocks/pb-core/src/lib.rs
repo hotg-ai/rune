@@ -33,5 +33,5 @@ pub trait ProcBlock: Default + 'static {
 pub mod internal {
     pub use crate::{ProcBlock, Transform, descriptor::*};
     pub use alloc::borrow::Cow;
-    pub use runic_types::reflect::Type;
+    pub use runic_types::{reflect::Type, Tensor};
 }
