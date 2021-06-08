@@ -235,8 +235,6 @@ fn index_of(
         }
 
         let stride = dimensions[i + 1];
-        #[cfg(test)]
-        dbg!(index, ix, stride, dim, i);
         index += ix * stride;
     }
 

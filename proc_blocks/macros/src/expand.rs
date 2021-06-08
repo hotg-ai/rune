@@ -4,7 +4,7 @@ use runic_types::reflect::Type;
 use crate::{
     descriptor::{
         ProcBlockDescriptor, ParameterDescriptor, TransformDescriptor,
-        TensorDescriptor, Dimension,
+        TensorDescriptor, Dimension, Dimensions,
     },
     analysis::Analysis,
 };
@@ -119,16 +119,22 @@ fn expand_tensor_descriptor(
     }
 }
 
-fn expand_dimensions(exports: &Path, dimensions: &[Dimension]) -> TokenStream {
-    let dimensions = dimensions
-        .iter()
-        .copied()
-        .map(|d| expand_dimension(exports, d));
+fn expand_dimensions(
+    exports: &Path,
+    dimensions: &Dimensions<'_>,
+) -> TokenStream {
+    match dimensions {
+        Dimensions::Finite(finite) => {
+            let dimensions =
+                finite.iter().copied().map(|d| expand_dimension(exports, d));
 
-    quote! {
-        #exports::Cow::Borrowed(&[
-            #( #dimensions ),*
-        ])
+            quote! {
+                #exports::Dimensions::Finite(#exports::Cow::Borrowed(&[
+                    #( #dimensions ),*
+                ]))
+            }
+        },
+        Dimensions::Arbitrary => quote!(#exports::Dimensions::Arbitrary),
     }
 }
 

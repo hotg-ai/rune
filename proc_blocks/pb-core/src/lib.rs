@@ -8,7 +8,7 @@ pub use runic_types;
 pub use rune_pb_macros::ProcBlock;
 pub use descriptor::{
     Dimension, TensorDescriptor, ProcBlockDescriptor, ParameterDescriptor,
-    TransformDescriptor,
+    TransformDescriptor, Dimensions,
 };
 
 /// Process some data, transforming it from one form to another.

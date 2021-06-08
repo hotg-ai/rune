@@ -1,7 +1,7 @@
 use quote::ToTokens;
 use syn::{
     Attribute, Data, DataStruct, DeriveInput, Error, ExprLit, Fields, Ident,
-    Lit, LitStr, Path, Token, TypeArray, TypePath,
+    Lit, LitStr, Path, Token, TypeArray, TypePath, TypeReference,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
@@ -9,7 +9,7 @@ use syn::{
 use runic_types::reflect::Type;
 use crate::descriptor::{
     ProcBlockDescriptor, ParameterDescriptor, TransformDescriptor, Dimension,
-    TensorDescriptor,
+    TensorDescriptor, Dimensions,
 };
 
 #[derive(Debug)]
@@ -102,7 +102,19 @@ fn parse_parameter(
 fn syn_type_to_reflect(t: &syn::Type) -> Result<Type, Error> {
     match t {
         syn::Type::Array(_) => unimplemented!("Array Parameters"),
-        syn::Type::Reference(_) => unimplemented!("Reference Parameters"),
+        syn::Type::Reference(TypeReference { ref elem, .. }) => {
+            if let syn::Type::Path(TypePath {
+                qself: None,
+                ref path,
+            }) = **elem
+            {
+                if let Some(ident) = path.get_ident() {
+                    if ident == "str" {
+                        return Ok(Type::String);
+                    }
+                }
+            }
+        },
         syn::Type::Path(TypePath {
             qself: None,
             ref path,
@@ -122,7 +134,7 @@ fn syn_type_to_reflect(t: &syn::Type) -> Result<Type, Error> {
 
     return Err(Error::new(
         t.span(),
-        "This type is too complex to be used as a parameter",
+        "Unable to encode this as a parameter type",
     ));
 }
 
@@ -274,10 +286,17 @@ impl Parse for TensorDescriptor<'static> {
                     return Err(Error::new(elem.span(), "Expected a type name"))
                 },
             };
-            let dimensions = match len {
+            let dimensions = match &len {
                 syn::Expr::Lit(ExprLit {
                     lit: Lit::Int(int), ..
-                }) => int.base10_parse()?,
+                }) => {
+                    let rank: usize = int.base10_parse()?;
+                    Dimensions::from(vec![Dimension::Any; rank])
+                },
+                syn::Expr::Verbatim(v) => {
+                    let _: Token![_] = syn::parse2(v.clone())?;
+                    Dimensions::Arbitrary
+                },
                 _ => {
                     return Err(Error::new(
                         len.span(),
@@ -288,7 +307,7 @@ impl Parse for TensorDescriptor<'static> {
 
             Ok(TensorDescriptor {
                 element_type,
-                dimensions: vec![Dimension::Any; dimensions].into(),
+                dimensions,
             })
         } else {
             let element = input.parse()?;

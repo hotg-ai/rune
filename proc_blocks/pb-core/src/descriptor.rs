@@ -17,6 +17,14 @@ pub struct ProcBlockDescriptor<'a> {
 
 impl<'a> ProcBlockDescriptor<'a> {
     pub const CUSTOM_SECTION_NAME: &'static str = ".rune_proc_block";
+
+    /// Get a parameter by name.
+    pub fn get_parameter(
+        &self,
+        name: &str,
+    ) -> Option<&ParameterDescriptor<'a>> {
+        self.parameters.iter().find(|p| p.name == name)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -35,7 +43,17 @@ pub struct TransformDescriptor<'a> {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TensorDescriptor<'a> {
     pub element_type: runic_types::reflect::Type,
-    pub dimensions: Cow<'a, [Dimension]>,
+    pub dimensions: Dimensions<'a>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum Dimensions<'a> {
+    Finite(Cow<'a, [Dimension]>),
+    Arbitrary,
+}
+
+impl<'a, D: Into<Cow<'a, [Dimension]>>> From<D> for Dimensions<'a> {
+    fn from(dims: D) -> Self { Dimensions::Finite(dims.into()) }
 }
 
 #[derive(
