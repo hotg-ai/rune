@@ -1,8 +1,7 @@
 extern crate proc_macro;
 extern crate alloc;
 
-mod analysis;
-mod expand;
+mod analysis_2;
 mod expand_2;
 mod types;
 
@@ -14,6 +13,7 @@ mod types;
 mod descriptor;
 
 use proc_macro::TokenStream;
+use quote::ToTokens;
 use syn::DeriveInput;
 
 /// Derive the `ProcBlock` trait for a particular type.
@@ -126,10 +126,9 @@ use syn::DeriveInput;
 pub fn proc_block(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
 
-    analysis::parse(&input)
-        .map(|analysis| {
-            let tokens = crate::expand::implement_proc_block_trait(analysis);
-            TokenStream::from(tokens)
-        })
-        .unwrap_or_else(|e| TokenStream::from(e.into_compile_error()))
+    let tokens = analysis_2::analyse(&input)
+        .map(ToTokens::into_token_stream)
+        .unwrap_or_else(|e| e.into_compile_error().into());
+
+    TokenStream::from(tokens)
 }

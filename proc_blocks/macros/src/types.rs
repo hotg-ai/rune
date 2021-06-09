@@ -23,39 +23,39 @@ pub(crate) struct CustomSection {
     pub payload: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Setters(pub Vec<Setter>);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Setter {
     pub property: Ident,
     pub property_type: syn::Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Assertions {
     pub set: SetterAssertions,
     pub transform: TransformAssertions,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct SetterAssertions(pub Vec<SetterAssertion>);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct SetterAssertion {
     pub proc_block_type: Ident,
     pub property: Ident,
-    pub property_type: Type,
+    pub setter_argument: Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct TransformAssertions {
     pub proc_block_type: Ident,
     pub exports: Path,
     pub assertions: Vec<TransformAssertion>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct TransformAssertion {
     pub input: Type,
     pub output: Type,

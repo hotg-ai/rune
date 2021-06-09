@@ -75,7 +75,7 @@ macro_rules! declare_type {
                 /// Get the common name for this type.
                 pub fn rust_name(&self) -> Option<&str> {
                     match *self {
-                        Type::String => Some("&str"),
+                        Type::String => Some("str"),
                         $(
                           Type::$name => Some(stringify!($name)),
                         )*

@@ -60,7 +60,7 @@ impl ToTokens for SetterAssertion {
         let SetterAssertion {
             proc_block_type,
             property,
-            property_type,
+            setter_argument: property_type,
         } = self;
 
         let assertion_name = format!("_assert_{}_is_settable", property);
@@ -223,8 +223,29 @@ struct ParameterProxy<'a> {
 
 impl<'a> ToTokens for ParameterProxy<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let ParameterProxy { exports, parameter } = *self;
-        todo!();
+        let ParameterProxy {
+            exports,
+            parameter:
+                ParameterDescriptor {
+                    name,
+                    description,
+                    parameter_type,
+                },
+        } = *self;
+
+        let parameter_type = TypeProxy {
+            exports,
+            ty: parameter_type,
+        };
+
+        let t = quote! {
+            #exports::ParameterDescriptor {
+                name: #exports::Cow::Borrowed(#name),
+                description: #exports::Cow::Borrowed(#description),
+                parameter_type: #parameter_type,
+            }
+        };
+        tokens.extend(t);
     }
 }
 
@@ -436,7 +457,7 @@ mod tests {
         let assertion = SetterAssertion {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             property: syn::parse_str("first").unwrap(),
-            property_type: syn::parse_str("f32").unwrap(),
+            setter_argument: syn::parse_str("f32").unwrap(),
         };
         let should_be = quote! {
             const _: () =  {
