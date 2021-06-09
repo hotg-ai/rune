@@ -1,191 +1,207 @@
-use proc_macro2::{Ident, TokenStream, Span};
-use quote::quote;
-use runic_types::reflect::Type;
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::{quote, ToTokens};
+use syn::{LitByteStr, Path};
+use runic_types::reflect::Type as ReflectType;
 use crate::{
     descriptor::{
         ProcBlockDescriptor, ParameterDescriptor, TransformDescriptor,
-        TensorDescriptor, Dimension, Dimensions,
+        TensorDescriptor, Dimensions, Dimension,
     },
-    analysis::Analysis,
+    types::{
+        Assertions, CustomSection, DeriveOutput, ProcBlockImpl, Setter,
+        SetterAssertion, SetterAssertions, Setters, TransformAssertion,
+        TransformAssertions,
+    },
 };
-use syn::{Path, LitByteStr};
 
-pub(crate) fn implement_proc_block_trait(analysis: Analysis) -> TokenStream {
-    let Analysis {
-        name,
-        exports,
-        descriptor,
-    } = analysis;
-    let custom_section = expand_custom_section(&name, &descriptor);
-    let assertions = expand_assertions(&name, &exports, &descriptor);
-    let setters = expand_setters(&name, &descriptor.parameters);
-    let descriptor = expand_descriptor(&name, &exports, &descriptor);
+impl ToTokens for DeriveOutput {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let DeriveOutput {
+            trait_impl,
+            custom_section,
+            setters,
+            assertions,
+        } = self;
 
-    quote! {
-        impl #exports::ProcBlock for #name {
-            const DESCRIPTOR: #exports::ProcBlockDescriptor<'static> = #descriptor;
-        }
-
-        #setters
-        #custom_section
-        #assertions
+        trait_impl.to_tokens(tokens);
+        custom_section.to_tokens(tokens);
+        setters.to_tokens(tokens);
+        assertions.to_tokens(tokens);
     }
 }
 
-fn expand_setters(
-    name: &Ident,
-    parameters: &[ParameterDescriptor<'_>],
-) -> TokenStream {
-    if parameters.is_empty() {
-        return TokenStream::new();
+impl ToTokens for Setters {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Setters { type_name, setters } = self;
+
+        let t = quote! {
+            impl #type_name {
+                #( #setters )*
+            }
+        };
+        tokens.extend(t);
     }
+}
 
-    let setters = parameters.iter().map(|p| {
-        let ParameterDescriptor {
-            name,
-            parameter_type,
-            ..
-        } = p;
-        let method_name = format!("set_{}", name);
-        let method_name = Ident::new(&method_name, Span::call_site());
-        let name = Ident::new(&name, Span::call_site());
-        let ty: syn::Type =
-            syn::parse_str(parameter_type.rust_name().unwrap()).unwrap();
+impl ToTokens for Assertions {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Assertions { set, transform } = self;
 
-        quote!(
-            pub fn #method_name(&mut self, #name: impl Into<#ty>) -> &mut Self {
-                self.#name = #name.into();
+        set.to_tokens(tokens);
+        transform.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for SetterAssertions {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for assertion in &self.0 {
+            assertion.to_tokens(tokens);
+        }
+    }
+}
+
+impl ToTokens for SetterAssertion {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let SetterAssertion {
+            proc_block_type,
+            property,
+            setter_argument: property_type,
+        } = self;
+
+        let assertion_name = format!("_assert_{}_is_settable", property);
+        let assertion_name = Ident::new(&assertion_name, property.span());
+        let setter_name = format!("set_{}", property);
+        let setter_name = Ident::new(&setter_name, property.span());
+
+        let t = quote! {
+            const _: () = {
+                fn #assertion_name(proc_block: &mut #proc_block_type, #property: #property_type) {
+                    proc_block.#setter_name(#property);
+                }
+            };
+        };
+        tokens.extend(t);
+    }
+}
+
+impl ToTokens for CustomSection {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let CustomSection { type_name, payload } = self;
+        let len = payload.len();
+        let payload = LitByteStr::new(payload, Span::call_site());
+
+        let format = format!("PROC_BLOCK_DESCRIPTOR_FOR_{}", type_name);
+        let name = Ident::new(&format, type_name.span());
+        let section_name =
+            crate::descriptor::ProcBlockDescriptor::CUSTOM_SECTION_NAME;
+
+        let t = quote! {
+            #[doc(hidden)]
+            #[no_mangle]
+            #[link_section = #section_name]
+            pub static #name: [u8; #len] = *#payload;
+        };
+        tokens.extend(t);
+    }
+}
+
+impl ToTokens for Setter {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Setter {
+            property,
+            property_type,
+        } = self;
+
+        let method = format!("set_{}", property);
+        let method = Ident::new(&method, property.span());
+
+        let t = quote! {
+            pub fn #method(&mut self, #property: impl Into<#property_type>) -> &mut Self {
+                self.#property = #property.into();
                 self
             }
-        )
-    });
-
-    quote! {
-        impl #name {
-            #( #setters )*
-        }
-    }
-}
-
-fn expand_custom_section(
-    name: &Ident,
-    descriptor: &ProcBlockDescriptor<'_>,
-) -> TokenStream {
-    let name = format!("PROC_BLOCK_DESCRIPTOR_FOR_{}", name).to_uppercase();
-    let name = Ident::new(&name, Span::call_site());
-
-    let serialized = serde_json::to_string(&descriptor)
-        .expect("Unable to serialize the descriptor as JSON");
-    let len = serialized.len();
-    let serialized = LitByteStr::new(serialized.as_bytes(), Span::call_site());
-
-    let section_name = ProcBlockDescriptor::CUSTOM_SECTION_NAME;
-
-    quote! {
-        #[link_section = #section_name]
-        #[no_mangle]
-        pub static #name: [u8; #len] = *#serialized;
-    }
-}
-
-/// Add static assertions to ensure the proc block's implementation matches
-/// what they have declared.
-fn expand_assertions(
-    name: &Ident,
-    exports: &Path,
-    descriptor: &ProcBlockDescriptor<'_>,
-) -> TokenStream {
-    let transform_assertions = expand_transform_assertions(
-        name,
-        exports,
-        &descriptor.available_transforms,
-    );
-
-    quote! {
-        const _: () = {
-            #transform_assertions
         };
+        tokens.extend(t);
     }
 }
 
-/// Adds a bunch of static assertions to make sure you have the appropriate
-/// `Transform` impl when you say `#[transform(input = f32, output = [u8; 3])]`.
-fn expand_transform_assertions(
-    name: &Ident,
-    exports: &Path,
-    available_transforms: &[TransformDescriptor<'_>],
-) -> TokenStream {
-    if available_transforms.is_empty() {
-        return TokenStream::new();
-    }
+impl ToTokens for TransformAssertions {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let TransformAssertions {
+            proc_block_type,
+            exports,
+            assertions,
+        } = self;
 
-    let assertions = available_transforms.iter().map(
-        |TransformDescriptor {
-             input:
-                 TensorDescriptor {
-                     element_type: input,
-                     ..
-                 },
-             output:
-                 TensorDescriptor {
-                     element_type: output,
-                     ..
-                 },
-         }| {
-            let input = expand_tensor_type(exports, input);
-            let output = expand_tensor_type(exports, output);
-
-            quote! {
-                assert_implements_transform::<#name, #input, #output>();
-            }
-        },
-    );
-
-    quote! {
-        fn assert_implements_transform<T, Inputs, Outputs>()
-        where
-            T: #exports::Transform<Inputs, Output=Outputs>
-        { }
-
-        fn transform_assertions() {
-            #( #assertions )*
+        if assertions.is_empty() {
+            return;
         }
+
+        let assertions = assertions.iter()
+            .map(|TransformAssertion { input, output }| {
+                let input = input.to_token_stream();
+                let output = output.to_token_stream();
+                quote! {
+                    assert_implements_transform::<#proc_block_type, #input, #output>();
+                }
+            });
+
+        let t = quote! {
+            const _: () = {
+                fn assert_implements_transform<T, Inputs, Outputs>()
+                where
+                    T: #exports::Transform<Inputs, Output=Outputs>
+                { }
+
+                fn transform_assertions() {
+                    #( #assertions )*
+                }
+            };
+        };
+        tokens.extend(t);
     }
 }
 
-fn expand_tensor_type(exports: &Path, t: &Type) -> TokenStream {
-    match t
-        .rust_name()
-        .and_then(|name| syn::parse_str::<syn::Type>(name).ok())
-    {
-        Some(ref name) => quote!(#exports::Tensor<#name>),
-        None => panic!("Unable to get the tensor representation of {:?}", t),
+impl ToTokens for ProcBlockImpl {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let ProcBlockImpl {
+            type_name,
+            exports,
+            descriptor,
+        } = self;
+
+        let descriptor = descriptor_to_tokens(exports, descriptor);
+
+        let t = quote! {
+            impl #exports::ProcBlock for #type_name {
+                const DESCRIPTOR: #exports::ProcBlockDescriptor<'static> = #descriptor;
+            }
+        };
+        tokens.extend(t);
     }
 }
 
-fn expand_descriptor(
-    name: &Ident,
+fn descriptor_to_tokens(
     exports: &Path,
-    descriptor: &ProcBlockDescriptor<'_>,
+    d: &ProcBlockDescriptor<'_>,
 ) -> TokenStream {
-    let name = name.to_string();
     let ProcBlockDescriptor {
-        type_name: _,
+        type_name,
         description,
-        available_transforms,
         parameters,
-    } = descriptor;
+        available_transforms,
+    } = d;
 
-    let available_transforms = available_transforms
-        .iter()
-        .map(|d| expand_transform_descriptor(exports, d));
     let parameters = parameters
         .iter()
-        .map(|p| expand_parameter_descriptor(exports, p));
+        .map(|parameter| ParameterProxy { exports, parameter });
+    let available_transforms = available_transforms
+        .iter()
+        .map(|transform| TransformProxy { exports, transform });
 
     quote! {
         #exports::ProcBlockDescriptor {
-            type_name: #exports::Cow::Borrowed(concat!(module_path!(), "::", #name)),
+            type_name: #exports::Cow::Borrowed(#type_name),
             description: #exports::Cow::Borrowed(#description),
             parameters: #exports::Cow::Borrowed(&[
                 #( #parameters ),*
@@ -197,103 +213,424 @@ fn expand_descriptor(
     }
 }
 
-fn expand_transform_descriptor(
-    exports: &Path,
-    d: &TransformDescriptor<'_>,
-) -> TokenStream {
-    let TransformDescriptor { input, output } = d;
-    let input = expand_tensor_descriptor(exports, input);
-    let output = expand_tensor_descriptor(exports, output);
-
-    quote! {
-       #exports::TransformDescriptor {
-           input: #input,
-           output: #output,
-       }
-    }
+#[derive(Debug, Copy, Clone)]
+struct ParameterProxy<'a> {
+    exports: &'a Path,
+    parameter: &'a ParameterDescriptor<'a>,
 }
 
-fn expand_tensor_descriptor(
-    exports: &Path,
-    d: &TensorDescriptor<'_>,
-) -> TokenStream {
-    let TensorDescriptor {
-        element_type,
-        dimensions,
-    } = d;
+impl<'a> ToTokens for ParameterProxy<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let ParameterProxy {
+            exports,
+            parameter:
+                ParameterDescriptor {
+                    name,
+                    description,
+                    parameter_type,
+                },
+        } = *self;
 
-    let element_type = expand_type(exports, element_type);
-    let dimensions = expand_dimensions(exports, dimensions);
+        let parameter_type = TypeProxy {
+            exports,
+            ty: parameter_type,
+        };
 
-    quote! {
-        #exports::TensorDescriptor {
-            element_type: #element_type,
-            dimensions: #dimensions,
-        }
-    }
-}
-
-fn expand_dimensions(
-    exports: &Path,
-    dimensions: &Dimensions<'_>,
-) -> TokenStream {
-    match dimensions {
-        Dimensions::Finite(finite) => {
-            let dimensions =
-                finite.iter().copied().map(|d| expand_dimension(exports, d));
-
-            quote! {
-                #exports::Dimensions::Finite(#exports::Cow::Borrowed(&[
-                    #( #dimensions ),*
-                ]))
+        let t = quote! {
+            #exports::ParameterDescriptor {
+                name: #exports::Cow::Borrowed(#name),
+                description: #exports::Cow::Borrowed(#description),
+                parameter_type: #parameter_type,
             }
-        },
-        Dimensions::Arbitrary => quote!(#exports::Dimensions::Arbitrary),
+        };
+        tokens.extend(t);
     }
 }
 
-fn expand_dimension(exports: &Path, dimension: Dimension) -> TokenStream {
-    match dimension {
-        Dimension::Any => quote!(#exports::Dimension::Any),
-        Dimension::Value(v) => quote!(#exports::Dimension::Value(#v)),
+#[derive(Debug, Copy, Clone)]
+struct TransformProxy<'a> {
+    exports: &'a Path,
+    transform: &'a TransformDescriptor<'a>,
+}
+
+impl<'a> ToTokens for TransformProxy<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let TransformProxy {
+            exports,
+            transform: TransformDescriptor { input, output },
+        } = *self;
+
+        let input = TensorProxy {
+            exports,
+            tensor: input,
+        };
+        let output = TensorProxy {
+            exports,
+            tensor: output,
+        };
+
+        let t = quote! {
+            #exports::TransformDescriptor {
+                input: #input,
+                output: #output,
+            }
+        };
+        tokens.extend(t);
     }
 }
 
-fn expand_type(exports: &Path, t: &Type) -> TokenStream {
-    match *t {
-        Type::Integer { signed, bit_width } => quote!(#exports::Type::Integer {
-            signed: #signed,
-            bit_width: #bit_width,
-        }),
-        Type::Float { bit_width } => {
-            quote!(#exports::Type::Float { bit_width: #bit_width })
-        },
-        Type::String => quote!(#exports::Type::String),
-        Type::Opaque { ref type_name } => {
-            let type_name = &*type_name;
-            quote!(#exports::Type::Opaque {
-               type_name: #exports::Cow::Borrowed(#type_name),
-            })
-        },
+#[derive(Debug, Copy, Clone)]
+struct TensorProxy<'a> {
+    exports: &'a Path,
+    tensor: &'a TensorDescriptor<'a>,
+}
+
+impl<'a> ToTokens for TensorProxy<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let TensorProxy {
+            exports,
+            tensor:
+                TensorDescriptor {
+                    element_type,
+                    dimensions,
+                },
+        } = *self;
+
+        let element_type = TypeProxy {
+            exports,
+            ty: element_type,
+        };
+        let dimensions = DimensionsProxy {
+            exports,
+            dimensions,
+        };
+
+        let t = quote! {
+            #exports::TensorDescriptor {
+                element_type: #element_type,
+                dimensions: #dimensions,
+            }
+        };
+        tokens.extend(t);
     }
 }
 
-fn expand_parameter_descriptor(
-    exports: &Path,
-    d: &ParameterDescriptor<'_>,
-) -> TokenStream {
-    let ParameterDescriptor {
-        name,
-        description,
-        parameter_type,
-    } = d;
-    let parameter_type = expand_type(exports, parameter_type);
+#[derive(Debug, Copy, Clone)]
+struct TypeProxy<'a> {
+    exports: &'a Path,
+    ty: &'a ReflectType,
+}
 
-    quote! {
-       #exports::ParameterDescriptor {
-           name: #exports::Cow::Borrowed(#name),
-           description: #exports::Cow::Borrowed(#description),
-           parameter_type: #parameter_type,
-       }
+impl<'a> ToTokens for TypeProxy<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let TypeProxy { exports, ty } = *self;
+
+        let t = match *ty {
+            ReflectType::Integer { signed, bit_width } => {
+                quote!(#exports::Type::Integer {
+                    signed: #signed,
+                    bit_width: #bit_width,
+                })
+            },
+            ReflectType::Float { bit_width } => quote!(#exports::Type::Float {
+                bit_width: #bit_width,
+            }),
+            ReflectType::String => quote!(#exports::Type::String),
+            ReflectType::Opaque { ref type_name } => {
+                quote!(#exports::Type::Opaque {
+                    type_name: $exports::Cow::Borrowed(#type_name),
+                })
+            },
+        };
+        tokens.extend(t);
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct DimensionsProxy<'a> {
+    exports: &'a Path,
+    dimensions: &'a Dimensions<'a>,
+}
+
+impl<'a> ToTokens for DimensionsProxy<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let DimensionsProxy {
+            exports,
+            dimensions,
+        } = self;
+
+        let t = match dimensions {
+            Dimensions::Arbitrary => quote!(#exports::Dimensions::Arbitrary),
+            Dimensions::Finite(fixed) => {
+                let dimensions = fixed
+                    .iter()
+                    .copied()
+                    .map(|dimension| DimensionProxy { exports, dimension });
+
+                quote!(#exports::Dimensions::Finite(#exports::Cow::Borrowed(&[
+                    #(#dimensions),*
+                ])))
+            },
+        };
+        tokens.extend(t);
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct DimensionProxy<'a> {
+    exports: &'a Path,
+    dimension: Dimension,
+}
+
+impl<'a> ToTokens for DimensionProxy<'a> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let DimensionProxy { exports, dimension } = self;
+
+        let t = match dimension {
+            Dimension::Any => quote!(#exports::Dimension::Any),
+            Dimension::Value(v) => quote!(#exports::Dimension::Value(#v)),
+        };
+        tokens.extend(t);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        borrow::Cow,
+        io::Write,
+        process::{Command, Output, Stdio},
+    };
+    use crate::types::{
+        ProcBlockImpl, Setter, TransformAssertion, TransformAssertions,
+    };
+    use super::*;
+
+    fn rustfmt(tokens: TokenStream) -> String {
+        let mut child = Command::new("rustfmt")
+            .arg("--emit=stdout")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let mut stdin = child.stdin.take().unwrap();
+
+        let input = quote! {
+            const _: () = { #tokens };
+        };
+
+        writeln!(stdin, "{}", input).unwrap();
+        stdin.flush().unwrap();
+        drop(stdin);
+
+        let Output { stdout, status, .. } = child.wait_with_output().unwrap();
+
+        if !status.success() {
+            panic!("Unable to format the input\n\n{}", input);
+        }
+
+        let mut pretty = String::from_utf8(stdout).unwrap();
+
+        let start = pretty.find("{").unwrap();
+        drop(pretty.drain(..=start));
+        let end = pretty.rfind("}").unwrap();
+        drop(pretty.drain(end..));
+
+        pretty
+    }
+
+    macro_rules! assert_eq_tok {
+        ($left:expr, $right:expr) => {
+            let left = $left;
+            let right = $right;
+
+            if left.to_string() != right.to_string() {
+                let left = rustfmt(left);
+                let right = rustfmt(right);
+                difference::assert_diff!(&left, &right, "\n", 0);
+            }
+        };
+    }
+
+    #[test]
+    fn setter_assertion() {
+        let assertion = SetterAssertion {
+            proc_block_type: syn::parse_str("Proc").unwrap(),
+            property: syn::parse_str("first").unwrap(),
+            setter_argument: syn::parse_str("f32").unwrap(),
+        };
+        let should_be = quote! {
+            const _: () =  {
+                fn _assert_first_is_settable(proc_block: &mut Proc, first: f32) {
+                    proc_block.set_first(first);
+                }
+            };
+        };
+
+        let got = assertion.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
+    fn custom_section() {
+        let section = CustomSection {
+            type_name: syn::parse_str("Proc").unwrap(),
+            payload: b"Hello, World!".to_vec(),
+        };
+        let should_be = quote! {
+            #[doc(hidden)]
+            #[no_mangle]
+            #[link_section = ".rune_proc_block"]
+            pub static PROC_BLOCK_DESCRIPTOR_FOR_Proc: [u8; 13usize] = *b"Hello, World!";
+        };
+
+        let got = section.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
+    fn setter_implementation() {
+        let setter = Setter {
+            property: syn::parse_str("first").unwrap(),
+            property_type: syn::parse_str("f32").unwrap(),
+        };
+        let should_be = quote! {
+            pub fn set_first(&mut self, first: impl Into<f32>) -> &mut Self {
+                self.first = first.into();
+                self
+            }
+        };
+
+        let got = setter.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
+    fn transform_assertion_with_string_input() {
+        let assertions = TransformAssertions {
+            proc_block_type: syn::parse_str("Proc").unwrap(),
+            exports: syn::parse_str("exports").unwrap(),
+            assertions: vec![TransformAssertion {
+                input: syn::parse_str("exports::Tensor<&'static str>").unwrap(),
+                output: syn::parse_str("exports::Tensor<&'static str>")
+                    .unwrap(),
+            }],
+        };
+        let should_be = quote! {
+            const _: () = {
+                fn assert_implements_transform<T, Inputs, Outputs>()
+                where
+                    T: exports::Transform<Inputs, Output=Outputs>
+                { }
+
+                fn transform_assertions() {
+                    assert_implements_transform::<Proc, exports::Tensor<&'static str>, exports::Tensor<&'static str>>();
+                }
+            };
+        };
+
+        let got = assertions.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
+    fn transform_assertions() {
+        let assertions = TransformAssertions {
+            proc_block_type: syn::parse_str("Proc").unwrap(),
+            exports: syn::parse_str("exports").unwrap(),
+            assertions: vec![TransformAssertion {
+                input: syn::parse_str("exports::Tensor<f32>").unwrap(),
+                output: syn::parse_str("exports::Tensor<u8>").unwrap(),
+            }],
+        };
+        let should_be = quote! {
+            const _: () = {
+                fn assert_implements_transform<T, Inputs, Outputs>()
+                where
+                    T: exports::Transform<Inputs, Output=Outputs>
+                { }
+
+                fn transform_assertions() {
+                    assert_implements_transform::<Proc, exports::Tensor<f32>, exports::Tensor<u8>>();
+                }
+            };
+        };
+
+        let got = assertions.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
+    fn implement_proc_block_trait_with_no_params_or_transforms() {
+        let input = ProcBlockImpl {
+            type_name: syn::parse_str("Proc").unwrap(),
+            exports: syn::parse_str("exports").unwrap(),
+            descriptor: ProcBlockDescriptor {
+                type_name: "Proc".into(),
+                description: "Hello, World!".into(),
+                parameters: Cow::default(),
+                available_transforms: Cow::default(),
+            },
+        };
+        let should_be = quote! {
+            impl exports::ProcBlock for Proc {
+                const DESCRIPTOR: exports::ProcBlockDescriptor<'static> = exports::ProcBlockDescriptor {
+                    type_name: exports::Cow::Borrowed("Proc"),
+                    description: exports::Cow::Borrowed("Hello, World!"),
+                    parameters: exports::Cow::Borrowed(&[]),
+                    available_transforms: exports::Cow::Borrowed(&[]),
+                };
+            }
+        };
+
+        let got = input.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
+    fn transform() {
+        let exports = syn::parse_str("exports").unwrap();
+        let transform = TransformProxy {
+            exports: &exports,
+            transform: &TransformDescriptor {
+                input: TensorDescriptor {
+                    element_type: ReflectType::f32,
+                    dimensions: Dimensions::Arbitrary,
+                },
+                output: TensorDescriptor {
+                    element_type: ReflectType::u8,
+                    dimensions: Dimensions::Finite(
+                        vec![Dimension::Value(1980)].into(),
+                    ),
+                },
+            },
+        };
+        let should_be = quote! {
+            exports::TransformDescriptor {
+                input: exports::TensorDescriptor {
+                    element_type: exports::Type::Float { bit_width: 32usize },
+                    dimensions: exports::Dimensions::Arbitrary,
+                },
+                output: exports::TensorDescriptor {
+                    element_type: exports::Type::Integer { signed: false, bit_width: 8usize },
+                    dimensions: exports::Dimensions::Finite(
+                        exports::Cow::Borrowed(&[
+                            exports::Dimension::Value(1980usize),
+                        ]),
+                    ),
+                },
+            }
+        };
+
+        let got = transform.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
     }
 }
