@@ -35,7 +35,7 @@ impl Transform<Tensor<u8>> for Foo {
 #[test]
 fn generate_expected_descriptor() {
     let should_be = ProcBlockDescriptor {
-        type_name: std::any::type_name::<Foo>().into(),
+        type_name: "Foo".into(),
         description:
             "A dummy proc block.\n\nCan it handle multiple lines of input?"
                 .into(),

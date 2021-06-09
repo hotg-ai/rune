@@ -4,7 +4,7 @@ extern crate alloc;
 
 mod descriptor;
 
-pub use runic_types;
+pub use runic_types::{HasOutputs, Tensor};
 pub use rune_pb_macros::ProcBlock;
 pub use descriptor::{
     Dimension, TensorDescriptor, ProcBlockDescriptor, ParameterDescriptor,

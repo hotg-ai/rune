@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{LitByteStr, Path, Type, TypeArray};
+use syn::{LitByteStr, Path};
 use runic_types::reflect::Type as ReflectType;
 use crate::{
     descriptor::{
@@ -32,9 +32,14 @@ impl ToTokens for DeriveOutput {
 
 impl ToTokens for Setters {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        for setter in &self.0 {
-            setter.to_tokens(tokens);
-        }
+        let Setters { type_name, setters } = self;
+
+        let t = quote! {
+            impl #type_name {
+                #( #setters )*
+            }
+        };
+        tokens.extend(t);
     }
 }
 
@@ -70,8 +75,8 @@ impl ToTokens for SetterAssertion {
 
         let t = quote! {
             const _: () = {
-                fn #assertion_name(proc_block: &mut #proc_block_type, #property: #property_type) -> &mut #proc_block_type {
-                    proc_block.#setter_name(#property)
+                fn #assertion_name(proc_block: &mut #proc_block_type, #property: #property_type) {
+                    proc_block.#setter_name(#property);
                 }
             };
         };
@@ -134,33 +139,26 @@ impl ToTokens for TransformAssertions {
 
         let assertions = assertions.iter()
             .map(|TransformAssertion { input, output }| {
-                let input = equivalent_tensor(exports, input);
-                let output = equivalent_tensor(exports, output);
+                let input = input.to_token_stream();
+                let output = output.to_token_stream();
                 quote! {
                     assert_implements_transform::<#proc_block_type, #input, #output>();
                 }
             });
 
         let t = quote! {
-            fn assert_implements_transform<T, Inputs, Outputs>()
-            where
-                T: #exports::Transform<Inputs, Output=Outputs>
-            { }
+            const _: () = {
+                fn assert_implements_transform<T, Inputs, Outputs>()
+                where
+                    T: #exports::Transform<Inputs, Output=Outputs>
+                { }
 
-            fn transform_assertions() {
-                #( #assertions )*
-            }
+                fn transform_assertions() {
+                    #( #assertions )*
+                }
+            };
         };
         tokens.extend(t);
-    }
-}
-
-fn equivalent_tensor(exports: &Path, ty: &Type) -> TokenStream {
-    match *ty {
-        Type::Array(TypeArray { ref elem, .. }) => quote! {
-            #exports::Tensor<#elem>
-        },
-        _ => ty.to_token_stream(),
     }
 }
 
@@ -337,7 +335,7 @@ impl<'a> ToTokens for TypeProxy<'a> {
             ReflectType::Float { bit_width } => quote!(#exports::Type::Float {
                 bit_width: #bit_width,
             }),
-            ReflectType::String => quote!(#exports::Type::Stirng),
+            ReflectType::String => quote!(#exports::Type::String),
             ReflectType::Opaque { ref type_name } => {
                 quote!(#exports::Type::Opaque {
                     type_name: $exports::Cow::Borrowed(#type_name),
@@ -400,8 +398,8 @@ impl<'a> ToTokens for DimensionProxy<'a> {
 mod tests {
     use std::{
         borrow::Cow,
-        io::{Read, Write},
-        process::{Command, Stdio},
+        io::Write,
+        process::{Command, Output, Stdio},
     };
     use crate::types::{
         ProcBlockImpl, Setter, TransformAssertion, TransformAssertions,
@@ -417,24 +415,27 @@ mod tests {
             .unwrap();
 
         let mut stdin = child.stdin.take().unwrap();
-        let mut stdout = child.stdout.take().unwrap();
 
-        writeln!(stdin, "fn main() {{ {} }}", tokens).unwrap();
+        let input = quote! {
+            const _: () = { #tokens };
+        };
+
+        writeln!(stdin, "{}", input).unwrap();
         stdin.flush().unwrap();
         drop(stdin);
 
-        let mut pretty = String::new();
-        stdout.read_to_string(&mut pretty).unwrap();
-        drop(stdout);
+        let Output { stdout, status, .. } = child.wait_with_output().unwrap();
 
-        eprintln!("====\n{}\n====", pretty);
+        if !status.success() {
+            panic!("Unable to format the input\n\n{}", input);
+        }
+
+        let mut pretty = String::from_utf8(stdout).unwrap();
 
         let start = pretty.find("{").unwrap();
         drop(pretty.drain(..=start));
         let end = pretty.rfind("}").unwrap();
         drop(pretty.drain(end..));
-
-        child.kill().unwrap();
 
         pretty
     }
@@ -461,8 +462,8 @@ mod tests {
         };
         let should_be = quote! {
             const _: () =  {
-                fn _assert_first_is_settable(proc_block: &mut Proc, first: f32) -> &mut Proc {
-                    proc_block.set_first(first)
+                fn _assert_first_is_settable(proc_block: &mut Proc, first: f32) {
+                    proc_block.set_first(first);
                 }
             };
         };
@@ -509,24 +510,55 @@ mod tests {
     }
 
     #[test]
+    fn transform_assertion_with_string_input() {
+        let assertions = TransformAssertions {
+            proc_block_type: syn::parse_str("Proc").unwrap(),
+            exports: syn::parse_str("exports").unwrap(),
+            assertions: vec![TransformAssertion {
+                input: syn::parse_str("exports::Tensor<&'static str>").unwrap(),
+                output: syn::parse_str("exports::Tensor<&'static str>")
+                    .unwrap(),
+            }],
+        };
+        let should_be = quote! {
+            const _: () = {
+                fn assert_implements_transform<T, Inputs, Outputs>()
+                where
+                    T: exports::Transform<Inputs, Output=Outputs>
+                { }
+
+                fn transform_assertions() {
+                    assert_implements_transform::<Proc, exports::Tensor<&'static str>, exports::Tensor<&'static str>>();
+                }
+            };
+        };
+
+        let got = assertions.to_token_stream();
+
+        assert_eq_tok!(got, should_be);
+    }
+
+    #[test]
     fn transform_assertions() {
         let assertions = TransformAssertions {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: syn::parse_str("exports").unwrap(),
             assertions: vec![TransformAssertion {
-                input: syn::parse_str("[f32; 3]").unwrap(),
-                output: syn::parse_str("[u8; _]").unwrap(),
+                input: syn::parse_str("exports::Tensor<f32>").unwrap(),
+                output: syn::parse_str("exports::Tensor<u8>").unwrap(),
             }],
         };
         let should_be = quote! {
-            fn assert_implements_transform<T, Inputs, Outputs>()
-            where
-                T: exports::Transform<Inputs, Output=Outputs>
-            { }
+            const _: () = {
+                fn assert_implements_transform<T, Inputs, Outputs>()
+                where
+                    T: exports::Transform<Inputs, Output=Outputs>
+                { }
 
-            fn transform_assertions() {
-                assert_implements_transform::<Proc, exports::Tensor<f32>, exports::Tensor<u8>>();
-            }
+                fn transform_assertions() {
+                    assert_implements_transform::<Proc, exports::Tensor<f32>, exports::Tensor<u8>>();
+                }
+            };
         };
 
         let got = assertions.to_token_stream();

@@ -24,7 +24,10 @@ pub(crate) struct CustomSection {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Setters(pub Vec<Setter>);
+pub(crate) struct Setters {
+    pub type_name: Ident,
+    pub setters: Vec<Setter>,
+}
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Setter {
@@ -55,6 +58,7 @@ pub(crate) struct TransformAssertions {
     pub assertions: Vec<TransformAssertion>,
 }
 
+/// An assertion that our type implements `Transform<$input, Output=$output>`.
 #[derive(Debug, PartialEq)]
 pub(crate) struct TransformAssertion {
     pub input: Type,

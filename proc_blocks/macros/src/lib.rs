@@ -1,6 +1,10 @@
 extern crate proc_macro;
 extern crate alloc;
 
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 mod analysis_2;
 mod expand_2;
 mod types;
@@ -98,8 +102,8 @@ use syn::DeriveInput;
 ///
 /// let mut foo = Foo::default();
 ///
-/// foo.set_first("Hello, World!").set_second(42);
-/// assert_eq!(foo.first, "Hello, World");
+/// foo.set_first("Hello, World!").set_second(42_u32);
+/// assert_eq!(foo.first, "Hello, World!");
 /// assert_eq!(foo.second, 42);
 /// ```
 ///

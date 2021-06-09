@@ -7,7 +7,7 @@ use core::{
     fmt::Debug,
     ops::{Div, Sub},
 };
-use runic_types::{HasOutputs, Tensor, Transform};
+use rune_pb_core::{Transform, HasOutputs, Tensor};
 
 pub fn normalize<T>(input: &mut [T])
 where
@@ -30,8 +30,10 @@ where
 #[transform(input = [f32; 1], output = [f32; 1])]
 #[transform(input = [f32; 2], output = [f32; 2])]
 #[transform(input = [f32; 3], output = [f32; 3])]
-#[transform(input = [f32; 4], output = [f32; 4])]
-pub struct Normalize {}
+#[transform(input = [f32; 4], output = [&'static str; 4])]
+pub struct Normalize {
+    unused: &'static str,
+}
 
 impl<T> Transform<Tensor<T>> for Normalize
 where
