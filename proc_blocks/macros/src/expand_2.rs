@@ -8,10 +8,52 @@ use crate::{
         TensorDescriptor, Dimensions, Dimension,
     },
     types::{
-        CustomSection, ProcBlockImpl, Setter, SetterAssertion,
-        TransformAssertion, TransformAssertions,
+        Assertions, CustomSection, DeriveOutput, ProcBlockImpl, Setter,
+        SetterAssertion, SetterAssertions, Setters, TransformAssertion,
+        TransformAssertions,
     },
 };
+
+impl ToTokens for DeriveOutput {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let DeriveOutput {
+            trait_impl,
+            custom_section,
+            setters,
+            assertions,
+        } = self;
+
+        trait_impl.to_tokens(tokens);
+        custom_section.to_tokens(tokens);
+        setters.to_tokens(tokens);
+        assertions.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for Setters {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for setter in &self.0 {
+            setter.to_tokens(tokens);
+        }
+    }
+}
+
+impl ToTokens for Assertions {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Assertions { set, transform } = self;
+
+        set.to_tokens(tokens);
+        transform.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for SetterAssertions {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for assertion in &self.0 {
+            assertion.to_tokens(tokens);
+        }
+    }
+}
 
 impl ToTokens for SetterAssertion {
     fn to_tokens(&self, tokens: &mut TokenStream) {

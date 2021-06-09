@@ -39,7 +39,7 @@ pub fn parse(input: &DeriveInput) -> Result<Analysis, Error> {
     })
 }
 
-fn exports(_attrs: &Vec<Attribute>) -> Result<Path, Error> {
+fn exports(_attrs: &[Attribute]) -> Result<Path, Error> {
     // In the future we may want to let people specify a custom path to
     // `rune_pb_core::internal` (e.g. because they imported `rune_pb_core` with
     // a different name).

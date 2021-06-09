@@ -24,7 +24,7 @@ pub(crate) struct CustomSection {
 }
 
 #[derive(Debug)]
-pub(crate) struct Setters(Vec<Setter>);
+pub(crate) struct Setters(pub Vec<Setter>);
 
 #[derive(Debug)]
 pub(crate) struct Setter {
@@ -39,7 +39,7 @@ pub(crate) struct Assertions {
 }
 
 #[derive(Debug)]
-pub(crate) struct SetterAssertions(Vec<SetterAssertion>);
+pub(crate) struct SetterAssertions(pub Vec<SetterAssertion>);
 
 #[derive(Debug)]
 pub(crate) struct SetterAssertion {
