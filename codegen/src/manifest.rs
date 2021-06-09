@@ -68,6 +68,13 @@ fn dependencies(
         String::from("runic-types"),
         Dependency::Detailed(rune_project_dependency("runic-types", project)),
     );
+    deps.insert(
+        String::from("rune-pb-core"),
+        Dependency::Detailed(rune_project_dependency(
+            "proc_blocks/pb-core",
+            project,
+        )),
+    );
     // hard-code the "runicos/base" image
     deps.insert(
         String::from("runicos-base-wasm"),
@@ -265,6 +272,7 @@ mod tests {
         assert_eq!(got.len(), 3);
         assert!(got.contains_key("log"));
         assert!(got.contains_key("runic-types"));
+        assert!(got.contains_key("rune-pb-core"));
         assert!(got.contains_key("runicos-base-wasm"));
     }
 

@@ -42,6 +42,10 @@ impl<T> Tensor<T> {
         Tensor::new_row_major(elements, alloc::vec![len])
     }
 
+    pub fn single(value: T) -> Self {
+        Tensor::new_vector(core::iter::once(value))
+    }
+
     pub fn zeroed(dimensions: Vec<usize>) -> Self
     where
         T: Default,
@@ -114,20 +118,19 @@ impl<T> Tensor<T> {
     pub fn map<F, Out>(&self, mut map: F) -> Tensor<Out>
     where
         F: FnMut(&[usize], &T) -> Out,
-        Out: Clone + Default,
     {
         let mut counter = Counter::new(self.dimensions());
-        let mut output = Tensor::zeroed(self.dimensions().to_vec());
 
-        let elements = output.make_elements_mut();
+        // Note: this implicitly requires our counter and iteration to both
+        // follow row-major order.
+        let elements = self.elements().iter().map(|item| {
+            let index = counter
+                .next()
+                .expect("The counter should be in sync with iteration");
+            map(index, item)
+        });
 
-        while let Some(indices) = counter.next() {
-            let index = index_of(self.dimensions(), indices).unwrap();
-            let previous = &self.elements[index];
-            elements[index] = map(indices, previous);
-        }
-
-        output
+        Tensor::new_row_major(elements.collect(), self.dimensions.clone())
     }
 }
 

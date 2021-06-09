@@ -6,9 +6,11 @@ pub use crate::distribution::{Distribution, DistributionConversionError};
 
 use core::{convert::TryInto, fmt::Display};
 use runic_types::{HasOutputs, Tensor, Transform, TensorViewMut};
+use rune_pb_core::ProcBlock;
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 #[non_exhaustive]
+#[transform(input = [u8; 3], output = [f32; 3])]
 pub struct ImageNormalization {
     pub red: Distribution,
     pub green: Distribution,

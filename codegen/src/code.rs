@@ -422,6 +422,7 @@ fn preamble(
 
         use alloc::boxed::Box;
         use runic_types::*;
+        use rune_pb_core::*;
 
         #rune_graph
         #build_info

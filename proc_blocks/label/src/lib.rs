@@ -5,7 +5,7 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Tensor, Transform};
+use rune_pb_core::{HasOutputs, Tensor, Transform, ProcBlock};
 
 /// A proc block which, when given a set of indices, will return their
 /// associated labels.
@@ -22,7 +22,7 @@ use runic_types::{HasOutputs, Tensor, Transform};
 ///
 /// assert_eq!(got.elements(), &["three", "one", "two"]);
 /// ```
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 pub struct Label {
     labels: Vec<&'static str>,
 }

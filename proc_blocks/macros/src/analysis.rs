@@ -24,30 +24,31 @@ use crate::{
 pub(crate) fn analyse(input: &DeriveInput) -> Result<DeriveOutput, Error> {
     let type_name = input.ident.clone();
     let exports = export_path(&input.attrs)?;
+
     let (description, available_transforms, transform_assertions) =
         analyse_struct_attributes(&input.ident, &exports, &input.attrs)?;
+
     let (setters, parameters, setter_assertions) = analyse_properties(&input)?;
-    let assertions = Assertions {
-        set: setter_assertions,
-        transform: transform_assertions,
-    };
+
     let descriptor = ProcBlockDescriptor {
         type_name: type_name.to_string().into(),
         description: description.into(),
         parameters: parameters.into(),
         available_transforms: available_transforms.into(),
     };
-    let custom_section = make_custom_section(&input.ident, &descriptor)?;
 
     Ok(DeriveOutput {
+        setters,
+        custom_section: make_custom_section(&input.ident, &descriptor)?,
         trait_impl: ProcBlockImpl {
             exports,
             type_name,
             descriptor,
         },
-        custom_section,
-        setters,
-        assertions,
+        assertions: Assertions {
+            set: setter_assertions,
+            transform: transform_assertions,
+        },
     })
 }
 

@@ -1116,6 +1116,7 @@ dependencies = [
 name = "image-normalization"
 version = "0.1.0"
 dependencies = [
+ "rune-pb-core",
  "runic-types",
 ]
 
@@ -1212,7 +1213,7 @@ dependencies = [
 name = "label"
 version = "0.1.0"
 dependencies = [
- "runic-types",
+ "rune-pb-core",
 ]
 
 [[package]]
@@ -1420,7 +1421,7 @@ name = "modulo"
 version = "0.1.0"
 dependencies = [
  "num-traits",
- "runic-types",
+ "rune-pb-core",
 ]
 
 [[package]]
@@ -1487,7 +1488,6 @@ name = "normalize"
 version = "0.1.0"
 dependencies = [
  "rune-pb-core",
- "runic-types",
 ]
 
 [[package]]
