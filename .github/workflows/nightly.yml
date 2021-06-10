@@ -27,7 +27,7 @@ jobs:
           # causes git rev-list to fail) or when there are commits which are
           # accessible from this commit but not already under the nightly tag
 
-          commits_since_last_nightly=$(git rev-list ${{ github.sha }} '^nightly' 2>/dev/null)
+          commits_since_last_nightly=$(git rev-list ${{ github.sha }} '^nightly')
 
           if [ $? -eq 0 -a -z "$commits_since_last_nightly" ]; then
             echo "::set-output name=should_run::false"
