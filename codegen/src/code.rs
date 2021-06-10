@@ -503,6 +503,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -545,6 +546,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -570,6 +572,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           sine:
@@ -592,6 +595,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           serial:
@@ -614,6 +618,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -652,6 +657,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -679,6 +685,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -708,6 +715,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -739,6 +747,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
@@ -773,6 +782,7 @@ mod tests {
         let rune = rune(
             r#"
         image: runicos/base
+        version: 1
 
         pipeline:
           audio:
