@@ -21,7 +21,7 @@ pub fn document_from_runefile(
     let mut pipeline = determine_pipeline(&runefile.instructions, diags);
     connect_inputs(&runefile.instructions, &mut pipeline, diags);
 
-    Document { image, pipeline }
+    Document::V1 { image, pipeline }
 }
 
 fn connect_inputs(
@@ -327,7 +327,7 @@ mod tests {
             RUN audio fft model label serial
         "#;
         let runefile = crate::parse(runefile).unwrap();
-        let should_be = Document {
+        let should_be = Document::V1 {
             image: "runicos/base".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability {
@@ -374,9 +374,12 @@ mod tests {
         let got = document_from_runefile(&runefile, &mut diags);
 
         assert!(!diags.has_errors());
-        for (key, should_be) in &should_be.pipeline {
+        let pipeline = match &got {
+            Document::V1 { pipeline, .. } => pipeline,
+        };
+        for (key, should_be) in pipeline {
             println!("{}", key);
-            assert_eq!(&got.pipeline[key], should_be);
+            assert_eq!(&pipeline[key], should_be);
         }
         assert_eq!(got, should_be);
     }

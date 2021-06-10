@@ -15,13 +15,17 @@ use crate::{
 pub fn analyse(doc: &Document, diags: &mut Diagnostics) -> Rune {
     let mut ctx = Context::new(diags);
 
-    let image = &doc.image;
-    ctx.rune.base_image = Some(image.into());
+    match doc {
+        Document::V1 { image, pipeline } => {
+            let image = &image;
+            ctx.rune.base_image = Some(image.clone().into());
 
-    ctx.register_stages(&doc.pipeline);
-    ctx.register_output_slots(&doc.pipeline);
-    ctx.construct_pipeline(&doc.pipeline);
-    ctx.check_for_loops();
+            ctx.register_stages(&pipeline);
+            ctx.register_output_slots(&pipeline);
+            ctx.construct_pipeline(&pipeline);
+            ctx.check_for_loops();
+        },
+    }
 
     ctx.rune
 }
@@ -346,6 +350,7 @@ mod tests {
     #[test]
     fn parse_yaml_pipeline() {
         let src = r#"
+version: 1
 image: "runicos/base"
 
 pipeline:
@@ -387,7 +392,7 @@ pipeline:
     inputs:
     - label
         "#;
-        let should_be = Document {
+        let should_be = Document::V1 {
             image: Path::new("runicos/base", None, None),
             pipeline: map! {
                 audio: Stage::Capability {
@@ -429,7 +434,7 @@ pipeline:
             },
         };
 
-        let got: Document = serde_yaml::from_str(src).unwrap();
+        let got = Document::parse(src).unwrap();
 
         assert_eq!(got, should_be);
     }
@@ -522,7 +527,7 @@ pipeline:
     }
 
     fn dummy_document() -> Document {
-        Document {
+        Document::V1 {
             image: Path::new("runicos/base".to_string(), None, None),
             pipeline: map! {
                 audio: Stage::Capability {
@@ -574,12 +579,14 @@ pipeline:
 
     #[test]
     fn register_all_stages() {
-        let doc = dummy_document();
+        let pipeline = match dummy_document() {
+            Document::V1 { pipeline, .. } => pipeline,
+        };
         let mut diags = Diagnostics::new();
         let mut ctx = Context::new(&mut diags);
         let stages = vec!["audio", "fft", "model", "label", "output"];
 
-        ctx.register_stages(&doc.pipeline);
+        ctx.register_stages(&pipeline);
 
         for stage_name in stages {
             let id = ctx.rune.names.get_id(stage_name).unwrap();
@@ -591,11 +598,13 @@ pipeline:
 
     #[test]
     fn construct_the_pipeline() {
-        let doc = dummy_document();
+        let pipeline = match dummy_document() {
+            Document::V1 { pipeline, .. } => pipeline,
+        };
         let mut diags = Diagnostics::new();
         let mut ctx = Context::new(&mut diags);
-        ctx.register_stages(&doc.pipeline);
-        ctx.register_output_slots(&doc.pipeline);
+        ctx.register_stages(&pipeline);
+        ctx.register_output_slots(&pipeline);
         let edges = vec![
             ("audio", "fft"),
             ("fft", "model"),
@@ -603,7 +612,7 @@ pipeline:
             ("label", "output"),
         ];
 
-        ctx.construct_pipeline(&doc.pipeline);
+        ctx.construct_pipeline(&pipeline);
 
         assert!(ctx.diags.is_empty(), "{:?}", ctx.diags);
         for (from, to) in edges {
@@ -617,7 +626,7 @@ pipeline:
 
     #[test]
     fn construct_pipeline_graph_with_multiple_inputs_and_outputs() {
-        let doc = Document {
+        let doc = Document::V1 {
             image: "runicos/base@latest".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability {
@@ -700,6 +709,7 @@ pipeline:
     fn detect_pipeline_cycle() {
         let src = r#"
 image: runicos/base
+version: 1
 
 pipeline:
   audio:
