@@ -22,7 +22,7 @@ fn main() -> Result<(), Error> {
     let tests = rune_integration_tests::discover(&args.test_directory)
         .context("Unable to discover tests")?;
 
-    let ctx = TestContext::release(&args.rune_project_dir)
+    let ctx = TestContext::build(&args.rune_project_dir)
         .context("Unable to establish the test context")?;
 
     let mut printer = Printer::default();
