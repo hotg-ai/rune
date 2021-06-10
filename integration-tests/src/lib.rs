@@ -67,8 +67,13 @@ pub struct TestContext {
 }
 
 impl TestContext {
-    pub fn release(
+    pub fn build(rune_project_dir: impl Into<PathBuf>) -> Result<Self, Error> {
+        TestContext::build_inner(rune_project_dir, cfg!(debug_assertions))
+    }
+
+    fn build_inner(
         rune_project_dir: impl Into<PathBuf>,
+        debug: bool,
     ) -> Result<Self, Error> {
         let rune_project_dir = rune_project_dir.into();
         let target_dir = rune_project_dir.join("target");
@@ -76,16 +81,21 @@ impl TestContext {
 
         log::debug!("Compiling `rune` in release mode");
 
-        let status = Command::new("cargo")
-            .arg("build")
-            .arg("--release")
-            .arg("--package=rune")
+        let mut cmd = Command::new("cargo");
+        cmd.arg("build").arg("--package=rune");
+
+        if !debug {
+            cmd.arg("--release");
+        }
+
+        let status = cmd
             .current_dir(&rune_project_dir)
             .status()
             .context("Unable to invoke cargo. Is it installed?")?;
         anyhow::ensure!(status.success(), "Compilation failed");
 
-        let rune_binary = target_dir.join("release").join("rune");
+        let dir = if debug { "debug" } else { "release" };
+        let rune_binary = target_dir.join(dir).join("rune");
 
         anyhow::ensure!(
             rune_binary.exists(),
