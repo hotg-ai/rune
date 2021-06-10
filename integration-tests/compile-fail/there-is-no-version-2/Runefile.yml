@@ -1,0 +1,3 @@
+image: runicos/base
+version: 2
+pipeline: {}

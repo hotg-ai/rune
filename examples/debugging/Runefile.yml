@@ -1,4 +1,5 @@
 image: runicos/base
+version: 1
 
 pipeline:
   # All the normal stages from our sine demo

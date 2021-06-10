@@ -17,9 +17,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Document {
-    pub image: Path,
-    pub pipeline: IndexMap<String, Stage>,
+#[serde(tag = "version")]
+pub enum Document {
+    #[serde(rename = "1")]
+    V1 {
+        image: Path,
+        pipeline: IndexMap<String, Stage>,
+    },
 }
 
 impl Document {
@@ -496,5 +500,24 @@ mod tests {
             let got: Path = src.parse().unwrap();
             assert_eq!(got, should_be, "{}", src);
         }
+    }
+
+    #[test]
+    fn parse_v1() {
+        let src = "version: 1\nimage: asdf\npipeline: {}";
+
+        let got = Document::parse(src).unwrap();
+
+        assert!(matches!(got, Document::V1 { .. }));
+    }
+
+    #[test]
+    #[should_panic = "unknown variant `2`"]
+    fn other_versions_are_an_error() {
+        let src = "image: asdf\nversion: 2\npipeline:";
+
+        let got = Document::parse(src).unwrap();
+
+        assert!(matches!(got, Document::V1 { .. }));
     }
 }
