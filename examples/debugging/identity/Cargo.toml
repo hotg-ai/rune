@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 runic-types = { path = "../../../runic-types" }
+rune-pb-core = { path = "../../../proc_blocks/pb-core" }
