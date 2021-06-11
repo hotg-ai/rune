@@ -11,27 +11,11 @@ pub struct ProcBlockDescriptor<'a> {
     /// of a short one-line summary with more information in subsequent
     /// paragraphs.
     pub description: Cow<'a, str>,
-    pub parameters: Cow<'a, [ParameterDescriptor<'a>]>,
     pub available_transforms: Cow<'a, [TransformDescriptor<'a>]>,
 }
 
 impl<'a> ProcBlockDescriptor<'a> {
     pub const CUSTOM_SECTION_NAME: &'static str = ".rune_proc_block";
-
-    /// Get a parameter by name.
-    pub fn get_parameter(
-        &self,
-        name: &str,
-    ) -> Option<&ParameterDescriptor<'a>> {
-        self.parameters.iter().find(|p| p.name == name)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ParameterDescriptor<'a> {
-    pub name: Cow<'a, str>,
-    pub description: Cow<'a, str>,
-    pub parameter_type: runic_types::reflect::Type,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

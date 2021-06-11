@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, Span};
 use runic_types::reflect::Type;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{
     Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,
     TypeArray, TypePath, TypeReference,
@@ -11,8 +11,8 @@ use syn::{
 
 use crate::{
     descriptor::{
-        ProcBlockDescriptor, ParameterDescriptor, TransformDescriptor,
-        Dimension, Dimensions, TensorDescriptor,
+        ProcBlockDescriptor, TransformDescriptor, Dimension, Dimensions,
+        TensorDescriptor,
     },
     types::{
         Assertions, CustomSection, DeriveOutput, ProcBlockImpl, Setter,
@@ -28,12 +28,11 @@ pub(crate) fn analyse(input: &DeriveInput) -> Result<DeriveOutput, Error> {
     let (description, available_transforms, transform_assertions) =
         analyse_struct_attributes(&input.ident, &exports, &input.attrs)?;
 
-    let (setters, parameters, setter_assertions) = analyse_properties(&input)?;
+    let (setters, setter_assertions) = analyse_properties(&input)?;
 
     let descriptor = ProcBlockDescriptor {
         type_name: type_name.to_string().into(),
         description: description.into(),
-        parameters: parameters.into(),
         available_transforms: available_transforms.into(),
     };
 
@@ -268,27 +267,22 @@ fn remove_leading_space(s: &str) -> &str {
 
 fn analyse_properties(
     input: &DeriveInput,
-) -> Result<(Setters, Vec<ParameterDescriptor<'static>>, SetterAssertions), Error>
-{
+) -> Result<(Setters, SetterAssertions), Error> {
     let data = match &input.data {
         syn::Data::Struct(s) => s,
         _ => return Err(Error::new(input.span(), "")),
     };
 
     let mut setters = Vec::new();
-    let mut descriptors = Vec::new();
     let mut assertions = Vec::new();
 
     for field in &data.fields {
         if let Some(parsed) = parse_parameter(field)? {
             let ParsedField {
                 property,
-                descriptor,
                 property_type,
                 possible_types,
             } = parsed;
-
-            descriptors.push(descriptor);
 
             let new_assertions =
                 possible_types.into_iter().map(|ty| SetterAssertion {
@@ -307,16 +301,11 @@ fn analyse_properties(
 
     let type_name = input.ident.clone();
 
-    Ok((
-        Setters { type_name, setters },
-        descriptors,
-        SetterAssertions(assertions),
-    ))
+    Ok((Setters { type_name, setters }, SetterAssertions(assertions)))
 }
 
 struct ParsedField {
     property: Ident,
-    descriptor: ParameterDescriptor<'static>,
     property_type: syn::Type,
     possible_types: Vec<syn::Type>,
 }
@@ -337,65 +326,16 @@ fn parse_parameter(field: &syn::Field) -> Result<Option<ParsedField>, Error> {
         },
     };
 
-    let description = doc_comments(&field.attrs)?;
-    let parameter_type = syn_type_to_reflect(&field.ty)?;
-
-    let descriptor = ParameterDescriptor {
-        name: property.to_string().into(),
-        description: description.into(),
-        parameter_type,
-    };
-
     let property_type = field.ty.clone();
     // TODO: Let people specify which other types can be used to set this
     // propert (e.g. because there is a From impl)
     let possible_types = vec![field.ty.clone()];
 
     Ok(Some(ParsedField {
-        descriptor,
         property,
         property_type,
         possible_types,
     }))
-}
-
-fn syn_type_to_reflect(t: &syn::Type) -> Result<Type, Error> {
-    match t {
-        syn::Type::Array(_) => unimplemented!("Array Parameters"),
-        syn::Type::Reference(TypeReference { ref elem, .. }) => {
-            if let syn::Type::Path(TypePath {
-                qself: None,
-                ref path,
-            }) = **elem
-            {
-                if let Some(ident) = path.get_ident() {
-                    if ident == "str" {
-                        return Ok(Type::String);
-                    }
-                }
-            }
-        },
-        syn::Type::Path(TypePath {
-            qself: None,
-            ref path,
-        }) => {
-            if let Some(ident) = path.get_ident() {
-                let single_word = ident.to_string();
-
-                match Type::from_rust_name(&single_word) {
-                    Some(t) => return Ok(t),
-                    None => todo!("Handle \"{}\"", path.to_token_stream()),
-                }
-            }
-        },
-        syn::Type::Slice(_) => unimplemented!("Slice Parameters"),
-        _ => {},
-    }
-
-    return Err(Error::new(
-        t.span(),
-        "Unable to encode this as a parameter type",
-    ));
 }
 
 fn field_attributes(attrs: &[Attribute]) -> Result<Vec<FieldAttribute>, Error> {
@@ -557,22 +497,15 @@ mod tests {
                 property_type: syn::parse_str("u32").unwrap(),
             }],
         };
-        let expected_parameters = vec![ParameterDescriptor {
-            name: "first".into(),
-            description: "The first item.".into(),
-            parameter_type: Type::u32,
-        }];
         let expected_assertions = SetterAssertions(vec![SetterAssertion {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             property: syn::parse_str("first").unwrap(),
             setter_argument: syn::parse_str("u32").unwrap(),
         }]);
 
-        let (setters, parameters, assertions) =
-            analyse_properties(&input).unwrap();
+        let (setters, assertions) = analyse_properties(&input).unwrap();
 
         assert_eq!(setters, expected_setters);
-        assert_eq!(parameters, expected_parameters);
         assert_eq!(assertions, expected_assertions);
     }
 

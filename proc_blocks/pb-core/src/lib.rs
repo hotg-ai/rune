@@ -6,10 +6,7 @@ mod descriptor;
 
 pub use runic_types::{HasOutputs, Tensor};
 pub use rune_pb_macros::ProcBlock;
-pub use descriptor::{
-    Dimension, TensorDescriptor, ProcBlockDescriptor, ParameterDescriptor,
-    TransformDescriptor, Dimensions,
-};
+pub use descriptor::*;
 
 /// Process some data, transforming it from one form to another.
 pub trait Transform<Input>: ProcBlock {

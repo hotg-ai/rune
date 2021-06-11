@@ -4,8 +4,8 @@ use syn::{LitByteStr, Path};
 use runic_types::reflect::Type as ReflectType;
 use crate::{
     descriptor::{
-        ProcBlockDescriptor, ParameterDescriptor, TransformDescriptor,
-        TensorDescriptor, Dimensions, Dimension,
+        ProcBlockDescriptor, TransformDescriptor, TensorDescriptor, Dimensions,
+        Dimension,
     },
     types::{
         Assertions, CustomSection, DeriveOutput, ProcBlockImpl, Setter,
@@ -188,13 +188,9 @@ fn descriptor_to_tokens(
     let ProcBlockDescriptor {
         type_name,
         description,
-        parameters,
         available_transforms,
     } = d;
 
-    let parameters = parameters
-        .iter()
-        .map(|parameter| ParameterProxy { exports, parameter });
     let available_transforms = available_transforms
         .iter()
         .map(|transform| TransformProxy { exports, transform });
@@ -203,47 +199,10 @@ fn descriptor_to_tokens(
         #exports::ProcBlockDescriptor {
             type_name: #exports::Cow::Borrowed(#type_name),
             description: #exports::Cow::Borrowed(#description),
-            parameters: #exports::Cow::Borrowed(&[
-                #( #parameters ),*
-            ]),
             available_transforms: #exports::Cow::Borrowed(&[
                 #( #available_transforms ),*
             ]),
         }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct ParameterProxy<'a> {
-    exports: &'a Path,
-    parameter: &'a ParameterDescriptor<'a>,
-}
-
-impl<'a> ToTokens for ParameterProxy<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let ParameterProxy {
-            exports,
-            parameter:
-                ParameterDescriptor {
-                    name,
-                    description,
-                    parameter_type,
-                },
-        } = *self;
-
-        let parameter_type = TypeProxy {
-            exports,
-            ty: parameter_type,
-        };
-
-        let t = quote! {
-            #exports::ParameterDescriptor {
-                name: #exports::Cow::Borrowed(#name),
-                description: #exports::Cow::Borrowed(#description),
-                parameter_type: #parameter_type,
-            }
-        };
-        tokens.extend(t);
     }
 }
 
@@ -574,7 +533,6 @@ mod tests {
             descriptor: ProcBlockDescriptor {
                 type_name: "Proc".into(),
                 description: "Hello, World!".into(),
-                parameters: Cow::default(),
                 available_transforms: Cow::default(),
             },
         };
@@ -583,7 +541,6 @@ mod tests {
                 const DESCRIPTOR: exports::ProcBlockDescriptor<'static> = exports::ProcBlockDescriptor {
                     type_name: exports::Cow::Borrowed("Proc"),
                     description: exports::Cow::Borrowed("Hello, World!"),
-                    parameters: exports::Cow::Borrowed(&[]),
                     available_transforms: exports::Cow::Borrowed(&[]),
                 };
             }

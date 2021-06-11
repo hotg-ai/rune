@@ -49,7 +49,7 @@ use syn::DeriveInput;
 /// use rune_pb_core::{ProcBlock, Transform};
 /// use runic_types::Tensor;
 ///
-/// #[derive(Default, rune_pb_macros::ProcBlock)]
+/// #[derive(Default, rune_pb_macros::ProcBlock)]  // Error: the trait bound `Foo: rune_pb_core::Transform<Tensor<f32>>` is not satisfied
 /// #[transform(input = f32, output = f32)]
 /// struct Foo { }
 ///
@@ -84,7 +84,7 @@ use syn::DeriveInput;
 /// ## Field Attributes
 ///
 /// By default, all fields in a proc block struct will be registered as
-/// properties and have the corresponding setters generated.
+/// "properties" and will get some generated setters.
 ///
 /// ```rust
 /// use rune_pb_core::ProcBlock;
@@ -97,9 +97,6 @@ use syn::DeriveInput;
 ///
 /// let descriptor = Foo::DESCRIPTOR;
 ///
-/// assert!(descriptor.get_parameter("first").is_some());
-/// assert!(descriptor.get_parameter("first").is_some());
-///
 /// let mut foo = Foo::default();
 ///
 /// foo.set_first("Hello, World!").set_second(42_u32);
@@ -108,10 +105,9 @@ use syn::DeriveInput;
 /// ```
 ///
 ///
-/// A parameter can opt-out of being configurable by the end user with the
-/// `#[proc_block(skip)]` attribute.
+/// A parameter can opt-out of this with the `#[proc_block(skip)]` attribute.
 ///
-/// ```rust
+/// ```rust,compile_fail
 /// use rune_pb_core::ProcBlock;
 ///
 /// #[derive(Default, rune_pb_macros::ProcBlock)]
@@ -121,10 +117,9 @@ use syn::DeriveInput;
 ///     include_me: u32,
 /// }
 ///
-/// let descriptor = Foo::DESCRIPTOR;
+/// let mut foo = Foo::default();
 ///
-/// assert!(descriptor.get_parameter("skip_me").is_none());
-/// assert!(descriptor.get_parameter("include_me").is_some());
+/// foo.set_skip_me("..."); // Error: no method named `set_skip_me` found for struct `Foo` in the current scope
 /// ```
 #[proc_macro_derive(ProcBlock, attributes(transform, proc_block))]
 pub fn proc_block(input: TokenStream) -> TokenStream {

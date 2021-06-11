@@ -2,7 +2,7 @@
 extern crate pretty_assertions;
 
 use rune_pb_core::{
-    Dimension, Dimensions, ParameterDescriptor, ProcBlock, ProcBlockDescriptor,
+    Dimension, Dimensions, ProcBlock, ProcBlockDescriptor,
     TensorDescriptor, Transform, TransformDescriptor,
 };
 use runic_types::{Tensor, reflect::Type};
@@ -39,12 +39,6 @@ fn generate_expected_descriptor() {
         description:
             "A dummy proc block.\n\nCan it handle multiple lines of input?"
                 .into(),
-        parameters: vec![ParameterDescriptor {
-            name: "a".into(),
-            description: "Some parameter.".into(),
-            parameter_type: Type::u32,
-        }]
-        .into(),
         available_transforms: vec![
             TransformDescriptor {
                 input: TensorDescriptor {
