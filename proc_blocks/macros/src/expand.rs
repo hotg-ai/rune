@@ -95,9 +95,19 @@ impl ToTokens for CustomSection {
         let section_name =
             crate::descriptor::ProcBlockDescriptor::CUSTOM_SECTION_NAME;
 
+        // Note: We'll use `#[cfg]` to make sure the custom section is only
+        // included when compiling to WebAssembly. Apparently mach-o object
+        // files don't support section names starting with a "." and this custom
+        // section doesn't make sense for non-WebAssembly use cases anyway
+        //
+        // LLVM ERROR: Global variable 'PROC_BLOCK_DESCRIPTOR_FOR_Normalize' has
+        // an invalid section specifier '.rune_proc_block': mach-o section
+        // specifier requires a segment and section separated by a comma.
+
         let t = quote! {
             #[doc(hidden)]
             #[no_mangle]
+            #[cfg(target_os = "wasm32")]
             #[link_section = #section_name]
             pub static #name: [u8; #len] = *#payload;
         };
@@ -451,6 +461,7 @@ mod tests {
         let should_be = quote! {
             #[doc(hidden)]
             #[no_mangle]
+            #[cfg(target_os = "wasm32")]
             #[link_section = ".rune_proc_block"]
             pub static PROC_BLOCK_DESCRIPTOR_FOR_Proc: [u8; 13usize] = *b"Hello, World!";
         };
