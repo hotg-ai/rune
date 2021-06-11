@@ -1214,6 +1214,7 @@ name = "label"
 version = "0.1.0"
 dependencies = [
  "rune-pb-core",
+ "runic-types",
 ]
 
 [[package]]

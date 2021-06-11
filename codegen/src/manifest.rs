@@ -269,7 +269,7 @@ mod tests {
 
         let got = dependencies(&rune, &project, Path::new("."));
 
-        assert_eq!(got.len(), 3);
+        assert_eq!(got.len(), 4);
         assert!(got.contains_key("log"));
         assert!(got.contains_key("runic-types"));
         assert!(got.contains_key("rune-pb-core"));

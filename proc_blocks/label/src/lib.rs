@@ -13,9 +13,10 @@ use rune_pb_core::{HasOutputs, Tensor, Transform, ProcBlock};
 /// # Examples
 /// ```rust
 /// # use label::Label;
-/// # use runic_types::{Tensor, Transform};
+/// # use runic_types::Tensor;
+/// # use rune_pb_core::Transform;
 /// let mut proc_block = Label::default();
-/// proc_block.set_labels(&["zero", "one", "two", "three"]);
+/// proc_block.set_labels(["zero", "one", "two", "three"]);
 /// let input = Tensor::new_vector(vec![3, 1, 2]);
 ///
 /// let got = proc_block.transform(input);

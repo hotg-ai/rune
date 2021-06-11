@@ -469,14 +469,14 @@ mod tests {
         let should_be = quote! {
             pub fn first(&self) -> &f32 { &self.first }
 
-            pub fn set_first<V, E>(&mut self, first: V) -> &mut Self
+            pub fn set_first<V>(&mut self, first: V) -> &mut Self
             where
                 f32: core::convert::TryFrom<V>,
                 <f32 as core::convert::TryFrom<V>>::Error: core::fmt::Display,
             {
-                self.first = match first.try_into() {
+                self.first = match <f32 as core::convert::TryFrom<V>>::try_from(first) {
                     Ok(first) => first,
-                    Err(e) => panic!("Unable to set {}: {}", stringify!(first), e),
+                    Err(e) => panic!("Invalid {}: {}", stringify!(first), e),
                 };
                 self
             }
