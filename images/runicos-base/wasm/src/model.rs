@@ -1,4 +1,4 @@
-use runic_types::{Transform, Tensor, HasOutputs};
+use runic_types::{Tensor, HasOutputs};
 use crate::intrinsics;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -33,10 +33,8 @@ impl<In, Out> Model<In, Out> {
     }
 }
 
-impl<In, Out: Default> Transform<Tensor<In>> for Model<In, Out> {
-    type Output = Tensor<Out>;
-
-    fn transform(&mut self, input: Tensor<In>) -> Tensor<Out> {
+impl<In, Out: Default> Model<In, Out> {
+    pub fn transform(&mut self, input: Tensor<In>) -> Tensor<Out> {
         unsafe {
             let (input_ptr, input_len) = input.as_ptr_and_byte_length();
 

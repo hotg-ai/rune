@@ -14,8 +14,8 @@ nalgebra = { version = "0.26.1", default-features = false, features = ["alloc"] 
 libm = "0.2.1"
 # See https://github.com/hotg-ai/rune/pull/107#issuecomment-825806000
 mel = { git = "https://github.com/hotg-ai/mel", rev = "017694ee3143c11ea9b75ba6cd27fe7c8a69a867", default-features = false }
-paste = "1.0.5"
 normalize = { path = "../normalize" }
+rune-pb-core = { path = "../pb-core" }
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"

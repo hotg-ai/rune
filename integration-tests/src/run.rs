@@ -1,6 +1,6 @@
 use std::{path::Path, process::Output};
 use anyhow::{Context, Error};
-use crate::{FullName, TestContext};
+use crate::{CommandOutput, FullName, TestContext};
 
 pub(crate) fn rune_output(
     full_name: &FullName,
@@ -9,6 +9,12 @@ pub(crate) fn rune_output(
 ) -> Result<Output, Error> {
     log::debug!("Compiling");
     let output = crate::compile::rune_output(full_name, directory, ctx)?;
+
+    if !output.status.success() {
+        return Err(Error::msg("Unable to compile the Rune")
+            .context(CommandOutput::new(output)));
+    }
+
     anyhow::ensure!(output.status.success(), "Unable to compile the Rune");
 
     let mut cmd = ctx.rune_cmd();

@@ -5,8 +5,8 @@ mod distribution;
 pub use crate::distribution::{Distribution, DistributionConversionError};
 
 use core::{convert::TryInto, fmt::Display};
-use runic_types::{HasOutputs, Tensor, Transform, TensorViewMut};
-use rune_pb_core::ProcBlock;
+use runic_types::{HasOutputs, Tensor, TensorViewMut};
+use rune_pb_core::{ProcBlock, Transform};
 
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 #[non_exhaustive]
@@ -31,45 +31,6 @@ impl ImageNormalization {
         };
 
         self.set_red(d).set_green(d).set_blue(d)
-    }
-
-    pub fn set_red<D>(&mut self, distribution: D) -> &mut Self
-    where
-        D: TryInto<Distribution>,
-        D::Error: Display,
-    {
-        match distribution.try_into() {
-            Ok(d) => self.red = d,
-            Err(e) => panic!("Invalid distribution: {}", e),
-        }
-
-        self
-    }
-
-    pub fn set_green<D>(&mut self, distribution: D) -> &mut Self
-    where
-        D: TryInto<Distribution>,
-        D::Error: Display,
-    {
-        match distribution.try_into() {
-            Ok(d) => self.green = d,
-            Err(e) => panic!("Invalid distribution: {}", e),
-        }
-
-        self
-    }
-
-    pub fn set_blue<D>(&mut self, distribution: D) -> &mut Self
-    where
-        D: TryInto<Distribution>,
-        D::Error: Display,
-    {
-        match distribution.try_into() {
-            Ok(d) => self.blue = d,
-            Err(e) => panic!("Invalid distribution: {}", e),
-        }
-
-        self
     }
 }
 

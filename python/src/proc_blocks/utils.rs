@@ -56,7 +56,7 @@ macro_rules! getters_and_setters {
                 impl $owner {
                     #[getter]
                     $( #[$meta] )*
-                    pub fn $property(&self) -> $type { self.$component.$property() }
+                    pub fn $property(&self) -> $type { self.$component.$property().clone() }
 
                     #[setter]
                     pub fn [< set_ $property >](&mut self, $property : $type) {

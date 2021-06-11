@@ -5,7 +5,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Tensor, Transform};
+use runic_types::{HasOutputs, Tensor};
 
 const NOISE_REDUCTION_BITS: usize = 14;
 
@@ -57,12 +57,8 @@ impl NoiseReduction {
     );
 
     pub fn noise_estimate(&self) -> &[u32] { &self.estimate }
-}
 
-impl Transform<Tensor<u32>> for NoiseReduction {
-    type Output = Tensor<u32>;
-
-    fn transform(&mut self, mut input: Tensor<u32>) -> Self::Output {
+    pub fn transform(&mut self, mut input: Tensor<u32>) -> Tensor<u32> {
         // make sure we have the right estimate buffer size and panic if we
         // don't. This works because the input and output have the same
         // dimensions.

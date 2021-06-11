@@ -116,10 +116,20 @@ impl ToTokens for Setter {
         let method = Ident::new(&method, property.span());
 
         let t = quote! {
-            pub fn #method(&mut self, #property: impl Into<#property_type>) -> &mut Self {
-                self.#property = #property.into();
+            pub fn #property(&self) -> &#property_type { &self.#property }
+
+            pub fn #method<V>(&mut self, #property: V) -> &mut Self
+            where
+                #property_type: core::convert::TryFrom<V>,
+                <#property_type as core::convert::TryFrom<V>>::Error: core::fmt::Display,
+            {
+                self.#property = match <#property_type as core::convert::TryFrom<V>>::try_from(#property) {
+                    Ok(#property) => #property,
+                    Err(e) => panic!("Invalid {}: {}", stringify!(#property), e),
+                };
                 self
             }
+
         };
         tokens.extend(t);
     }
@@ -457,8 +467,17 @@ mod tests {
             property_type: syn::parse_str("f32").unwrap(),
         };
         let should_be = quote! {
-            pub fn set_first(&mut self, first: impl Into<f32>) -> &mut Self {
-                self.first = first.into();
+            pub fn first(&self) -> &f32 { &self.first }
+
+            pub fn set_first<V, E>(&mut self, first: V) -> &mut Self
+            where
+                f32: core::convert::TryFrom<V>,
+                <f32 as core::convert::TryFrom<V>>::Error: core::fmt::Display,
+            {
+                self.first = match first.try_into() {
+                    Ok(first) => first,
+                    Err(e) => panic!("Unable to set {}: {}", stringify!(first), e),
+                };
                 self
             }
         };

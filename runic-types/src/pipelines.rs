@@ -14,13 +14,6 @@ pub trait Source: HasOutputs {
     ) -> &mut Self;
 }
 
-/// Process some data, transforming it from one form to another.
-pub trait Transform<Input>: HasOutputs {
-    type Output;
-
-    fn transform(&mut self, input: Input) -> Self::Output;
-}
-
 /// A consumer of data.
 pub trait Sink<Input> {
     fn consume(&mut self, input: Input);
