@@ -77,10 +77,25 @@ jobs:
       - name: Setup Rust
         run: rustup show
       - name: Generate API Docs
+        id: first_try
+        uses: actions-rs/cargo@v1
+        continue-on-error: true
+        with:
+          command: doc
+          args: --workspace --verbose --locked
+      # Sometimes generating docs on GitHub actions will spuriously fail with
+      # a random "file not found" error - possibly due to caching.
+      #
+      #   error: failed to remove file `/home/runner/work/rune/rune/target/doc/rune/constant.DEFAULT_RUST_LOG.html`
+      #   Caused by:
+      #      No such file or directory (os error 2)
+      - name: Generate API Docs (second attempt)
         run: |
+          cargo clean --doc
           cargo doc --workspace --verbose --locked
-          echo '<meta http-equiv="refresh" content="0; url=rune_runtime/index.html" />' > target/doc/index.html
-        if: github.ref == 'refs/heads/master'
+        if: ${{ steps.first_try.outcome == 'failure' }}
+      - name: Automatically redirect to rune_runtime docs
+        run: echo '<meta http-equiv="refresh" content="0; url=rune_runtime/index.html" />' > target/doc/index.html
       - name: Upload API Docs
         uses: JamesIves/github-pages-deploy-action@4.1.1
         if: github.ref == 'refs/heads/master'
