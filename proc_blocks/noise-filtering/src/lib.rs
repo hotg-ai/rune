@@ -11,11 +11,14 @@ mod noise_reduction;
 pub use noise_reduction::NoiseReduction;
 pub use gain_control::GainControl;
 
-use runic_types::{HasOutputs, Tensor, Transform};
+use runic_types::{HasOutputs, Tensor};
+use rune_pb_core::{ProcBlock, Transform};
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 pub struct NoiseFiltering {
+    #[proc_block(skip)]
     gain_control: GainControl,
+    #[proc_block(skip)]
     noise_reduction: NoiseReduction,
 }
 

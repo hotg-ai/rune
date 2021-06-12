@@ -1,8 +1,9 @@
 [workspace]
+resolver = "2"
 members = [
     "codegen",
     "ffi",
-    "images/*",
+    "images/runicos-base/*",
     "integration-tests",
     "proc_blocks/*",
     "python",

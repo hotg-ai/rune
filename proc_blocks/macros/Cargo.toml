@@ -1,0 +1,22 @@
+[package]
+name = "rune-pb-macros"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+proc-macro2 = "1.0.27"
+quote = "1.0.9"
+runic-types = { path = "../../runic-types", default-features = false }
+serde = { version = "1.0.126", features = ["derive"] }
+serde_json = "1.0.64"
+syn = { version = "1.0.72", features = ["extra-traits", "full"] }
+
+[dev-dependencies]
+difference = "2.0.0"
+pretty_assertions = "0.7.2"
+rune-pb-core = { path = "../pb-core" }

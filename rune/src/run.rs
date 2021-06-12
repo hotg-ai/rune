@@ -4,7 +4,7 @@ use hound::WavReader;
 use log;
 use rune_runtime::common_capabilities::{Accelerometer, Image, Random, Raw, Sound};
 use rune_wasmer_runtime::Runtime;
-use runicos_base::BaseImage;
+use runicos_base_runtime::BaseImage;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {

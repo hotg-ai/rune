@@ -9,4 +9,4 @@ publish = false
 
 [dependencies]
 num-traits = { version = "0.2.14", default-features = false }
-runic-types = { path = "../../runic-types" }
+rune-pb-core = { path = "../pb-core" }

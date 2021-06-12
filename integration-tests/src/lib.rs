@@ -6,7 +6,7 @@ mod run;
 pub use crate::loader::{Category, Test, ExitCondition, FullName};
 
 use std::{
-    fmt::Debug,
+    fmt::{self, Debug, Display, Formatter},
     path::{Path, PathBuf},
     process::{Command, Output},
 };
@@ -121,5 +121,45 @@ impl TestContext {
         } = name;
         let family = format!("{}-{}", category, exit_condition);
         self.cache_dir.join(family).join(name)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CommandOutput(Output);
+
+impl CommandOutput {
+    fn new(output: Output) -> Self { CommandOutput(output) }
+}
+
+impl Display for CommandOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let CommandOutput(Output {
+            status,
+            stderr,
+            stdout,
+        }) = self;
+
+        match (status.success(), status.code()) {
+            (false, Some(code)) => writeln!(f, "Command failed with {}", code)?,
+            (true, Some(code)) => {
+                writeln!(f, "Command exited successfully with {}", code)?
+            },
+            (true, None) => writeln!(f, "Command failed")?,
+            (false, None) => writeln!(f, "Command exited successfully")?,
+        }
+
+        if let Ok(stdout) = std::str::from_utf8(stdout) {
+            if !stdout.trim().is_empty() {
+                writeln!(f, "\nStdout:\n{}", stdout)?;
+            }
+        }
+
+        if let Ok(stderr) = std::str::from_utf8(stderr) {
+            if !stderr.trim().is_empty() {
+                writeln!(f, "\nStderr:\n{}", stderr)?;
+            }
+        }
+
+        Ok(())
     }
 }

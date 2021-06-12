@@ -9,20 +9,18 @@ extern crate std;
 #[macro_use]
 extern crate pretty_assertions;
 
-#[macro_use]
-mod macros;
-
 /// A type alias for [`ShortTimeFourierTransform`] which uses the camel case
 /// version of this crate.
 pub type Fft = ShortTimeFourierTransform;
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Tensor, Transform};
+use runic_types::{HasOutputs, Tensor};
+use rune_pb_core::{ProcBlock, Transform};
 use sonogram::SpecOptionsBuilder;
 use mel;
 use nalgebra::DMatrix;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, ProcBlock)]
 pub struct ShortTimeFourierTransform {
     sample_rate: u32,
     bins: usize,
@@ -112,10 +110,6 @@ impl ShortTimeFourierTransform {
 
         return out;
     }
-}
-
-impl ShortTimeFourierTransform {
-    builder_methods!(sample_rate: u32, bins: usize, window_overlap: f32);
 }
 
 impl Default for ShortTimeFourierTransform {

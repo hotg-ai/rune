@@ -10,6 +10,7 @@ description = "A self-sufficient runtime for TinyML Containers"
 [dependencies]
 anyhow = "1.0.38"
 build-info = { version = "0.0.23", features = ["serde"] }
+chrono = { version = "0.4.19", features = ["std"] }
 clap = "2.33.3"
 codespan-reporting = "0.11.0"
 dirs = "3.0.1"
@@ -26,7 +27,7 @@ rune-runtime = { path = "../runtime" }
 rune-syntax = { path = "../syntax" }
 rune-wasmer-runtime = { path = "../wasmer-runtime" }
 runic-types = { path = "../runic-types" }
-runicos-base = { path = "../images/runicos-base" }
+runicos-base-runtime = { path = "../images/runicos-base/runtime" }
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"
 structopt = "0.3.21"

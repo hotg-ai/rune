@@ -5,29 +5,21 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Tensor, Transform};
+use runic_types::{HasOutputs, Tensor};
+use rune_pb_core::{ProcBlock, Transform};
 
 /// A proc block which, when given a list of confidences, will return the
 /// indices of the top N most confident values.
 ///
 /// Will return a 1-element [`Tensor`] by default.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, ProcBlock)]
 pub struct MostConfidentIndices {
+    /// The number of indices to return.
     count: usize,
 }
 
 impl MostConfidentIndices {
     pub fn new(count: usize) -> Self { MostConfidentIndices { count } }
-
-    /// Set the number of indices to return.
-    pub fn set_count<T>(&mut self, count: T) -> &mut Self
-    where
-        T: TryInto<usize>,
-        T::Error: Debug,
-    {
-        self.count = count.try_into().unwrap();
-        self
-    }
 }
 
 impl Default for MostConfidentIndices {

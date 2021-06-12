@@ -7,7 +7,8 @@ use pyo3::{
     exceptions::{PyAssertionError, PyTypeError},
     prelude::{FromPyObject, pyclass, pymethods, pyproto},
 };
-use runic_types::{Tensor, Transform};
+use runic_types::Tensor;
+use rune_pb_core::Transform;
 
 use crate::proc_blocks::utils;
 

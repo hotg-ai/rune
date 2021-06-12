@@ -1,72 +1,48 @@
 #![no_std]
 
-use core::ops::Rem;
-use num_traits::One;
-use runic_types::{HasOutputs, Tensor, Transform};
+use num_traits::{FromPrimitive, ToPrimitive};
+use rune_pb_core::{HasOutputs, Tensor, Transform, ProcBlock};
 
-pub fn modulo<T>(modulus: T, values: &mut [T])
+pub fn modulo<T>(modulus: f32, values: &mut [T])
 where
-    T: Rem<Output = T> + Clone,
+    T: ToPrimitive + FromPrimitive,
 {
     for item in values {
-        *item = item.clone() % modulus.clone();
+        let float = item.to_f32().unwrap();
+        *item = T::from_f32(float % modulus).unwrap();
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Modulo<T> {
-    modulus: T,
+#[derive(Debug, Clone, Copy, PartialEq, ProcBlock)]
+pub struct Modulo {
+    modulus: f32,
 }
 
-impl<T: One> Modulo<T> {
-    pub fn new() -> Self { Modulo { modulus: T::one() } }
+impl Modulo {
+    pub fn new() -> Self { Modulo { modulus: 1.0 } }
 }
 
-impl<T> Modulo<T> {
-    pub fn set_modulus(&mut self, modulus: T) -> &mut Self {
-        self.modulus = modulus;
-        self
-    }
-}
-
-impl<T: One> Default for Modulo<T> {
+impl Default for Modulo {
     fn default() -> Self { Modulo::new() }
 }
 
-impl<T> Transform<T> for Modulo<T>
+impl<'a, T> Transform<Tensor<T>> for Modulo
 where
-    T: Rem<Output = T> + Clone,
-{
-    type Output = T;
-
-    fn transform(&mut self, input: T) -> T { input % self.modulus.clone() }
-}
-
-impl<T, const N: usize> Transform<[T; N]> for Modulo<T>
-where
-    T: Rem<Output = T> + Clone,
-{
-    type Output = [T; N];
-
-    fn transform(&mut self, mut input: [T; N]) -> [T; N] {
-        modulo(self.modulus.clone(), &mut input);
-        input
-    }
-}
-
-impl<'a, T> Transform<Tensor<T>> for Modulo<T>
-where
-    T: Rem<Output = T> + Clone,
+    T: ToPrimitive + FromPrimitive,
 {
     type Output = Tensor<T>;
 
-    fn transform(&mut self, mut input: Tensor<T>) -> Tensor<T> {
-        modulo(self.modulus.clone(), input.make_elements_mut());
-        input
+    fn transform(&mut self, input: Tensor<T>) -> Tensor<T> {
+        let modulus = self.modulus;
+
+        input.map(|_, item| {
+            let float = item.to_f32().unwrap();
+            T::from_f32(float % modulus).unwrap()
+        })
     }
 }
 
-impl<T> HasOutputs for Modulo<T> {}
+impl HasOutputs for Modulo {}
 
 #[cfg(test)]
 mod tests {
@@ -76,10 +52,11 @@ mod tests {
     fn mod_360() {
         let number = 42 + 360;
         let mut m = Modulo::new();
-        m.set_modulus(360);
+        m.set_modulus(360.0);
+        let input = Tensor::single(number);
 
-        let got = m.transform(number);
+        let got = m.transform(input);
 
-        assert_eq!(got, 42_i64);
+        assert_eq!(got, Tensor::single(42_i64));
     }
 }

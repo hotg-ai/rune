@@ -7,7 +7,7 @@ use core::{
     fmt::Debug,
     ops::{Div, Sub},
 };
-use runic_types::{HasOutputs, Tensor, Transform};
+use rune_pb_core::{Transform, HasOutputs, Tensor};
 
 pub fn normalize<T>(input: &mut [T])
 where
@@ -25,9 +25,13 @@ where
 }
 
 /// Normalize the input to the range `[0, 1]`.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, rune_pb_core::ProcBlock)]
+#[non_exhaustive]
+#[transform(input = [f32; 1], output = [f32; 1])]
+#[transform(input = [f32; 2], output = [f32; 2])]
+#[transform(input = [f32; 3], output = [f32; 3])]
 pub struct Normalize {
-    _private: (),
+    unused: &'static str,
 }
 
 impl<T> Transform<Tensor<T>> for Normalize

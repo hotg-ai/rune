@@ -2,7 +2,7 @@ use pyo3::{
     PyAny, PyObject, PyResult, Python, ToPyObject,
     prelude::{pyclass, pymethods},
 };
-use runic_types::Transform;
+use rune_pb_core::Transform;
 use crate::proc_blocks::utils;
 
 #[pyclass(module = "rune_py")]

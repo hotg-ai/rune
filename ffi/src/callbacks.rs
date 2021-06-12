@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 use anyhow::Error;
-use runicos_base::BaseImage;
+use runicos_base_runtime::BaseImage;
 use crate::{Output, capability::Capability};
 
 /// A vtable providing the Rune with functions for interacting with its
