@@ -2403,7 +2403,7 @@ dependencies = [
 [[package]]
 name = "serde_yaml"
 version = "0.8.17"
-source = "git+https://github.com/hotg-ai/serde-yaml?branch=spans#91348d9fa88c945967691c555bccd2d26225332e"
+source = "git+https://github.com/hotg-ai/serde-yaml?branch=spans#6f6bb2d09f5d068e741a58d34f8c9b45e0191b14"
 dependencies = [
  "dtoa",
  "linked-hash-map",
