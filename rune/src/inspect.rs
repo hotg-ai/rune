@@ -33,6 +33,11 @@ impl Inspect {
         let wasm = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
+
+        if !wasm.starts_with(b"\0asm") {
+            anyhow::bail!("The \"inspect\" command only works on WebAssembly binaries");
+        }
+
         let meta = Metadata::from_wasm_binary(&wasm);
 
         match self.format {

@@ -1,0 +1,9 @@
+image: runicos/base
+version: 1
+
+pipeline:
+  random:
+    capability: RAND
+    inputs:
+    - non_existent
+
