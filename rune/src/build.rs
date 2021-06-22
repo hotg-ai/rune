@@ -3,7 +3,9 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use rune_codegen::{Compilation, DefaultEnvironment, GitSpecifier, RuneProject};
+use rune_codegen::{
+    Compilation, DefaultEnvironment, GitSpecifier, RuneProject, Verbosity,
+};
 use rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
@@ -26,6 +28,12 @@ pub struct Build {
     /// The name of the Rune (defaults to the Runefile directory's name).
     #[structopt(short, long)]
     name: Option<String>,
+    /// Hide output from tools that rune may call.
+    #[structopt(short, long, conflicts_with = "verbose")]
+    quiet: bool,
+    /// Prints even more detailed information.
+    #[structopt(short, long, conflicts_with = "quiet")]
+    verbose: bool,
     /// Compile the Rune without optimisations.
     #[structopt(long)]
     debug: bool,
@@ -33,6 +41,12 @@ pub struct Build {
 
 impl Build {
     pub fn execute(self, color: ColorChoice) -> Result<(), Error> {
+        let verbosity =
+            Verbosity::from_quiet_and_verbose(self.quiet, self.verbose)
+                .context(
+                    "The --verbose and --quiet flags can't be used together",
+                )?;
+
         let rune = analyze(&self.runefile, color)?;
 
         let current_directory = self.current_directory()?;
@@ -72,6 +86,7 @@ impl Build {
             rune_project,
             current_directory,
             working_directory,
+            verbosity,
             optimized: !self.debug,
         };
         let mut env = DefaultEnvironment::for_compilation(&compilation)

@@ -18,7 +18,10 @@ pub use crate::{
 pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
 pub const VERSION_CUSTOM_SECTION: &str = ".rune_version";
 
-use std::path::{PathBuf};
+use std::{
+    path::{PathBuf},
+    process::Command,
+};
 use anyhow::{Context, Error};
 use rune_syntax::hir::Rune;
 
@@ -36,6 +39,38 @@ pub struct Compilation {
     pub rune_project: RuneProject,
     /// Generate an optimized build.
     pub optimized: bool,
+    pub verbosity: Verbosity,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Verbosity {
+    Quiet,
+    Normal,
+    Verbose,
+}
+
+impl Verbosity {
+    pub fn from_quiet_and_verbose(quiet: bool, verbose: bool) -> Option<Self> {
+        match (verbose, quiet) {
+            (true, false) => Some(Verbosity::Verbose),
+            (false, true) => Some(Verbosity::Quiet),
+            (false, false) => Some(Verbosity::Normal),
+            (true, true) => None,
+        }
+    }
+
+    /// Add a `--quiet` or `--verbose` argument to the command if necessary.
+    pub(crate) fn add_flags(&self, cmd: &mut Command) {
+        match self {
+            Verbosity::Quiet => {
+                cmd.arg("--quiet");
+            },
+            Verbosity::Verbose => {
+                cmd.arg("--verbose");
+            },
+            Verbosity::Normal => {},
+        }
+    }
 }
 
 pub fn generate(c: Compilation) -> Result<Vec<u8>, Error> {

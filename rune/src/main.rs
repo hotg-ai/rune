@@ -28,7 +28,6 @@ fn main() -> Result<(), Error> {
         colour,
         cmd,
         version,
-        verbose,
     } = Args::from_args();
 
     let env = Env::new().default_filter_or(DEFAULT_RUST_LOG);
@@ -43,16 +42,13 @@ fn main() -> Result<(), Error> {
         Some(Cmd::Build(build)) => build.execute(colour.into()),
         Some(Cmd::Run(run)) => run.execute(),
         Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
-        Some(Cmd::Version(mut version)) => {
-            version.verbose |= verbose;
-            version.execute()
-        },
+        Some(Cmd::Version(version)) => version.execute(),
         Some(Cmd::ModelInfo(m)) => model_info::model_info(m),
         Some(Cmd::Inspect(i)) => i.execute(),
         None if version => {
             let v = Version {
                 format: Format::Text,
-                verbose,
+                verbose: false,
             };
             v.execute()
         },
@@ -75,10 +71,9 @@ pub struct Args {
         possible_values = ColorChoice::VARIANTS)
     ]
     colour: ColorChoice,
-    #[structopt(short = "V", long, help = "Print out version information")]
+    /// Prints out version information.
+    #[structopt(short = "V", long)]
     version: bool,
-    #[structopt(short, long, help = "Prints even more detailed information")]
-    verbose: bool,
     #[structopt(subcommand)]
     cmd: Option<Cmd>,
 }
