@@ -29,23 +29,23 @@ pub struct Build {
     #[structopt(short, long)]
     name: Option<String>,
     /// Hide output from tools that rune may call.
-    #[structopt(short, long)]
+    #[structopt(short, long, conflicts_with = "verbose")]
     quiet: bool,
+    /// Prints even more detailed information.
+    #[structopt(short, long, conflicts_with = "quiet")]
+    verbose: bool,
     /// Compile the Rune without optimisations.
     #[structopt(long)]
     debug: bool,
 }
 
 impl Build {
-    pub fn execute(
-        self,
-        color: ColorChoice,
-        verbose: bool,
-    ) -> Result<(), Error> {
-        let verbosity = Verbosity::from_quiet_and_verbose(self.quiet, verbose)
-            .context(
-                "The --verbose and --quiet flags can't be used together",
-            )?;
+    pub fn execute(self, color: ColorChoice) -> Result<(), Error> {
+        let verbosity =
+            Verbosity::from_quiet_and_verbose(self.quiet, self.verbose)
+                .context(
+                    "The --verbose and --quiet flags can't be used together",
+                )?;
 
         let rune = analyze(&self.runefile, color)?;
 
