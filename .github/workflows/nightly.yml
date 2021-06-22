@@ -166,12 +166,19 @@ jobs:
     env:
       ORGANISATION: tinyverseml
       REPO: rune-cli
-      CONTAINER: ${{ env.ORGANISATION }}/${{ env.REPO }}
       TAG: nightly
     steps:
-      - name: Overwriting image tag with git tag
-        run: echo "TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
-        if: ${{ github.event_name != "schedule" && github.event_name != "workflow_dispatch" }}
+      - name: Setting the container and tag variables
+        run: |
+          echo "CONTAINER=${{ env.ORGANISATION }}/${{ env.REPO }}" >> $GITHUB_ENV
+
+          event_name=${{ github.event_name }}
+
+          if [ $event_name = "schedule" ] || [ $event_name = "workflow_dispatch" ]; then
+            echo "TAG=nightly" >> $GITHUB_ENV
+          else
+            echo "TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          fi
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
