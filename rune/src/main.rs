@@ -40,7 +40,7 @@ fn main() -> Result<(), Error> {
         .init();
 
     match cmd {
-        Some(Cmd::Build(build)) => build.execute(colour.into()),
+        Some(Cmd::Build(build)) => build.execute(colour.into(), verbose),
         Some(Cmd::Run(run)) => run.execute(),
         Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
         Some(Cmd::Version(mut version)) => {

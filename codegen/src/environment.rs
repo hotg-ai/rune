@@ -1,11 +1,11 @@
 use std::{
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
 };
 use anyhow::{Context, Error};
 use serde::Serialize;
 use build_info::BuildInfo;
-use crate::{Compilation, Project};
+use crate::{Compilation, Project, Verbosity};
 
 pub trait Environment {
     /// Compile a Rust project to WebAssembly, returning the contents of the
@@ -26,6 +26,7 @@ pub struct DefaultEnvironment {
     current_directory: PathBuf,
     optimize: bool,
     rust_version: String,
+    verbosity: Verbosity,
     build_info: Option<BuildInfo>,
 }
 
@@ -36,6 +37,7 @@ impl DefaultEnvironment {
             current_directory: c.current_directory.clone(),
             optimize: c.optimized,
             rust_version: crate::rustup::NIGHTLY_VERSION.clone(),
+            verbosity: c.verbosity,
             build_info: None,
         }
     }
@@ -94,9 +96,10 @@ impl DefaultEnvironment {
         let mut cmd = Command::new("cargo");
         cmd.arg(format!("+{}", self.rust_version))
             .arg("build")
-            .arg("--target=wasm32-unknown-unknown")
-            .arg("--quiet")
-            .current_dir(&self.working_directory);
+            .arg("--target=wasm32-unknown-unknown");
+
+        self.verbosity.add_flags(&mut cmd);
+        cmd.current_dir(&self.working_directory);
 
         if self.optimize {
             cmd.arg("--release");
@@ -120,12 +123,11 @@ impl DefaultEnvironment {
     fn rustfmt(&self) -> Result<(), Error> {
         log::debug!("Formatting the generate code");
 
-        let status = Command::new("cargo")
-            .arg("fmt")
-            .current_dir(&self.working_directory)
-            .stderr(Stdio::null()) // Note: we don't care if it prints any output
-            .status()
-            .context("unable to call `cargo fmt`")?;
+        let mut cmd = Command::new("cargo");
+        cmd.arg("fmt").current_dir(&self.working_directory);
+        self.verbosity.add_flags(&mut cmd);
+
+        let status = cmd.status().context("unable to call `cargo fmt`")?;
 
         anyhow::ensure!(
             status.success(),
