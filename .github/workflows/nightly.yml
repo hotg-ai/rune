@@ -193,9 +193,9 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: ${{ github.ref == 'refs/heads/master' }}
-          tags:
-            - ${{ env.CONTAINER }}:latest
-            - ${{ env.CONTAINER }}:${{ env.TAG }}
-            - ${{ env.CONTAINER }}:${{ github.sha }}
+          tags: |
+            ${{ env.CONTAINER }}:latest
+            ${{ env.CONTAINER }}:${{ env.TAG }}
+            ${{ env.CONTAINER }}:${{ github.sha }}
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
