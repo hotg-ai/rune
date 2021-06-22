@@ -11,7 +11,7 @@ RUN rustup show && \
     cargo fetch && \
     # Install Rune
     cargo install --root / --path /app/rune && \
-    rune --version --verbose && \
+    rune version --verbose && \
     # Delete any bulky dependencies installed with Rune
     rm -rf target $CARGO_HOME/git $CARGO_HOME/registry
 
