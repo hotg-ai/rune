@@ -23,14 +23,14 @@ impl Version {
         let executable = Path::new(&binary).file_name().unwrap_or(&binary);
 
         let version = version();
-        let git = version.version_control.as_ref().unwrap().git().unwrap();
+        let git = version.version_control.as_ref().and_then(|v| v.git());
 
         let info = VersionInfo {
             executable: executable.to_string_lossy(),
             rune_version: version.crate_info.version.to_string(),
-            commit_hash: &git.commit_id,
-            commit_short_hash: &git.commit_short_id,
-            commit_timestamp: git.commit_timestamp,
+            commit_hash: git.map(|g| g.commit_id.as_str()),
+            commit_short_hash: git.map(|g| g.commit_short_id.as_str()),
+            commit_timestamp: git.map(|g| g.commit_timestamp),
             host: &version.compiler.target_triple,
             rustc_version: version.compiler.version.to_string(),
             rustc_commit_hash: version.compiler.commit_id.as_deref(),
@@ -66,9 +66,9 @@ fn print_json(info: &VersionInfo, verbose: bool) -> Result<(), Error> {
 struct VersionInfo<'a> {
     executable: Cow<'a, str>,
     rune_version: String,
-    commit_short_hash: &'a str,
-    commit_hash: &'a str,
-    commit_timestamp: DateTime<Utc>,
+    commit_short_hash: Option<&'a str>,
+    commit_hash: Option<&'a str>,
+    commit_timestamp: Option<DateTime<Utc>>,
     host: &'a str,
     rustc_version: String,
     rustc_commit_hash: Option<&'a str>,
@@ -88,15 +88,22 @@ fn print_text(info: &VersionInfo<'_>, verbose: bool) {
         rustc_commit_date,
     } = info;
 
-    // We want to copy rustc
+    // We want to copy rustc but need to take into account times when git info
+    // doesn't exist...
     // rustc 1.53.0-nightly (5a4ab2645 2021-04-18)
-    println!(
-        "{} {} ({} {})",
-        executable,
-        rune_version,
+    match (
         commit_short_hash,
-        commit_timestamp.format("%Y-%m-%d"),
-    );
+        commit_timestamp.map(|ts| ts.format("%Y-%m-%d")),
+    ) {
+        (Some(h), Some(ts)) => {
+            println!("{} {} ({} {})", executable, rune_version, h, ts,)
+        },
+        (Some(h), None) => println!("{} {} ({})", executable, rune_version, h),
+        (None, Some(ts)) => {
+            println!("{} {} ({})", executable, rune_version, ts)
+        },
+        (None, None) => println!("{} {}", executable, rune_version),
+    }
 
     if !verbose {
         return;
@@ -104,8 +111,12 @@ fn print_text(info: &VersionInfo<'_>, verbose: bool) {
 
     println!("binary: {}", executable);
     println!("rune-version: {}", rune_version);
-    println!("commit-hash: {}", commit_hash);
-    println!("commit-date: {}", commit_timestamp.to_rfc3339());
+    if let Some(commit_hash) = commit_hash {
+        println!("commit-hash: {}", commit_hash);
+    }
+    if let Some(commit_timestamp) = commit_timestamp {
+        println!("commit-date: {}", commit_timestamp.to_rfc3339());
+    }
     println!("host: {}", host);
     println!("rustc-version: {}", rustc_version);
     if let Some(commit_hash) = rustc_commit_hash {
