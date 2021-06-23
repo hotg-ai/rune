@@ -169,8 +169,6 @@ jobs:
       TAG: nightly
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Setting the container and tag variables
         run: |
           echo "CONTAINER=${{ env.ORGANISATION }}/${{ env.REPO }}" >> $GITHUB_ENV
