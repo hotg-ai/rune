@@ -9,4 +9,4 @@ edition = "2018"
 rune-pb-core = { path = "../pb-core" }
 
 [dev-dependencies]
-runic-types = { path = "../../runic-types" }
+runic-types = { path = "../../crates/runic-types" }
