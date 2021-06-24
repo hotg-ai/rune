@@ -2140,7 +2140,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "rune-ffi"
+name = "rune-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger 0.8.4",
+ "log",
+ "once_cell",
+ "structopt",
+ "walkdir",
+]
+
+[[package]]
+name = "rune-native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2155,18 +2167,6 @@ dependencies = [
  "runic-types",
  "runicos-base-runtime",
  "tempfile",
-]
-
-[[package]]
-name = "rune-integration-tests"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "env_logger 0.8.4",
- "log",
- "once_cell",
- "structopt",
- "walkdir",
 ]
 
 [[package]]
