@@ -13,6 +13,7 @@ use rune_pb_core::{ProcBlock, Transform};
 // TODO: Add Generics
 
 #[derive(Debug, Clone, PartialEq, ProcBlock)]
+#[transform(input = [i16; _], output = [f32; _])]
 pub struct AudioFloatConversion {
     i16_max_as_float: f32,
 }
