@@ -9,7 +9,7 @@ macro_rules! parse_and_analyse {
         mod $example {
             use super::*;
             const SRC: &str = include_str!(concat!(
-                "../../examples/",
+                "../../../examples/",
                 stringify!($example),
                 "/Runefile"
             ));

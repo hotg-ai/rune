@@ -6,13 +6,23 @@ use tempfile::TempDir;
 use rune_syntax::Diagnostics;
 use rune_codegen::{Compilation, RuneProject, Verbosity};
 
+fn git_root(dir: &Path) -> &Path {
+    for ancestor in dir.ancestors() {
+        if ancestor.join(".git").exists() {
+            return ancestor;
+        }
+    }
+
+    unreachable!("Unable to determine the git root");
+}
+
 #[test]
 fn execute_cpp_example() {
     let temp = TempDir::new().unwrap();
     let temp = temp.path();
 
     let ffi_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let rune_project_dir = ffi_dir.parent().unwrap().to_path_buf();
+    let rune_project_dir = git_root(ffi_dir);
     let header = temp.join("rune.h");
     let executable = temp.join("main");
     let rune = temp.join("test.rune");
@@ -71,7 +81,7 @@ fn execute_cpp_example() {
         rune: analysed,
         working_directory: temp.join("rust"),
         current_directory: ffi_dir.to_path_buf(),
-        rune_project: RuneProject::Disk(rune_project_dir),
+        rune_project: RuneProject::Disk(rune_project_dir.to_path_buf()),
         verbosity: Verbosity::Normal,
         optimized: false,
     };

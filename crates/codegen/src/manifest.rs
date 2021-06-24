@@ -66,7 +66,7 @@ fn dependencies(
 
     deps.insert(
         String::from("runic-types"),
-        Dependency::Detailed(rune_project_dependency("runic-types", project)),
+        Dependency::Detailed(rune_project_dependency("crates/runic-types", project)),
     );
     deps.insert(
         String::from("rune-pb-core"),

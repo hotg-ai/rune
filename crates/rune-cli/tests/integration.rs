@@ -4,11 +4,19 @@ use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 fn project_root() -> PathBuf {
-    let mut manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .canonicalize()
         .unwrap();
-    assert!(manifest_dir.pop());
-    manifest_dir
+
+    for ancestor in manifest_dir.ancestors() {
+        if ancestor.join(".git").is_dir() {
+            return ancestor.to_path_buf();
+        }
+    }
+
+    unreachable!(
+        "Unable to determine the project's root directory. Where is \".git/\"?"
+    );
 }
 
 fn example_dir() -> PathBuf { project_root().join("examples") }
