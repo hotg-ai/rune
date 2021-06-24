@@ -1,6 +1,7 @@
 # Rune
 
 [![Continuous integration](https://github.com/hotg-ai/rune/actions/workflows/main.yml/badge.svg)](https://github.com/hotg-ai/rune/actions/workflows/main.yml)
+![Total Downloads](https://img.shields.io/github/downloads/hotg-ai/rune/total.svg)
 
 **[Nightly Release][nightly] | [API Docs][api-docs]**
 
