@@ -49,9 +49,7 @@ impl Transform<Tensor<i16>> for AudioFloatConversion {
     type Output = Tensor<f32>;
 
     fn transform(&mut self, input: Tensor<i16>) -> Self::Output {
-        let input = input.elements().to_vec();
-        let aud_float = self.transform_inner(input);
-        Tensor::new_vector(aud_float.iter().copied())
+        input.map(|_dims, &value| (value as f32 / i16::MAX as f32).clamp(-1.0, 1.0)))
     }
 }
 
