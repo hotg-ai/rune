@@ -6,7 +6,7 @@ pub use crate::distribution::{Distribution, DistributionConversionError};
 
 use core::{convert::TryInto, fmt::Display};
 use runic_types::{HasOutputs, Tensor, TensorViewMut};
-use rune_pb_core::{ProcBlock, Transform};
+use rune_proc_blocks::{ProcBlock, Transform};
 
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 #[non_exhaustive]

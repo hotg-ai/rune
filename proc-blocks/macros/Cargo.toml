@@ -1,5 +1,5 @@
 [package]
-name = "rune-pb-macros"
+name = "rune_proc-block-macros"
 version = "0.1.0"
 edition = "2018"
 
@@ -19,4 +19,4 @@ syn = { version = "1.0.72", features = ["extra-traits", "full"] }
 [dev-dependencies]
 difference = "2.0.0"
 pretty_assertions = "0.7.2"
-rune-pb-core = { path = "../pb-core" }
+rune-proc-blocks = { path = "../proc-blocks" }

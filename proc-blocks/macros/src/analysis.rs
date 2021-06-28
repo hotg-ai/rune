@@ -396,7 +396,7 @@ fn make_custom_section(
 }
 
 fn export_path(_attrs: &[syn::Attribute]) -> Result<Path, Error> {
-    let default = syn::parse_str("rune_pb_core::internal")
+    let default = syn::parse_str("rune_proc_blocks::internal")
         .expect("Hard-coded values should always parse");
 
     Ok(default)
@@ -442,28 +442,29 @@ mod tests {
                 },
             },
         ];
-        let exports: Path = syn::parse_str("rune_pb_core::internal").unwrap();
+        let exports: Path =
+            syn::parse_str("rune_proc_blocks::internal").unwrap();
         let expected_assertions = TransformAssertions {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: exports.clone(),
             assertions: vec![
                 TransformAssertion {
                     input: syn::parse_str(
-                        "rune_pb_core::internal::Tensor<f32>",
+                        "rune_proc_blocks::internal::Tensor<f32>",
                     )
                     .unwrap(),
                     output: syn::parse_str(
-                        "rune_pb_core::internal::Tensor<u8>",
+                        "rune_proc_blocks::internal::Tensor<u8>",
                     )
                     .unwrap(),
                 },
                 TransformAssertion {
                     input: syn::parse_str(
-                        "rune_pb_core::internal::Tensor<f32>",
+                        "rune_proc_blocks::internal::Tensor<f32>",
                     )
                     .unwrap(),
                     output: syn::parse_str(
-                        "rune_pb_core::internal::Tensor<u8>",
+                        "rune_proc_blocks::internal::Tensor<u8>",
                     )
                     .unwrap(),
                 },

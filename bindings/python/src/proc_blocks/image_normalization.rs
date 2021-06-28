@@ -8,7 +8,7 @@ use pyo3::{
     prelude::{FromPyObject, pyclass, pymethods, pyproto},
 };
 use runic_types::Tensor;
-use rune_pb_core::Transform;
+use rune_proc_blocks::Transform;
 
 use crate::proc_blocks::utils;
 

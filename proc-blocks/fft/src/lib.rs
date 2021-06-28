@@ -15,7 +15,7 @@ pub type Fft = ShortTimeFourierTransform;
 
 use alloc::vec::Vec;
 use runic_types::{HasOutputs, Tensor};
-use rune_pb_core::{ProcBlock, Transform};
+use rune_proc_blocks::{ProcBlock, Transform};
 use sonogram::SpecOptionsBuilder;
 use mel;
 use nalgebra::DMatrix;

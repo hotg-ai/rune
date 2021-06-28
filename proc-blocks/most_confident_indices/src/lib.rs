@@ -6,7 +6,7 @@ use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
 use runic_types::{HasOutputs, Tensor};
-use rune_pb_core::{ProcBlock, Transform};
+use rune_proc_blocks::{ProcBlock, Transform};
 
 /// A proc block which, when given a list of confidences, will return the
 /// indices of the top N most confident values.
