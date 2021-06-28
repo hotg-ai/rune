@@ -5,7 +5,7 @@ members = [
     "bindings/*",
     "images/runicos-base/*",
     "integration-tests",
-    "proc_blocks/*",
+    "proc-blocks/*",
 ]
 
 [patch.crates-io]

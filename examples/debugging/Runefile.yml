@@ -9,7 +9,7 @@ pipeline:
       - type: F32
         dimensions: [1]
   mod360:
-    proc-block: "hotg-ai/rune#proc_blocks/modulo"
+    proc-block: "hotg-ai/rune#proc-blocks/modulo"
     inputs:
       - rand
     outputs:

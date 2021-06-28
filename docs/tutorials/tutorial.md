@@ -62,10 +62,10 @@ The `CAPABILITY` directive processes the initial data according to what is requi
 The `PROC_BLOCK` directive allows for pre- and post-processing of the data. For example, if the model needs the data to be normalized to values between 0 and 1, you can create a `PROC_BLOCK` to perform this pre processing.
 
 ```rust
-PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
+PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc-blocks/normalize
 ```
 
-The input and output of the Processing Block are the same `f32[128, 3]`. The label for the Processing block is `normalize` and the location of the Processing Block is `hotg-ai/rune#proc_blocks/normalize`.
+The input and output of the Processing Block are the same `f32[128, 3]`. The label for the Processing block is `normalize` and the location of the Processing Block is `hotg-ai/rune#proc-blocks/normalize`.
 
 The `MODEL` directive tells the rune to use the tflite model.
 
@@ -78,11 +78,11 @@ FROM runicos/base
 
 CAPABILITY<f32[128, 3]> accelerometer ACCEL -n 128
 
-PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
+PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc-blocks/normalize
 
 MODEL<f32[128, 3],f32[4]> gesture ./model.tflite
 
-PROC_BLOCK<f32[64], UTF8> gesture_agg hotg-ai/rune#proc_blocks/gesture_agg --labels=Wing,Ring,Slope,Unknown
+PROC_BLOCK<f32[64], UTF8> gesture_agg hotg-ai/rune#proc-blocks/gesture_agg --labels=Wing,Ring,Slope,Unknown
 
 OUT SERIAL
 
@@ -102,7 +102,7 @@ RUN accelerometer normalize gesture gesture_agg serial
 
 ### Processing Blocks
 
-The necessary PROC_BLOCKS to be used in `tutorial_gesture` have already been created and are stored in `proc_blocks/`
+The necessary proc-blocks to be used in `tutorial_gesture` have already been created and are stored in `proc-blocks/`
 
 Further Tutorials shall explain how to create your own processing block.
 

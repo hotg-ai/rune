@@ -11,7 +11,7 @@ pipeline:
     args:
       n: 128
   normalize:
-    proc-block: "hotg-ai/rune#proc_blocks/normalize"
+    proc-block: "hotg-ai/rune#proc-blocks/normalize"
     inputs:
       - accelerometer
     outputs:
@@ -28,7 +28,7 @@ pipeline:
         dimensions:
           - 4
   most_confident_index:
-    proc-block: "hotg-ai/rune#proc_blocks/most_confident_indices"
+    proc-block: "hotg-ai/rune#proc-blocks/most_confident_indices"
     inputs:
       - gesture
     outputs:
@@ -38,7 +38,7 @@ pipeline:
     args:
       count: 1
   label:
-    proc-block: "hotg-ai/rune#proc_blocks/label"
+    proc-block: "hotg-ai/rune#proc-blocks/label"
     inputs:
       - most_confident_index
     outputs:

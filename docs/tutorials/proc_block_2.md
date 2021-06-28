@@ -7,7 +7,7 @@ In our first tutorial, we created a Runefile which contains two `PROC_BLOCK` dir
 The **first** directive
 
 ```rust
-PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc_blocks/normalize
+PROC_BLOCK<f32[128, 3],f32[128, 3]> normalize hotg-ai/rune#proc-blocks/normalize
 ```
 
 is used to pre-process the data by calling a proc block to normalize the data to values between 0 and 1.
@@ -15,7 +15,7 @@ is used to pre-process the data by calling a proc block to normalize the data to
 The **second** directive
 
 ```rust
-PROC_BLOCK<f32[64], utf8> gesture_agg hotg-ai/rune#proc_blocks/gesture_agg --labels=Wing,Ring,Slope,Unknown
+PROC_BLOCK<f32[64], utf8> gesture_agg hotg-ai/rune#proc-blocks/gesture_agg --labels=Wing,Ring,Slope,Unknown
 ```
 
 is used to post-process data. The tflite model, which we are using to predict which gesture is being made, outputs data as a 32 bit floating point array which contains 4 values.
@@ -26,7 +26,7 @@ The input of the gesture_agg directive is taken as `f32[64]`, and its output sha
 
 ## Setup
 
-Let's begin by generating the gesture_agg processing block files. Run the following Cargo command in the `proc_blocks` folder.
+Let's begin by generating the gesture_agg processing block files. Run the following Cargo command in the `proc-blocks` folder.
 
 ```bash
 cargo new gesture_agg --lib

@@ -139,7 +139,7 @@ fn rune_repo_root() -> Option<PathBuf> {
     for parent in current_dir.ancestors() {
         if parent.join(".git").exists()
             && parent.join("images").exists()
-            && parent.join("proc_blocks").exists()
+            && parent.join("proc-blocks").exists()
         {
             return Some(parent.to_path_buf());
         }

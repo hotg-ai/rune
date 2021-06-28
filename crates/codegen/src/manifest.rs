@@ -71,7 +71,7 @@ fn dependencies(
     deps.insert(
         String::from("rune-pb-core"),
         Dependency::Detailed(rune_project_dependency(
-            "proc_blocks/pb-core",
+            "proc-blocks/pb-core",
             project,
         )),
     );

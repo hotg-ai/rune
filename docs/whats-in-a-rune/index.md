@@ -92,11 +92,11 @@ FROM runicos/base
 
 CAPABILITY<I16[24000]> audio SOUND --hz 16000 --sample-duration-ms 1500
 
-PROC_BLOCK<I16[24000], U8[1960]> fft hotg-ai/rune#proc_blocks/fft
+PROC_BLOCK<I16[24000], U8[1960]> fft hotg-ai/rune#proc-blocks/fft
 
 MODEL<U8[1960], U8[4]> model ./model.tflite
 
-PROC_BLOCK<U8[4], UTF8> label hotg-ai/rune#proc_blocks/ohv_label --labels=unknown,silence,yes,no
+PROC_BLOCK<U8[4], UTF8> label hotg-ai/rune#proc-blocks/ohv_label --labels=unknown,silence,yes,no
 
 OUT serial
 
@@ -157,7 +157,7 @@ See the tutorial on [creating a custom *Image*][custom-image] for tips on implem
 You'll often need to do pre- and post-processing of data, and for these we use *Procedural Blocks* (*Proc Block* for short). A *Proc Block* is just a Rust library which gets linked into the Rune and executed at the corresponding step in the pipeline.
 
 ```
-PROC_BLOCK<I16[24000], U8[1960]> fft hotg-ai/rune#proc_blocks/fft
+PROC_BLOCK<I16[24000], U8[1960]> fft hotg-ai/rune#proc-blocks/fft
 ```
 
 This *Proc Block* accepts the 24000-element array of signed 16-bit integers from before and outputs a 1960-element array of 8-bit unsigned integers.
@@ -170,8 +170,8 @@ A *Path* tells `cargo` (the Rust package manager) exactly where to find the *Pro
   version
 - `fft@1.0` - version 1.0 of the `fft` crate on crates.io
 - `hotg-ai/fft` - the default crate in the `hotg-ai/fft` repository on GitHub
-- `hotg-ai/rune#proc_blocks/fft` - the crate inside `proc_blocks/fft/` in the `hotg-ai/fft` GitHub repository
-- `https://github.com/hotg-ai/rune@v1.0#proc_blocks/fft` - the crate inside `proc_blocks/fft/` in the provided git repository, checking out the `v1.0` revision
+- `hotg-ai/rune#proc-blocks/fft` - the crate inside `proc-blocks/fft/` in the `hotg-ai/fft` GitHub repository
+- `https://github.com/hotg-ai/rune@v1.0#proc-blocks/fft` - the crate inside `proc-blocks/fft/` in the provided git repository, checking out the `v1.0` revision
 
 *Proc Blocks* can also accept optional arguments using the same syntax as *Capabilities*.
 
@@ -250,6 +250,6 @@ better understanding of how a Rune works and what they are capable of.
 
 [crates]: https://crates.io/
 [tfl]: https://www.tensorflow.org/lite
-[pb]: https://github.com/hotg-ai/rune/tree/master/proc_blocks
+[pb]: https://github.com/hotg-ai/rune/tree/master/proc-blocks
 [custom-image]: #
 [custom-proc-block]: #

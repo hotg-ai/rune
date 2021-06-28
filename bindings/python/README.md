@@ -10,7 +10,7 @@ If you want to start hacking on the Python bindings, you will need to create a
 new virtual environment and install [`maturin`][maturin].
 
 ```console
-$ cd proc_blocks/python
+$ cd proc-blocks/python
 $ python3 -m venv env
 $ source ./env/bin/activate
 $ pip install maturin
@@ -42,11 +42,11 @@ $ maturin develop
 🔗 Found pyo3 bindings
 🐍 Found CPython 3.9 at python
    Compiling pyo3 v0.13.2
-   Compiling proc-blocks v0.1.0 (/home/michael/Documents/hotg-ai/rune/proc_blocks/python)
+   Compiling proc-blocks v0.1.0 (/home/michael/Documents/hotg-ai/rune/proc-blocks/python)
     Finished dev [unoptimized + debuginfo] target(s) in 3.63s
 ```
 
-From there, the `proc_blocks` package should be accessible inside your Python
+From there, the `proc-blocks` package should be accessible inside your Python
 installation.
 
 ```console
@@ -55,7 +55,7 @@ Python 3.9.2 (default, Feb 20 2021, 18:40:11)
 Type 'copyright', 'credits' or 'license' for more information
 IPython 7.19.0 -- An enhanced Interactive Python. Type '?' for help.
 
-In [1]: from proc_blocks import Normalize
+In [1]: from proc-blocks import Normalize
 
 In [2]: Normalize?
 Init signature: Normalize(self, /, *args, **kwargs)
@@ -77,12 +77,12 @@ $ maturin build
 🔗 Found pyo3 bindings
 🐍 Found CPython 3.9 at python3.9
    Compiling pyo3 v0.13.2
-   Compiling proc-blocks v0.1.0 (/home/michael/Documents/hotg-ai/rune/proc_blocks/python)
+   Compiling proc-blocks v0.1.0 (/home/michael/Documents/hotg-ai/rune/proc-blocks/python)
     Finished dev [unoptimized + debuginfo] target(s) in 3.62s
-📦 Built wheel for CPython 3.9 to /home/michael/Documents/hotg-ai/rune/target/wheels/proc_blocks-0.1.0-cp39-cp39-manylinux2010_x86_64.whl
+📦 Built wheel for CPython 3.9 to /home/michael/Documents/hotg-ai/rune/target/wheels/proc-blocks-0.1.0-cp39-cp39-manylinux2010_x86_64.whl
 
 $ ls -la ../../target/wheels
-.rw-r--r-- 2.7M michael  2 Apr  0:47 proc_blocks-0.1.0-cp39-cp39-manylinux2010_x86_64.whl
+.rw-r--r-- 2.7M michael  2 Apr  0:47 proc-blocks-0.1.0-cp39-cp39-manylinux2010_x86_64.whl
 ```
 
 [maturin]: https://github.com/PyO3/maturin

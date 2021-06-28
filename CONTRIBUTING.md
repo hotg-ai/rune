@@ -27,7 +27,7 @@ Workspaces][workspaces], with the main crates being:
 - `rune` - The `rune` command-line program, used for compiling and running
   Runes
 - `runic-types` - Types shared between Runes, Proc Blocks, Images, and Runtimes
-- `proc_blocks/*` - The various Rust crates that can be used as Proc Blocks
+- `proc-blocks/*` - The various Rust crates that can be used as Proc Blocks
 - `images/*` The various Rust crates that can be used as base images for a
   Runefile
 - `integration-tests` - Our end-to-end test suite
@@ -217,7 +217,7 @@ $ RUST_LOG=xtask=info cargo xtask dist
 🔗 Found pyo3 bindings
 🐍 Found CPython 3.9 at python3.9
     Finished release [optimized] target(s) in 0.05s
-📦 Built wheel for CPython 3.9 to ./target/dist/wheels/proc_blocks-0.1.0-cp39-cp39-linux_x86_64.whl
+📦 Built wheel for CPython 3.9 to ./target/dist/wheels/proc-blocks-0.1.0-cp39-cp39-linux_x86_64.whl
 [2021-04-09T15:08:49Z INFO  xtask::dist] Writing the release archive to "./target/rune.x86_64-unknown-linux-gnu.zip"
 ```
 

@@ -64,11 +64,11 @@ FROM runicos/base
 
 CAPABILITY<U8[96, 96]> image IMAGE
 
-PROC_BLOCK<U8[96, 96],f32[96, 96]> normalize hotg-ai/rune#proc_blocks/normalize
+PROC_BLOCK<U8[96, 96],f32[96, 96]> normalize hotg-ai/rune#proc-blocks/normalize
 
 MODEL<U8[96, 96],U8[3]> person_detection ./model.tflite
 
-PROC_BLOCK<U8[3],UTF8> label hotg-ai/rune#proc_blocks/person_detection_agg \
+PROC_BLOCK<U8[3],UTF8> label hotg-ai/rune#proc-blocks/person_detection_agg \
    --labels=unknown,person,not_person
 
 OUT SERIAL
