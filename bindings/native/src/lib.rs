@@ -5,15 +5,24 @@ mod image;
 #[cfg(feature = "wasmer-runtime")]
 mod wasmer_runtime;
 
+/// Header file generation.
+///
+/// This module contains a test that generates a header file for this library.
+/// You can use the `RUNE_HEADER_FILE` environment variable to alter where it
+/// will be written to (`<repo_root>/target/rune.h` by default).
 #[safer_ffi::cfg_headers]
 #[allow(dead_code)]
 mod headers {
-    use std::fmt::Write;
+    use std::{
+        fmt::Write,
+        path::{Path, PathBuf},
+    };
+    use anyhow::{Context, Error};
     use build_info::{BuildInfo, CrateInfo, GitInfo, VersionControl};
 
     build_info::build_info!(fn get_build_info);
 
-    fn banner() -> Result<String, Box<dyn std::error::Error>> {
+    fn banner() -> Result<String, Error> {
         let mut crate_docs = String::new();
 
         writeln!(crate_docs, "/** \\file")?;
@@ -69,10 +78,10 @@ mod headers {
         Ok(crate_docs)
     }
 
-    #[test]
-    fn generate_headers() -> Result<(), anyhow::Error> {
-        use std::path::Path;
-        use anyhow::Context;
+    fn header_file() -> Result<PathBuf, Error> {
+        if let Some(env) = std::env::var_os("RUNE_HEADER_FILE") {
+            return Ok(PathBuf::from(env));
+        }
 
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let project_root = manifest_dir
@@ -81,9 +90,17 @@ mod headers {
             .context("Unable to determine the project root")?;
 
         let target_dir = project_root.join("target");
-        let header_file = target_dir.join("rune.h");
+        Ok(target_dir.join("rune.h"))
+    }
 
-        let banner = banner().unwrap();
+    #[test]
+    fn generate_headers() -> Result<(), Error> {
+        let header_file = header_file()?;
+        let banner = banner()?;
+
+        if let Some(parent) = header_file.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
         safer_ffi::headers::builder()
             .with_guard("_RUST_RUNE_NATIVE_")

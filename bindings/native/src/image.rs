@@ -2,8 +2,8 @@ use log::Record;
 use rune_runtime::Image;
 use runicos_base_runtime::BaseImage;
 use safer_ffi::{
-    boxed::Box, closure::BoxDynFnMut1, derive_ReprC, ffi_export,
-    slice::slice_ref,
+    boxed::Box, char_p::char_p_ref, closure::BoxDynFnMut1, derive_ReprC,
+    ffi_export, slice::slice_ref,
 };
 use std::{
     convert::TryInto,
@@ -46,7 +46,11 @@ impl Image for RunicosBaseImage {
 }
 
 #[ffi_export]
-pub fn rune_image_new() -> Box<RunicosBaseImage> { todo!() }
+pub fn rune_image_new() -> Box<RunicosBaseImage> {
+    Box::new(RunicosBaseImage {
+        inner: BaseImage::new(),
+    })
+}
 
 #[ffi_export]
 pub fn rune_image_free(image: Box<RunicosBaseImage>) { drop(image); }
@@ -133,5 +137,16 @@ impl From<log::Level> for LogLevel {
             log::Level::Debug => LogLevel::Debug,
             log::Level::Trace => LogLevel::Trace,
         }
+    }
+}
+
+#[ffi_export]
+pub fn rune_log_level_name(level: LogLevel) -> char_p_ref<'static> {
+    match level {
+        LogLevel::Error => safer_ffi::c!("Error"),
+        LogLevel::Warn => safer_ffi::c!("Warn"),
+        LogLevel::Info => safer_ffi::c!("Info"),
+        LogLevel::Debug => safer_ffi::c!("Debug"),
+        LogLevel::Trace => safer_ffi::c!("Trace"),
     }
 }
