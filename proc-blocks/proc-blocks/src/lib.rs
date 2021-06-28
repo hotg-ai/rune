@@ -4,7 +4,7 @@ extern crate alloc;
 
 mod descriptor;
 
-pub use runic_types::{HasOutputs, Tensor};
+pub use rune_core::{HasOutputs, Tensor};
 pub use rune_proc_block_macros::ProcBlock;
 pub use descriptor::*;
 
@@ -30,5 +30,5 @@ pub trait ProcBlock: Default + 'static {
 pub mod internal {
     pub use crate::{ProcBlock, Transform, descriptor::*};
     pub use alloc::borrow::Cow;
-    pub use runic_types::{reflect::Type, Tensor};
+    pub use rune_core::{reflect::Type, Tensor};
 }

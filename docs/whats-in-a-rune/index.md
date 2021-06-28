@@ -142,7 +142,7 @@ imagine recording 1.5 seconds of data using the microphone, resampling the
 audio if necessary to provide the appropriate number of samples.
 
 There are several capabilities available, with their parameters and behaviour
-documented in more detail in the `runic-types` crate's API docs. The
+documented in more detail in the `rune-core` crate's API docs. The
 capabilities that are currently supported are:
 
 - `RAND` - Generate a buffer full of random data

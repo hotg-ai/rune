@@ -11,7 +11,7 @@ mod noise_reduction;
 pub use noise_reduction::NoiseReduction;
 pub use gain_control::GainControl;
 
-use runic_types::{HasOutputs, Tensor};
+use rune_core::{HasOutputs, Tensor};
 use rune_proc_blocks::{ProcBlock, Transform};
 
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]

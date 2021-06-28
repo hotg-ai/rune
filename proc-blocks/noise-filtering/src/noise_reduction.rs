@@ -5,7 +5,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Tensor};
+use rune_core::{HasOutputs, Tensor};
 
 const NOISE_REDUCTION_BITS: usize = 14;
 

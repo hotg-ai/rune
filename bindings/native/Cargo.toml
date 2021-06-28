@@ -15,7 +15,7 @@ rune-codegen = { path = "../../crates/codegen" }
 rune-runtime = { path = "../../crates/runtime" }
 rune-wasmer-runtime = { path = "../../crates/wasmer-runtime" }
 rune-syntax = { path = "../../crates/syntax" }
-runic-types = { path = "../../crates/runic-types" }
+rune-core = { path = "../../crates/rune-core" }
 runicos-base-runtime = { path = "../../images/runicos-base/runtime" }
 
 [lib]

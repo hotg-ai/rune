@@ -5,7 +5,7 @@ use rune_proc_blocks::{
     Dimension, Dimensions, ProcBlock, ProcBlockDescriptor, TensorDescriptor,
     Transform, TransformDescriptor,
 };
-use runic_types::{Tensor, reflect::Type};
+use rune_core::{Tensor, reflect::Type};
 
 /// A dummy proc block.
 ///

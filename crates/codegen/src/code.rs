@@ -421,7 +421,7 @@ fn preamble(
         extern crate alloc;
 
         use alloc::boxed::Box;
-        use runic_types::*;
+        use rune_core::*;
         use rune_proc_blocks::*;
 
         #rune_graph

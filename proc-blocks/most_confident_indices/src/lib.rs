@@ -5,7 +5,7 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use runic_types::{HasOutputs, Tensor};
+use rune_core::{HasOutputs, Tensor};
 use rune_proc_blocks::{ProcBlock, Transform};
 
 /// A proc block which, when given a list of confidences, will return the

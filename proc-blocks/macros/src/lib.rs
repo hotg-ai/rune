@@ -30,7 +30,7 @@ use syn::DeriveInput;
 ///
 /// ```rust
 /// use rune_proc_blocks::{ProcBlock, Transform};
-/// use runic_types::Tensor;
+/// use rune_core::Tensor;
 ///
 /// #[derive(Default, rune_proc_block_macros::ProcBlock)]
 /// #[transform(input = f32, output = f32)]
@@ -47,7 +47,7 @@ use syn::DeriveInput;
 ///
 /// ```rust,compile_fail
 /// use rune_proc_blocks::{ProcBlock, Transform};
-/// use runic_types::Tensor;
+/// use rune_core::Tensor;
 ///
 /// #[derive(Default, rune_proc_block_macros::ProcBlock)]  // Error: the trait bound `Foo: rune_proc_blocks::Transform<Tensor<f32>>` is not satisfied
 /// #[transform(input = f32, output = f32)]
@@ -64,7 +64,7 @@ use syn::DeriveInput;
 ///
 /// ```rust
 /// use rune_proc_blocks::{ProcBlock, Transform};
-/// use runic_types::Tensor;
+/// use rune_core::Tensor;
 ///
 /// #[derive(Default, rune_proc_block_macros::ProcBlock)]
 /// #[transform(input = [f32; _], output = [u8; 1920])]

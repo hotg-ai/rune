@@ -13,7 +13,7 @@ use rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
 /// # Examples
 /// ```rust
 /// # use label::Label;
-/// # use runic_types::Tensor;
+/// # use rune_core::Tensor;
 /// # use rune_proc_blocks::Transform;
 /// let mut proc_block = Label::default();
 /// proc_block.set_labels(["zero", "one", "two", "three"]);

@@ -1,8 +1,8 @@
 [package]
-name = "runic-types"
+name = "rune-core"
 version = "0.1.0"
 authors = ["Kartik Thakore <kartik@thakore.ai>", "Michael-F-Bryan <michael@hotg.ai>"]
-description = "Runic Types Protobuf"
+description = "Core abstractions and types used across the Rune platform."
 edition = "2018"
 
 [dependencies]

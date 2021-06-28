@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span};
-use runic_types::reflect::Type;
+use rune_core::reflect::Type;
 use quote::quote;
 use syn::{
     Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,

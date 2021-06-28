@@ -32,11 +32,11 @@ Let's begin by generating the gesture_agg processing block files. Run the follow
 cargo new gesture_agg --lib
 ```
 
-The `runic_types` library needs to be added to the generated Cargo.toml file under dependencies.
+The `rune_core` library needs to be added to the generated Cargo.toml file under dependencies.
 
 ```rust
 [dependencies]
-runic-types = { path = "../../runic-types" }
+rune-core = { path = "../../rune-core" }
 ```
 
 ## Writing a Processing Block
@@ -48,7 +48,7 @@ Let's begin by using the template from the previous tutorial to populate our lib
 ```rust
 #![no_std]
 
-use runic_types::Transform;
+use rune_core::Transform;
 
 pub struct GestureAgg<const N: usize> {
     genericParameter: N,
@@ -166,12 +166,12 @@ pub struct GestureAgg<const N: usize> {
 }
 ```
 
-Notice that since we are using VecDeque in the processing block, we need to declare the VecDeque module. Add the `use` declaration below the `runic_types` declaration.
+Notice that since we are using VecDeque in the processing block, we need to declare the VecDeque module. Add the `use` declaration below the `rune_core` declaration.
 
 ```rust
 #![no_std]
 
-use runic_types::Transform;
+use rune_core::Transform;
 use alloc::collections::VecDeque;
 ```
 

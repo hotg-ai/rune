@@ -19,7 +19,7 @@ impl Capability for Raw {
     fn set_parameter(
         &mut self,
         _name: &str,
-        _value: runic_types::Value,
+        _value: rune_core::Value,
     ) -> Result<(), crate::ParameterError> {
         Ok(())
     }

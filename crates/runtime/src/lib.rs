@@ -11,7 +11,7 @@ pub use function::{
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};
-use runic_types::{InvalidConversionError, Value};
+use rune_core::{InvalidConversionError, Value};
 
 /// A primitive type that can be passed between host and WebAssembly guest.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]

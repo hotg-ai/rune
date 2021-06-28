@@ -9,4 +9,4 @@ edition = "2018"
 rune-proc-blocks = { path = "../proc-blocks" }
 
 [dev-dependencies]
-runic-types = { path = "../../crates/runic-types" }
+rune-core = { path = "../../crates/rune-core" }

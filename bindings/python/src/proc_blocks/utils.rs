@@ -1,5 +1,5 @@
 use pyo3::{PyAny, PyResult, Python, FromPyObject};
-use runic_types::Tensor;
+use rune_core::Tensor;
 use numpy::{Element, PyArrayDyn, ToPyArray};
 
 pub(crate) fn to_tensor<T>(object: &PyAny) -> PyResult<Tensor<T>>

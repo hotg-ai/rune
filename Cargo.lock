@@ -861,8 +861,8 @@ dependencies = [
  "nalgebra",
  "normalize",
  "pretty_assertions",
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
  "sonogram",
 ]
 
@@ -1034,9 +1034,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "322f4de77956e22ed0e5032c359a0f1273f1f7f0d79bfa3b8ffbc730d7fbcc5c"
+checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
 ]
@@ -1116,8 +1116,8 @@ dependencies = [
 name = "image-normalization"
 version = "0.1.0"
 dependencies = [
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
 ]
 
 [[package]]
@@ -1213,8 +1213,8 @@ dependencies = [
 name = "label"
 version = "0.1.0"
 dependencies = [
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
 ]
 
 [[package]]
@@ -1435,8 +1435,8 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 name = "most_confident_indices"
 version = "0.1.0"
 dependencies = [
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
 ]
 
 [[package]]
@@ -1472,8 +1472,8 @@ version = "0.1.0"
 dependencies = [
  "libm",
  "paste 1.0.5",
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
 ]
 
 [[package]]
@@ -1775,9 +1775,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc0e1f259c92177c30a4c9d177246edd0a3568b25756a977d0632cf8fa37e905"
+checksum = "8d31d11c69a6b52a174b42bdc0c30e5e11670f90788b2c471c31c1d17d449443"
 
 [[package]]
 name = "pkg-config"
@@ -2104,10 +2104,10 @@ dependencies = [
  "predicates",
  "rand",
  "rune-codegen",
+ "rune-core",
  "rune-runtime",
  "rune-syntax",
  "rune-wasmer-runtime",
- "runic-types",
  "runicos-base-runtime",
  "serde",
  "serde_json",
@@ -2140,6 +2140,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-core"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+]
+
+[[package]]
 name = "rune-integration-tests"
 version = "0.1.0"
 dependencies = [
@@ -2161,10 +2169,10 @@ dependencies = [
  "libc",
  "log",
  "rune-codegen",
+ "rune-core",
  "rune-runtime",
  "rune-syntax",
  "rune-wasmer-runtime",
- "runic-types",
  "runicos-base-runtime",
  "tempfile",
 ]
@@ -2173,8 +2181,8 @@ dependencies = [
 name = "rune-proc-blocks"
 version = "0.1.0"
 dependencies = [
+ "rune-core",
  "rune_proc-block-macros",
- "runic-types",
  "serde",
 ]
 
@@ -2187,7 +2195,7 @@ dependencies = [
  "image",
  "log",
  "rand",
- "runic-types",
+ "rune-core",
  "thiserror",
 ]
 
@@ -2213,8 +2221,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "rune-core",
  "rune-runtime",
- "runic-types",
  "tempfile",
  "wasmer",
  "wasmer-types",
@@ -2229,8 +2237,8 @@ dependencies = [
  "pretty_assertions",
  "proc-macro2",
  "quote",
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
  "serde",
  "serde_json",
  "syn",
@@ -2247,16 +2255,8 @@ dependencies = [
  "numpy",
  "paste 1.0.5",
  "pyo3",
+ "rune-core",
  "rune-proc-blocks",
- "runic-types",
-]
-
-[[package]]
-name = "runic-types"
-version = "0.1.0"
-dependencies = [
- "log",
- "serde",
 ]
 
 [[package]]
@@ -2265,8 +2265,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "rune-core",
  "rune-runtime",
- "runic-types",
  "serde_json",
  "tflite",
 ]
@@ -2277,7 +2277,7 @@ version = "0.1.0"
 dependencies = [
  "dlmalloc",
  "log",
- "runic-types",
+ "rune-core",
  "serde",
  "serde-json-core",
  "serde_json",

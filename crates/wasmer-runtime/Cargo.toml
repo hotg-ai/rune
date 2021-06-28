@@ -10,7 +10,7 @@ edition = "2018"
 anyhow = "1.0.40"
 log = "0.4.14"
 rune-runtime = { path = "../runtime" }
-runic-types = { path = "../runic-types" }
+rune-core = { path = "../rune-core" }
 wasmer = "1.0.2"
 wasmer-types = "1.0.2"
 wasmer-vm = "1.0.2"

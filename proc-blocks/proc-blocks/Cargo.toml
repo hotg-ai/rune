@@ -7,5 +7,5 @@ edition = "2018"
 
 [dependencies]
 rune_proc-block-macros = { path = "../macros" }
-runic-types = { path = "../../crates/runic-types", default-features = false }
+rune-core = { path = "../../crates/rune-core", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }

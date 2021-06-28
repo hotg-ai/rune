@@ -65,9 +65,9 @@ fn dependencies(
     deps.insert(String::from("log"), log);
 
     deps.insert(
-        String::from("runic-types"),
+        String::from("rune-core"),
         Dependency::Detailed(rune_project_dependency(
-            "crates/runic-types",
+            "crates/rune-core",
             project,
         )),
     );
@@ -274,7 +274,7 @@ mod tests {
 
         assert_eq!(got.len(), 4);
         assert!(got.contains_key("log"));
-        assert!(got.contains_key("runic-types"));
+        assert!(got.contains_key("rune-core"));
         assert!(got.contains_key("rune-proc-blocks"));
         assert!(got.contains_key("runicos-base-wasm"));
     }

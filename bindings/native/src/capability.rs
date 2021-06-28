@@ -4,7 +4,7 @@ use std::{
 };
 use anyhow::Error;
 use rune_runtime::ParameterError;
-use runic_types::{Type, Value};
+use rune_core::{Type, Value};
 
 /// An object which can be used to pass input from the outside world into the
 /// Rune.

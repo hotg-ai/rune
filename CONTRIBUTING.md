@@ -26,7 +26,7 @@ Workspaces][workspaces], with the main crates being:
   a user-provided `Image`
 - `rune` - The `rune` command-line program, used for compiling and running
   Runes
-- `runic-types` - Types shared between Runes, Proc Blocks, Images, and Runtimes
+- `rune-core` - Types shared between Runes, Proc Blocks, Images, and Runtimes
 - `proc-blocks/*` - The various Rust crates that can be used as Proc Blocks
 - `images/*` The various Rust crates that can be used as base images for a
   Runefile

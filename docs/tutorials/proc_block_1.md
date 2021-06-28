@@ -24,18 +24,18 @@ Each processing block has 2 components
 
 ## Dependencies
 
-Processing blocks are dependent on the runic_types library. This can be added to the Cargo.toml file in the processing block.
+Processing blocks are dependent on the rune_core library. This can be added to the Cargo.toml file in the processing block.
 
 ```rust
 [dependencies]
-runic-types = { path = "../../runic-types" }
+rune-core = { path = "../../rune-core" }
 ```
 
 ## Logic
 
 The `lib.rs` should contain the following components.
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1. `no_std` environment
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. `runic_types::Transform` module
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. `rune_core::Transform` module
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3. struct
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4. Transform method
 
@@ -44,7 +44,7 @@ Processing Blocks are implemented as structs with a transform method hence 3. an
 ```rust
 #![no_std]
 
-use runic_types::Transform;
+use rune_core::Transform;
 
 pub struct ProcBlock<T> {
     genericParameter: T,

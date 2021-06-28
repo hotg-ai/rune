@@ -5,7 +5,7 @@ use std::{
 use anyhow::Error;
 use image::{GenericImageView, DynamicImage};
 use crate::{Capability, ParameterError};
-use runic_types::{PixelFormat, Value};
+use rune_core::{PixelFormat, Value};
 
 #[derive(Clone, PartialEq)]
 pub struct Image {

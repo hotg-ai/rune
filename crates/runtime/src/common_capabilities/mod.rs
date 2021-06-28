@@ -12,7 +12,7 @@ pub use self::{
 };
 
 use anyhow::Error;
-use runic_types::Value;
+use rune_core::Value;
 use std::convert::{TryFrom, TryInto};
 
 fn try_from_int_value<T>(value: Value) -> Result<T, ParameterError>

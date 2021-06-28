@@ -10,7 +10,7 @@ edition = "2018"
 anyhow = "1.0.40"
 log = "0.4.14"
 rune-runtime = { path = "../../../crates/runtime", features = ["builtins"] }
-runic-types = { path = "../../../crates/runic-types" }
+rune-core = { path = "../../../crates/rune-core" }
 serde_json = { version = "1" }
 tflite = { version = "0.9.5", optional = true }
 
