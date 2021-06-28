@@ -6,13 +6,13 @@ mod image;
 mod wasmer_runtime;
 
 #[safer_ffi::cfg_headers]
+#[allow(dead_code)]
 mod headers {
     use std::fmt::Write;
     use build_info::{BuildInfo, CrateInfo, GitInfo, VersionControl};
 
     build_info::build_info!(fn get_build_info);
 
-    #[allow(dead_code)]
     fn banner() -> Result<String, Box<dyn std::error::Error>> {
         let mut crate_docs = String::new();
 
@@ -25,6 +25,7 @@ mod headers {
                     version,
                     authors,
                     license,
+                    enabled_features,
                     ..
                 },
             compiler,
@@ -44,6 +45,16 @@ mod headers {
             writeln!(crate_docs, " * Commit: {}", commit_id)?;
         }
         writeln!(crate_docs, " * Compiler: {}", compiler)?;
+        writeln!(
+            crate_docs,
+            " * Enabled Features: {}",
+            enabled_features
+                .iter()
+                .map(|f| f.as_str())
+                .filter(|&f| f != "c-headers")
+                .collect::<Vec<_>>()
+                .join(", ")
+        )?;
         writeln!(crate_docs, " *")?;
 
         for line in include_str!("lib.rs").lines() {

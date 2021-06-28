@@ -1,4 +1,5 @@
 use log::Record;
+use rune_runtime::Image;
 use runicos_base_runtime::BaseImage;
 use safer_ffi::{
     boxed::Box, closure::BoxDynFnMut1, derive_ReprC, ffi_export,
@@ -17,6 +18,11 @@ use crate::error::Error;
 /// A table containing the various host functions to be provided to the Rune.
 ///
 /// Each host function is a closure which may contain its own state.
+#[cfg_attr(
+    feature = "tflite",
+    doc = "\n By default, the `tflite` crate will be used for model inference."
+)]
+#[cfg_attr(not(feature = "tflite"), doc = "\n")]
 #[derive_ReprC]
 #[ReprC::opaque]
 pub struct RunicosBaseImage {
@@ -31,6 +37,12 @@ impl Deref for RunicosBaseImage {
 
 impl DerefMut for RunicosBaseImage {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.inner }
+}
+
+impl Image for RunicosBaseImage {
+    fn initialize_imports(self, registrar: &mut dyn rune_runtime::Registrar) {
+        self.inner.initialize_imports(registrar);
+    }
 }
 
 #[ffi_export]

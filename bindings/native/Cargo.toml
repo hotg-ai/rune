@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 publish = false
 authors = ["The Rune Developers"]
-license = "Apache 2.0"
+license = "MIT OR Apache 2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,10 +19,11 @@ rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-d
 runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" , default-features = false }
 safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
 
+[build-dependencies]
+build-info-build = "0.0.23"
+
 [features]
+default = ["tflite", "wasmer-runtime"]
 c-headers = ["safer-ffi/headers"]
 wasmer-runtime = ["rune-wasmer-runtime"]
 tflite = ["runicos-base-runtime/tflite"]
-
-[build-dependencies]
-build-info-build = "0.0.23"
