@@ -3,6 +3,8 @@ name = "rune-native"
 version = "0.1.0"
 edition = "2018"
 publish = false
+authors = ["The Rune Developers"]
+license = "Apache 2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,6 +13,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 anyhow = "1.0.41"
+log = "0.4.14"
 rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev"  }
 rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" , optional = true }
 runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" , default-features = false }
@@ -20,3 +23,6 @@ safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
 c-headers = ["safer-ffi/headers"]
 wasmer-runtime = ["rune-wasmer-runtime"]
 tflite = ["runicos-base-runtime/tflite"]
+
+[build-dependencies]
+build-info-build = "0.0.23"

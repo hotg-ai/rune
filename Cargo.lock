@@ -2252,6 +2252,8 @@ name = "rune-native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-info-build",
+ "log",
  "rune-runtime",
  "rune-wasmer-runtime",
  "runicos-base-runtime",

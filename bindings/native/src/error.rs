@@ -10,6 +10,10 @@ pub struct Error {
     inner: anyhow::Error,
 }
 
+impl Error {
+    pub fn into_inner(self) -> anyhow::Error { self.inner }
+}
+
 impl From<anyhow::Error> for Error {
     fn from(inner: anyhow::Error) -> Self { Error { inner } }
 }
@@ -18,6 +22,16 @@ impl Deref for Error {
     type Target = anyhow::Error;
 
     fn deref(&self) -> &Self::Target { &self.inner }
+}
+
+/// Construct a new error.
+#[ffi_export]
+pub fn rune_error_new(msg: safer_ffi::char_p::char_p_ref) -> Box<Error> {
+    let msg = String::from_utf8_lossy(msg.to_bytes()).into_owned();
+
+    Box::new(Error {
+        inner: anyhow::Error::msg(msg),
+    })
 }
 
 /// Free the error once you are done with it.
