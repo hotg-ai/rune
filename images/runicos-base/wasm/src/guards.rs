@@ -24,7 +24,7 @@ impl Drop for AllocationLogger {
 }
 
 /// A guard type which should be alive for the duration of the setup process,
-/// letting `runic-types` run code at the start and end.
+/// letting `rune-core` run code at the start and end.
 #[derive(Debug)]
 pub struct SetupGuard {
     log: AllocationLogger,
@@ -46,7 +46,7 @@ impl Default for SetupGuard {
 }
 
 /// A guard type which should be alive for the duration of a single pipeline
-/// run, letting `runic-types` run code as necessary.
+/// run, letting `rune-core` run code as necessary.
 #[derive(Debug)]
 pub struct PipelineGuard {
     log: AllocationLogger,

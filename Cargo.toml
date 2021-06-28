@@ -1,18 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "codegen",
-    "ffi",
+    "crates/*",
+    "bindings/*",
     "images/runicos-base/*",
     "integration-tests",
-    "proc_blocks/*",
-    "python",
-    "rune",
-    "runic-types",
-    "runtime",
-    "syntax",
-    "xtask",
-    "wasmer-runtime",
+    "proc-blocks/*",
 ]
 
 [patch.crates-io]

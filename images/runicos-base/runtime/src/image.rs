@@ -12,7 +12,7 @@ use rune_runtime::{
     common_capabilities::Random,
 };
 use anyhow::{Context, Error};
-use runic_types::{SerializableRecord, Type, Value};
+use rune_core::{SerializableRecord, Type, Value};
 
 type OutputFactory =
     dyn Fn() -> Result<Box<dyn Output>, Error> + Send + Sync + 'static;
@@ -251,7 +251,7 @@ fn request_output(
 
     Function::new(move |_: &dyn CallContext, (output_type,): (u32,)| {
         let output = match output_type {
-            runic_types::outputs::SERIAL => (constructors.serial)()
+            rune_core::outputs::SERIAL => (constructors.serial)()
                 .context("Unable to create a new SERIAL output")?,
             _ => anyhow::bail!("Unknown output type: {}", output_type),
         };
@@ -282,11 +282,11 @@ fn request_capability(
 
     Function::new(move |_, capability_type: u32| {
         let cap = match capability_type {
-            runic_types::capabilities::ACCEL => (factories.accel)()?,
-            runic_types::capabilities::IMAGE => (factories.image)()?,
-            runic_types::capabilities::RAND => (factories.rand)()?,
-            runic_types::capabilities::SOUND => (factories.sound)()?,
-            runic_types::capabilities::RAW => (factories.raw)()?,
+            rune_core::capabilities::ACCEL => (factories.accel)()?,
+            rune_core::capabilities::IMAGE => (factories.image)()?,
+            rune_core::capabilities::RAND => (factories.rand)()?,
+            rune_core::capabilities::SOUND => (factories.sound)()?,
+            rune_core::capabilities::RAW => (factories.raw)()?,
             _ => anyhow::bail!("Unknown capability type: {}", capability_type),
         };
 

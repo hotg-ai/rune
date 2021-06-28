@@ -1,0 +1,14 @@
+[package]
+name = "rune-core"
+version = "0.4.0-dev"
+authors = ["Kartik Thakore <kartik@thakore.ai>", "Michael-F-Bryan <michael@hotg.ai>"]
+description = "Core abstractions and types used across the Rune platform."
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+log = { version = "0.4.14", default-features = false, features = ["serde", "max_level_trace"] }
+
+[features]
+default = []
+std = []

@@ -1,6 +1,6 @@
 #![no_std]
-use runic_types::HasOutputs;
-use rune_pb_core::{Transform, ProcBlock};
+use rune_core::HasOutputs;
+use rune_proc_blocks::{Transform, ProcBlock};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, ProcBlock)]
 #[transform(input=u8, output=u8)]

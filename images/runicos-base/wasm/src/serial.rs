@@ -1,4 +1,4 @@
-use runic_types::{Sink, outputs, Tensor};
+use rune_core::{Sink, outputs, Tensor};
 use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::fmt::Debug;
