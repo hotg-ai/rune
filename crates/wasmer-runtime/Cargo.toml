@@ -11,9 +11,9 @@ anyhow = "1.0.40"
 log = "0.4.14"
 rune-runtime = { path = "../runtime" }
 rune-core = { path = "../rune-core" }
-wasmer = "1.0.2"
-wasmer-types = "1.0.2"
-wasmer-vm = "1.0.2"
+wasmer = "2.0"
+wasmer-types = "2.0"
+wasmer-vm = "2.0"
 
 [dev-dependencies]
 tempfile = "3.2.0"

@@ -123,7 +123,7 @@ impl<'s> rune_runtime::Registrar for Registrar<'s> {
                         Ok(ret.into_iter().map(value_to_wasmer).collect())
                     },
                     Err(e) => {
-                        let trap = Trap::new_from_user(e.into());
+                        let trap = Trap::User(e.into());
                         Err(RuntimeError::from_trap(trap))
                     },
                 }
