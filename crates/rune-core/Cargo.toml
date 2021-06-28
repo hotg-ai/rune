@@ -1,6 +1,6 @@
 [package]
 name = "rune-core"
-version = "0.1.0"
+version = "0.4.0-dev"
 authors = ["Kartik Thakore <kartik@thakore.ai>", "Michael-F-Bryan <michael@hotg.ai>"]
 description = "Core abstractions and types used across the Rune platform."
 edition = "2018"

@@ -1,6 +1,6 @@
 [package]
 name = "rune-syntax"
-version = "0.1.0"
+version = "0.4.0-dev"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
 description = "Runefile parsing and analysis."
