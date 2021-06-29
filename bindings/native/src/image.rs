@@ -21,11 +21,9 @@ use std::{
 use std::ops::Not;
 use crate::{error::Error, RuneResult, BoxedError};
 
-type BoxedCapability = Box<Capability>;
-
 decl_result_type! {
     type IntegerOrErrorResult = Result<usize, BoxedError>;
-    type CapabilityResult = Result<BoxedCapability, BoxedError>;
+    type CapabilityResult = Result<Capability, BoxedError>;
 }
 
 #[derive_ReprC]
@@ -126,7 +124,7 @@ pub struct Capability {
         unsafe extern "C" fn(
             *mut c_void,
             buffer: slice_raw<u8>,
-        ) -> IntegerOrErrorResult,
+        ) -> Box<IntegerOrErrorResult>,
     >,
     free: Option<unsafe extern "C" fn(*mut c_void)>,
 }
@@ -144,7 +142,9 @@ impl rune_runtime::Capability for Capability {
 
             let generate =
                 self.generate.context("Generate function not initialized")?;
-            match generate(user_data, buffer).into_std() {
+
+            let result: std::boxed::Box<_> = generate(user_data, buffer).into();
+            match result.into_std() {
                 Result::Ok(v) => Ok(v),
                 Result::Err(e) => {
                     let boxed: std::boxed::Box<Error> = e.into();

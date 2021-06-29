@@ -5,7 +5,7 @@ mod result;
 mod error;
 mod image;
 #[cfg(feature = "wasmer-runtime")]
-mod wasmer_runtime;
+pub mod wasmer_runtime;
 
 pub(crate) type BoxedError = safer_ffi::boxed::Box<crate::error::Error>;
 

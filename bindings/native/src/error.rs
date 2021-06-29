@@ -1,7 +1,15 @@
 use std::{convert::TryInto, ops::Deref};
 #[allow(unused_imports)]
 use std::ops::Not;
-use safer_ffi::{boxed::Box, char_p::char_p_boxed, derive_ReprC, ffi_export};
+use safer_ffi::{
+    boxed::Box,
+    char_p::{char_p_boxed, char_p_ref},
+    derive_ReprC, ffi_export,
+};
+
+/// Free a string that was allocated by this library.
+#[ffi_export]
+pub fn rune_string_free(string: char_p_boxed) { drop(string); }
 
 /// An error that may be returned from this library.
 #[derive_ReprC]
@@ -26,7 +34,7 @@ impl Deref for Error {
 
 /// Construct a new error.
 #[ffi_export]
-pub fn rune_error_new(msg: safer_ffi::char_p::char_p_ref) -> Box<Error> {
+pub fn rune_error_new(msg: char_p_ref) -> Box<Error> {
     let msg = String::from_utf8_lossy(msg.to_bytes()).into_owned();
 
     Box::new(Error {
@@ -39,6 +47,8 @@ pub fn rune_error_new(msg: safer_ffi::char_p::char_p_ref) -> Box<Error> {
 pub fn rune_error_free(e: Box<Error>) { drop(e); }
 
 /// Return a newly allocated string containing the error's backtrace.
+///
+/// Note: this string must be freed using [`rune_string_free()`].
 #[ffi_export]
 pub fn rune_error_backtrace(error: &Error) -> char_p_boxed {
     error
@@ -49,6 +59,8 @@ pub fn rune_error_backtrace(error: &Error) -> char_p_boxed {
 }
 
 /// Return a newly allocated string describing the error.
+///
+/// Note: this string must be freed using [`rune_string_free()`].
 #[ffi_export]
 pub fn rune_error_to_string(error: &Error) -> char_p_boxed {
     format!("{}", error.inner)
@@ -61,6 +73,8 @@ pub fn rune_error_to_string(error: &Error) -> char_p_boxed {
 ///
 /// This will also contain a backtrace if the `RUST_BACKTRACE` environment
 /// variable is set.
+///
+/// Note: this string must be freed using [`rune_string_free()`].
 #[ffi_export]
 pub fn rune_error_to_string_verbose(error: &Error) -> char_p_boxed {
     format!("{:?}", error.inner)

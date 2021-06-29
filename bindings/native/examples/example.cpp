@@ -6,80 +6,13 @@
 #include <string_view>
 #include <vector>
 
-// Helper type for instantiating results with different variants.
-template <typename RustType>
-struct Result
-{
-    using OkVariant = decltype(RustType::ok);
-    using Value = decltype(OkVariant::value);
-    using ErrVariant = decltype(RustType::err);
-    using Error = decltype(ErrVariant::error);
-
-    static RustType ok(Value value)
-    {
-        return RustType{
-            .ok = OkVariant{
-                .tag = RESULT_TAG_OK,
-                .value = value,
-            },
-        };
-    }
-
-    static RustType err(Error error)
-    {
-        return RustType{
-            .err = ErrVariant{
-                .tag = RESULT_TAG_ERR,
-                .error = error,
-            }};
-    }
-};
-
-template <typename RustType>
-bool result_is_ok(const RustType &result)
-{
-    return result.ok.tag == RESULT_TAG_OK;
-}
-
-template <typename RustType>
-bool result_is_err(const RustType &result)
-{
-    return result.err.tag == RESULT_TAG_ERR;
-}
-
-template <typename RustType>
-auto result_get_value(RustType &result)
-{
-    if (result_is_ok(result))
-    {
-        return result.ok.value;
-    }
-    else
-    {
-        throw std::runtime_error("Result contains an error");
-    }
-}
-
-template <typename RustType>
-auto result_get_err(RustType &result)
-{
-    if (result_is_err(result))
-    {
-        return result.err.error;
-    }
-    else
-    {
-        throw std::runtime_error("Result contains a value");
-    }
-}
-
 class Logger
 {
 public:
-    Result_uint8_Error_ptr_t on_log(LogRecord_t record)
+    RuneResult_t *on_log(LogRecord_t record)
     {
         std::cerr << "[" << rune_log_level_name(record.level) << " " << str(record.target) << "\n";
-        return Result<Result_uint8_Error_ptr_t>::ok(0);
+        return rune_result_RuneResult_new_ok(0);
     }
 
 private:
@@ -89,12 +22,11 @@ private:
     }
 };
 
-BoxDynFnMut1_Result_uint8_Error_ptr_LogRecord_t logger_as_closure(Logger *instance)
+BoxDynFnMut1_RuneResult_ptr_LogRecord_t logger_as_closure(Logger *instance)
 {
-    return BoxDynFnMut1_Result_uint8_Error_ptr_LogRecord_t{
+    return BoxDynFnMut1_RuneResult_ptr_LogRecord_t{
         .env_ptr = instance,
-        .call = [](void *state, LogRecord_t record) -> Result_uint8_Error_ptr_t
-        {
+        .call = [](void *state, LogRecord_t record) -> RuneResult_t * {
             return reinterpret_cast<Logger *>(state)->on_log(record);
         },
         .free = [](void *state)
@@ -123,7 +55,7 @@ std::vector<char> read_file(std::string filename)
     }
 }
 
-Result_Capability_Error_ptr_t make_raw()
+CapabilityResult_t *make_raw()
 {
     Capability_t capability{
         .user_data = nullptr,
@@ -131,15 +63,15 @@ Result_Capability_Error_ptr_t make_raw()
         .free = nullptr,
     };
 
-    return Result<Result_Capability_Error_ptr_t>::ok(capability);
+    return rune_result_CapabilityResult_new_ok(capability);
 }
 
 struct Capability
 {
     template <typename Func>
-    static BoxDynFnMut0_Result_Capability_Error_ptr_t from_factory(Func f)
+    static BoxDynFnMut0_CapabilityResult_ptr_t from_factory(Func f)
     {
-        return BoxDynFnMut0_Result_Capability_Error_ptr_t{
+        return BoxDynFnMut0_CapabilityResult_ptr_t{
             .env_ptr = new Func{f},
             .call = [](void *state)
             {
@@ -166,6 +98,14 @@ RunicosBaseImage_t *make_image()
     return image;
 }
 
+void print_error(Error *error)
+{
+    char *error_msg = rune_error_to_string_verbose(error);
+    std::cerr << error_msg << "\n";
+    rune_string_free(error_msg);
+    rune_error_free(error);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2)
@@ -184,19 +124,26 @@ int main(int argc, char **argv)
     auto image = make_image();
     auto result = rune_wasmer_runtime_load(wasm, image);
 
-    if (!result_is_ok(result))
+    if (rune_result_WasmerRuntimeResult_is_err(result))
     {
-        auto error = result_get_err(result);
-        const char *error_msg = rune_error_to_string_verbose(error);
-        std::cerr << error_msg << "\n";
-        delete error_msg;
-        rune_error_free(error);
+        print_error(rune_result_WasmerRuntimeResult_take_err(result));
         return 1;
     }
 
-    auto runtime = result_get_value(result);
+    auto runtime = rune_result_WasmerRuntimeResult_take_ok(result);
 
-    rune_wasmer_runtime_call(runtime);
+    auto call_result = rune_wasmer_runtime_call(runtime);
+
+    if (rune_result_RuneResult_is_err(call_result))
+    {
+        print_error(rune_result_RuneResult_take_err(call_result));
+        rune_wasmer_runtime_free(runtime);
+        return 1;
+    }
+    else
+    {
+        rune_result_RuneResult_free(call_result);
+    }
 
     rune_wasmer_runtime_free(runtime);
 
