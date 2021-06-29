@@ -2254,6 +2254,7 @@ dependencies = [
  "anyhow",
  "build-info-build",
  "log",
+ "paste 1.0.5",
  "rune-core",
  "rune-runtime",
  "rune-wasmer-runtime",

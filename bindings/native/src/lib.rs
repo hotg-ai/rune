@@ -1,10 +1,17 @@
 //! Native bindings to the `rune` project.
 
+#[macro_use]
+mod result;
 mod error;
 mod image;
-mod result;
 #[cfg(feature = "wasmer-runtime")]
 mod wasmer_runtime;
+
+pub(crate) type BoxedError = safer_ffi::boxed::Box<crate::error::Error>;
+
+decl_result_type! {
+    type RuneResult = Result<u8, BoxedError>;
+}
 
 /// Header file generation.
 ///

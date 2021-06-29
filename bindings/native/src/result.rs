@@ -1,210 +1,131 @@
-use safer_ffi::layout::ReprC;
-#[allow(unused_imports)]
-use std::ops::Not;
+/// Create an opaque `Result<T, E>` with methods for inspecting the value or
+/// extracting it.
+///
+/// Note: This is a workaround because when we used the "true" representation
+/// for a `Result<T, E>` dart choked on the union.
+///
+/// One day we might be able to reuse [this][proper-impl] (or push it upstream).
+///
+/// [proper-impl]: https://github.com/hotg-ai/rune/blob/db0ba625551e30f4a46fb7d6b3765e7bd17a6937/bindings/native/src/result.rs
+macro_rules! decl_result_type {
+    ($( type $name:ident = Result<$ok:ident, $err:ident>; )*) => {
+        $(
+            paste::paste! {
+                #[safer_ffi::derive_ReprC]
+                #[ReprC::opaque]
+                pub struct $name {
+                    inner: Result<$ok, $err>,
+                }
 
-#[derive(Debug, Copy, Clone)]
-#[repr(u8)]
-pub enum Result<T, E> {
-    Ok(T),
-    Err(E),
-}
+                impl From<Result<$ok, $err>> for $name {
+                    fn from(result: Result<$ok, $err>) -> Self {
+                        $name {
+                            inner: result,
+                        }
+                    }
+                }
 
-impl<T, E> From<std::result::Result<T, E>> for Result<T, E> {
-    fn from(r: std::result::Result<T, E>) -> Self {
-        match r {
-            Ok(value) => Result::Ok(value),
-            Err(e) => Result::Err(e),
-        }
-    }
-}
+                impl From<$name> for Result<$ok, $err> {
+                    fn from(result: $name) -> Result<$ok, $err> {
+                        result.inner
+                    }
+                }
 
-impl<T, E> From<Result<T, E>> for std::result::Result<T, E> {
-    fn from(r: Result<T, E>) -> Self {
-        match r {
-            Result::Ok(value) => std::result::Result::Ok(value),
-            Result::Err(e) => std::result::Result::Err(e),
-        }
-    }
-}
+                impl $name {
+                    pub fn into_std(self) -> Result<$ok, $err> {
+                        self.into()
+                    }
 
-unsafe impl<T: ReprC, E: ReprC> ReprC for Result<T, E> {
-    type CLayout = result_tagged_union::Union<T::CLayout, E::CLayout>;
+                    pub fn from_std(result: Result<$ok, $err>) -> Self {
+                        result.into()
+                    }
+                }
 
-    fn is_valid(it: &'_ Self::CLayout) -> bool {
-        let tag = unsafe { (it as *const _ as *const u8).read() };
+                #[allow(bad_style, unused_imports)]
+                const _: () = {
+                    use std::ops::Not;
 
-        const OK: u8 = result_tagged_union::ResultTag::Ok as u8;
-        const ERR: u8 = result_tagged_union::ResultTag::Err as u8;
+                    #[doc = "Create a new `" $name "` containing the success value."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _new_ok >](value: $ok) -> safer_ffi::boxed::Box<$name> {
+                        safer_ffi::boxed::Box::new($name { inner: Ok(value) })
+                    }
 
-        match tag {
-            OK => unsafe { T::is_valid(&it.ok.value) },
-            ERR => unsafe { E::is_valid(&it.err.error) },
-            _ => false,
-        }
-    }
-}
+                    #[doc = "Create a new `" $name "` containing the error value."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _new_err >](error: $err) -> safer_ffi::boxed::Box<$name> {
+                        safer_ffi::boxed::Box::new($name { inner: Err(error) })
+                    }
 
-mod result_tagged_union {
-    use std::mem::ManuallyDrop;
-    #[safer_ffi::cfg_headers]
-    use std::fmt::{self, Formatter};
-    use safer_ffi::{
-        derive_ReprC,
-        layout::{CType, OpaqueKind, ReprC},
+                    #[doc = "Check if the result contains a `" $ok "`."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _is_ok >](result: &$name) -> bool {
+                        result.inner.is_ok()
+                    }
+
+                    #[doc = "Check if the result contains a `" $err "`."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _is_err >](result: &$name) -> bool {
+                        result.inner.is_err()
+                    }
+
+                    #[doc = "Free the `" $name "` after you are done with it."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _free >](result: safer_ffi::boxed::Box<$name>) {
+                        drop(result);
+                    }
+
+                    #[doc = "Get a reference to the `" $ok "` in this `" $name "`, or `null` if not present."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _get_ok >](result: &$name) -> *const $ok {
+                        match &result.inner {
+                            Ok(value) => value as *const _,
+                            Err(_) => std::ptr::null(),
+                        }
+                    }
+
+                    #[doc = "Get a reference to the `" $err "` in this `" $name "`, or `null` if not present."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _get_err >](result: &$name) -> *const $err {
+                        match &result.inner {
+                            Ok(_) => std::ptr::null(),
+                            Err(e) => e as *const _,
+                        }
+                    }
+
+                    #[doc = "Extract the `" $ok "`, freeing the `" $name "` and crashing if it actually contains a `" $err "`."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _take_ok >](result: safer_ffi::boxed::Box<$name>) -> $ok {
+                        let result: std::boxed::Box<_> = result.into();
+
+                        match result.inner {
+                            Ok(value) => value,
+                            Err(_) => unreachable!(),
+                        }
+                    }
+
+                    #[doc = "Extract the `" $err "`, freeing the `" $name "` and crashing if it actually contains a `" $ok "`."]
+                    #[safer_ffi::ffi_export]
+                    pub fn [< rune_result_ $name _take_err >](result: safer_ffi::boxed::Box<$name>) -> $err {
+                        let result: std::boxed::Box<_> = result.into();
+
+                        match result.inner {
+                            Ok(_) => unreachable!(),
+                            Err(e) => e,
+                        }
+                    }
+
+                    // #[doc = "Extract the `" $err "`, freeing the `" $name "` and crashing if it actually contains a `" $ok "`."]
+                    // pub fn [< rune_result_ $name _take_err >](result: safer_ffi::boxed::Box<$name>) -> $err {
+                    //     let result: std::boxed::Box<_> = result.into();
+
+                    //     match result.inner {
+                    //         Ok(_) => unreachable!(),
+                    //         Err(e) => e,
+                    //     }
+                    // }
+                };
+            }
+        )*
     };
-
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    pub union Union<T: CType, E: CType> {
-        pub ok: ManuallyDrop<OkVariant<T>>,
-        pub err: ManuallyDrop<ErrVariant<E>>,
-    }
-
-    #[derive_ReprC]
-    #[repr(u8)]
-    #[derive(Copy, Clone)]
-    pub enum ResultTag {
-        Ok = 0,
-        Err = 1,
-    }
-
-    #[repr(C)]
-    #[derive(Copy, Clone)]
-    pub struct OkVariant<T: CType> {
-        pub tag: <ResultTag as ReprC>::CLayout,
-        pub value: T,
-    }
-
-    #[repr(C)]
-    #[derive(Copy, Clone)]
-    pub struct ErrVariant<E: CType> {
-        pub tag: <ResultTag as ReprC>::CLayout,
-        pub error: E,
-    }
-
-    unsafe impl<T: CType, E: CType> CType for Union<T, E> {
-        type OPAQUE_KIND = OpaqueKind::Concrete;
-
-        #[safer_ffi::cfg_headers]
-        fn c_short_name_fmt(fmt: &'_ mut Formatter<'_>) -> fmt::Result {
-            write!(fmt, "Result_{}_{}", T::c_short_name(), E::c_short_name())
-        }
-
-        #[safer_ffi::cfg_headers]
-        fn c_var_fmt(
-            fmt: &'_ mut Formatter<'_>,
-            var_name: &'_ str,
-        ) -> fmt::Result {
-            write!(fmt, "{}_t {}", Self::c_short_name(), var_name)
-        }
-
-        #[safer_ffi::cfg_headers]
-        fn c_define_self(
-            definer: &'_ mut dyn safer_ffi::headers::Definer,
-        ) -> std::io::Result<()> {
-            let typedef_name = &format!("{}_t", Self::c_short_name());
-
-            <ResultTag as ReprC>::CLayout::c_define_self(definer)?;
-            OkVariant::<T>::c_define_self(definer)?;
-            ErrVariant::<E>::c_define_self(definer)?;
-
-            definer.define_once(typedef_name, &mut |definer| {
-                let w = definer.out();
-                writeln!(w, "/** A type which is guaranteed to be identical to `Result<T, E>`.")?;
-                writeln!(w, " * ")?;
-                writeln!(w, " * When initializing the `{}`, make sure to use the correct tag.", typedef_name)?;
-                writeln!(w, " */")?;
-                writeln!(w, "typedef union {{")?;
-                writeln!(w, "  {};", OkVariant::<T>::c_var("ok"))?;
-                writeln!(w, "  {};", ErrVariant::<E>::c_var("err"))?;
-                writeln!(w, "}} {};", typedef_name)?;
-
-                Ok(())
-            })?;
-
-            Ok(())
-        }
-    }
-
-    unsafe impl<T: CType> CType for OkVariant<T> {
-        type OPAQUE_KIND = OpaqueKind::Concrete;
-
-        #[safer_ffi::cfg_headers]
-        fn c_short_name_fmt(fmt: &'_ mut Formatter<'_>) -> fmt::Result {
-            write!(fmt, "Ok_{}", T::c_short_name())
-        }
-
-        #[safer_ffi::cfg_headers]
-        fn c_var_fmt(
-            fmt: &'_ mut Formatter<'_>,
-            var_name: &'_ str,
-        ) -> fmt::Result {
-            write!(fmt, "{}_t {}", Self::c_short_name(), var_name)
-        }
-
-        #[safer_ffi::cfg_headers]
-        fn c_define_self(
-            definer: &'_ mut dyn safer_ffi::headers::Definer,
-        ) -> std::io::Result<()> {
-            let typedef_name = &format!("{}_t", Self::c_short_name());
-            T::c_define_self(definer)?;
-
-            definer.define_once(typedef_name, &mut |definer| {
-                let w = definer.out();
-                writeln!(w, "typedef struct {{")?;
-                writeln!(
-                    w,
-                    "  {};",
-                    <ResultTag as ReprC>::CLayout::c_var("tag")
-                )?;
-                writeln!(w, "  {};", T::c_var("value"))?;
-                writeln!(w, "}} {};", typedef_name)?;
-
-                Ok(())
-            })?;
-
-            Ok(())
-        }
-    }
-
-    unsafe impl<T: CType> CType for ErrVariant<T> {
-        type OPAQUE_KIND = OpaqueKind::Concrete;
-
-        #[safer_ffi::cfg_headers]
-        fn c_short_name_fmt(fmt: &'_ mut Formatter<'_>) -> fmt::Result {
-            write!(fmt, "Err_{}", T::c_short_name())
-        }
-
-        #[safer_ffi::cfg_headers]
-        fn c_var_fmt(
-            fmt: &'_ mut Formatter<'_>,
-            var_name: &'_ str,
-        ) -> fmt::Result {
-            write!(fmt, "{}_t {}", Self::c_short_name(), var_name)
-        }
-
-        #[safer_ffi::cfg_headers]
-        fn c_define_self(
-            definer: &'_ mut dyn safer_ffi::headers::Definer,
-        ) -> std::io::Result<()> {
-            let typedef_name = &format!("{}_t", Self::c_short_name());
-            T::c_define_self(definer)?;
-
-            definer.define_once(typedef_name, &mut |definer| {
-                let w = definer.out();
-                writeln!(w, "typedef struct {{")?;
-                writeln!(
-                    w,
-                    "  {};",
-                    <ResultTag as ReprC>::CLayout::c_var("tag")
-                )?;
-                writeln!(w, "  {};", T::c_var("error"))?;
-                writeln!(w, "}} {};", typedef_name)?;
-
-                Ok(())
-            })?;
-
-            Ok(())
-        }
-    }
 }

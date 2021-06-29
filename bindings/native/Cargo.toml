@@ -14,6 +14,7 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 anyhow = "1.0.41"
 log = "0.4.14"
+paste = "1.0.5"
 rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
 rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev" }
 rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" , optional = true }
