@@ -6,13 +6,80 @@
 #include <string_view>
 #include <vector>
 
+// Helper type for instantiating results with different variants.
+template <typename RustType>
+struct Result
+{
+    using OkVariant = decltype(RustType::ok);
+    using Value = decltype(OkVariant::value);
+    using ErrVariant = decltype(RustType::err);
+    using Error = decltype(ErrVariant::error);
+
+    static RustType ok(Value value)
+    {
+        return RustType{
+            .ok = OkVariant{
+                .tag = RESULT_TAG_OK,
+                .value = value,
+            },
+        };
+    }
+
+    static RustType err(Error error)
+    {
+        return RustType{
+            .err = ErrVariant{
+                .tag = RESULT_TAG_ERR,
+                .error = error,
+            }};
+    }
+};
+
+template <typename RustType>
+bool result_is_ok(const RustType &result)
+{
+    return result.ok.tag == RESULT_TAG_OK;
+}
+
+template <typename RustType>
+bool result_is_err(const RustType &result)
+{
+    return result.err.tag == RESULT_TAG_ERR;
+}
+
+template <typename RustType>
+auto result_get_value(RustType &result)
+{
+    if (result_is_ok(result))
+    {
+        return result.ok.value;
+    }
+    else
+    {
+        throw std::runtime_error("Result contains an error");
+    }
+}
+
+template <typename RustType>
+auto result_get_err(RustType &result)
+{
+    if (result_is_err(result))
+    {
+        return result.err.error;
+    }
+    else
+    {
+        throw std::runtime_error("Result contains a value");
+    }
+}
+
 class Logger
 {
 public:
-    Error_t *on_log(LogRecord_t record)
+    Result_uint8_Error_ptr_t on_log(LogRecord_t record)
     {
         std::cerr << "[" << rune_log_level_name(record.level) << " " << str(record.target) << "\n";
-        return nullptr;
+        return Result<Result_uint8_Error_ptr_t>::ok(0);
     }
 
 private:
@@ -22,15 +89,17 @@ private:
     }
 };
 
-BoxDynFnMut1_Error_ptr_LogRecord_t logger_as_closure(Logger *instance)
+BoxDynFnMut1_Result_uint8_Error_ptr_LogRecord_t logger_as_closure(Logger *instance)
 {
-    auto on_log = [](void *state, LogRecord_t record) -> Error_t * {
-        return reinterpret_cast<Logger *>(state)->on_log(record);
+    return BoxDynFnMut1_Result_uint8_Error_ptr_LogRecord_t{
+        .env_ptr = instance,
+        .call = [](void *state, LogRecord_t record) -> Result_uint8_Error_ptr_t
+        {
+            return reinterpret_cast<Logger *>(state)->on_log(record);
+        },
+        .free = [](void *state)
+        { delete (Logger *)state; },
     };
-    auto deleter = [](void *state)
-    { delete (Logger *)state; };
-
-    return BoxDynFnMut1_Error_ptr_LogRecord_t{instance, on_log, deleter};
 }
 
 std::vector<char> read_file(std::string filename)
@@ -54,6 +123,49 @@ std::vector<char> read_file(std::string filename)
     }
 }
 
+Result_Capability_Error_ptr_t make_raw()
+{
+    Capability_t capability{
+        .user_data = nullptr,
+        .set_parameter = [](void *state) {},
+        .free = nullptr,
+    };
+
+    return Result<Result_Capability_Error_ptr_t>::ok(capability);
+}
+
+struct Capability
+{
+    template <typename Func>
+    static BoxDynFnMut0_Result_Capability_Error_ptr_t from_factory(Func f)
+    {
+        return BoxDynFnMut0_Result_Capability_Error_ptr_t{
+            .env_ptr = new Func{f},
+            .call = [](void *state)
+            {
+                auto f = (Func *)state;
+                return (*f)();
+            },
+            .free = [](void *state)
+            { delete (Func *)state; },
+        };
+    }
+};
+
+RunicosBaseImage_t *make_image()
+{
+    RunicosBaseImage_t *image = rune_image_new();
+
+    // We can't pass our Logger directly to rune_image_set_log() so we need to
+    // wrap it in a vtable and pass ownership of a new Logger.
+    auto log = logger_as_closure(new Logger());
+    rune_image_set_log(image, log);
+
+    rune_image_set_raw(image, Capability::from_factory(make_raw));
+
+    return image;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2)
@@ -69,22 +181,22 @@ int main(int argc, char **argv)
         rune.size(),
     };
 
-    RunicosBaseImage_t *image = rune_image_new();
+    auto image = make_image();
+    auto result = rune_wasmer_runtime_load(wasm, image);
 
-    // We can't pass our Logger directly to rune_image_set_log() so we need to
-    // wrap it in a vtable and pass ownership of a new Logger.
-    auto log = logger_as_closure(new Logger());
-    rune_image_set_log(image, log);
-
-    WasmerRuntime *runtime;
-    auto error = rune_wasmer_runtime_load(wasm, image, &runtime);
-    if (error)
+    if (!result_is_ok(result))
     {
+        auto error = result_get_err(result);
         const char *error_msg = rune_error_to_string_verbose(error);
         std::cerr << error_msg << "\n";
         delete error_msg;
+        rune_error_free(error);
         return 1;
     }
+
+    auto runtime = result_get_value(result);
+
+    rune_wasmer_runtime_call(runtime);
 
     rune_wasmer_runtime_free(runtime);
 

@@ -14,7 +14,8 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 anyhow = "1.0.41"
 log = "0.4.14"
-rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev"  }
+rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
+rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev" }
 rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" , optional = true }
 runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" , default-features = false }
 safer-ffi = { version = "0.0.6", features = ["proc_macros"] }

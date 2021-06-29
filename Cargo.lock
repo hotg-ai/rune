@@ -2254,6 +2254,7 @@ dependencies = [
  "anyhow",
  "build-info-build",
  "log",
+ "rune-core",
  "rune-runtime",
  "rune-wasmer-runtime",
  "runicos-base-runtime",

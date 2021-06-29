@@ -1,19 +1,28 @@
+use anyhow::Context;
 use log::Record;
 use rune_runtime::Image;
 use runicos_base_runtime::BaseImage;
+use rune_core::Value;
+use crate::result::Result;
 use safer_ffi::{
-    boxed::Box, char_p::char_p_ref, closure::BoxDynFnMut1, derive_ReprC,
-    ffi_export, slice::slice_ref,
+    boxed::Box,
+    char_p::char_p_ref,
+    closure::{BoxDynFnMut0, BoxDynFnMut1},
+    derive_ReprC, ffi_export,
+    slice::{slice_mut, slice_raw, slice_ref},
 };
 use std::{
     convert::TryInto,
+    ffi::c_void,
     ops::{Deref, DerefMut},
+    ptr::NonNull,
     sync::Mutex,
 };
 #[allow(unused_imports)]
 use std::ops::Not;
-
 use crate::error::Error;
+
+type StdResult<T, E> = std::result::Result<T, E>;
 
 /// A table containing the various host functions to be provided to the Rune.
 ///
@@ -59,7 +68,7 @@ pub fn rune_image_free(image: Box<RunicosBaseImage>) { drop(image); }
 #[ffi_export]
 pub fn rune_image_set_log(
     image: &mut RunicosBaseImage,
-    log: BoxDynFnMut1<Option<Box<Error>>, LogRecord>,
+    log: BoxDynFnMut1<Result<u8, Box<Error>>, LogRecord>,
 ) {
     let log = Mutex::new(log);
 
@@ -69,14 +78,83 @@ pub fn rune_image_set_log(
         let mut log = log.lock().unwrap();
 
         match log.call(record) {
-            Some(error) => {
-                let boxed_error: std::boxed::Box<Error> = error.into();
-                Err((*boxed_error).into_inner())
+            Result::Ok(_) => Ok(()),
+            Result::Err(e) => {
+                let boxed: std::boxed::Box<Error> = e.into();
+                Err(boxed.into_inner())
             },
-            None => Ok(()),
         }
     });
 }
+
+#[ffi_export]
+pub fn rune_image_set_raw(
+    image: &mut RunicosBaseImage,
+    raw: BoxDynFnMut0<Result<Capability, Box<Error>>>,
+) {
+    let raw = Mutex::new(raw);
+
+    image.with_raw(move || match StdResult::from(raw.lock().unwrap().call()) {
+        Ok(v) => Ok(std::boxed::Box::new(v)),
+        Err(e) => {
+            let boxed: std::boxed::Box<Error> = e.into();
+            Err((*boxed).into_inner())
+        },
+    });
+}
+
+#[derive_ReprC]
+#[repr(C)]
+#[derive(Debug)]
+pub struct Capability {
+    user_data: Option<NonNull<c_void>>,
+    set_parameter: Option<unsafe extern "C" fn(*mut c_void)>,
+    generate: Option<
+        unsafe extern "C" fn(
+            *mut c_void,
+            buffer: slice_raw<u8>,
+        ) -> Result<usize, Box<Error>>,
+    >,
+    free: Option<unsafe extern "C" fn(*mut c_void)>,
+}
+
+impl rune_runtime::Capability for Capability {
+    fn generate(
+        &mut self,
+        buffer: &mut [u8],
+    ) -> StdResult<usize, anyhow::Error> {
+        unsafe {
+            let buffer = slice_mut::from(buffer);
+            let buffer = slice_raw::from(buffer);
+
+            let user_data = match self.user_data {
+                Some(p) => p.as_ptr(),
+                None => std::ptr::null_mut(),
+            };
+
+            let generate =
+                self.generate.context("Generate function not initialized")?;
+            match generate(user_data, buffer) {
+                Result::Ok(v) => Ok(v),
+                Result::Err(e) => {
+                    let boxed: std::boxed::Box<Error> = e.into();
+                    Err(boxed.into_inner())
+                },
+            }
+        }
+    }
+
+    fn set_parameter(
+        &mut self,
+        _name: &str,
+        _value: Value,
+    ) -> StdResult<(), rune_runtime::ParameterError> {
+        todo!()
+    }
+}
+
+unsafe impl Send for Capability {}
+unsafe impl Sync for Capability {}
 
 #[derive_ReprC]
 #[repr(C)]

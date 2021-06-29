@@ -2,6 +2,7 @@
 
 mod error;
 mod image;
+mod result;
 #[cfg(feature = "wasmer-runtime")]
 mod wasmer_runtime;
 

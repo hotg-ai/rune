@@ -1,6 +1,6 @@
 use rune_wasmer_runtime::Runtime;
 use safer_ffi::{derive_ReprC, slice::slice_ref, ffi_export, boxed::Box};
-use crate::{error::Error, image::RunicosBaseImage};
+use crate::{error::Error, image::RunicosBaseImage, result::Result};
 #[allow(unused_imports)]
 use std::ops::Not;
 
@@ -19,25 +19,12 @@ pub struct WasmerRuntime {
 pub fn rune_wasmer_runtime_load(
     rune: slice_ref<u8>,
     image: Box<RunicosBaseImage>,
-    runtime_out: *mut Option<Box<WasmerRuntime>>,
-) -> Option<Box<Error>> {
+) -> Result<Box<WasmerRuntime>, Box<Error>> {
     let image: std::boxed::Box<_> = image.into();
 
     match Runtime::load(&*rune, *image) {
-        Ok(r) => {
-            let runtime = WasmerRuntime { inner: r };
-            unsafe {
-                runtime_out.write(Some(Box::new(runtime)));
-            }
-
-            None
-        },
-        Err(e) => {
-            unsafe {
-                runtime_out.write(None);
-            }
-            Some(Box::new(e.into()))
-        },
+        Ok(r) => Result::Ok(Box::new(WasmerRuntime { inner: r })),
+        Err(e) => Result::Err(Box::new(e.into())),
     }
 }
 
@@ -49,9 +36,9 @@ pub fn rune_wasmer_runtime_free(runtime: Box<WasmerRuntime>) { drop(runtime); }
 #[ffi_export]
 pub fn rune_wasmer_runtime_call(
     runtime: &mut WasmerRuntime,
-) -> Option<Box<Error>> {
+) -> Result<u8, Box<Error>> {
     match runtime.inner.call() {
-        Ok(_) => None,
-        Err(e) => Some(Box::new(e.into())),
+        Ok(_) => Result::Ok(0),
+        Err(e) => Result::Err(Box::new(e.into())),
     }
 }
