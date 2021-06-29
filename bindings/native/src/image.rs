@@ -24,6 +24,8 @@ use crate::error::Error;
 
 type StdResult<T, E> = std::result::Result<T, E>;
 
+#[derive_ReprC]
+#[ReprC::opaque]
 /// A table containing the various host functions to be provided to the Rune.
 ///
 /// Each host function is a closure which may contain its own state.
@@ -32,8 +34,6 @@ type StdResult<T, E> = std::result::Result<T, E>;
     doc = "\n By default, the `tflite` crate will be used for model inference."
 )]
 #[cfg_attr(not(feature = "tflite"), doc = "\n")]
-#[derive_ReprC]
-#[ReprC::opaque]
 pub struct RunicosBaseImage {
     inner: BaseImage,
 }

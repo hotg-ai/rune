@@ -10,7 +10,7 @@ CXXFLAGS := -std=c++20 -g -Wl,-rpath,${RUNE_LIB}
 LIBS := -ldl -lpthread -lstdc++
 
 example: example.cpp rune.h ${RUNE_LIB}
-	${CC} ${CXXFLAGS} -o example -I ${TARGET_DIR} example.cpp ${RUNE_LIB} ${LIBS}
+	${CXX} ${CXXFLAGS} -o example -I ${TARGET_DIR} example.cpp ${RUNE_LIB} ${LIBS}
 
 rune.h: ${RUNE_LIB}
 	cargo test --manifest-path ${MANIFEST} --features c-headers -- generate_headers

@@ -110,6 +110,10 @@ mod result_tagged_union {
 
             definer.define_once(typedef_name, &mut |definer| {
                 let w = definer.out();
+                writeln!(w, "/** A type which is guaranteed to be identical to `Result<T, E>`.")?;
+                writeln!(w, " * ")?;
+                writeln!(w, " * When initializing the `{}`, make sure to use the correct tag.", typedef_name)?;
+                writeln!(w, " */")?;
                 writeln!(w, "typedef union {{")?;
                 writeln!(w, "  {};", OkVariant::<T>::c_var("ok"))?;
                 writeln!(w, "  {};", ErrVariant::<E>::c_var("err"))?;
