@@ -36,6 +36,14 @@ fn main() -> Result<(), Error> {
     };
     tests.run(&ctx, &mut printer);
 
+    log::info!(
+        "Test results... pass: {}, skip: {}, fail: {}, bugs: {}",
+        printer.pass,
+        printer.skip,
+        printer.fail,
+        printer.bug
+    );
+
     printer.exit_code()
 }
 
