@@ -87,19 +87,61 @@ pub struct ExitSuccessfully;
 
 impl Assertion for ExitSuccessfully {
     fn check_for_errors(&self, output: &Output) -> Result<(), Error> {
-        if !output.status.success() {
-            match output.status.code() {
-                Some(code) => anyhow::bail!(
-                    "Completed unsuccessfully with error code {}",
-                    code
-                ),
-                None => anyhow::bail!("Completed unsuccessfully"),
-            };
+        if output.status.success() {
+            return Ok(());
+        }
+
+        let Output {
+            status,
+            stdout,
+            stderr,
+        } = output;
+
+        let stdout = String::from_utf8_lossy(stdout).into_owned();
+        let stderr = String::from_utf8_lossy(stderr).into_owned();
+        let cause = SubprocessOutput { stdout, stderr };
+
+        let e = match status.code() {
+            Some(code) => Error::new(cause).context(format!(
+                "Completed unsuccessfully with error code {}",
+                code
+            )),
+            None => Error::new(cause).context("Completed unsuccessfully"),
+        };
+
+        Err(e)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SubprocessOutput {
+    stdout: String,
+    stderr: String,
+}
+
+impl Display for SubprocessOutput {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let SubprocessOutput { stdout, stderr } = self;
+
+        if !stdout.is_empty() {
+            writeln!(f, "Stdout:")?;
+            for line in stdout.lines() {
+                writeln!(f, "  {}", line)?;
+            }
+        }
+
+        if !stderr.is_empty() {
+            writeln!(f, "Stderr:")?;
+            for line in stderr.lines() {
+                writeln!(f, "  {}", line)?;
+            }
         }
 
         Ok(())
     }
 }
+
+impl std::error::Error for SubprocessOutput {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExitUnsuccessfully;
