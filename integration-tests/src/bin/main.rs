@@ -1,3 +1,4 @@
+use regex::Regex;
 use anyhow::{Context, Error};
 use rune_integration_tests::{Callbacks, FullName, TestContext};
 use once_cell::sync::Lazy;
@@ -17,15 +18,22 @@ fn main() -> Result<(), Error> {
         .format_timestamp_millis()
         .format_indent(Some(2))
         .init();
-    let args = Args::from_args();
+    let Args {
+        test_directory,
+        rune_project_dir,
+        filters,
+    } = Args::from_args();
 
-    let tests = rune_integration_tests::discover(&args.test_directory)
+    let tests = rune_integration_tests::discover(&test_directory)
         .context("Unable to discover tests")?;
 
-    let ctx = TestContext::build(&args.rune_project_dir)
+    let ctx = TestContext::build(&rune_project_dir)
         .context("Unable to establish the test context")?;
 
-    let mut printer = Printer::default();
+    let mut printer = Printer {
+        filters,
+        ..Default::default()
+    };
     tests.run(&ctx, &mut printer);
 
     printer.exit_code()
@@ -43,6 +51,8 @@ pub struct Args {
     help = "The Rune repository's root directory",
     default_value = &*RUNE_PROJECT_DIR)]
     pub rune_project_dir: PathBuf,
+    #[structopt(short, long = "filter", parse(try_from_str))]
+    filters: Vec<Regex>,
 }
 
 static RUNE_PROJECT_DIR: Lazy<String> = Lazy::new(|| {
@@ -86,6 +96,7 @@ pub struct Printer {
     skip: usize,
     fail: usize,
     bug: usize,
+    filters: Vec<Regex>,
 }
 
 impl Printer {
@@ -99,6 +110,12 @@ impl Printer {
 }
 
 impl Callbacks for Printer {
+    fn should_run(&mut self, name: &FullName) -> bool {
+        let name = name.to_string();
+
+        self.filters.iter().any(|pattern| pattern.is_match(&name))
+    }
+
     fn on_pass(&mut self, name: &FullName) {
         self.pass += 1;
         log::info!("{} ... ✓", name);
