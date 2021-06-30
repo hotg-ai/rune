@@ -13,6 +13,7 @@ mod logging;
 mod model;
 pub mod serial;
 mod stats_allocator;
+mod tensor;
 
 pub use self::{
     capability::{GenericCapability, Accelerometer, Random, Sound, Raw, Image},

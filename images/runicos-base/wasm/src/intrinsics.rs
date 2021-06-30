@@ -3,6 +3,8 @@
 //! You probably shouldn't be touching things in here unless you know what you
 //! are doing.
 
+use crate::tensor::TensorRepr;
+
 extern "C" {
     /// Invoke the default model with the specified data.
     ///
@@ -15,6 +17,19 @@ extern "C" {
         input_len: u32,
         output: *mut u8,
         output_len: u32,
+    ) -> u32;
+
+    /// Run inference
+    ///
+    /// The model's output will be written to the `output` buffer.
+    ///
+    /// Model failures will trigger a trap and abort at runtime.
+    pub fn rune_model_infer(
+        model_id: u32,
+        inputs: *const TensorRepr,
+        num_inputs: u32,
+        outputs: *mut TensorRepr,
+        num_outputs: u32,
     ) -> u32;
 
     /// Load a model (as a byte buffer) into the runtime, telling it how many
