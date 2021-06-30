@@ -233,54 +233,7 @@ You can also trigger a nightly build manually by navigating to the
 [*Nightly Workflow* page][nightly-workflow] and hitting the *"Run Workflow"*
 button. See [*Manually running a workflow*][manual-workflow] for more.
 
-## Benchmarks
-
-The `runtime/` directory contains several benchmarks for comparing things like
-how long it takes to build a rune, startup times for the `Runtime`, and
-execution time.
-
-Benchmarks are done using [`criterion`][criterion] and you will need to install
-their command-line helper, `cargo criterion`.
-
-```console
-$ cargo install cargo-criterion
-```
-
-Once that is done you can `cd` to the `runtime/` directory and run the
-benchmarks.
-
-```console
-$ cd runtime
-$ cargo criterion
-   Compiling rune-runtime v0.1.0 (/home/michael/Documents/hotg-ai/rune/runtime)
-    Finished bench [optimized] target(s) in 4.37s
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-execute-sine/optimised-rune
-                        time:   [4.7431 us 4.8673 us 4.9952 us]
-execute-sine/debug-rune time:   [51.182 us 51.500 us 51.910 us]
-execute-sine/no-rune    time:   [17.482 ns 17.643 ns 17.840 ns]
-
-startup/sine            time:   [7.3093 ms 7.3262 ms 7.3439 ms]
-startup/gesture         time:   [8.5877 ms 8.6171 ms 8.6487 ms]
-```
-
-benchmark reports will be available inside the repo's `target/` directory.
-
-```console
-$ ls ../target/criterion/*
-../target/criterion/data:
-main
-
-../target/criterion/reports:
-execute-sine  index.html  startup
-```
-
 [xtask]: https://github.com/matklad/cargo-xtask
-[criterion]: https://bheisler.github.io/criterion.rs/book/criterion_rs.html
 [nightly-release]: https://github.com/hotg-ai/rune/releases/tag/nightly
 [nightly-yml]: ./github/workflows/nightly.yml
 [nightly-workflow]: https://github.com/hotg-ai/rune/actions/workflows/nightly.yml
