@@ -7,6 +7,11 @@ license = "Apache 2.0"
 keywords = ["tinyml", "container"]
 description = "A self-sufficient runtime for TinyML Containers"
 
+[[bin]]
+name = "rune"
+path = "src/main.rs"
+doc = false
+
 [dependencies]
 anyhow = "1.0.38"
 build-info = { version = "0.0.23", features = ["serde"] }
