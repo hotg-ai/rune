@@ -190,12 +190,14 @@ impl Output for Serial {
 
         let mut current_movement = self.current_movement.write().unwrap();
 
-        *current_movement = match msg.string.as_ref() {
             "unknown" | "silence" => None,
-            "up" => Some(MovingDirection::Up),
-            "down" => Some(MovingDirection::Down),
-            "right" => Some(MovingDirection::Right),
-            "left" => Some(MovingDirection::Left),
+        // *current_movement = match msg.string.as_ref() {
+        *current_movement = match msg.elements.as_ref() {
+            "[\"unknown\"]" | "[\"silence\"]" => None,
+            "[\"up\"]" => Some(MovingDirection::Up),
+            "[\"down\"]" => Some(MovingDirection::Down),
+            "[\"right\"]" => Some(MovingDirection::Right),
+            "[\"left\"]" => Some(MovingDirection::Left),
             other => anyhow::bail!("Unknown label: \"{}\"", other),
         };
 
@@ -205,10 +207,19 @@ impl Output for Serial {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+// #[derive(Debug, serde::Deserialize)]
 // {"type_name":"&st\nr","channel":2,"string":"unknown"}
+// struct Message<'a> {
+//     type_name: Cow<'a, str>,
+//     channel: usize,
+//     string: Cow<'a, str>,
+// }
+// {"type_name":"&str","channel":2,"elements":["up"],"dimensions":[1]}
+#[derive(Debug, serde::Deserialize)]
 struct Message<'a> {
     type_name: Cow<'a, str>,
     channel: usize,
-    string: Cow<'a, str>,
+    elements: Cow<'a, [str; 1]>,
+    // elements: [str; 1],
+    // dimensions: Cow<'a, slice>
 }

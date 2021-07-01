@@ -21,7 +21,8 @@ extern crate savefile_derive;
 /// Number of tiles to spawn at start.
 pub const STARTING_TILES: usize = 2;
 
-const RUNE_WASM: &[u8] = include_bytes!("../../microspeech/microspeech.rune");
+// const RUNE_WASM: &[u8] = include_bytes!("../../microspeech/microspeech.rune");
+const RUNE_WASM: &[u8] = include_bytes!("../../../../test-runes/audio/multispeech/multispeech.rune");
 
 fn main() -> Result<(), Error> {
     env_logger::init();
