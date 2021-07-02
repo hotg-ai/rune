@@ -24,18 +24,11 @@ use crate::{error::Error, RuneResult, BoxedError};
 decl_result_type! {
     type IntegerOrErrorResult = Result<usize, BoxedError>;
     type CapabilityResult = Result<Capability, BoxedError>;
+    type ModelResult = Result<Model, BoxedError>;
 }
 
 #[derive_ReprC]
 #[ReprC::opaque]
-/// A table containing the various host functions to be provided to the Rune.
-///
-/// Each host function is a closure which may contain its own state.
-#[cfg_attr(
-    feature = "tflite",
-    doc = "\n By default, the `tflite` crate will be used for model inference."
-)]
-#[cfg_attr(not(feature = "tflite"), doc = "\n")]
 pub struct RunicosBaseImage {
     inner: BaseImage,
 }
@@ -56,6 +49,14 @@ impl Image for RunicosBaseImage {
     }
 }
 
+/// Create a vtable containing the various host functions to be provided to the
+/// Rune.
+///
+/// Each host function is a closure which may contain its own state.
+///
+/// On Linux and MacOS, interence is performed using the `tflite` crate
+/// (bindings to TensorFlow Lite). Other platforms will need to specify the
+/// model factory manually (see `rune_image_set_model()`).
 #[ffi_export]
 pub fn rune_image_new() -> Box<RunicosBaseImage> {
     Box::new(RunicosBaseImage {
@@ -70,15 +71,15 @@ pub fn rune_image_free(image: Box<RunicosBaseImage>) { drop(image); }
 #[ffi_export]
 pub fn rune_image_set_log(
     image: &mut RunicosBaseImage,
-    log: BoxDynFnMut1<Box<RuneResult>, LogRecord>,
+    factory: BoxDynFnMut1<Box<RuneResult>, LogRecord>,
 ) {
-    let log = Mutex::new(log);
+    let factory = Mutex::new(factory);
 
     image.with_log(move |record| {
         let record = LogRecord::from(record);
 
-        let mut log = log.lock().unwrap();
-        let result: std::boxed::Box<_> = log.call(record).into();
+        let mut factory = factory.lock().unwrap();
+        let result: std::boxed::Box<_> = factory.call(record).into();
 
         match result.into_std() {
             Result::Ok(_) => Ok(()),
@@ -93,13 +94,13 @@ pub fn rune_image_set_log(
 #[ffi_export]
 pub fn rune_image_set_raw(
     image: &mut RunicosBaseImage,
-    raw: BoxDynFnMut0<Box<CapabilityResult>>,
+    factory: BoxDynFnMut0<Box<CapabilityResult>>,
 ) {
-    let raw = Mutex::new(raw);
+    let factory = Mutex::new(factory);
 
     image.with_raw(move || {
-        let mut raw = raw.lock().unwrap();
-        let result: std::boxed::Box<_> = raw.call().into();
+        let mut factory = factory.lock().unwrap();
+        let result: std::boxed::Box<_> = factory.call().into();
 
         match result.into_std() {
             Ok(v) => {
@@ -117,6 +118,11 @@ pub fn rune_image_set_raw(
 #[derive_ReprC]
 #[repr(C)]
 #[derive(Debug)]
+/// An object which can be used to generate data.
+///
+/// # Safety
+///
+/// It is the implementor's responsibility to ensure this type is thread-safe.
 pub struct Capability {
     user_data: Option<NonNull<c_void>>,
     set_parameter: Option<unsafe extern "C" fn(*mut c_void)>,
@@ -165,6 +171,77 @@ impl rune_runtime::Capability for Capability {
 
 unsafe impl Send for Capability {}
 unsafe impl Sync for Capability {}
+
+#[ffi_export]
+pub fn rune_image_set_model(
+    image: &mut RunicosBaseImage,
+    factory: BoxDynFnMut1<Box<ModelResult>, slice_raw<u8>>,
+) {
+    let factory = Mutex::new(factory);
+
+    image.with_model(move |model: &[u8]| {
+        let mut factory = factory.lock().unwrap();
+        let result: std::boxed::Box<_> =
+            factory.call(slice_ref::from(model).into()).into();
+
+        match result.into_std() {
+            Ok(v) => {
+                let boxed: std::boxed::Box<_> = v.into();
+                Ok(boxed)
+            },
+            Err(e) => {
+                let boxed: std::boxed::Box<Error> = e.into();
+                Err((*boxed).into_inner())
+            },
+        }
+    });
+}
+
+#[derive_ReprC]
+#[repr(C)]
+#[derive(Debug)]
+/// An object which can do model inference.
+///
+/// # Safety
+///
+/// It is the implementor's responsibility to ensure this type is thread-safe.
+pub struct Model {
+    user_data: Option<NonNull<c_void>>,
+    generate: Option<
+        unsafe extern "C" fn(
+            *mut c_void,
+            input: slice_raw<u8>,
+            output: slice_raw<u8>,
+        ) -> Box<IntegerOrErrorResult>,
+    >,
+    free: Option<unsafe extern "C" fn(*mut c_void)>,
+}
+
+impl runicos_base_runtime::Model for Model {
+    fn infer(
+        &mut self,
+        input: &[u8],
+        output: &mut [u8],
+    ) -> Result<(), anyhow::Error> {
+        let generate =
+            self.generate.context("No generate function provided")?;
+        let user_data = match self.user_data {
+            Some(u) => u.as_ptr(),
+            None => std::ptr::null_mut(),
+        };
+
+        unsafe {
+            let input = slice_ref::from(input);
+            let output = slice_mut::from(output);
+            generate(user_data, input.into(), output.into());
+        }
+
+        Ok(())
+    }
+}
+
+unsafe impl Send for Model {}
+unsafe impl Sync for Model {}
 
 #[derive_ReprC]
 #[repr(C)]
