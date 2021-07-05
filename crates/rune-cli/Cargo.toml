@@ -9,6 +9,7 @@ homepage = "https://hotg.dev/"
 repository = "https://github.com/hotg-ai/rune"
 categories = ["science", "wasm", "command-line-utilities"]
 keywords = ["rune", "tinyml", "container", "machine", "learning"]
+readme = "../../README.md"
 
 [[bin]]
 name = "rune"

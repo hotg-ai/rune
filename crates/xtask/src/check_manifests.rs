@@ -32,7 +32,7 @@ impl CheckManifests {
             match CrateInfo::from_path(project_root, cargo_toml) {
                 Ok(Some(info)) => check_manifest(info),
                 Ok(None) => {
-                    log::info!("Skipping \"{}\"", cargo_toml.display())
+                    log::debug!("Skipping \"{}\"", cargo_toml.display())
                 },
                 Err(e) => {
                     return Err(e.context(format!(
@@ -65,7 +65,7 @@ fn check_manifest(info: CrateInfo<'_>) {
         ..
     } = info;
 
-    log::info!("Checking \"{}\"", short_path.display());
+    log::debug!("Checking \"{}\"", short_path.display());
 
     let mut expect = DiagnosticBuilder::new(short_path);
 

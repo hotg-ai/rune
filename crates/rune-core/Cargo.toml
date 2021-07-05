@@ -9,6 +9,7 @@ homepage = "https://hotg.dev/"
 repository = "https://github.com/hotg-ai/rune"
 categories = ["no-std", "science", "wasm"]
 keywords = ["rune", "tinyml", "container", "machine", "learning"]
+readme = "../../README.md"
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
