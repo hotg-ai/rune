@@ -3,6 +3,7 @@ name = "rune_py"
 version = "0.4.0-dev"
 authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -1,5 +1,5 @@
 [package]
-name = "rune_proc-block-macros"
+name = "rune-proc-block-macros"
 version = "0.4.0-dev"
 edition = "2018"
 
