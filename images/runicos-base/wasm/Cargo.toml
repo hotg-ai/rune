@@ -2,6 +2,13 @@
 name = "runicos-base-wasm"
 version = "0.4.0-dev"
 edition = "2018"
+authors = ["The Rune Developers <admin@hotg.ai>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["science", "wasm"]
+keywords = ["rune", "tinyml", "container", "machine", "learning"]
+description = "The WebAssembly side of the runicos/base image."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

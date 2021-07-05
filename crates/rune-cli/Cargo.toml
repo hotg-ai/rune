@@ -1,11 +1,14 @@
 [package]
 name = "rune"
 version = "0.4.0-dev"
-authors = ["Kartik Thakore <kartik@thakore.ai>", "Akshay Sharma <akshay@sharma.ai>", "Michael-F-Bryan <consulting@michaelfbryan.com>"]
 edition = "2018"
-license = "Apache 2.0"
-keywords = ["tinyml", "container"]
-description = "A self-sufficient runtime for TinyML Containers"
+authors = ["The Rune Developers <admin@hotg.ai>"]
+description = "A self-sufficient runtime for TinyML Containers."
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["science", "wasm", "command-line-utilities"]
+keywords = ["rune", "tinyml", "container", "machine", "learning"]
 
 [[bin]]
 name = "rune"
