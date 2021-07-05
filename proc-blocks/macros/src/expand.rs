@@ -107,7 +107,7 @@ impl ToTokens for CustomSection {
         let t = quote! {
             #[doc(hidden)]
             #[no_mangle]
-            #[cfg(target_os = "wasm32")]
+            #[cfg(target_arch = "wasm32")]
             #[link_section = #section_name]
             pub static #name: [u8; #len] = *#payload;
         };
