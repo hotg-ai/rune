@@ -9,7 +9,7 @@ repository = "https://github.com/hotg-ai/rune"
 categories = ["science", "wasm"]
 keywords = ["rune", "runtime", "tinyml", "container", "machine", "learning"]
 description = "The runtime side of the runicos/base image."
-readme = "../../README.md"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

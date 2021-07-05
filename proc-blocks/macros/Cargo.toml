@@ -9,7 +9,7 @@ repository = "https://github.com/hotg-ai/rune"
 categories = ["no-std", "science", "wasm"]
 keywords = ["rune", "proc-block", "macro"]
 description = "Procedural macros for the rune-proc-block crate."
-readme = "../../README.md"
+readme = "README.md"
 
 [lib]
 proc-macro = true
