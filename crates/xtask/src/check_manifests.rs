@@ -73,7 +73,9 @@ fn check_manifest(info: CrateInfo<'_>) {
     expect.array_field("Categories", &categories).is_not_empty();
     expect.array_field("Keywords", &keywords).is_not_empty();
     expect.field("Description", description.as_deref()).is_set();
-    expect.field("README", readme.as_deref()).is_set();
+    expect
+        .field("README", readme.as_deref())
+        .is_set_to("README.md");
     expect
         .field("License", license.as_deref())
         .is_set_to(LICENSE);
