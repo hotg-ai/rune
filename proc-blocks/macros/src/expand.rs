@@ -461,7 +461,7 @@ mod tests {
         let should_be = quote! {
             #[doc(hidden)]
             #[no_mangle]
-            #[cfg(target_os = "wasm32")]
+            #[cfg(target_arch = "wasm32")]
             #[link_section = ".rune_proc_block"]
             pub static PROC_BLOCK_DESCRIPTOR_FOR_Proc: [u8; 13usize] = *b"Hello, World!";
         };
