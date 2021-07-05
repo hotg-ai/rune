@@ -11,12 +11,12 @@ anyhow = "1.0.38"
 env_logger = "0.8.3"
 libc = "0.2.87"
 log = "0.4.14"
-rune-codegen = { path = "../../crates/codegen" }
-rune-runtime = { path = "../../crates/runtime" }
-rune-wasmer-runtime = { path = "../../crates/wasmer-runtime" }
-rune-syntax = { path = "../../crates/syntax" }
-rune-core = { path = "../../crates/rune-core" }
-runicos-base-runtime = { path = "../../images/runicos-base/runtime" }
+rune-codegen = { path = "../../crates/codegen", version = "0.4.0-dev" }
+rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev" }
+rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" }
+rune-syntax = { path = "../../crates/syntax", version = "0.4.0-dev" }
+rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
+runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" }
 
 [lib]
 name = "rune"
