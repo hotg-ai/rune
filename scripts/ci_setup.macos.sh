@@ -7,4 +7,4 @@ curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
 source ~/.cargo/env
 
 # and now we can do the linux setup like normal
-source "$(git rev-parse --top-level)/ci_setup.linux.sh"
+exec "$(git rev-parse --show-toplevel)/ci_setup.linux.sh"
