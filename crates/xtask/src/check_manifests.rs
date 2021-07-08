@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     ffi::OsStr,
     fmt::{self, Debug, Display, Formatter},
     path::{Path, PathBuf},
@@ -21,6 +22,8 @@ impl CheckManifests {
             .into_iter()
             .filter_entry(|e| e.file_name() != OsStr::new("target"));
 
+        let mut crates = Vec::new();
+
         for entry in entries {
             let entry = entry?;
             if entry.file_name() != OsStr::new("Cargo.toml") {
@@ -30,7 +33,9 @@ impl CheckManifests {
             let cargo_toml = entry.path();
 
             match CrateInfo::from_path(project_root, cargo_toml) {
-                Ok(Some(info)) => check_manifest(info),
+                Ok(Some(info)) => {
+                    crates.push(info);
+                },
                 Ok(None) => {
                     log::debug!("Skipping \"{}\"", cargo_toml.display())
                 },
@@ -43,11 +48,49 @@ impl CheckManifests {
             }
         }
 
+        let mut diagnostics: Vec<_> = crates
+            .iter()
+            .filter_map(|c| check_manifest(c))
+            .map(Error::from)
+            .collect();
+
+        let versions: HashSet<_> =
+            crates.iter().map(|c| c.package.version.clone()).collect();
+
+        if versions.len() != 1 {
+            let e = anyhow::anyhow!("All published crates should have the same version, but found {:?}", versions);
+            diagnostics.push(e);
+        }
+
+        if diagnostics.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::from(BulkErrors(diagnostics)))
+        }
+    }
+}
+
+#[derive(Debug)]
+struct BulkErrors(Vec<Error>);
+
+impl std::error::Error for BulkErrors {}
+
+impl Display for BulkErrors {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.0.len() != 1 {
+            writeln!(f, "Several issues were found.")?;
+            writeln!(f)?;
+        }
+
+        for error in &self.0 {
+            writeln!(f, "{}", error)?;
+        }
+
         Ok(())
     }
 }
 
-fn check_manifest(info: CrateInfo<'_>) {
+fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
     let CrateInfo {
         short_path,
         package:
@@ -67,7 +110,7 @@ fn check_manifest(info: CrateInfo<'_>) {
 
     log::debug!("Checking \"{}\"", short_path.display());
 
-    let mut expect = DiagnosticBuilder::new(short_path);
+    let mut expect = Diagnostics::new(&short_path);
 
     expect.array_field("Authors", &authors).to_equal(AUTHORS);
     expect.array_field("Categories", &categories).is_not_empty();
@@ -86,18 +129,22 @@ fn check_manifest(info: CrateInfo<'_>) {
         .field("Repository", repository.as_deref())
         .is_set_to(REPOSITORY);
 
-    expect.print();
+    if expect.has_errors() {
+        Some(expect)
+    } else {
+        None
+    }
 }
 
 #[derive(Debug)]
-struct DiagnosticBuilder {
+struct Diagnostics {
     cargo_toml: PathBuf,
     messages: Vec<Diagnostic>,
 }
 
-impl DiagnosticBuilder {
+impl Diagnostics {
     fn new(cargo_toml: &Path) -> Self {
-        DiagnosticBuilder {
+        Diagnostics {
             cargo_toml: cargo_toml.to_path_buf(),
             messages: Vec::new(),
         }
@@ -134,34 +181,44 @@ impl DiagnosticBuilder {
         });
     }
 
-    fn print(&self) {
+    fn has_errors(&self) -> bool { !self.messages.is_empty() }
+}
+
+impl std::error::Error for Diagnostics {}
+
+impl Display for Diagnostics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.messages.as_slice() {
             [] => {},
             [message] => {
-                println!(
+                writeln!(
+                    f,
                     "There was 1 issue with \"{}\"",
                     self.cargo_toml.display()
-                );
-                println!("  {}", message);
+                )?;
+                writeln!(f, "  {}", message)?;
             },
             [messages @ ..] => {
-                println!(
+                writeln!(
+                    f,
                     "There were {} issues with \"{}\"",
                     messages.len(),
                     self.cargo_toml.display()
-                );
+                )?;
 
                 for message in messages {
-                    println!("  {}", message);
+                    writeln!(f, "  {}", message)?;
                 }
             },
         }
+
+        Ok(())
     }
 }
 
 #[derive(Debug)]
 struct ExpectArray<'diag, 'value, T> {
-    diags: &'diag mut DiagnosticBuilder,
+    diags: &'diag mut Diagnostics,
     field: &'static str,
     actual: &'value [T],
 }
@@ -200,7 +257,7 @@ impl Display for Diagnostic {
 }
 
 struct Expect<'diag, 'value> {
-    diags: &'diag mut DiagnosticBuilder,
+    diags: &'diag mut Diagnostics,
     field: &'static str,
     actual: Option<&'value str>,
 }
@@ -234,15 +291,15 @@ impl<'diag, 'value> Expect<'diag, 'value> {
     }
 }
 
-struct CrateInfo<'a> {
-    short_path: &'a Path,
+struct CrateInfo {
+    short_path: PathBuf,
     package: Package,
 }
 
-impl<'a> CrateInfo<'a> {
+impl CrateInfo {
     fn from_path(
-        project_root: &'a Path,
-        cargo_toml: &'a Path,
+        project_root: &Path,
+        cargo_toml: &Path,
     ) -> Result<Option<Self>, Error> {
         let stripped = cargo_toml.strip_prefix(project_root)?;
 
@@ -260,7 +317,7 @@ impl<'a> CrateInfo<'a> {
         }
 
         Ok(Some(CrateInfo {
-            short_path: stripped,
+            short_path: stripped.to_path_buf(),
             package,
         }))
     }
