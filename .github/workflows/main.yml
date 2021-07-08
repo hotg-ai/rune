@@ -109,7 +109,7 @@ jobs:
           folder: target/doc
 
   rune_native:
-    name: Generate the cross-platform runtime library
+    name: Build librune_native for ${{ matrix.target }}
     strategy:
       matrix:
         include:
@@ -151,22 +151,33 @@ jobs:
         with:
           crate: cross
       - name: Compile
-        run: cross build --package=rune-native --target=${{ runner.target }} --verbose --locked --release --no-default-features --features=${{ matrix.features }}
+        run: |
+          cross build --package=rune-native \
+                      --target=${{ matrix.target }} \
+                      --features=${{ matrix.features }} \
+                      --verbose --locked --release
       - name: Generate the header file
-        run: cross test --package=rune-native --target=${{ runner.target }} --verbose --locked --no-default-features --features=${{ matrix.features }} --features=c-headers -- generate_headers
+        run: |
+          cross test --package=rune-native \
+                     --target=${{ matrix.target }} \
+                     --features=${{ matrix.features }} \
+                     --features=c-headers \
+                     --verbose --locked --release \
+                     -- \
+                     generate_headers
       - name: Format the header file
         run: clang-format -i target/rune.h
       - name: Generate archive
         run: |
-          TARGET_DIR=target/${{ runner.target }}/release
+          TARGET_DIR=target/${{ matrix.target }}/release
           rm $TARGET_DIR/*.d
-          zip -j -9 rune_native.${{ runner.target }}.zip \
+          zip -j -9 rune_native.${{ matrix.target }}.zip \
             target/rune.h \
             $TARGET_DIR/*rune_native* \
             bindings/native/README.md
       - name: Upload archive
         uses: actions/upload-artifact@v2
         with:
-          name: rune_native.${{ runner.target }}
-          path: rune_native.${{ runner.target }}.zip
+          name: rune_native.${{ matrix.target }}
+          path: rune_native.${{ matrix.target }}.zip
 
