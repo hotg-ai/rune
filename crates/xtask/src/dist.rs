@@ -230,16 +230,17 @@ fn is_strippable(path: &Path) -> bool {
 
 fn generate_ffi_header(ctx: &Context) -> Result<(), Error> {
     let Context { dist, .. } = ctx;
-
     let header = dist.join("rune.h");
 
     log::debug!("Writing FFI headers to \"{}\"", header.display());
+
     let mut cmd = Command::new(&ctx.cargo);
     cmd.arg("test")
         .arg("--package=rune-native")
         .arg("--features=c-headers")
         .arg("--")
-        .arg("generate_headers");
+        .arg("generate_headers")
+        .env("RUNE_HEADER_FILE", &header);
 
     log::debug!("Executing {:?}", cmd);
     let status = cmd
@@ -352,7 +353,7 @@ fn compile_example_runes(ctx: &Context) -> Result<(), Error> {
     let destination_dir = dist.join("examples");
 
     let copy = BulkCopy::new(&[
-        "**/Runefile",
+        "**/Runefile.yml",
         "*.tflite",
         "*.csv",
         "*.wav",
@@ -366,7 +367,7 @@ fn compile_example_runes(ctx: &Context) -> Result<(), Error> {
         .context("Unable to read the examples directory")?
     {
         let dir = entry.context("Unable to read the dir entry")?;
-        let runefile = dir.path().join("Runefile");
+        let runefile = dir.path().join("Runefile.yml");
 
         if !runefile.exists() {
             continue;
@@ -447,6 +448,7 @@ fn compile_rune_binary(ctx: &Context) -> Result<(), Error> {
 
     BulkCopy::new(&["**/rune", "**/rune.exe", "**/*rune_native*"])?
         .with_max_depth(1)
+        .with_blacklist(&["*.d"])?
         .copy(target_dir.join("release"), dist)
         .context(
             "Unable to copy pre-compiled binaries into the dist directory",
