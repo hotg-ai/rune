@@ -2233,6 +2233,7 @@ name = "rune-native"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-info",
  "build-info-build",
  "log",
  "paste 1.0.5",
