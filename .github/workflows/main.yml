@@ -125,9 +125,6 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             features: wasmer-runtime,tflite
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            features: wasmer-runtime,tflite
           # iOS
           - os: macos-latest
             target: x86_64-apple-ios
