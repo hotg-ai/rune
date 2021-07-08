@@ -58,7 +58,8 @@ jobs:
       - name: Cargo.toml Sanity Checks
         uses: actions-rs/cargo@v1
         with:
-          command: xtask check-manifests
+          command: xtask
+          args: check-manifests
 
   api-docs:
     name: Generate API Docs
