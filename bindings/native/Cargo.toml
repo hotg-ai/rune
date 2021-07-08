@@ -25,7 +25,6 @@ safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
 build-info-build = "0.0.23"
 
 [features]
-default = ["tflite", "wasmer-runtime"]
 c-headers = ["safer-ffi/headers"]
 wasmer-runtime = ["rune-wasmer-runtime"]
 tflite = ["runicos-base-runtime/tflite"]

@@ -70,7 +70,7 @@ mod headers {
         } = get_build_info();
 
         writeln!(crate_docs, " * {} v{}", name, version)?;
-        writeln!(crate_docs)?;
+        writeln!(crate_docs, " *")?;
         writeln!(crate_docs, " * Authors: {}", authors.join(", "))?;
         if let Some(license) = license {
             writeln!(crate_docs, " * License: {}", license)?;
@@ -88,7 +88,10 @@ mod headers {
             enabled_features
                 .iter()
                 .map(|f| f.as_str())
-                .filter(|&f| f != "c-headers")
+                // We only care about feature flags that were explicitly
+                // requested, so ignore "default" and any optional dependencies
+                // which were enabled.
+                .filter(|f| !["default", "c-headers"].contains(f) && !f.starts_with("rune-"))
                 .collect::<Vec<_>>()
                 .join(", ")
         )?;
