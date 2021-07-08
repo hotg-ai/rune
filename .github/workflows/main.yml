@@ -143,6 +143,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "11.0"
+          directory: ${{ runner.temp }}/llvm
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
