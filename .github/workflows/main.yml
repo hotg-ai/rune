@@ -119,9 +119,6 @@ jobs:
             features: wasmer-runtime,tflite
           # Android
           - os: ubuntu-18.04
-            target: x86_64-linux-android
-            features: wasmer-runtime
-          - os: ubuntu-18.04
             target: aarch64-linux-android
             features: wasmer-runtime
           # MacOS
