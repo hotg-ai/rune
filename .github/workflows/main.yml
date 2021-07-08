@@ -107,3 +107,62 @@ jobs:
         with:
           branch: gh-pages
           folder: target/doc
+
+  rune_native:
+    name: Generate the cross-platform runtime library
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            features: wasmer-runtime,tflite
+          - os: ubuntu-18.04
+            target: armv7-linux-androideabi
+            features: wasmer-runtime
+          - os: ubuntu-18.04
+            target: aarch64-linux-android
+            features: wasmer-runtime
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            features: wasmer-runtime,tflite
+          - os: macos-latest
+            target: x86_64-apple-ios
+            features: wasmer-runtime,tflite
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Update Rustup
+        run: |
+          # We need to update rustup because the mac version is out of date and
+          # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
+          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
+        if: runner.os == 'macOS'
+      - name: Setup Rust
+        run: rustup show
+      - name: Compile
+        run: cross build --package=rune-native --target=${{ runner.target }} --verbose --locked --release --no-default-features --features=${{ matrix.features }}
+      - name: Generate the header file
+        run: cross test --package=rune-native --target=${{ runner.target }} --verbose --locked --no-default-features --features=${{ matrix.features }} --features=c-headers -- generate_headers
+      - name: Format the header file
+        run: clang-format -i target/rune.h
+      - name: Generate archive
+        run: |
+          TARGET_DIR=target/${{ runner.target }}/release
+          rm $TARGET_DIR/*.d
+          zip -j -9 rune_native.${{ runner.target }}.zip \
+            target/rune.h \
+            $TARGET_DIR/*rune_native* \
+            bindings/native/README.md
+      - name: Upload archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: rune_native.${{ runner.target }}
+          path: rune_native.${{ runner.target }}.zip
+
