@@ -129,10 +129,10 @@ jobs:
           # iOS
           - os: macos-latest
             target: x86_64-apple-ios
-            features: wasmer-runtime,tflite
+            features: wasmer-runtime
           - os: macos-latest
             target: aarch64-apple-ios
-            features: wasmer-runtime,tflite
+            features: wasmer-runtime
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
