@@ -347,25 +347,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cbindgen"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38728c31b994e4b849cf59feefb4a8bf26acd299ee0b92c9fb35bd14ad4b8dfa"
-dependencies = [
- "clap",
- "heck",
- "indexmap",
- "log",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
- "tempfile",
- "toml",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2171,7 +2152,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rune"
+name = "rune-cli"
 version = "0.4.0-dev"
 dependencies = [
  "anyhow",
@@ -3190,7 +3171,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
- "cbindgen",
  "codespan-reporting",
  "devx-pre-commit",
  "env_logger 0.8.4",

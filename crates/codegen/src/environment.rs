@@ -105,7 +105,12 @@ impl DefaultEnvironment {
             cmd.arg("--release");
         }
 
-        log::debug!("Executing {:?}", cmd);
+        log::debug!(
+            "Executing {:?} in \"{}\"",
+            cmd,
+            self.working_directory.display()
+        );
+
         let status = cmd
             .status()
             .context("Unable to start `cargo`. Is it installed?")?;

@@ -1,27 +1,11 @@
-mod build;
-mod graph;
-mod inspect;
-mod model_info;
-mod run;
-mod version;
-
-use strum::VariantNames;
 use anyhow::Error;
-use codespan_reporting::term::termcolor;
 use structopt::{clap::AppSettings, StructOpt};
-use env_logger::{Env, WriteStyle};
-use crate::{
-    graph::Graph, model_info::ModelInfo, inspect::Inspect, run::Run,
-    build::Build, version::Version,
+use env_logger::Env;
+use strum::VariantNames;
+use rune_cli::{
+    Build, ColorChoice, DEFAULT_RUST_LOG, Format, Graph, Inspect, ModelInfo,
+    Run, Version,
 };
-
-const DEFAULT_RUST_LOG: &str = concat!(
-    "info,",
-    "rune=debug,",
-    "rune_runtime=debug,",
-    "rune_codegen=debug,",
-    "rune_syntax=debug,",
-);
 
 fn main() -> Result<(), Error> {
     let Args {
@@ -43,7 +27,7 @@ fn main() -> Result<(), Error> {
         Some(Cmd::Run(run)) => run.execute(),
         Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
         Some(Cmd::Version(version)) => version.execute(),
-        Some(Cmd::ModelInfo(m)) => model_info::model_info(m),
+        Some(Cmd::ModelInfo(m)) => m.execute(),
         Some(Cmd::Inspect(i)) => i.execute(),
         None if version => {
             let v = Version {
@@ -78,36 +62,6 @@ pub struct Args {
     cmd: Option<Cmd>,
 }
 
-#[derive(
-    Debug, Copy, Clone, PartialEq, strum::EnumVariantNames, strum::EnumString,
-)]
-#[strum(serialize_all = "snake_case")]
-enum ColorChoice {
-    Always,
-    Auto,
-    Never,
-}
-
-impl From<ColorChoice> for termcolor::ColorChoice {
-    fn from(c: ColorChoice) -> termcolor::ColorChoice {
-        match c {
-            ColorChoice::Always => termcolor::ColorChoice::Always,
-            ColorChoice::Auto => termcolor::ColorChoice::Auto,
-            ColorChoice::Never => termcolor::ColorChoice::Never,
-        }
-    }
-}
-
-impl From<ColorChoice> for WriteStyle {
-    fn from(c: ColorChoice) -> WriteStyle {
-        match c {
-            ColorChoice::Always => WriteStyle::Always,
-            ColorChoice::Auto => WriteStyle::Auto,
-            ColorChoice::Never => WriteStyle::Never,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 #[structopt(setting(AppSettings::DisableVersion))]
 enum Cmd {
@@ -124,13 +78,4 @@ enum Cmd {
     Inspect(Inspect),
     /// Visualise the flow of data through a Rune.
     Graph(Graph),
-}
-
-#[derive(
-    Debug, Copy, Clone, PartialEq, strum::EnumVariantNames, strum::EnumString,
-)]
-#[strum(serialize_all = "snake_case")]
-pub enum Format {
-    Json,
-    Text,
 }
