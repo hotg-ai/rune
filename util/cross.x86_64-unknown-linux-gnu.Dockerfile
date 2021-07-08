@@ -8,4 +8,8 @@
 # See also: https://github.com/rust-embedded/cross#custom-docker-images
 FROM rustembedded/cross:x86_64-unknown-linux-gnu-0.2.1
 
-RUN apt-get update && apt-get install -y clang
+# Install the latest version of LLVM
+RUN apt-get update && \
+    apt-get install -y lsb-release wget software-properties-common apt-transport-https ca-certificates && \
+    bash -c "$(curl https://apt.llvm.org/llvm.sh)"
+

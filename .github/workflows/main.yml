@@ -112,6 +112,7 @@ jobs:
     name: Build librune_native for ${{ matrix.target }}
     strategy:
       matrix:
+        fail-fast: false
         include:
           # Linux
           - os: ubuntu-18.04
@@ -150,7 +151,7 @@ jobs:
         if: runner.os == 'macOS'
       - name: Setup Rust
         run: rustup show
-      - name: Install cargo-audit binary crate
+      - name: Install Cross
         uses: actions-rs/install@v0.1
         with:
           crate: cross
