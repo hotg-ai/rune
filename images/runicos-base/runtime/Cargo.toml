@@ -1,16 +1,23 @@
 [package]
 name = "runicos-base-runtime"
 version = "0.4.0-dev"
-authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
+authors = ["The Rune Developers <admin@hotg.ai>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["science", "wasm"]
+keywords = ["rune", "runtime", "tinyml", "container", "machine", "learning"]
+description = "The runtime side of the runicos/base image."
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.40"
 log = "0.4.14"
-rune-runtime = { path = "../../../crates/runtime", features = ["builtins"] }
-rune-core = { path = "../../../crates/rune-core" }
+rune-runtime = { path = "../../../crates/runtime", version = "0.4.0-dev", features = ["builtins"] }
+rune-core = { path = "../../../crates/rune-core", version = "0.4.0-dev" }
 serde_json = { version = "1" }
 tflite = { version = "0.9.5", optional = true }
 

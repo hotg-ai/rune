@@ -1,9 +1,15 @@
 [package]
 name = "rune-core"
 version = "0.4.0-dev"
-authors = ["Kartik Thakore <kartik@thakore.ai>", "Michael-F-Bryan <michael@hotg.ai>"]
 description = "Core abstractions and types used across the Rune platform."
 edition = "2018"
+authors = ["The Rune Developers <admin@hotg.ai>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["no-std", "science", "wasm"]
+keywords = ["rune", "tinyml", "container", "machine", "learning"]
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }

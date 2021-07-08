@@ -2213,11 +2213,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-proc-block-macros"
+version = "0.4.0-dev"
+dependencies = [
+ "difference",
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "rune-core",
+ "rune-proc-blocks",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
 name = "rune-proc-blocks"
 version = "0.4.0-dev"
 dependencies = [
  "rune-core",
- "rune_proc-block-macros",
+ "rune-proc-block-macros",
  "serde",
 ]
 
@@ -2262,21 +2277,6 @@ dependencies = [
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
-]
-
-[[package]]
-name = "rune_proc-block-macros"
-version = "0.4.0-dev"
-dependencies = [
- "difference",
- "pretty_assertions",
- "proc-macro2",
- "quote",
- "rune-core",
- "rune-proc-blocks",
- "serde",
- "serde_json",
- "syn",
 ]
 
 [[package]]
@@ -3112,6 +3112,7 @@ name = "xtask"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "cargo_toml",
  "cbindgen",
  "codespan-reporting",
  "devx-pre-commit",

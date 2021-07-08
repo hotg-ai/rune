@@ -1,16 +1,23 @@
 [package]
 name = "rune-wasmer-runtime"
 version = "0.4.0-dev"
-authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+authors = ["The Rune Developers <admin@hotg.ai>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["science", "wasm"]
+keywords = ["rune", "runtime", "tinyml", "container", "machine", "learning"]
+description = "A Rune runtime backed by wasmer."
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.40"
 log = "0.4.14"
-rune-runtime = { path = "../runtime" }
-rune-core = { path = "../rune-core" }
+rune-runtime = { path = "../runtime", version = "0.4.0-dev" }
+rune-core = { path = "../rune-core", version = "0.4.0-dev" }
 wasmer = "2.0"
 wasmer-types = "2.0"
 wasmer-vm = "2.0"

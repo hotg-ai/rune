@@ -2,10 +2,18 @@
 name = "rune-proc-blocks"
 version = "0.4.0-dev"
 edition = "2018"
+authors = ["The Rune Developers <admin@hotg.ai>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["no-std", "science", "wasm"]
+keywords = ["rune", "proc-block", "tensorflow"]
+description = "Core tools and abstractions for developing proc blocks in Rune"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rune_proc-block-macros = { path = "../macros" }
-rune-core = { path = "../../crates/rune-core", default-features = false }
+rune-proc-block-macros = { path = "../macros", version = "0.4.0-dev" }
+rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }

@@ -1,4 +1,4 @@
-name: Nightly
+name: Releases
 
 on:
   schedule:
@@ -141,11 +141,11 @@ jobs:
       - name: Fetch Pre-Compiled Binaries
         uses: actions/download-artifact@v2
         with:
-          path: nightly
+          path: releases
       - name: Move all up
-        run: mv nightly/**/* nightly/
+        run: mv releases/**/* releases/
       - name: Print Artifacts
-        run: ls -la nightly
+        run: ls -la releases
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: github.ref == 'refs/heads/master'
         with:
@@ -154,8 +154,8 @@ jobs:
           prerelease: true
           title: "Nightly Release"
           files: |
-            nightly/*.zip
-            nightly/*.whl
+            releases/*.zip
+            releases/*.whl
 
   docker:
     name: Publish Docker Image
@@ -166,7 +166,6 @@ jobs:
     env:
       ORGANISATION: tinyverseml
       REPO: rune-cli
-      TAG: nightly
     steps:
       - uses: actions/checkout@v2
       - name: Setting the container and tag variables

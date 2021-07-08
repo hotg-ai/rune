@@ -1,9 +1,15 @@
 [package]
 name = "rune-syntax"
 version = "0.4.0-dev"
-authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+authors = ["The Rune Developers <admin@hotg.ai>"]
 edition = "2018"
 description = "Runefile parsing and analysis."
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["science", "parser-implementations"]
+keywords = ["rune", "tinyml", "container", "machine", "learning"]
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

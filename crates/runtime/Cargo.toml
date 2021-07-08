@@ -1,9 +1,15 @@
 [package]
 name = "rune-runtime"
 version = "0.4.0-dev"
-authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
 edition = "2018"
+authors = ["The Rune Developers <admin@hotg.ai>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://hotg.dev/"
+repository = "https://github.com/hotg-ai/rune"
+categories = ["science", "wasm"]
+keywords = ["rune", "runtime", "tinyml", "container", "machine", "learning"]
 description = "Common abstractions and utilities used by Rune runtimes."
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,7 +19,7 @@ hound = { version = "3.4.0", optional = true }
 image = { version = "0.23.14", optional = true }
 log = "0.4.14"
 rand = { version = "0.8.3", optional = true }
-rune-core = { path = "../rune-core", features = ["std"] }
+rune-core = { path = "../rune-core", version = "0.4.0-dev", features = ["std"] }
 thiserror = "1.0.24"
 
 [features]
