@@ -1,0 +1,8 @@
+FROM runicos/base
+
+CAPABILITY<F32[1, 384, 384, 3]> content_image IMAGE
+CAPABILITY<F32[1, 256, 256, 3]> style_vector VECTOR
+MODEL<(F32[1, 384, 384, 3]],F32[1, 1, 1, 100]),F32[1, 384, 384, 3]> model ./style_transform.tflite
+OUT serial
+
+RUN content_image style_vector model serial

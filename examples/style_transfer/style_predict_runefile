@@ -1,0 +1,7 @@
+FROM runicos/base
+
+CAPABILITY<F32[1, 256, 256, 3]> image IMAGE
+MODEL<F32[1, 256, 256, 3],F32[1, 1, 1, 100]> model ./style_predict.tflite
+OUT serial
+
+RUN image model serial
