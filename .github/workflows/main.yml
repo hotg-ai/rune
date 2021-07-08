@@ -146,6 +146,10 @@ jobs:
         if: runner.os == 'macOS'
       - name: Setup Rust
         run: rustup show
+      - name: Install cargo-audit binary crate
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cross
       - name: Compile
         run: cross build --package=rune-native --target=${{ runner.target }} --verbose --locked --release --no-default-features --features=${{ matrix.features }}
       - name: Generate the header file
