@@ -113,20 +113,30 @@ jobs:
     strategy:
       matrix:
         include:
+          # Linux
           - os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             features: wasmer-runtime,tflite
+          # Android
           - os: ubuntu-18.04
-            target: armv7-linux-androideabi
+            target: x86_64-linux-android
             features: wasmer-runtime
           - os: ubuntu-18.04
             target: aarch64-linux-android
             features: wasmer-runtime
+          # MacOS
           - os: macos-latest
             target: x86_64-apple-darwin
             features: wasmer-runtime,tflite
           - os: macos-latest
+            target: aarch64-apple-darwin
+            features: wasmer-runtime,tflite
+          # iOS
+          - os: macos-latest
             target: x86_64-apple-ios
+            features: wasmer-runtime,tflite
+          - os: macos-latest
+            target: aarch64-apple-ios
             features: wasmer-runtime,tflite
     runs-on: ${{ matrix.os }}
     steps:
