@@ -6,6 +6,12 @@
 #include <string_view>
 #include <vector>
 
+template <typename Slice>
+std::string_view str(Slice slice)
+{
+    return std::string_view{reinterpret_cast<const char *>(slice.ptr), slice.len};
+}
+
 class Logger
 {
 public:
@@ -13,12 +19,6 @@ public:
     {
         std::cerr << "[" << rune_log_level_name(record.level) << " " << str(record.target) << "\n";
         return rune_result_RuneResult_new_ok(0);
-    }
-
-private:
-    std::string_view str(slice_raw_uint8_t slice)
-    {
-        return std::string_view{(const char *)(slice.ptr), slice.len};
     }
 };
 
@@ -114,6 +114,11 @@ int main(int argc, char **argv)
                   << "\n";
         return 1;
     }
+
+    auto version = rune_version();
+    std::cerr << "Rune version: "
+              << str(version)
+              << "\n";
 
     auto rune = read_file(argv[1]);
     slice_ref_uint8_t wasm{

@@ -7,10 +7,29 @@ mod image;
 #[cfg(feature = "wasmer-runtime")]
 pub mod wasmer_runtime;
 
+#[allow(unused_imports)]
+use std::ops::Not;
+
 pub(crate) type BoxedError = safer_ffi::boxed::Box<crate::error::Error>;
 
 decl_result_type! {
     type RuneResult = Result<u8, BoxedError>;
+}
+
+/// The version of Rune this library was compiled against.
+///
+/// This will return something like `"rune-native v0.1.0 built with
+/// rustc 1.54.0-nightly (1c6868aa2 2021-05-27) at 2021-07-08 09:12:58Z"`.
+#[safer_ffi::ffi_export]
+pub fn rune_version() -> safer_ffi::string::str_ref<'static> {
+    const VERSION: &str = build_info::format!(
+        "{} v{} built with {} at {}",
+        $.crate_info.name,
+        $.crate_info.version,
+        $.compiler,
+        $.timestamp);
+
+    VERSION.into()
 }
 
 /// Header file generation.
@@ -62,6 +81,7 @@ mod headers {
             writeln!(crate_docs, " * Commit: {}", commit_id)?;
         }
         writeln!(crate_docs, " * Compiler: {}", compiler)?;
+        writeln!(crate_docs, " * Target: {}", compiler.target_triple)?;
         writeln!(
             crate_docs,
             " * Enabled Features: {}",
