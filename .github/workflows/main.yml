@@ -111,8 +111,8 @@ jobs:
   rune_native:
     name: Build librune_native for ${{ matrix.target }}
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         include:
           # Linux
           - os: ubuntu-18.04
