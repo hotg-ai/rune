@@ -38,15 +38,26 @@ extern "C" {
         output_len: u32,
     ) -> u32;
 
-    /// Load a model.
+    /// Load a model using a mimetype and a list of "descriptors" for the inputs
+    /// and outputs.
+    ///
+    /// The mimetype will typically be something like
+    /// `"application/tflite-model"` and is used to figure out what type of
+    /// model is being provided.
+    ///
+    /// A tensor descriptor is a string like `"i16[3, 256, 256]"` which
+    /// describes a tensor's shape (i.e. element type and dimensions).
     ///
     /// ```rust,no_run
     /// let inputs = [StringRef::from("i16[1920]"), StringRef::from("u8[3, 256, 256]")];
     /// let outputs = [StringRef::from("f32[1]")];
     /// let model = b"...";
+    /// let mimetype = "application/tensorflow-lite";
     ///
     /// # unsafe {
     /// rune_model_load(
+    ///    mimetype.as_ptr(),
+    ///    mimetype.len() as u32,
     ///    model.as_ptr(),
     ///    model.len() as u32,
     ///    inputs.as_ptr(),
@@ -57,6 +68,8 @@ extern "C" {
     /// # }
     /// ```
     pub fn rune_model_load(
+        mimetype: *const u8,
+        mimetype_len: u32,
         model: *const u8,
         model_len: u32,
         input_descriptors: *const StringRef<'_>,
