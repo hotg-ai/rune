@@ -119,6 +119,10 @@ impl Printer {
 
 impl Callbacks for Printer {
     fn should_run(&mut self, name: &FullName) -> bool {
+        if self.filters.is_empty() {
+            return true;
+        }
+
         let name = name.to_string();
 
         self.filters.iter().any(|pattern| pattern.is_match(&name))
