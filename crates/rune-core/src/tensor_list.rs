@@ -1,40 +1,61 @@
 //! Abstractions for dealing with tuples of tensors.
 //!
-//! We need to do a lot of generic gymnastics here to be able to go from the
-//! world of types (e.g. an input parameter of `(Tensor<f32>, Tensor<u8>)`) to
+//! The main source of complexity in this module comes from jumping between the
+//! world of types (e.g. an input parameter of `(Tensor<f32>, Tensor<u8>)`) and
 //! the world of values (`&[Shape]`) so we can pass type information back to
 //! the runtime.
+//!
+//! I apologise in advance for all the generic gymnastics.
 
 use crate::{Shape, Tensor, reflect::ReflectionType};
 
 /// A helper trait which lets us get the shape from a tuple of different
 /// tensors.
-pub trait ReflectionTypeList<'a> {
+///
+/// Note that this is implemented for references (i.e. `&Tensor<i16>` and
+/// `&(Tensor<f32>, Tensor<u8>)`) so we can carry the lifetime around. Having
+/// access to the lifetime means we can borrow from the `Shape`'s dimension
+/// array instead of cloning them.
+pub trait TensorList<'a> {
     // Note: we could get rid of all these XXXBuffer types if const generics
     // were more fleshed out. You'd just need to define an associated
     // `const RANK: usize` then have each of the methods return something like
     // `[_; Self::Rank]`.
+    //
+    // It would also let us get rid of the lifetime because we can use
+    // `fn shape_list(&self) -> [Shape<'_>; Self::Rank]`.
+
     type ShapeBuffer: AsRef<[Shape<'a>]>;
     type ConstElementPtrBuffer: AsRef<[*const u8]>;
 
+    /// Get an array containing the [`Shape`] for each [`Tensor`] in this tuple.
     fn shape_list(&self) -> Self::ShapeBuffer;
+
+    /// Get an array containing pointers to the elements of each [`Tensor`] in
+    /// this tuple.
     fn element_ptr(&self) -> Self::ConstElementPtrBuffer;
 }
 
-pub trait ReflectionTypeListMut<'a> {
-    type Tensors;
+/// A set of tensors that can be mutated.
+pub trait TensorListMut {
     type MutElementPtrBuffer: AsMut<[*mut u8]>;
 
-    fn new_tensors(shape: &[Shape<'_>]) -> Self::Tensors;
+    /// Create a new set of empty tensors with the specified shape.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the shape doesn't match this [`TensorListMut`]
+    /// because there are a different number of tensors or one of the tensors
+    /// is the wrong type.
+    fn new_tensors(shape: &[Shape<'_>]) -> Self;
 
-    fn element_ptr_mut(
-        tensors: &mut Self::Tensors,
-    ) -> Self::MutElementPtrBuffer;
+    /// Get a set of mutable pointers into each tensor's backing buffer.
+    fn element_ptr_mut(&mut self) -> Self::MutElementPtrBuffer;
 }
 
-impl<'a, T> ReflectionTypeList<'a> for &'a Tensor<T>
+impl<'a, T> TensorList<'a> for &'a Tensor<T>
 where
-    T: ReflectionType + Default,
+    T: ReflectionType,
 {
     type ConstElementPtrBuffer = [*const u8; 1];
     type ShapeBuffer = [Shape<'a>; 1];
@@ -46,14 +67,13 @@ where
     }
 }
 
-impl<'a, T> ReflectionTypeListMut<'a> for &'a mut Tensor<T>
+impl<T> TensorListMut for Tensor<T>
 where
     T: ReflectionType + Default + Clone,
 {
     type MutElementPtrBuffer = [*mut u8; 1];
-    type Tensors = (Tensor<T>,);
 
-    fn new_tensors(shape: &[Shape<'_>]) -> Self::Tensors {
+    fn new_tensors(shape: &[Shape<'_>]) -> Self {
         match shape {
             [s] => {
                 assert_eq!(
@@ -61,20 +81,14 @@ where
                     &T::TYPE,
                     "Incorrect element type"
                 );
-                (Tensor::filled_with(
-                    s.dimensions().to_vec(),
-                    Default::default,
-                ),)
+                Tensor::zeroed(s.dimensions().to_vec())
             },
             _ => panic!("Expected a shape with 1 element, found {:?}", shape),
         }
     }
 
-    fn element_ptr_mut(
-        tensors: &mut Self::Tensors,
-    ) -> Self::MutElementPtrBuffer {
-        let (tensor,) = tensors;
-        [tensor.make_elements_mut().as_mut_ptr() as *mut u8]
+    fn element_ptr_mut(&mut self) -> Self::MutElementPtrBuffer {
+        [self.make_elements_mut().as_mut_ptr() as *mut u8]
     }
 }
 
@@ -84,14 +98,15 @@ macro_rules! count {
     () => { 0 };
 }
 
-/// Recursively implement [`ReflectionTypeList`] for tuples of any length.
+/// Recursively implement our traits for tuples of any length up to a finite
+/// number.
 macro_rules! reflection_type_list {
     ($first:ident $(, $dim:ident)* $(,)*) => {
         #[allow(non_snake_case)]
-        impl<'a, $first, $($dim),*> ReflectionTypeList<'a> for &'a (Tensor<$first>, $(Tensor<$dim>),*)
+        impl<'a, $first, $($dim),*> TensorList<'a> for &'a (Tensor<$first>, $(Tensor<$dim>),*)
         where
-            $first: ReflectionType + Default + Clone,
-            $( $dim: ReflectionType + Default + Clone ),*
+            $first: ReflectionType,
+            $($dim: ReflectionType),*
         {
             type ShapeBuffer = [Shape<'a>; count!($first, $($dim),*)];
             type ConstElementPtrBuffer  = [*const u8; count!($first, $($dim),*)];
@@ -117,28 +132,21 @@ macro_rules! reflection_type_list {
         }
 
         #[allow(non_snake_case)]
-        impl<'a, $first, $($dim),*> ReflectionTypeListMut<'a> for &'a mut (Tensor<$first>, $(Tensor<$dim>),*)
+        impl<$first, $($dim),*> TensorListMut for (Tensor<$first>, $(Tensor<$dim>),*)
         where
             $first: ReflectionType + Default + Clone,
             $( $dim: ReflectionType + Default + Clone ),*
         {
-            type Tensors = (Tensor<$first>, $(Tensor<$dim>),*);
             type MutElementPtrBuffer  = [*mut u8; count!($first, $($dim),*)];
 
-            fn new_tensors(shape: &[Shape<'_>]) -> Self::Tensors {
+            fn new_tensors(shape: &[Shape<'_>]) -> Self {
                 match shape {
                     [$first, $($dim),*] => {
                         assert_eq!($first.element_type(), &<$first>::TYPE, "Incorrect element type");
-                        let $first = Tensor::filled_with(
-                            $first.dimensions().to_vec(),
-                            Default::default,
-                        );
+                        let $first = Tensor::zeroed($first.dimensions().to_vec());
                         $(
                             assert_eq!($dim.element_type(), &<$dim>::TYPE, "Incorrect element type");
-                            let $dim = Tensor::filled_with(
-                                $dim.dimensions().to_vec(),
-                                Default::default,
-                            );
+                            let $dim = Tensor::zeroed($dim.dimensions().to_vec());
                         )*
 
                         ($first, $($dim),*)
@@ -151,8 +159,8 @@ macro_rules! reflection_type_list {
                 }
             }
 
-            fn element_ptr_mut(tensors: &mut Self::Tensors) -> Self::MutElementPtrBuffer {
-                let ($first, $($dim),* ) = tensors;
+            fn element_ptr_mut(&mut self) -> Self::MutElementPtrBuffer {
+                let ($first, $($dim),* ) = self;
 
                 [
                     $first.make_elements_mut().as_mut_ptr() as *mut u8,
@@ -198,7 +206,7 @@ mod tests {
         ];
 
         let (a, b, c) =
-            <&mut (Tensor<f32>, Tensor<u8>, Tensor<i16>)>::new_tensors(&shapes);
+            <(Tensor<f32>, Tensor<u8>, Tensor<i16>)>::new_tensors(&shapes);
 
         let got = [a.shape(), b.shape(), c.shape()];
         assert_eq!(got, shapes);
@@ -209,8 +217,7 @@ mod tests {
     fn incorrect_shape_list_length() {
         let shapes = [Shape::new(Type::f32, [1_usize].as_ref())];
 
-        let _ =
-            <&mut (Tensor<f32>, Tensor<u8>, Tensor<i16>)>::new_tensors(&shapes);
+        let _ = <(Tensor<f32>, Tensor<u8>, Tensor<i16>)>::new_tensors(&shapes);
     }
 
     #[test]
@@ -218,6 +225,6 @@ mod tests {
     fn incorrect_type_in_shape_list() {
         let shapes = [Shape::new(Type::f32, [1_usize].as_ref())];
 
-        let _ = <&mut Tensor<i16>>::new_tensors(&shapes);
+        let _ = <Tensor<i16>>::new_tensors(&shapes);
     }
 }

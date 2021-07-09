@@ -11,9 +11,9 @@ mod logging;
 mod pipelines;
 mod pixel_format;
 pub mod reflect;
-mod reflection_type_list;
 mod shape;
 mod tensor;
+mod tensor_list;
 mod value;
 
 pub use crate::{
@@ -23,8 +23,8 @@ pub use crate::{
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},
     logging::SerializableRecord,
-    shape::{Shape},
-    reflection_type_list::{ReflectionTypeList, ReflectionTypeListMut},
+    shape::Shape,
+    tensor_list::{TensorList, TensorListMut},
 };
 
 pub mod capabilities {
