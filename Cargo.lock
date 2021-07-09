@@ -2201,6 +2201,7 @@ dependencies = [
  "pretty_assertions",
  "proc-macro2",
  "quote",
+ "rune-core",
  "rune-syntax",
  "serde",
  "serde_json",

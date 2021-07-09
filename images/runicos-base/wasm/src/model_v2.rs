@@ -6,8 +6,6 @@ use alloc::{
 use core::marker::PhantomData;
 use crate::intrinsics::StringRef;
 
-const TFLITE_MIMETYPE: &str = "application/tflite-model";
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Model<Input, Output> {
     id: u32,
@@ -17,7 +15,8 @@ pub struct Model<Input, Output> {
 }
 
 impl<Input, Output> Model<Input, Output> {
-    pub fn new(
+    pub fn load(
+        mimetype: &str,
         model_data: &[u8],
         input_shapes: &[Shape<'static>],
         output_shapes: &[Shape<'static>],
@@ -37,8 +36,8 @@ impl<Input, Output> Model<Input, Output> {
                 .collect();
 
             crate::intrinsics::rune_model_load(
-                TFLITE_MIMETYPE.as_ptr(),
-                TFLITE_MIMETYPE.len() as u32,
+                mimetype.as_ptr(),
+                mimetype.len() as u32,
                 model_data.as_ptr(),
                 model_data.len() as u32,
                 input_shape_descriptors.as_ptr(),
