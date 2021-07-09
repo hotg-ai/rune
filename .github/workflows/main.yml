@@ -127,12 +127,13 @@ jobs:
             target: x86_64-apple-darwin
             features: wasmer-runtime,tflite
           # iOS
+          # (note: wasmer doesn't support iOS - https://github.com/wasmerio/wasmer/issues/1832)
           - os: macos-latest
             target: x86_64-apple-ios
-            features: wasmer-runtime
+            features: ""
           - os: macos-latest
             target: aarch64-apple-ios
-            features: wasmer-runtime
+            features: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
