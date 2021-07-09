@@ -123,15 +123,15 @@ jobs:
             target: aarch64-linux-android
             features: wasmer-runtime
           # MacOS
-          - os: ubuntu-18.04
+          - os: macos-latest
             target: x86_64-apple-darwin
             features: wasmer-runtime
           # iOS
           # (note: wasmer doesn't support iOS - https://github.com/wasmerio/wasmer/issues/1832)
-          - os: ubuntu-18.04
+          - os: macos-latest
             target: x86_64-apple-ios
             features: ""
-          - os: ubuntu-18.04
+          - os: macos-latest
             target: aarch64-apple-ios
             features: ""
     runs-on: ${{ matrix.os }}
