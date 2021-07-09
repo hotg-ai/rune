@@ -185,7 +185,9 @@ jobs:
           zip -j -9 rune_native.${{ matrix.target }}.zip \
             target/rune.h \
             $TARGET_DIR/*rune_native* \
-            bindings/native/README.md
+            bindings/native/README.md \
+            LICENSE_*.md \
+            CHANGELOG.md
       - name: Upload archive
         uses: actions/upload-artifact@v2
         with:
