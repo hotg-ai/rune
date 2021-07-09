@@ -123,15 +123,15 @@ jobs:
             target: aarch64-linux-android
             features: wasmer-runtime
           # MacOS
-          - os: macos-latest
+          - os: ubuntu-18.04
             target: x86_64-apple-darwin
             features: wasmer-runtime
           # iOS
           # (note: wasmer doesn't support iOS - https://github.com/wasmerio/wasmer/issues/1832)
-          - os: macos-latest
+          - os: ubuntu-18.04
             target: x86_64-apple-ios
             features: ""
-          - os: macos-latest
+          - os: ubuntu-18.04
             target: aarch64-apple-ios
             features: ""
     runs-on: ${{ matrix.os }}
@@ -173,7 +173,7 @@ jobs:
                      --target=${{ matrix.target }} \
                      --features=${{ matrix.features }} \
                      --features=c-headers \
-                     --verbose --locked --release --lib \
+                     --verbose --locked --release \
                      -- \
                      generate_headers
       - name: Format the header file
