@@ -308,7 +308,7 @@ fn initialize_model(
         .map(|s| shape(&s));
 
     quote! {
-        let mut sine = #image_crate::MultiModel::load(
+        let mut #name = #image_crate::MultiModel::load(
             #TFLITE_MIMETYPE,
             include_bytes!(#model_file),
             &[ #(#inputs),* ],
@@ -360,7 +360,7 @@ fn shape(s: &Shape<'_>) -> TokenStream {
     quote! {
         rune_core::Shape::new(
             rune_core::reflect::Type::#element_type,
-            &[#(#dimensions),*]
+            [#(#dimensions),*].as_ref()
         )
     }
 }
@@ -1017,12 +1017,12 @@ mod tests {
                 #TFLITE_MIMETYPE,
                 include_bytes!("sine.tflite"),
                 &[
-                    rune_core::Shape::new(rune_core::reflect::Type::u8, &[18000usize]),
-                    rune_core::Shape::new(rune_core::reflect::Type::f32, &[1usize])
+                    rune_core::Shape::new(rune_core::reflect::Type::u8, [18000usize].as_ref()),
+                    rune_core::Shape::new(rune_core::reflect::Type::f32, [1usize].as_ref())
                 ],
                 &[
-                    rune_core::Shape::new(rune_core::reflect::Type::u8, &[1usize]),
-                    rune_core::Shape::new(rune_core::reflect::Type::i16, &[2usize, 3usize, 4usize])
+                    rune_core::Shape::new(rune_core::reflect::Type::u8, [1usize].as_ref()),
+                    rune_core::Shape::new(rune_core::reflect::Type::i16, [2usize, 3usize, 4usize].as_ref())
                 ],
             );
         };

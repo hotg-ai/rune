@@ -1,4 +1,4 @@
-use rune_core::{Shape, TensorList, TensorListMut};
+use rune_core::{Shape, TensorList, TensorListMut, HasOutputs};
 use alloc::{
     vec::Vec,
     string::{String, ToString},
@@ -61,7 +61,7 @@ where
     for<'a> &'a Input: TensorList<'a>,
     Output: TensorListMut,
 {
-    pub fn process(&mut self, inputs: Input) -> Output {
+    pub fn transform(&mut self, inputs: Input) -> Output {
         assert_eq!(
             (&inputs).shape_list().as_ref(),
             &self.input_shapes,
@@ -83,3 +83,5 @@ where
         outputs
     }
 }
+
+impl<Input, Output> HasOutputs for Model<Input, Output> {}
