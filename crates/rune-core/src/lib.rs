@@ -11,6 +11,7 @@ mod logging;
 mod pipelines;
 mod pixel_format;
 pub mod reflect;
+mod shape;
 mod tensor;
 mod value;
 
@@ -21,6 +22,7 @@ pub use crate::{
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},
     logging::SerializableRecord,
+    shape::Shape,
 };
 
 pub mod capabilities {

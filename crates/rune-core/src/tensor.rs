@@ -7,6 +7,8 @@ use core::{
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::{Shape, reflect::ReflectionType};
+
 /// A multidimensional array with copy-on-write semantics.
 ///
 /// # Examples
@@ -62,6 +64,13 @@ impl<T> Tensor<T> {
         elements.resize_with(len, f);
 
         Tensor::new_row_major(elements.into(), dimensions)
+    }
+
+    pub fn shape(&self) -> Shape<'_>
+    where
+        T: ReflectionType,
+    {
+        Shape::new(T::TYPE, self.dimensions())
     }
 
     /// Get the [`Tensor`]'s dimensions.
