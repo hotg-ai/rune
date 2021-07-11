@@ -1,0 +1,39 @@
+image: runicos/base
+version: 1
+
+pipeline:
+  content_image:
+    capability: IMAGE
+    outputs:
+    - type: u8
+      dimensions: [1, 384, 384, 3]
+
+  normalized_content_image:
+    proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
+    inputs:
+    - content_image
+    outputs:
+    - type: f32
+      dimensions: [1, 384, 384, 3]
+
+  style_vector:
+    model: ./style_predict.tflite
+    inputs:
+    - normalized_content_image
+    outputs:
+    - type: f32
+      dimensions: [1, 1, 1, 100]
+
+  style_transform:
+    model: ./style_transform.tflite
+    inputs:
+    - normalized_content_image
+    - style_vector
+    outputs:
+    - type: f32
+      dimensions: [1, 384, 384, 3]
+
+  serial:
+    out: SERIAL
+    inputs:
+    - style_transform
