@@ -2336,6 +2336,7 @@ dependencies = [
  "log",
  "rune-core",
  "rune-runtime",
+ "rune-wasmer-runtime",
  "serde_json",
  "syn",
  "tflite",

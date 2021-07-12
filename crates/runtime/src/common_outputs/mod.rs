@@ -1,12 +1,16 @@
-mod serial;
+use anyhow::{Error, Context};
+use crate::Output;
 
-use std::fmt::Debug;
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Serial {}
 
-pub use self::serial::Serial;
+impl Output for Serial {
+    fn consume(&mut self, buffer: &[u8]) -> Result<(), Error> {
+        let json = std::str::from_utf8(buffer)
+            .context("Unable to parse the input as UTF-8")?;
 
-use anyhow::Error;
+        log::info!("Serial: {}", json);
 
-/// Something a Rune can send output to.
-pub trait Output: Send + Debug + 'static {
-    fn consume(&mut self, buffer: &[u8]) -> Result<(), Error>;
+        Ok(())
+    }
 }

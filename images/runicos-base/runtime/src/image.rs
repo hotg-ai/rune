@@ -1,616 +1,1073 @@
 use std::{
+    cell::Cell,
     collections::HashMap,
-    convert::TryFrom,
+    convert::TryInto,
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
     },
 };
-use crate::Model;
-use log::{Level, Record};
-use rune_runtime::{
-    CallContext, Capability, Function, Image, Output, Registrar,
-    common_capabilities::Random,
-};
+use log::Record;
 use anyhow::{Context, Error};
-use rune_core::{SerializableRecord, Type, Value};
+use rune_core::{SerializableRecord, Shape, capabilities, outputs};
+use rune_runtime::{
+    Capability, Image, Output, common_capabilities::Random,
+    common_outputs::Serial,
+};
+use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
+use rune_wasmer_runtime::Registrar;
 
-type OutputFactory =
-    dyn Fn() -> Result<Box<dyn Output>, Error> + Send + Sync + 'static;
-type CapabilityFactory =
-    dyn Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static;
-type LogFunc = dyn Fn(&Record) -> Result<(), Error> + Sync + Send + 'static;
-type ModelFactory =
-    dyn Fn(&[u8]) -> Result<Box<dyn Model>, Error> + Send + Sync + 'static;
+const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
-#[derive(Clone)]
+type LogFunc = dyn Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static;
+
 pub struct BaseImage {
-    accelerometer: Arc<CapabilityFactory>,
-    image: Arc<CapabilityFactory>,
+    capabilities: HashMap<u32, Box<dyn CapabilityFactory>>,
+    models: HashMap<String, Box<dyn ModelFactory>>,
+    outputs: HashMap<u32, Box<dyn OutputFactory>>,
     log: Arc<LogFunc>,
-    model: Arc<ModelFactory>,
-    rand: Arc<CapabilityFactory>,
-    serial: Arc<OutputFactory>,
-    sound: Arc<CapabilityFactory>,
-    raw: Arc<CapabilityFactory>,
 }
 
 impl BaseImage {
-    pub fn new() -> Self { BaseImage::default() }
-
-    pub fn with_log<F>(&mut self, log: F) -> &mut Self
-    where
-        F: Fn(&Record) -> Result<(), Error> + Sync + Send + 'static,
-    {
-        self.log = Arc::new(log);
-        self
-    }
-
-    pub fn with_rand<F>(&mut self, rand: F) -> &mut Self
-    where
-        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
-    {
-        self.rand = Arc::new(rand);
-        self
-    }
-
-    pub fn with_accelerometer<F>(&mut self, accelerometer: F) -> &mut Self
-    where
-        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
-    {
-        self.accelerometer = Arc::new(accelerometer);
-        self
-    }
-
-    pub fn with_sound<F>(&mut self, sound: F) -> &mut Self
-    where
-        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
-    {
-        self.sound = Arc::new(sound);
-        self
-    }
-
-    pub fn with_image<F>(&mut self, image: F) -> &mut Self
-    where
-        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
-    {
-        self.image = Arc::new(image);
-        self
-    }
-
-    pub fn with_raw<F>(&mut self, raw: F) -> &mut Self
-    where
-        F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
-    {
-        self.raw = Arc::new(raw);
-        self
-    }
-
-    pub fn with_serial<F>(&mut self, serial: F) -> &mut Self
-    where
-        F: Fn() -> Result<Box<dyn Output>, Error> + Send + Sync + 'static,
-    {
-        self.serial = Arc::new(serial);
-        self
-    }
-
-    pub fn with_model<F>(&mut self, model: F) -> &mut Self
-    where
-        F: Fn(&[u8]) -> Result<Box<dyn Model>, Error> + Send + Sync + 'static,
-    {
-        self.model = Arc::new(model);
-        self
-    }
-}
-
-impl Default for BaseImage {
-    fn default() -> Self {
+    pub fn new() -> Self {
         BaseImage {
-            accelerometer: Arc::new(|| {
-                anyhow::bail!("The accelerometer capability is not supported")
-            }),
-            raw: Arc::new(|| {
-                anyhow::bail!("The raw capability is not supported")
-            }),
-            image: Arc::new(|| {
-                anyhow::bail!("The image capability is not supported")
-            }),
-            rand: Arc::new(initialize_rand),
-            serial: Arc::new(initialize_serial_output),
-            sound: Arc::new(|| {
-                anyhow::bail!("The sound capability is not supported")
-            }),
-            model: Arc::new(crate::initialize_model),
-            log: Arc::new(|record| {
-                log::logger().log(record);
-                Ok(())
-            }),
+            capabilities: HashMap::new(),
+            models: HashMap::new(),
+            outputs: HashMap::new(),
+            log: Arc::new(|_| Ok(())),
         }
     }
-}
 
-impl Image for BaseImage {
-    fn initialize_imports(self, registrar: &mut dyn Registrar) {
-        let ids = Identifiers::default();
-        let outputs = Arc::new(Mutex::new(HashMap::new()));
-        let capabilities = Arc::new(Mutex::new(HashMap::new()));
-        let models = Arc::new(Mutex::new(HashMap::new()));
+    pub fn with_defaults() -> Self {
+        let mut image = BaseImage::new();
 
-        registrar.register_function("env", "_debug", log(&self.log));
+        image
+            .with_logger(|r| {
+                log::logger().log(r);
+                Ok(())
+            })
+            .register_output(outputs::SERIAL, serial_factory)
+            .register_capability(capabilities::RAND, || {
+                Ok(Box::new(Random::from_os()) as Box<dyn Capability>)
+            });
 
-        let output_factories = Outputs {
-            serial: Arc::clone(&self.serial),
-        };
-        registrar.register_function(
-            "env",
-            "request_output",
-            request_output(&ids, &outputs, output_factories),
-        );
-        registrar.register_function(
-            "env",
-            "consume_output",
-            consume_output(&outputs),
-        );
+        #[cfg(feature = "tflite")]
+        image.register_model(TFLITE_MIMETYPE, tf::initialize_model);
 
-        let capability_factories = Capabilities {
-            rand: Arc::clone(&self.rand),
-            accel: Arc::clone(&self.accelerometer),
-            image: Arc::clone(&self.image),
-            sound: Arc::clone(&self.sound),
-            raw: Arc::clone(&self.raw),
-        };
-        registrar.register_function(
-            "env",
-            "request_capability",
-            request_capability(&ids, &capabilities, capability_factories),
-        );
-        registrar.register_function(
-            "env",
-            "request_capability_set_param",
-            request_capability_set_param(&capabilities),
-        );
-        registrar.register_function(
-            "env",
-            "request_provider_response",
-            request_provider_response(&capabilities),
-        );
+        image
+    }
 
-        registrar.register_function(
-            "env",
-            "tfm_preload_model",
-            tfm_preload_model(&ids, &models, &self.model),
-        );
-        registrar.register_function(
-            "env",
-            "tfm_model_invoke",
-            tfm_model_invoke(&models),
-        );
+    pub fn with_logger<F>(&mut self, log_func: F) -> &mut Self
+    where
+        F: Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static,
+    {
+        self.log = Arc::new(log_func);
+        self
+    }
+
+    pub fn register_capability(
+        &mut self,
+        id: u32,
+        factory: impl CapabilityFactory,
+    ) -> &mut Self {
+        self.capabilities.insert(id, Box::new(factory));
+        self
+    }
+
+    pub fn register_output(
+        &mut self,
+        id: u32,
+        factory: impl OutputFactory,
+    ) -> &mut Self {
+        self.outputs.insert(id, Box::new(factory));
+        self
+    }
+
+    pub fn register_model(
+        &mut self,
+        mimetype: &str,
+        factory: impl ModelFactory,
+    ) -> &mut Self {
+        self.models.insert(mimetype.to_string(), Box::new(factory));
+        self
     }
 }
 
-fn consume_output(
-    outputs: &Arc<Mutex<HashMap<u32, Box<dyn Output>>>>,
-) -> Function {
-    let outputs = Arc::clone(outputs);
+impl<'vm> Image<Registrar<'vm>> for BaseImage {
+    fn initialize_imports(self, registrar: &mut Registrar<'vm>) {
+        let BaseImage {
+            capabilities,
+            models,
+            outputs,
+            log,
+        } = self;
+        let identifiers = Identifiers::default();
 
-    Function::new(
-        move |ctx: &dyn CallContext, (id, address, len): (u32, u32, u32)| {
-            let data = ctx.memory(address, len).context("Bad input pointer")?;
-            let mut outputs = outputs.lock().unwrap();
-            let output = outputs.get_mut(&id).context("Invalid output")?;
-            output.consume(data)?;
-
-            Ok(0)
-        },
-    )
-}
-
-struct Outputs {
-    serial: Arc<OutputFactory>,
-}
-
-fn log(log: &Arc<LogFunc>) -> Function {
-    let log = Arc::clone(log);
-
-    Function::new(move |ctx: &dyn CallContext, (msg, len): (u32, u32)| {
-        let msg = ctx.utf8_str(msg, len)?;
-
-        // this is a little more verbose than normal because we want to try
-        // *really* hard to log messages and abort on errors.
-        match serde_json::from_str::<SerializableRecord>(msg) {
-            Ok(r) => {
-                r.with_record(|record| log(record))?;
-
-                if r.level == Level::Error {
-                    // Make sure we abort on error
-                    return Err(Error::msg(r.message.into_owned()));
-                }
-            },
-            Err(_) => {
-                log(&Record::builder().args(format_args!("{}", msg)).build())?;
-            },
+        let log_env = LogEnv {
+            log,
+            memory: LazyInit::new(),
+        };
+        let cap_env = CapabilityEnv {
+            factories: Arc::new(capabilities),
+            instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
+        };
+        let model_env = ModelEnv {
+            factories: Arc::new(models),
+            instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
+        };
+        let output_env = OutputEnv {
+            factories: Arc::new(outputs),
+            instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers,
+            memory: LazyInit::new(),
         };
 
-        Ok(0)
-    })
+        let store = registrar.store();
+
+        registrar
+            .register_function(
+                "env",
+                "_debug",
+                Function::new_native_with_env(store, log_env, debug),
+            )
+            .register_function(
+                "env",
+                "request_capability",
+                Function::new_native_with_env(
+                    store,
+                    cap_env.clone(),
+                    request_capability,
+                ),
+            )
+            .register_function(
+                "env",
+                "request_capability_set_param",
+                Function::new_native_with_env(
+                    store,
+                    cap_env.clone(),
+                    request_capability_set_param,
+                ),
+            )
+            .register_function(
+                "env",
+                "request_provider_response",
+                Function::new_native_with_env(
+                    store,
+                    cap_env.clone(),
+                    request_provider_response,
+                ),
+            )
+            .register_function(
+                "env",
+                "tfm_model_invoke",
+                Function::new_native_with_env(
+                    store,
+                    model_env.clone(),
+                    tfm_model_invoke,
+                ),
+            )
+            .register_function(
+                "env",
+                "tfm_preload_model",
+                Function::new_native_with_env(
+                    store,
+                    model_env.clone(),
+                    tfm_preload_model,
+                ),
+            )
+            .register_function(
+                "env",
+                "rune_model_load",
+                Function::new_native_with_env(
+                    store,
+                    model_env.clone(),
+                    rune_model_load,
+                ),
+            )
+            .register_function(
+                "env",
+                "rune_model_infer",
+                Function::new_native_with_env(
+                    store,
+                    model_env,
+                    rune_model_infer,
+                ),
+            )
+            .register_function(
+                "env",
+                "request_output",
+                Function::new_native_with_env(
+                    store,
+                    output_env.clone(),
+                    request_output,
+                ),
+            )
+            .register_function(
+                "env",
+                "consume_output",
+                Function::new_native_with_env(
+                    store,
+                    output_env,
+                    consume_output,
+                ),
+            );
+    }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Identifiers(Arc<AtomicU32>);
 
 impl Identifiers {
     fn next(&self) -> u32 { self.0.fetch_add(1, Ordering::SeqCst) }
 }
 
+#[derive(Clone, wasmer::WasmerEnv)]
+struct OutputEnv {
+    factories: Arc<HashMap<u32, Box<dyn OutputFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Output>>>>,
+    identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
 fn request_output(
-    ids: &Identifiers,
-    outputs: &Arc<Mutex<HashMap<u32, Box<dyn Output>>>>,
-    constructors: Outputs,
-) -> Function {
-    let ids = ids.clone();
-    let outputs = Arc::clone(outputs);
+    env: &OutputEnv,
+    output_type: u32,
+) -> Result<u32, RuntimeError> {
+    let factory = env
+        .factories
+        .get(&output_type)
+        .with_context(|| match rune_core::outputs::name(output_type) {
+            Some(name) => {
+                format!("No handler registered for output \"{}\"", name)
+            },
+            None => format!("No handler registered for output {}", output_type),
+        })
+        .map_err(runtime_error)?;
 
-    Function::new(move |_: &dyn CallContext, (output_type,): (u32,)| {
-        let output = match output_type {
-            rune_core::outputs::SERIAL => (constructors.serial)()
-                .context("Unable to create a new SERIAL output")?,
-            _ => anyhow::bail!("Unknown output type: {}", output_type),
-        };
+    let output = factory
+        .new_output(None)
+        .context("Unable to instantiate the output")
+        .map_err(runtime_error)?;
 
-        let id = ids.next();
-        log::debug!("Output {} = {:?}", id, output);
-        outputs.lock().unwrap().insert(id, output);
+    let id = env.identifiers.next();
+    env.instances.lock().unwrap().insert(id, output);
 
-        Ok(id)
-    })
+    Ok(id)
 }
 
-struct Capabilities {
-    accel: Arc<CapabilityFactory>,
-    image: Arc<CapabilityFactory>,
-    rand: Arc<CapabilityFactory>,
-    sound: Arc<CapabilityFactory>,
-    raw: Arc<CapabilityFactory>,
+fn consume_output(
+    env: &OutputEnv,
+    output_id: u32,
+    buffer: WasmPtr<u8, Array>,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let mut outputs = env.instances.lock().unwrap();
+    let output = outputs
+        .get_mut(&output_id)
+        .with_context(|| format!("There is no output with ID {}", output_id))
+        .map_err(runtime_error)?;
+
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    let buffer = buffer
+        .deref(memory, 0, len)
+        .context("Invalid input")
+        .map_err(runtime_error)?;
+
+    // Safety: This function isn't reentrant so there are no concurrent
+    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    let buffer = unsafe {
+        std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len())
+    };
+
+    output
+        .consume(buffer)
+        .context("Unable to consume the data")
+        .map_err(runtime_error)?;
+
+    Ok(len)
 }
 
-fn request_capability(
-    ids: &Identifiers,
-    capabilities: &Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
-    factories: Capabilities,
-) -> Function {
-    let ids = ids.clone();
-    let capabilities = Arc::clone(capabilities);
-
-    Function::new(move |_, capability_type: u32| {
-        let cap = match capability_type {
-            rune_core::capabilities::ACCEL => (factories.accel)()?,
-            rune_core::capabilities::IMAGE => (factories.image)()?,
-            rune_core::capabilities::RAND => (factories.rand)()?,
-            rune_core::capabilities::SOUND => (factories.sound)()?,
-            rune_core::capabilities::RAW => (factories.raw)()?,
-            _ => anyhow::bail!("Unknown capability type: {}", capability_type),
-        };
-
-        let id = ids.next();
-        capabilities.lock().unwrap().insert(id, cap);
-        Ok(id)
-    })
-}
-
-fn request_capability_set_param(
-    capabilities: &Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
-) -> Function {
-    let capabilities = Arc::clone(capabilities);
-
-    Function::new(
-        move |ctx,
-              (
-            capability_id,
-            key_ptr,
-            key_len,
-            value_ptr,
-            value_len,
-            value_type,
-        ): (u32, u32, u32, u32, u32, u32)| {
-            let mut capabilities = capabilities.lock().unwrap();
-            let capability = capabilities
-                .get_mut(&capability_id)
-                .context("Unknown capability")?;
-
-            let key = ctx
-                .utf8_str(key_ptr, key_len)
-                .context("Unable to read the key")?;
-            let value = ctx
-                .memory(value_ptr, value_len)
-                .context("Unable to read the value")?;
-
-            let value_type = Type::try_from(value_type)
-                .map_err(|_| Error::msg("Invalid value type"))?;
-            let value = Value::from_le_bytes(value_type, value)
-                .context("Unable to unmarshal the value")?;
-
-            capability.set_parameter(key, value).with_context(|| {
-                format!("Unable to set \"{}\" = {}", key, value,)
-            })?;
-
-            Ok(0)
-        },
-    )
-}
-
-fn request_provider_response(
-    capabilities: &Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
-) -> Function {
-    let capabilities = Arc::clone(capabilities);
-
-    Function::new(
-        move |ctx, (buffer, buffer_len, capability_id): (u32, u32, u32)| {
-            let mut capabilities = capabilities.lock().unwrap();
-            let capability = capabilities
-                .get_mut(&capability_id)
-                .context("Unknown capability")?;
-
-            unsafe {
-                let buffer = ctx
-                    .memory_mut(buffer, buffer_len)
-                    .context("Unable to read the buffer")?;
-
-                let bytes_written = capability.generate(buffer)?;
-                Ok(bytes_written as u32)
-            }
-        },
-    )
-}
-
-fn tfm_preload_model(
-    ids: &Identifiers,
-    models: &Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
-    constructor: &Arc<ModelFactory>,
-) -> Function {
-    let ids = ids.clone();
-    let models = Arc::clone(models);
-    let constructor = Arc::clone(constructor);
-
-    Function::new(
-        move |ctx,
-         (
-        model,
-        model_len,
-        _inputs,
-        _outputs,
-): (
-            u32,
-            u32,
-            u32,
-            u32,
-        )| {
-            let model = ctx.memory(model, model_len)
-            .context("Invalid model buffer")?;
-            let model = constructor(model).context("Unable to create the model")?;
-
-            let mut models = models.lock().unwrap();
-            let id = ids.next();
-            models.insert(id, model);
-
-            Ok(id)
-        },
-    )
+#[derive(Clone, wasmer::WasmerEnv)]
+struct ModelEnv {
+    factories: Arc<HashMap<String, Box<dyn ModelFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
+    identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 fn tfm_model_invoke(
-    models: &Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
-) -> Function {
-    let models = Arc::clone(models);
+    env: &ModelEnv,
+    model_id: u32,
+    input: WasmPtr<u8, Array>,
+    input_len: u32,
+    output: WasmPtr<u8, Array>,
+    output_len: u32,
+) -> Result<u32, RuntimeError> {
+    let mut models = env.instances.lock().unwrap();
+    let model = models
+        .get_mut(&model_id)
+        .with_context(|| format!("There is no model with ID {}", model_id))
+        .map_err(runtime_error)?;
 
-    Function::new(
-        move |ctx,
-              (model_id, input, input_len, output, output_len): (
-            u32,
-            u32,
-            u32,
-            u32,
-            u32,
-        )| {
-            let mut models = models.lock().unwrap();
-            let model = models.get_mut(&model_id).context("Invalid model")?;
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
-            let input = ctx
-                .memory(input, input_len)
-                .context("Invalid input buffer")?;
+    let input = input
+        .deref(memory, 0, input_len)
+        .context("Invalid input")
+        .map_err(runtime_error)?;
 
-            let output = unsafe {
-                ctx.memory_mut(output, output_len)
-                    .context("Invalid output buffer")?
-            };
+    let output = output
+        .deref(memory, 0, output_len)
+        .context("Invalid output")
+        .map_err(runtime_error)?;
 
-            model
-                .infer(input, output)
-                .context("Unable to execute the model")?;
+    model.infer(&[input], &[output]).map_err(runtime_error)?;
 
-            Ok(0)
-        },
-    )
+    Ok(0)
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
-struct SerialOutput;
+fn rune_model_infer(
+    env: &ModelEnv,
+    model_id: u32,
+    inputs: WasmPtr<WasmPtr<u8, Array>, Array>,
+    outputs: WasmPtr<WasmPtr<u8, Array>, Array>,
+) -> Result<(), RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
-impl Output for SerialOutput {
-    fn consume(&mut self, buffer: &[u8]) -> Result<(), Error> {
-        let json = std::str::from_utf8(buffer)
-            .context("Unable to parse the input as UTF-8")?;
+    let mut models = env.instances.lock().unwrap();
+    let model = models
+        .get_mut(&model_id)
+        .with_context(|| format!("There is no model with ID {}", model_id))
+        .map_err(runtime_error)?;
 
-        log::info!("Serial: {}", json);
+    let inputs = vector_of_tensors(memory, model.input_shapes(), inputs)
+        .context("Invalid inputs")
+        .map_err(runtime_error)?;
+    let outputs = vector_of_tensors(memory, model.output_shapes(), outputs)
+        .context("Invalid outputs")
+        .map_err(runtime_error)?;
 
-        Ok(())
+    model
+        .infer(&inputs, &outputs)
+        .context("Inference failed")
+        .map_err(runtime_error)?;
+
+    Ok(())
+}
+
+fn vector_of_tensors<'vm>(
+    memory: &'vm Memory,
+    shapes: &[Shape<'_>],
+    ptr: WasmPtr<WasmPtr<u8, Array>, Array>,
+) -> Result<Vec<&'vm [Cell<u8>]>, Error> {
+    let pointers = ptr
+        .deref(memory, 0, shapes.len() as u32)
+        .context("Invalid tensor array pointer")?;
+
+    let mut tensors = Vec::new();
+
+    for (i, ptr) in pointers.iter().enumerate() {
+        let ptr = ptr.get();
+        let shape = &shapes[i];
+        let data = ptr
+            .deref(memory, 0, shape.size() as u32)
+            .with_context(|| format!("Bad pointer for tensor {}", i))?;
+        tensors.push(data);
+    }
+
+    Ok(tensors)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+pub struct StringRef {
+    data: WasmPtr<u8, Array>,
+    len: u32,
+}
+
+// Safety: All bit patterns are valid and the wasmer memory will do any
+// necessary bounds checks.
+unsafe impl ValueType for StringRef {}
+
+fn rune_model_load(
+    env: &ModelEnv,
+    mimetype: WasmPtr<u8, Array>,
+    mimetype_len: u32,
+    model: WasmPtr<u8, Array>,
+    model_len: u32,
+    input_descriptors: WasmPtr<StringRef, Array>,
+    input_len: u32,
+    output_descriptors: WasmPtr<StringRef, Array>,
+    output_len: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: This function isn't reentrant so there are no concurrent
+    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    let (mimetype, model) = unsafe {
+        let mimetype = mimetype
+            .get_utf8_str(memory, mimetype_len)
+            .context("Invalid mimtype string")
+            .map_err(runtime_error)?;
+
+        let model = model
+            .deref(memory, 0, model_len)
+            .context("Invalid model")
+            .map_err(runtime_error)?;
+        let model = std::slice::from_raw_parts(
+            model.as_ptr() as *const u8,
+            model.len(),
+        );
+
+        (mimetype, model)
+    };
+
+    let factory = env
+        .factories
+        .get(mimetype)
+        .with_context(|| {
+            format!(
+                "No handlers registered for the \"{}\" model type",
+                mimetype
+            )
+        })
+        .map_err(runtime_error)?;
+
+    let (inputs, outputs) = unsafe {
+        let inputs =
+            shape_from_descriptors(memory, input_descriptors, input_len)
+                .map_err(runtime_error)?;
+        let outputs =
+            shape_from_descriptors(memory, output_descriptors, output_len)
+                .map_err(runtime_error)?;
+
+        (inputs, outputs)
+    };
+
+    let model = factory
+        .new_model(model, Some(inputs.as_slice()), Some(outputs.as_slice()))
+        .context("Unable to load the model")
+        .map_err(runtime_error)?;
+
+    let id = env.identifiers.next();
+    env.instances.lock().unwrap().insert(id, model);
+
+    Ok(id)
+}
+
+fn tfm_preload_model(
+    env: &ModelEnv,
+    model: WasmPtr<u8, Array>,
+    model_len: u32,
+    _: u32,
+    _: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: This function isn't reentrant so there are no concurrent
+    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    let model = unsafe {
+        let model = model
+            .deref(memory, 0, model_len)
+            .context("Invalid model")
+            .map_err(runtime_error)?;
+        std::slice::from_raw_parts(model.as_ptr() as *const u8, model.len())
+    };
+
+    let factory = env
+        .factories
+        .get(TFLITE_MIMETYPE)
+        .with_context(|| {
+            format!(
+                "No handlers registered for the \"{}\" model type",
+                TFLITE_MIMETYPE
+            )
+        })
+        .map_err(runtime_error)?;
+
+    let model = factory
+        .new_model(model, None, None)
+        .context("Unable to instantiate the model")
+        .map_err(runtime_error)?;
+
+    let id = env.identifiers.next();
+    env.instances.lock().unwrap().insert(id, model);
+
+    Ok(id)
+}
+
+/// # Safety
+unsafe fn shape_from_descriptors(
+    memory: &Memory,
+    descriptors: WasmPtr<StringRef, Array>,
+    len: u32,
+) -> Result<Vec<Shape<'static>>, Error> {
+    let descriptors = descriptors
+        .deref(memory, 0, len)
+        .context("Invalid descriptor pointer")?;
+
+    let mut shapes = Vec::new();
+
+    for (i, descriptor) in descriptors.iter().enumerate() {
+        let StringRef { data, len } = descriptor.get();
+        let descriptor = data.get_utf8_str(memory, len).with_context(|| {
+            format!("The {}'th descriptor pointer is invalid", i)
+        })?;
+        let shape = descriptor.parse().with_context(|| {
+            format!("Unable to parse the {}'th descriptor", i)
+        })?;
+        shapes.push(shape);
+    }
+
+    Ok(shapes)
+}
+
+#[derive(Clone, wasmer::WasmerEnv)]
+struct CapabilityEnv {
+    factories: Arc<HashMap<u32, Box<dyn CapabilityFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
+    identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
+fn request_capability(
+    env: &CapabilityEnv,
+    capability_type: u32,
+) -> Result<u32, RuntimeError> {
+    match env.factories.get(&capability_type) {
+        Some(f) => {
+            let cap = f.new_capability().map_err(runtime_error)?;
+            let id = env.identifiers.next();
+            env.instances.lock().unwrap().insert(id, cap);
+            Ok(id)
+        },
+        None => {
+            if let Some(name) = rune_core::capabilities::name(capability_type) {
+                return Err(runtime_error(anyhow::anyhow!(
+                    "No \"{}\" capability registered",
+                    name
+                )));
+            }
+
+            Err(runtime_error(anyhow::anyhow!(
+                "No capability registered for capability type {}",
+                capability_type
+            )))
+        },
     }
 }
 
-fn initialize_serial_output() -> Result<Box<dyn Output>, Error> {
-    Ok(Box::new(SerialOutput::default()))
+fn request_capability_set_param(
+    env: &CapabilityEnv,
+    capability_id: u32,
+    key_ptr: WasmPtr<u8, Array>,
+    key_len: u32,
+    value_ptr: WasmPtr<u8, Array>,
+    value_len: u32,
+    value_type: u32,
+) -> Result<(), RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    unsafe {
+        let key = key_ptr
+            .get_utf8_str(memory, key_len)
+            .context("Unable to read the key")
+            .map_err(runtime_error)?;
+
+        let ty = value_type
+            .try_into()
+            .map_err(|()| Error::msg("Invalid key type"))
+            .map_err(runtime_error)?;
+
+        let value = value_ptr
+            .deref(memory, 0, value_len)
+            .context("Unable to read the value")
+            .map_err(runtime_error)?;
+
+        // Safety: this is sound when there are no concurrent modifications
+        let value: &[u8] =
+            std::slice::from_raw_parts(value.as_ptr().cast(), value.len());
+        let value = rune_core::Value::from_le_bytes(ty, value)
+            .context("Invalid value")
+            .map_err(runtime_error)?;
+
+        env.instances
+            .lock()
+            .unwrap()
+            .get_mut(&capability_id)
+            .context("No such capability")
+            .map_err(runtime_error)?
+            .set_parameter(key, value)
+            .with_context(|| {
+                format!(
+                    "Unable to set the \"{}\" parameter to \"{}\"",
+                    key, value
+                )
+            })
+            .map_err(runtime_error)?;
+    }
+
+    Ok(())
 }
 
-fn initialize_rand() -> Result<Box<dyn Capability>, Error> {
-    Ok(Box::new(Random::from_os()))
+fn request_provider_response(
+    env: &CapabilityEnv,
+    buffer: WasmPtr<u8, Array>,
+    len: u32,
+    capability_id: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    let buffer = unsafe {
+        let buffer = buffer
+            .deref_mut(memory, 0, len)
+            .context("Invalid buffer pointer")
+            .map_err(runtime_error)?;
+
+        std::slice::from_raw_parts_mut(
+            buffer.as_mut_ptr() as *mut u8,
+            buffer.len(),
+        )
+    };
+
+    env.instances
+        .lock()
+        .unwrap()
+        .get_mut(&capability_id)
+        .context("No such capability")
+        .map_err(runtime_error)?
+        .generate(buffer)
+        .map_err(runtime_error)?;
+
+    Ok(buffer.len() as u32)
+}
+
+#[derive(Clone, wasmer::WasmerEnv)]
+struct LogEnv {
+    log: Arc<LogFunc>,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
+fn debug(
+    env: &LogEnv,
+    msg: WasmPtr<u8, Array>,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    unsafe {
+        let message = msg
+            .get_utf8_str(memory, len)
+            .context("Unable to read the message")
+            .map_err(runtime_error)?;
+
+        log::debug!("Received message: {}", message);
+
+        if let Ok(record) = serde_json::from_str::<SerializableRecord>(message)
+        {
+            record
+                .with_record(|r| (env.log)(r))
+                .context("Logging failed")
+                .map_err(runtime_error)?;
+        } else {
+            log::warn!("{}", message);
+        }
+    }
+
+    Ok(0)
+}
+
+impl Default for BaseImage {
+    fn default() -> Self { BaseImage::new() }
+}
+
+pub trait Model: Send + Sync + 'static {
+    fn infer(
+        &mut self,
+        inputs: &[&[Cell<u8>]],
+        outputs: &[&[Cell<u8>]],
+    ) -> Result<(), Error>;
+
+    fn input_shapes(&self) -> &[Shape<'_>];
+    fn output_shapes(&self) -> &[Shape<'_>];
+}
+
+pub trait ModelFactory: Send + Sync + 'static {
+    fn new_model(
+        &self,
+        model_bytes: &[u8],
+        inputs: Option<&[Shape<'_>]>,
+        outputs: Option<&[Shape<'_>]>,
+    ) -> Result<Box<dyn Model>, Error>;
+}
+
+impl<F> ModelFactory for F
+where
+    F: Fn(
+            &[u8],
+            Option<&[Shape<'_>]>,
+            Option<&[Shape<'_>]>,
+        ) -> Result<Box<dyn Model>, Error>
+        + Send
+        + Sync
+        + 'static,
+{
+    fn new_model(
+        &self,
+        model_bytes: &[u8],
+        inputs: Option<&[Shape<'_>]>,
+        outputs: Option<&[Shape<'_>]>,
+    ) -> Result<Box<dyn Model>, Error> {
+        (*self)(model_bytes, inputs, outputs)
+    }
+}
+
+pub trait CapabilityFactory: Send + Sync + 'static {
+    fn new_capability(&self) -> Result<Box<dyn Capability>, Error>;
+}
+
+impl<F> CapabilityFactory for F
+where
+    F: Fn() -> Result<Box<dyn Capability>, Error> + Send + Sync + 'static,
+{
+    fn new_capability(&self) -> Result<Box<dyn Capability>, Error> { (*self)() }
+}
+
+pub trait OutputFactory: Send + Sync + 'static {
+    fn new_output(
+        &self,
+        inputs: Option<&[Shape<'_>]>,
+    ) -> Result<Box<dyn Output>, Error>;
+}
+
+impl<F> OutputFactory for F
+where
+    F: Fn(Option<&[Shape<'_>]>) -> Result<Box<dyn Output>, Error>
+        + Send
+        + Sync
+        + 'static,
+{
+    fn new_output(
+        &self,
+        inputs: Option<&[Shape<'_>]>,
+    ) -> Result<Box<dyn Output>, Error> {
+        (*self)(inputs)
+    }
+}
+
+fn serial_factory(_: Option<&[Shape<'_>]>) -> Result<Box<dyn Output>, Error> {
+    Ok(Box::new(Serial::default()))
+}
+
+fn runtime_error(e: Error) -> RuntimeError {
+    RuntimeError::from_trap(wasmer_vm::Trap::User(e.into()))
+}
+
+#[cfg(feature = "tflite")]
+mod tf {
+    use super::*;
+    use anyhow::Context;
+    use log::Level;
+    use rune_core::reflect::Type;
+    use tflite::{
+        FlatBufferModel, Interpreter, InterpreterBuilder,
+        context::{ElementKind, TensorInfo},
+        ops::builtin::BuiltinOpResolver,
+    };
+
+    pub(crate) fn initialize_model(
+        raw: &[u8],
+        inputs: Option<&[Shape<'_>]>,
+        outputs: Option<&[Shape<'_>]>,
+    ) -> Result<Box<dyn super::Model>, Error> {
+        let model = TensorFlowLiteModel::load(raw)?;
+
+        if let Some(shapes) = inputs {
+            ensure_shapes_equal(shapes, model.input_shapes())
+                .context("Invalid inputs")?;
+        }
+        if let Some(shapes) = outputs {
+            ensure_shapes_equal(shapes, model.output_shapes())
+                .context("Invalid outputs")?;
+        }
+
+        Ok(Box::new(model))
+    }
+
+    fn ensure_shapes_equal(
+        from_rune: &[Shape],
+        from_model: &[Shape],
+    ) -> Result<(), Error> {
+        if from_rune == from_model {
+            return Ok(());
+        }
+
+        fn pretty_shapes(shapes: &[Shape<'_>]) -> String {
+            format!(
+                "[{}]",
+                shapes
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+
+        anyhow::bail!(
+            "The Rune said tensors would be {}, but the model said they would be {}",
+            pretty_shapes(from_rune),
+            pretty_shapes(from_model),
+        );
+    }
+
+    struct TensorFlowLiteModel {
+        interpreter: Interpreter<'static, BuiltinOpResolver>,
+        inputs: Vec<Shape<'static>>,
+        outputs: Vec<Shape<'static>>,
+    }
+
+    impl TensorFlowLiteModel {
+        fn load(model_bytes: &[u8]) -> Result<Self, Error> {
+            let model =
+                FlatBufferModel::build_from_buffer(model_bytes.to_vec())
+                    .context("Unable to build the model")?;
+
+            let resolver = BuiltinOpResolver::default();
+
+            let builder = InterpreterBuilder::new(model, resolver)
+                .context("Unable to create a model interpreter builder")?;
+            let mut interpreter = builder
+                .build()
+                .context("Unable to initialize the model interpreter")?;
+
+            log_interpreter(&interpreter);
+
+            interpreter
+                .allocate_tensors()
+                .context("Unable to allocate tensors")?;
+
+            let inputs = tensor_shapes(&interpreter, interpreter.inputs())
+                .context("Invalid input types")?;
+            let outputs = tensor_shapes(&interpreter, interpreter.outputs())
+                .context("Invalid output types")?;
+
+            Ok(TensorFlowLiteModel {
+                interpreter,
+                inputs,
+                outputs,
+            })
+        }
+    }
+
+    fn tensor_shapes(
+        interpreter: &Interpreter<BuiltinOpResolver>,
+        tensor_indices: &[i32],
+    ) -> Result<Vec<Shape<'static>>, Error> {
+        let mut tensors = Vec::new();
+
+        for (i, tensor_index) in tensor_indices.iter().copied().enumerate() {
+            let tensor_info =
+                interpreter.tensor_info(tensor_index).with_context(|| {
+                    format!("Unable to find tensor #{}", tensor_index)
+                })?;
+            let shape = tensor_shape(&tensor_info)
+                .with_context(|| format!("Tensor {} is invalid", i))?
+                .to_owned();
+
+            tensors.push(shape);
+        }
+
+        Ok(tensors)
+    }
+
+    fn tensor_shape(tensor: &TensorInfo) -> Result<Shape<'_>, Error> {
+        let element_type = match tensor.element_kind {
+            ElementKind::kTfLiteFloat32 => Type::f32,
+            ElementKind::kTfLiteInt32 => Type::i32,
+            ElementKind::kTfLiteUInt8 => Type::u8,
+            ElementKind::kTfLiteInt64 => Type::i64,
+            ElementKind::kTfLiteString => Type::String,
+            ElementKind::kTfLiteInt16 => Type::i16,
+            ElementKind::kTfLiteInt8 => Type::i8,
+            other => {
+                anyhow::bail!("Unsupported element type: {:?}", other);
+            },
+        };
+
+        Ok(Shape::new(element_type, tensor.dims.as_slice()))
+    }
+
+    fn log_interpreter(interpreter: &Interpreter<BuiltinOpResolver>) {
+        if !log::log_enabled!(Level::Debug) {
+            return;
+        }
+        let inputs: Vec<_> = interpreter
+            .inputs()
+            .iter()
+            .filter_map(|ix| interpreter.tensor_info(*ix))
+            .collect();
+
+        let outputs: Vec<_> = interpreter
+            .outputs()
+            .iter()
+            .filter_map(|ix| interpreter.tensor_info(*ix))
+            .collect();
+
+        log::debug!(
+            "Loaded model with inputs {:?} and outputs {:?}",
+            inputs,
+            outputs
+        );
+    }
+
+    impl super::Model for TensorFlowLiteModel {
+        fn infer(
+            &mut self,
+            inputs: &[&[Cell<u8>]],
+            outputs: &[&[Cell<u8>]],
+        ) -> Result<(), Error> {
+            let interpreter = &mut self.interpreter;
+
+            anyhow::ensure!(
+                interpreter.inputs().len() == inputs.len(),
+                "The model supports {} inputs but {} were provided",
+                interpreter.inputs().len(),
+                inputs.len(),
+            );
+            anyhow::ensure!(
+                interpreter.outputs().len() == outputs.len(),
+                "The model supports {} inputs but {} were provided",
+                interpreter.outputs().len(),
+                outputs.len(),
+            );
+
+            let input_indices: Vec<_> = interpreter.inputs().to_vec();
+
+            for (&ix, &input) in input_indices.iter().zip(inputs) {
+                let buffer = interpreter
+                    .tensor_buffer_mut(ix)
+                    .context("Unable to get the input buffer")?;
+
+                for (src, dest) in input.iter().zip(buffer) {
+                    *dest = src.get();
+                }
+            }
+
+            interpreter.invoke().context("Calling the model failed")?;
+
+            for (&ix, output) in interpreter.outputs().iter().zip(outputs) {
+                let buffer = interpreter
+                    .tensor_buffer(ix)
+                    .context("Unable to get the output buffer")?;
+
+                for (src, dest) in buffer.iter().zip(*output) {
+                    dest.set(*src);
+                }
+            }
+
+            Ok(())
+        }
+
+        fn input_shapes(&self) -> &[Shape<'_>] { &self.inputs }
+
+        fn output_shapes(&self) -> &[Shape<'_>] { &self.outputs }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::UnsafeCell, collections::HashSet};
-    use rune_runtime::WasmValue;
+    use syn::{ForeignItem, ForeignItemFn, Item};
+    use wasmer::Export;
+
     use super::*;
 
-    #[derive(Default, Debug)]
-    struct DummyOutput(Arc<AtomicU32>);
+    fn extern_functions(src: &str) -> impl Iterator<Item = ForeignItemFn> {
+        let module: syn::File = syn::parse_str(src).unwrap();
 
-    impl rune_runtime::Output for DummyOutput {
-        fn consume(&mut self, _: &[u8]) -> Result<(), Error> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            Ok(())
-        }
-    }
-
-    #[derive(Default, Debug)]
-    struct DummyCallContext {
-        memory: UnsafeCell<Vec<u8>>,
-    }
-
-    impl DummyCallContext {
-        pub fn with_data(address: usize, data: &[u8]) -> Self {
-            let mut memory = vec![0; address + data.len()];
-            memory[address..address + data.len()].copy_from_slice(data);
-
-            DummyCallContext {
-                memory: UnsafeCell::new(memory),
-            }
-        }
-    }
-
-    impl CallContext for DummyCallContext {
-        fn memory(&self, address: u32, len: u32) -> Result<&[u8], Error> {
-            let start = address as usize;
-            let end = start + len as usize;
-            let memory = unsafe { &*self.memory.get() };
-            memory.get(start..end).context("Out of bounds")
-        }
-
-        unsafe fn memory_mut(
-            &self,
-            address: u32,
-            len: u32,
-        ) -> Result<&mut [u8], Error> {
-            let start = address as usize;
-            let end = start + len as usize;
-            let memory = &mut *self.memory.get();
-            memory.get_mut(start..end).context("Out of bounds")
-        }
+        module
+            .items
+            .into_iter()
+            .filter_map(|it| match it {
+                Item::ForeignMod(e) => Some(e.items.into_iter()),
+                _ => None,
+            })
+            .flatten()
+            .filter_map(|item| match item {
+                ForeignItem::Fn(f) => Some(f),
+                _ => None,
+            })
     }
 
     #[test]
-    fn invoke_output() {
-        let calls = Arc::new(AtomicU32::new(0));
-        let ctx = DummyCallContext::default();
-        let d = DummyOutput(Arc::clone(&calls));
-        let mut outputs = HashMap::new();
-        outputs.insert(3_u32, Box::new(d) as Box<dyn Output>);
-        let outputs = Arc::new(Mutex::new(outputs));
-        let func = consume_output(&outputs);
+    fn all_intrinsics_are_registered() {
+        let store = Store::default();
+        let intrinsics_rs = include_str!("../../wasm/src/intrinsics.rs");
+        let intrinsics = extern_functions(intrinsics_rs).map(|f| f.sig);
 
-        let ret = func
-            .call(
-                &ctx,
-                &[WasmValue::I32(3), WasmValue::I32(0), WasmValue::I32(0)],
-            )
-            .unwrap();
+        let imports = BaseImage::default().into_imports(&store);
 
-        assert_eq!(ret, &[WasmValue::I32(0)]);
-        assert_eq!(calls.load(Ordering::SeqCst), 1);
-    }
+        for intrinsic in intrinsics {
+            let name = intrinsic.ident.to_string();
+            let got = imports.get_export("env", &name).expect(&name);
 
-    fn mock_log() -> (Arc<Mutex<Vec<SerializableRecord<'static>>>>, Arc<LogFunc>)
-    {
-        let calls = Arc::new(Mutex::new(Vec::new()));
-        let calls2 = Arc::clone(&calls);
-
-        let log_func: Arc<LogFunc> = Arc::new(move |r: &Record| {
-            let record = SerializableRecord::from(r).into_owned();
-            calls2.lock().unwrap().push(record);
-            Ok(())
-        });
-
-        (calls, log_func)
-    }
-
-    #[test]
-    fn call_log_function() {
-        let record = SerializableRecord {
-            message: "Hello, world".into(),
-            ..Default::default()
-        };
-        let serialized = serde_json::to_vec(&record).unwrap();
-        let ctx = DummyCallContext::with_data(42, &serialized);
-        let (calls, log_func) = mock_log();
-        let func = log(&log_func);
-        let args =
-            &[WasmValue::I32(42), WasmValue::I32(serialized.len() as i32)];
-
-        let ret = func.call(&ctx, args).unwrap();
-
-        assert_eq!(ret, &[WasmValue::I32(0)]);
-        let got = calls.lock().unwrap();
-        assert_eq!(got.len(), 1);
-        assert_eq!(&got[0], &record);
-    }
-
-    #[derive(Debug, Default)]
-    struct Registrar {
-        functions: HashMap<(String, String), Function>,
-    }
-
-    impl Registrar {
-        fn keys(&self) -> HashSet<(&str, &str)> {
-            let mut keys = HashSet::new();
-
-            for (ns, name) in self.functions.keys() {
-                keys.insert((ns.as_str(), name.as_str()));
-            }
-
-            keys
+            let got = match got {
+                Export::Function(f) => f,
+                other => panic!("\"{}\" was a {:?}", name, other),
+            };
+            let host_function_signature = &got.vm_function.signature;
+            assert_eq!(
+                intrinsic.inputs.len(),
+                host_function_signature.params().len(),
+                "parameters for \"{}\" are mismatched",
+                name,
+            );
         }
-    }
-
-    impl rune_runtime::Registrar for Registrar {
-        fn register_function(
-            &mut self,
-            namespace: &str,
-            name: &str,
-            function: Function,
-        ) {
-            self.functions
-                .insert((namespace.to_string(), name.to_string()), function);
-        }
-    }
-
-    #[test]
-    fn functions_are_registered() {
-        let mut registrar = Registrar::default();
-        let image = BaseImage::default();
-
-        image.initialize_imports(&mut registrar);
-
-        let got = registrar.keys();
-        let should_be: HashSet<_> = vec![
-            ("env", "_debug"),
-            ("env", "consume_output"),
-            ("env", "request_capability_set_param"),
-            ("env", "request_capability"),
-            ("env", "request_output"),
-            ("env", "request_provider_response"),
-            ("env", "tfm_model_invoke"),
-            ("env", "tfm_preload_model"),
-        ]
-        .into_iter()
-        .collect();
-        assert_eq!(got, should_be);
     }
 }

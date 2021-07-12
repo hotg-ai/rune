@@ -23,6 +23,7 @@ serde_json = { version = "1" }
 tflite = { version = "0.9.5", optional = true }
 wasmer = "2.0.0"
 wasmer-vm = "2.0.0"
+rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "0.4.0-dev" }
 
 [features]
 default = ["tflite"]

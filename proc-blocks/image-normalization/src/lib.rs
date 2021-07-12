@@ -46,15 +46,16 @@ impl Transform<Tensor<f32>> for ImageNormalization {
     type Output = Tensor<f32>;
 
     fn transform(&mut self, mut input: Tensor<f32>) -> Self::Output {
-        let mut view = input.view_mut::<3>()
-            .expect("The image normalization proc block only supports outputs of the form [channels, rows, columns]");
+        let mut view = input.view_mut::<4>()
+            .expect("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels]");
 
-        let [channels, _, _] = view.dimensions();
+        let [frames, _rows, _columns, channels] = view.dimensions();
 
         assert_eq!(
             channels, 3,
             "The image must have 3 channels - red, green, and blue"
         );
+        assert_eq!(frames, 1, "We can only normalize 1 frame at a time");
 
         transform(self.red, 0, &mut view);
         transform(self.green, 1, &mut view);
@@ -67,13 +68,13 @@ impl Transform<Tensor<f32>> for ImageNormalization {
 fn transform(
     d: Distribution,
     channel: usize,
-    view: &mut TensorViewMut<'_, f32, 3>,
+    view: &mut TensorViewMut<'_, f32, 4>,
 ) {
-    let [_, rows, columns] = view.dimensions();
+    let [_frames, rows, columns, _channels] = view.dimensions();
 
     for row in 0..rows {
         for column in 0..columns {
-            let ix = [channel, row, column];
+            let ix = [0, channel, row, column];
             let current_value = view[ix];
             view[ix] = d.z_score(current_value);
         }
@@ -83,12 +84,12 @@ fn transform(
 impl HasOutputs for ImageNormalization {
     fn set_output_dimensions(&mut self, dimensions: &[usize]) {
         match *dimensions {
-            [1, _, _] | [3, _, _] => {},
-            [channels, _, _] => panic!(
+            [_, _, _, 1] | [_, _, _, 3] => {},
+            [_, _, _, channels] => panic!(
                 "The number of channels should be either 1 or 3, found {}",
                 channels
             ),
-            _ => panic!("The image normalization proc block only supports outputs of the form [channels, rows, columns], found {:?}", dimensions),
+            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
         }
     }
 }

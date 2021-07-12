@@ -1,12 +1,8 @@
 use std::collections::HashMap;
 use anyhow::{Context, Error};
-use rune_runtime::{Image, Signature, WasmType, WasmValue};
-use wasmer::{
-    Array, Exports, Function, Instance, LazyInit, Memory, Module, NativeFunc,
-    RuntimeError, Store, Val, WasmPtr,
-};
+use rune_runtime::Image;
+use wasmer::{Exports, Function, Instance, Module, NativeFunc, Store};
 use wasmer::ImportObject;
-use wasmer_vm::Trap;
 
 #[derive(Debug)]
 pub struct Runtime {
@@ -14,17 +10,23 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn load(wasm: &[u8], image: impl Image) -> Result<Self, Error> {
+    pub fn load<I>(wasm: &[u8], image: I) -> Result<Self, Error>
+    where
+        I: for<'a> Image<Registrar<'a>>,
+    {
         let store = Store::default();
         let module = Module::new(&store, wasm)?;
         Runtime::load_from_module(&module, &store, image)
     }
 
-    pub fn load_from_module(
+    pub fn load_from_module<I>(
         module: &Module,
         store: &Store,
-        image: impl Image,
-    ) -> Result<Self, Error> {
+        image: I,
+    ) -> Result<Self, Error>
+    where
+        I: for<'a> Image<Registrar<'a>>,
+    {
         log::debug!("Loading image");
         let mut registrar = Registrar::new(store);
         image.initialize_imports(&mut registrar);
@@ -75,7 +77,7 @@ impl Runtime {
 }
 
 #[derive(Debug)]
-pub(crate) struct Registrar<'s> {
+pub struct Registrar<'s> {
     namespaces: HashMap<String, Exports>,
     store: &'s Store,
 }
@@ -97,130 +99,20 @@ impl<'s> Registrar<'s> {
 
         obj
     }
-}
 
-impl<'s> rune_runtime::Registrar for Registrar<'s> {
-    fn register_function(
+    pub fn store(&self) -> &'s Store { self.store }
+
+    pub fn register_function(
         &mut self,
         namespace: &str,
         name: &str,
-        f: rune_runtime::Function,
-    ) {
-        let ns = self.namespaces.entry(namespace.to_string()).or_default();
+        f: Function,
+    ) -> &mut Self {
+        self.namespaces
+            .entry(namespace.to_string())
+            .or_default()
+            .insert(name, f);
 
-        let wrapped_func = Function::new_with_env(
-            self.store,
-            signature_to_wasmer(f.signature()),
-            CallContext::default(),
-            move |ctx, args| {
-                let converted = args
-                    .iter()
-                    .map(wasmer_to_value)
-                    .collect::<Result<Vec<WasmValue>, RuntimeError>>()?;
-
-                match f.call(ctx, &converted) {
-                    Ok(ret) => {
-                        Ok(ret.into_iter().map(value_to_wasmer).collect())
-                    },
-                    Err(e) => {
-                        let trap = Trap::User(e.into());
-                        Err(RuntimeError::from_trap(trap))
-                    },
-                }
-            },
-        );
-        ns.insert(name, wrapped_func);
-    }
-}
-
-#[derive(Default, Clone, wasmer::WasmerEnv)]
-struct CallContext {
-    #[wasmer(export)]
-    memory: LazyInit<Memory>,
-}
-
-impl rune_runtime::CallContext for CallContext {
-    fn memory(&self, address: u32, len: u32) -> Result<&[u8], Error> {
-        let memory = self
-            .memory
-            .get_ref()
-            .context("Call context not initialized")?;
-        let data = WasmPtr::<u8, Array>::new(address)
-            .deref(&memory, 0, len)
-            .context("Bad pointer")?;
-
-        // SAFETY: All runtime methods take &mut and host functions don't
-        // recursively call back into WebAssembly, so there are no concurrency
-        // bugs here. When ownership rules are obeyed it's also valid to
-        // transmute from a &[Cell<T>] to &[T].
-        unsafe {
-            Ok(std::slice::from_raw_parts(data.as_ptr().cast(), data.len()))
-        }
-    }
-
-    unsafe fn memory_mut(
-        &self,
-        address: u32,
-        len: u32,
-    ) -> Result<&mut [u8], Error> {
-        let memory = self
-            .memory
-            .get_ref()
-            .context("Call context not initialized")?;
-
-        // SAFETY: The caller ensures this memory won't be aliased. It's also
-        // valid to transmute from a &[Cell<T>] to &[T].
-        let data = WasmPtr::<u8, Array>::new(address)
-            .deref_mut(&memory, 0, len)
-            .context("Bad pointer")?;
-
-        Ok(std::slice::from_raw_parts_mut(
-            data.as_mut_ptr().cast(),
-            data.len(),
-        ))
-    }
-}
-
-fn signature_to_wasmer(signature: &Signature) -> wasmer::FunctionType {
-    let params: Vec<_> = signature
-        .parameters()
-        .iter()
-        .copied()
-        .map(rune_type_to_wasmer_type)
-        .collect();
-    let returns: Vec<_> = signature
-        .returns()
-        .iter()
-        .copied()
-        .map(rune_type_to_wasmer_type)
-        .collect();
-
-    wasmer::FunctionType::new(params, returns)
-}
-
-fn rune_type_to_wasmer_type(ty: WasmType) -> wasmer::Type {
-    match ty {
-        WasmType::F32 => wasmer::Type::F32,
-        WasmType::F64 => wasmer::Type::F64,
-        WasmType::I32 => wasmer::Type::I32,
-        WasmType::I64 => wasmer::Type::I64,
-    }
-}
-
-fn wasmer_to_value(v: &Val) -> Result<WasmValue, RuntimeError> {
-    match v {
-        Val::I32(int) => Ok(WasmValue::I32(*int)),
-        Val::I64(long) => Ok(WasmValue::I64(*long)),
-        Val::F32(int) => Ok(WasmValue::F32(*int)),
-        Val::F64(int) => Ok(WasmValue::F64(*int)),
-        _ => Err(RuntimeError::new("Unsupported wasm type")),
-    }
-}
-fn value_to_wasmer(value: WasmValue) -> Val {
-    match value {
-        WasmValue::F32(float) => Val::from(float),
-        WasmValue::F64(double) => Val::from(double),
-        WasmValue::I32(int) => Val::from(int),
-        WasmValue::I64(long) => Val::from(long),
+        self
     }
 }
