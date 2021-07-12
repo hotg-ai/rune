@@ -31,6 +31,21 @@ impl<'a> Shape<'a> {
     pub fn element_type(&self) -> &Type { &self.element_type }
 
     pub fn dimensions(&self) -> &[usize] { &self.dimensions }
+
+    /// The number of bytes this tensor would take up.
+    pub fn size(&self) -> usize {
+        self.dimensions.iter().product::<usize>()
+            * self.element_type.size_of().unwrap()
+    }
+
+    pub fn to_owned(&self) -> Shape<'static> {
+        let Shape {
+            element_type,
+            dimensions,
+        } = self;
+
+        Shape::new(element_type.clone(), dimensions.clone().into_owned())
+    }
 }
 
 impl<'a> Display for Shape<'a> {
@@ -101,6 +116,30 @@ pub enum FormatError {
         found: String,
         reason: ParseIntError,
     },
+}
+
+impl Display for FormatError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FormatError::Malformed => write!(f, "Malformed shape"),
+            FormatError::UnknownElementType { found } => {
+                write!(f, "Couldn't recognise the \"{}\" element type", found)
+            },
+            FormatError::BadDimension { found, .. } => {
+                write!(f, "\"{}\" isn't a valid dimension", found)
+            },
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for FormatError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            FormatError::BadDimension { reason, .. } => Some(reason),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

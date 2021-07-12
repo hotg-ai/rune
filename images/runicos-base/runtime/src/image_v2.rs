@@ -112,6 +112,12 @@ impl BaseImage {
         let model_env = ModelEnv {
             factories: Arc::new(models),
             instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
+        };
+        let output_env = OutputEnv {
+            factories: Arc::new(outputs),
+            instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers,
             memory: LazyInit::new(),
         };
@@ -121,10 +127,13 @@ impl BaseImage {
                 "_debug" =>  Function::new_native_with_env(store, log_env, debug),
                 "request_capability" => Function::new_native_with_env(store, cap_env.clone(), request_capability),
                 "request_capability_set_param" => Function::new_native_with_env(store, cap_env.clone(), request_capability_set_param),
+                "request_provider_response" => Function::new_native_with_env(store, cap_env.clone(), request_provider_response),
                 "tfm_model_invoke" => Function::new_native_with_env(store, model_env.clone(), tfm_model_invoke),
                 "tfm_preload_model" => Function::new_native_with_env(store, model_env.clone(), tfm_preload_model),
                 "rune_model_load" => Function::new_native_with_env(store, model_env.clone(), rune_model_load),
                 "rune_model_infer" => Function::new_native_with_env(store, model_env, rune_model_infer),
+                "request_output" => Function::new_native_with_env(store, output_env.clone(), request_output),
+                "consume_output" => Function::new_native_with_env(store, output_env, consume_output),
             }
         }
     }
@@ -135,6 +144,78 @@ struct Identifiers(Arc<AtomicU32>);
 
 impl Identifiers {
     fn next(&self) -> u32 { self.0.fetch_add(1, Ordering::SeqCst) }
+}
+
+#[derive(Clone, wasmer::WasmerEnv)]
+struct OutputEnv {
+    factories: Arc<HashMap<u32, Box<dyn OutputFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Output>>>>,
+    identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
+fn request_output(
+    env: &OutputEnv,
+    output_type: u32,
+) -> Result<u32, RuntimeError> {
+    let factory = env
+        .factories
+        .get(&output_type)
+        .with_context(|| match rune_core::outputs::name(output_type) {
+            Some(name) => {
+                format!("No handler registered for output \"{}\"", name)
+            },
+            None => format!("No handler registered for output {}", output_type),
+        })
+        .map_err(runtime_error)?;
+
+    let output = factory
+        .new_output(None)
+        .context("Unable to instantiate the output")
+        .map_err(runtime_error)?;
+
+    let id = env.identifiers.next();
+    env.instances.lock().unwrap().insert(id, output);
+
+    Ok(id)
+}
+
+fn consume_output(
+    env: &OutputEnv,
+    output_id: u32,
+    buffer: WasmPtr<u8, Array>,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let mut outputs = env.instances.lock().unwrap();
+    let output = outputs
+        .get_mut(&output_id)
+        .with_context(|| format!("There is no output with ID {}", output_id))
+        .map_err(runtime_error)?;
+
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    let buffer = buffer
+        .deref(memory, 0, len)
+        .context("Invalid input")
+        .map_err(runtime_error)?;
+
+    // Safety: This function isn't reentrant so there are no concurrent
+    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    let buffer = unsafe {
+        std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len())
+    };
+
+    output
+        .consume(buffer)
+        .context("Unable to consume the data")
+        .map_err(runtime_error)?;
+
+    Ok(len)
 }
 
 #[derive(Clone, wasmer::WasmerEnv)]
@@ -482,6 +563,44 @@ fn request_capability_set_param(
     }
 
     Ok(())
+}
+
+fn request_provider_response(
+    env: &CapabilityEnv,
+    buffer: WasmPtr<u8, Array>,
+    len: u32,
+    capability_id: u32,
+) -> Result<(), RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    let buffer = unsafe {
+        let buffer = buffer
+            .deref_mut(memory, 0, len)
+            .context("Invalid buffer pointer")
+            .map_err(runtime_error)?;
+
+        std::slice::from_raw_parts_mut(
+            buffer.as_mut_ptr() as *mut u8,
+            buffer.len(),
+        )
+    };
+
+    env.instances
+        .lock()
+        .unwrap()
+        .get_mut(&capability_id)
+        .context("No such capability")
+        .map_err(runtime_error)?
+        .generate(buffer)
+        .map_err(runtime_error)?;
+
+    todo!()
 }
 
 #[derive(Clone, wasmer::WasmerEnv)]
