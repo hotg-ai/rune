@@ -17,7 +17,7 @@ readme = "README.md"
 anyhow = "1.0.40"
 log = "0.4.14"
 rune-runtime = { path = "../../../crates/runtime", version = "0.4.0-dev", features = ["builtins"] }
-rune-core = { path = "../../../crates/rune-core", version = "0.4.0-dev" }
+rune-core = { path = "../../../crates/rune-core", version = "0.4.0-dev", features = ["std"] }
 serde_json = { version = "1" }
 # Note: This doesn't cross-compile due to https://github.com/boncheolgu/tflite-rs/issues/49
 tflite = { version = "0.9.5", optional = true }
@@ -26,3 +26,6 @@ wasmer-vm = "2.0.0"
 
 [features]
 default = ["tflite"]
+
+[dev-dependencies]
+syn = { version = "1.0.73", features = ["full", "extra-traits"] }

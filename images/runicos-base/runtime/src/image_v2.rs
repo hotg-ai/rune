@@ -1,7 +1,7 @@
 use std::{
+    cell::Cell,
     collections::HashMap,
     convert::TryInto,
-    hash::Hash,
     sync::{
         Arc, Mutex,
         atomic::{AtomicU32, Ordering},
@@ -13,8 +13,10 @@ use rune_core::{Shape, capabilities};
 use rune_runtime::{Capability, Output, common_capabilities::Random};
 use wasmer::{
     Array, Function, ImportObject, LazyInit, Memory, RuntimeError, Store,
-    WasmPtr,
+    ValueType, WasmPtr,
 };
+
+const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
 type LogFunc = dyn Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static;
 
@@ -48,7 +50,7 @@ impl BaseImage {
             });
 
         #[cfg(feature = "tflite")]
-        image.register_model("application/tflite-model", tf::initialize_model);
+        image.register_model(TFLITE_MIMETYPE, tf::initialize_model);
 
         image
     }
@@ -88,7 +90,7 @@ impl BaseImage {
         self
     }
 
-    pub fn to_imports(self, store: &Store) -> ImportObject {
+    pub fn into_imports(self, store: &Store) -> ImportObject {
         let BaseImage {
             capabilities,
             models,
@@ -104,6 +106,12 @@ impl BaseImage {
         let cap_env = CapabilityEnv {
             factories: Arc::new(capabilities),
             instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
+        };
+        let model_env = ModelEnv {
+            factories: Arc::new(models),
+            instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers,
             memory: LazyInit::new(),
         };
@@ -113,6 +121,10 @@ impl BaseImage {
                 "_debug" =>  Function::new_native_with_env(store, log_env, debug),
                 "request_capability" => Function::new_native_with_env(store, cap_env.clone(), request_capability),
                 "request_capability_set_param" => Function::new_native_with_env(store, cap_env.clone(), request_capability_set_param),
+                "tfm_model_invoke" => Function::new_native_with_env(store, model_env.clone(), tfm_model_invoke),
+                "tfm_preload_model" => Function::new_native_with_env(store, model_env.clone(), tfm_preload_model),
+                "rune_model_load" => Function::new_native_with_env(store, model_env.clone(), rune_model_load),
+                "rune_model_infer" => Function::new_native_with_env(store, model_env, rune_model_infer),
             }
         }
     }
@@ -123,6 +135,258 @@ struct Identifiers(Arc<AtomicU32>);
 
 impl Identifiers {
     fn next(&self) -> u32 { self.0.fetch_add(1, Ordering::SeqCst) }
+}
+
+#[derive(Clone, wasmer::WasmerEnv)]
+struct ModelEnv {
+    factories: Arc<HashMap<String, Box<dyn ModelFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
+    identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
+fn tfm_model_invoke(
+    env: &ModelEnv,
+    model_id: u32,
+    input: WasmPtr<u8, Array>,
+    input_len: u32,
+    output: WasmPtr<u8, Array>,
+    output_len: u32,
+) -> Result<(), RuntimeError> {
+    let mut models = env.instances.lock().unwrap();
+    let model = models
+        .get_mut(&model_id)
+        .with_context(|| format!("There is no model with ID {}", model_id))
+        .map_err(runtime_error)?;
+
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    let input = input
+        .deref(memory, 0, input_len)
+        .context("Invalid input")
+        .map_err(runtime_error)?;
+
+    let output = output
+        .deref(memory, 0, output_len)
+        .context("Invalid output")
+        .map_err(runtime_error)?;
+
+    model.infer(&[input], &[output]).map_err(runtime_error)?;
+
+    Ok(())
+}
+
+fn rune_model_infer(
+    env: &ModelEnv,
+    model_id: u32,
+    inputs: WasmPtr<WasmPtr<u8, Array>, Array>,
+    outputs: WasmPtr<WasmPtr<u8, Array>, Array>,
+) -> Result<(), RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    let mut models = env.instances.lock().unwrap();
+    let model = models
+        .get_mut(&model_id)
+        .with_context(|| format!("There is no model with ID {}", model_id))
+        .map_err(runtime_error)?;
+
+    let inputs = vector_of_tensors(memory, model.input_shapes(), inputs)
+        .context("Invalid inputs")
+        .map_err(runtime_error)?;
+    let outputs = vector_of_tensors(memory, model.output_shapes(), outputs)
+        .context("Invalid outputs")
+        .map_err(runtime_error)?;
+
+    model
+        .infer(&inputs, &outputs)
+        .context("Inference failed")
+        .map_err(runtime_error)?;
+
+    Ok(())
+}
+
+fn vector_of_tensors<'vm>(
+    memory: &'vm Memory,
+    shapes: &[Shape<'_>],
+    ptr: WasmPtr<WasmPtr<u8, Array>, Array>,
+) -> Result<Vec<&'vm [Cell<u8>]>, Error> {
+    let pointers = ptr
+        .deref(memory, 0, shapes.len() as u32)
+        .context("Invalid tensor array pointer")?;
+
+    let mut tensors = Vec::new();
+
+    for (i, ptr) in pointers.iter().enumerate() {
+        let ptr = ptr.get();
+        let shape = &shapes[i];
+        let data = ptr
+            .deref(memory, 0, shape.size() as u32)
+            .with_context(|| format!("Bad pointer for tensor {}", i))?;
+        tensors.push(data);
+    }
+
+    todo!()
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+pub struct StringRef {
+    data: WasmPtr<u8, Array>,
+    len: u32,
+}
+
+// Safety: All bit patterns are valid and the wasmer memory will do any
+// necessary bounds checks.
+unsafe impl ValueType for StringRef {}
+
+fn rune_model_load(
+    env: &ModelEnv,
+    mimetype: WasmPtr<u8, Array>,
+    mimetype_len: u32,
+    model: WasmPtr<u8, Array>,
+    model_len: u32,
+    input_descriptors: WasmPtr<StringRef, Array>,
+    input_len: u32,
+    output_descriptors: WasmPtr<StringRef, Array>,
+    output_len: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: This function isn't reentrant so there are no concurrent
+    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    let (mimetype, model) = unsafe {
+        let mimetype = mimetype
+            .get_utf8_str(memory, mimetype_len)
+            .context("Invalid mimtype string")
+            .map_err(runtime_error)?;
+
+        let model = model
+            .deref(memory, 0, model_len)
+            .context("Invalid model")
+            .map_err(runtime_error)?;
+        let model = std::slice::from_raw_parts(
+            model.as_ptr() as *const u8,
+            model.len(),
+        );
+
+        (mimetype, model)
+    };
+
+    let factory = env
+        .factories
+        .get(mimetype)
+        .with_context(|| {
+            format!(
+                "No handlers registered for the \"{}\" model type",
+                mimetype
+            )
+        })
+        .map_err(runtime_error)?;
+
+    let (inputs, outputs) = unsafe {
+        let inputs =
+            shape_from_descriptors(memory, input_descriptors, input_len)
+                .map_err(runtime_error)?;
+        let outputs =
+            shape_from_descriptors(memory, output_descriptors, output_len)
+                .map_err(runtime_error)?;
+
+        (inputs, outputs)
+    };
+
+    let model = factory
+        .new_model(model, Some(inputs.as_slice()), Some(outputs.as_slice()))
+        .context("Unable to load the model")
+        .map_err(runtime_error)?;
+
+    let id = env.identifiers.next();
+    env.instances.lock().unwrap().insert(id, model);
+
+    Ok(id)
+}
+
+fn tfm_preload_model(
+    env: &ModelEnv,
+    model: WasmPtr<u8, Array>,
+    model_len: u32,
+    _: u32,
+    _: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: This function isn't reentrant so there are no concurrent
+    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    let model = unsafe {
+        let model = model
+            .deref(memory, 0, model_len)
+            .context("Invalid model")
+            .map_err(runtime_error)?;
+        std::slice::from_raw_parts(model.as_ptr() as *const u8, model.len())
+    };
+
+    let factory = env
+        .factories
+        .get(TFLITE_MIMETYPE)
+        .with_context(|| {
+            format!(
+                "No handlers registered for the \"{}\" model type",
+                TFLITE_MIMETYPE
+            )
+        })
+        .map_err(runtime_error)?;
+
+    let model = factory
+        .new_model(model, None, None)
+        .context("Unable to instantiate the model")
+        .map_err(runtime_error)?;
+
+    let id = env.identifiers.next();
+    env.instances.lock().unwrap().insert(id, model);
+
+    Ok(id)
+}
+
+/// # Safety
+unsafe fn shape_from_descriptors(
+    memory: &Memory,
+    descriptors: WasmPtr<StringRef, Array>,
+    len: u32,
+) -> Result<Vec<Shape<'static>>, Error> {
+    let descriptors = descriptors
+        .deref(memory, 0, len)
+        .context("Invalid descriptor pointer")?;
+
+    let mut shapes = Vec::new();
+
+    for (i, descriptor) in descriptors.iter().enumerate() {
+        let StringRef { data, len } = descriptor.get();
+        let descriptor = data.get_utf8_str(memory, len).with_context(|| {
+            format!("The {}'th descriptor pointer is invalid", i)
+        })?;
+        let shape = descriptor.parse().with_context(|| {
+            format!("Unable to parse the {}'th descriptor", i)
+        })?;
+        shapes.push(shape);
+    }
+
+    Ok(shapes)
 }
 
 #[derive(Clone, wasmer::WasmerEnv)]
@@ -264,12 +528,15 @@ impl Default for BaseImage {
     fn default() -> Self { BaseImage::new() }
 }
 
-pub trait Model {
+pub trait Model: Send + Sync + 'static {
     fn infer(
         &mut self,
-        input: &[&[u8]],
-        output: &mut [&mut [u8]],
+        inputs: &[&[Cell<u8>]],
+        outputs: &[&[Cell<u8>]],
     ) -> Result<(), Error>;
+
+    fn input_shapes(&self) -> &[Shape<'_>];
+    fn output_shapes(&self) -> &[Shape<'_>];
 }
 
 pub trait ModelFactory: Send + Sync + 'static {
@@ -355,26 +622,51 @@ mod tf {
         raw: &[u8],
         inputs: Option<&[Shape<'_>]>,
         outputs: Option<&[Shape<'_>]>,
-    ) -> Result<Box<dyn Model>, Error> {
-        let model = FlatBufferModel::build_from_buffer(raw.to_vec())
-            .context("Unable to build the model")?;
+    ) -> Result<Box<dyn super::Model>, Error> {
+        let model = TensorFlowLiteModel::load(raw)?;
 
-        let resolver = BuiltinOpResolver::default();
+        validate(&model.interpreter, inputs, outputs)?;
 
-        let builder = InterpreterBuilder::new(model, resolver)
-            .context("Unable to create a model interpreter builder")?;
-        let mut interpreter = builder
-            .build()
-            .context("Unable to initialize the model interpreter")?;
+        Ok(Box::new(model))
+    }
 
-        validate(&interpreter, inputs, outputs)?;
-        log_interpreter(&interpreter);
+    struct TensorFlowLiteModel {
+        interpreter: Interpreter<'static, BuiltinOpResolver>,
+        inputs: Vec<Shape<'static>>,
+        outputs: Vec<Shape<'static>>,
+    }
 
-        interpreter
-            .allocate_tensors()
-            .context("Unable to allocate tensors")?;
+    impl TensorFlowLiteModel {
+        fn load(model_bytes: &[u8]) -> Result<Self, Error> {
+            let model =
+                FlatBufferModel::build_from_buffer(model_bytes.to_vec())
+                    .context("Unable to build the model")?;
 
-        Ok(Box::new(interpreter))
+            let resolver = BuiltinOpResolver::default();
+
+            let builder = InterpreterBuilder::new(model, resolver)
+                .context("Unable to create a model interpreter builder")?;
+            let mut interpreter = builder
+                .build()
+                .context("Unable to initialize the model interpreter")?;
+
+            log_interpreter(&interpreter);
+
+            interpreter
+                .allocate_tensors()
+                .context("Unable to allocate tensors")?;
+
+            let inputs = tensor_shapes(&interpreter, interpreter.inputs())
+                .context("Invalid input types")?;
+            let outputs = tensor_shapes(&interpreter, interpreter.outputs())
+                .context("Invalid output types")?;
+
+            Ok(TensorFlowLiteModel {
+                interpreter,
+                inputs,
+                outputs,
+            })
+        }
     }
 
     fn validate(
@@ -428,6 +720,27 @@ mod tf {
         todo!()
     }
 
+    fn tensor_shapes(
+        interpreter: &Interpreter<BuiltinOpResolver>,
+        tensor_indices: &[i32],
+    ) -> Result<Vec<Shape<'static>>, Error> {
+        let mut tensors = Vec::new();
+
+        for (i, tensor_index) in tensor_indices.iter().copied().enumerate() {
+            let tensor_info =
+                interpreter.tensor_info(tensor_index).with_context(|| {
+                    format!("Unable to find tensor #{}", tensor_index)
+                })?;
+            let shape = tensor_shape(&tensor_info)
+                .with_context(|| format!("Tensor {} is invalid", i))?
+                .to_owned();
+
+            tensors.push(shape);
+        }
+
+        Ok(tensors)
+    }
+
     fn tensor_shape(tensor: &TensorInfo) -> Result<Shape<'_>, Error> {
         let element_type = match tensor.element_kind {
             ElementKind::kTfLiteFloat32 => Type::f32,
@@ -468,43 +781,107 @@ mod tf {
         );
     }
 
-    impl Model for Interpreter<'static, BuiltinOpResolver> {
+    impl super::Model for TensorFlowLiteModel {
         fn infer(
             &mut self,
-            inputs: &[&[u8]],
-            outputs: &mut [&mut [u8]],
+            inputs: &[&[Cell<u8>]],
+            outputs: &[&[Cell<u8>]],
         ) -> Result<(), Error> {
+            let interpreter = &mut self.interpreter;
+
             anyhow::ensure!(
-                self.inputs().len() == inputs.len(),
+                interpreter.inputs().len() == inputs.len(),
                 "The model supports {} inputs but {} were provided",
-                self.inputs().len(),
+                interpreter.inputs().len(),
                 inputs.len(),
             );
             anyhow::ensure!(
-                self.outputs().len() == outputs.len(),
+                interpreter.outputs().len() == outputs.len(),
                 "The model supports {} inputs but {} were provided",
-                self.outputs().len(),
+                interpreter.outputs().len(),
                 outputs.len(),
             );
 
-            let input_indices: Vec<_> = self.inputs().to_vec();
+            let input_indices: Vec<_> = interpreter.inputs().to_vec();
 
             for (&ix, &input) in input_indices.iter().zip(inputs) {
-                self.tensor_buffer_mut(ix)
-                    .context("Unable to get the input buffer")?
-                    .copy_from_slice(input);
+                let buffer = interpreter
+                    .tensor_buffer_mut(ix)
+                    .context("Unable to get the input buffer")?;
+
+                for (src, dest) in input.iter().zip(buffer) {
+                    *dest = src.get();
+                }
             }
 
-            self.invoke().context("Calling the model failed")?;
+            interpreter.invoke().context("Calling the model failed")?;
 
-            for (&ix, output) in self.outputs().iter().zip(outputs) {
-                let buffer = self
+            for (&ix, output) in interpreter.outputs().iter().zip(outputs) {
+                let buffer = interpreter
                     .tensor_buffer(ix)
                     .context("Unable to get the output buffer")?;
-                output.copy_from_slice(buffer);
+
+                for (src, dest) in buffer.iter().zip(*output) {
+                    dest.set(*src);
+                }
             }
 
             Ok(())
+        }
+
+        fn input_shapes(&self) -> &[Shape<'_>] { &self.inputs }
+
+        fn output_shapes(&self) -> &[Shape<'_>] { &self.outputs }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use syn::{ForeignItem, ForeignItemFn, Item};
+    use wasmer::Export;
+
+    use super::*;
+
+    fn extern_functions(src: &str) -> impl Iterator<Item = ForeignItemFn> {
+        let module: syn::File = syn::parse_str(src).unwrap();
+
+        module
+            .items
+            .into_iter()
+            .filter_map(|it| match it {
+                Item::ForeignMod(e) => Some(e.items.into_iter()),
+                _ => None,
+            })
+            .flatten()
+            .filter_map(|item| match item {
+                ForeignItem::Fn(f) => Some(f),
+                _ => None,
+            })
+    }
+
+    #[test]
+    fn all_intrinsics_are_registered() {
+        let store = Store::default();
+        let intrinsics_rs = include_str!("../../wasm/src/intrinsics.rs");
+        let intrinsics = extern_functions(intrinsics_rs).map(|f| f.sig);
+
+        let imports = BaseImage::default().into_imports(&store);
+
+        for intrinsic in intrinsics {
+            let name = intrinsic.ident.to_string();
+            let got = imports.get_export("env", &name).expect(&name);
+
+            let got = match got {
+                Export::Function(f) => f,
+                other => panic!("\"{}\" was a {:?}", name, other),
+            };
+            let host_function_signature = &got.vm_function.signature;
+            assert_eq!(
+                intrinsic.inputs.len(),
+                host_function_signature.params().len(),
+                "parameters for \"{}\" are mismatched",
+                name,
+            );
         }
     }
 }
