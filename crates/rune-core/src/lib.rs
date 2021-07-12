@@ -34,15 +34,32 @@ pub mod capabilities {
     pub const IMAGE: u32 = 4;
     pub const RAW: u32 = 5;
 
+    const NAMES: &[(&str, u32)] = &[
+        ("RAND", RAND),
+        ("SOUND", SOUND),
+        ("ACCEL", ACCEL),
+        ("IMAGE", IMAGE),
+        ("RAW", RAW),
+    ];
+
     pub fn from_str(value: &str) -> Option<u32> {
-        match value {
-            "RAND" => Some(RAND),
-            "SOUND" => Some(SOUND),
-            "ACCEL" => Some(ACCEL),
-            "IMAGE" => Some(IMAGE),
-            "RAW" => Some(RAW),
-            _ => None,
+        for (name, id) in NAMES.iter() {
+            if *name == value {
+                return Some(*id);
+            }
         }
+
+        None
+    }
+
+    pub fn name(capability_type: u32) -> Option<&'static str> {
+        for (name, id) in NAMES.iter() {
+            if *id == capability_type {
+                return Some(*name);
+            }
+        }
+
+        None
     }
 }
 

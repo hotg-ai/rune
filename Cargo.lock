@@ -2333,12 +2333,13 @@ name = "runicos-base-runtime"
 version = "0.4.0-dev"
 dependencies = [
  "anyhow",
- "cfg-if 1.0.0",
  "log",
  "rune-core",
  "rune-runtime",
  "serde_json",
  "tflite",
+ "wasmer",
+ "wasmer-vm",
 ]
 
 [[package]]
