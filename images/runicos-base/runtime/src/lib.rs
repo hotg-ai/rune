@@ -1,3 +1,3 @@
 mod image;
 
-pub use image::{BaseImage, Model};
+pub use image::{BaseImage, Model, ModelFactory, CapabilityFactory, OutputFactory};

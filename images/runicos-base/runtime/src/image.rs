@@ -93,7 +93,7 @@ impl BaseImage {
     }
 }
 
-impl<'vm> Image<Registrar<'vm>> for BaseImage {
+impl<'vm> Image<rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
     fn initialize_imports(self, registrar: &mut Registrar<'vm>) {
         let BaseImage {
             capabilities,

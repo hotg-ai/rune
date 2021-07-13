@@ -93,7 +93,7 @@ RunicosBaseImage_t *make_image()
     auto log = logger_as_closure(new Logger());
     rune_image_set_log(image, log);
 
-    rune_image_set_raw(image, Capability::from_factory(make_raw));
+    rune_image_set_capability_handler(image, CAPABILITY_TYPE_RAW, Capability::from_factory(make_raw));
 
     return image;
 }
