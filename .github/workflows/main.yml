@@ -122,6 +122,14 @@ jobs:
           - os: ubuntu-18.04
             target: aarch64-linux-android
             features: wasmer-runtime
+          # 32-bit Raspberry Pi (2/3/4)
+          - os: ubuntu-18.04
+            target: armv7-unknown-linux-gnueabihf
+            features: wasmer-runtime,tflite
+          # 64-bit Raspberry Pi (4)
+          - os: ubuntu-18.04
+            target: aarch64-unknown-linux-gnu
+            features: wasmer-runtime,tflite
           # MacOS
           # FIXME: The tflite crate doesn't compile under cross so we are doing
           # a native build in a separate rune_native_mac job
