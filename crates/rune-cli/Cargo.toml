@@ -1,5 +1,5 @@
 [package]
-name = "rune"
+name = "rune-cli"
 version = "0.4.0-dev"
 edition = "2018"
 authors = ["The Rune Developers <admin@hotg.ai>"]
@@ -10,11 +10,6 @@ repository = "https://github.com/hotg-ai/rune"
 categories = ["science", "wasm", "command-line-utilities"]
 keywords = ["rune", "tinyml", "container", "machine", "learning"]
 readme = "README.md"
-
-[[bin]]
-name = "rune"
-path = "src/main.rs"
-doc = false
 
 [dependencies]
 anyhow = "1.0.38"

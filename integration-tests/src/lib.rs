@@ -82,7 +82,7 @@ impl TestContext {
         log::debug!("Compiling `rune` in release mode");
 
         let mut cmd = Command::new("cargo");
-        cmd.arg("build").arg("--package=rune");
+        cmd.arg("build").arg("--package=rune-cli");
 
         if !debug {
             cmd.arg("--release");

@@ -10,8 +10,7 @@ description = "Utilities used during development."
 
 [dependencies]
 anyhow = "1.0.38"
-cargo_toml = "0.9.1"
-cbindgen = "0.19.0"
+cargo_toml = "0.9.2"
 codespan-reporting = "0.11.1"
 devx-pre-commit = "0.3.1"
 env_logger = "0.8.3"

@@ -30,23 +30,25 @@ pub struct ModelInfo {
     format: Format,
 }
 
-pub fn model_info(m: ModelInfo) -> Result<(), Error> {
-    let interpreter =
-        load_model(&m.file).context("Unable to load the model")?;
+impl ModelInfo {
+    pub fn execute(self) -> Result<(), Error> {
+        let interpreter =
+            load_model(&self.file).context("Unable to load the model")?;
 
-    let info = parse_info(&interpreter);
+        let info = parse_info(&interpreter);
 
-    match m.format {
-        Format::Text => print_info(&info),
-        Format::Json => {
-            let mut stdout = std::io::stdout();
-            serde_json::to_writer_pretty(stdout.lock(), &info)
-                .context("Unable to print to stdout")?;
-            writeln!(stdout)?;
-        },
+        match self.format {
+            Format::Text => print_info(&info),
+            Format::Json => {
+                let mut stdout = std::io::stdout();
+                serde_json::to_writer_pretty(stdout.lock(), &info)
+                    .context("Unable to print to stdout")?;
+                writeln!(stdout)?;
+            },
+        }
+
+        Ok(())
     }
-
-    Ok(())
 }
 
 fn print_info(info: &ModelDescription) {

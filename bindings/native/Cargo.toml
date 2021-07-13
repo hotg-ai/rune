@@ -1,28 +1,31 @@
 [package]
 name = "rune-native"
-version = "0.4.0-dev"
-authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+version = "0.1.0"
 edition = "2018"
 publish = false
+authors = ["The Rune Developers"]
+license = "MIT OR Apache 2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-anyhow = "1.0.38"
-env_logger = "0.8.3"
-libc = "0.2.87"
-log = "0.4.14"
-rune-codegen = { path = "../../crates/codegen", version = "0.4.0-dev" }
-rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev" }
-rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" }
-rune-syntax = { path = "../../crates/syntax", version = "0.4.0-dev" }
-rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" }
-
 [lib]
-name = "rune"
-crate-type = ["cdylib", "staticlib", "rlib"]
+crate-type = ["staticlib", "cdylib"]
 
-[dev-dependencies]
-cbindgen = "0.19.0"
-tempfile = "3.2.0"
+[dependencies]
+anyhow = "1.0.41"
+build-info = "0.0.23"
+log = "0.4.14"
+paste = "1.0.5"
+rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
+rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev" }
+rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" , optional = true }
+runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" , default-features = false }
+safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
+
+[build-dependencies]
+build-info-build = "0.0.23"
+
+[features]
+c-headers = ["safer-ffi/headers"]
+wasmer-runtime = ["rune-wasmer-runtime"]
+tflite = ["runicos-base-runtime/tflite"]

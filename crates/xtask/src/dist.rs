@@ -229,14 +229,25 @@ fn is_strippable(path: &Path) -> bool {
 }
 
 fn generate_ffi_header(ctx: &Context) -> Result<(), Error> {
-    let Context {
-        project_root, dist, ..
-    } = ctx;
-
-    let ffi_dir = project_root.join("ffi");
+    let Context { dist, .. } = ctx;
     let header = dist.join("rune.h");
-    log::debug!("Writing FFI headers at \"{}\"", header.display());
-    cbindgen::generate(&ffi_dir)?.write_to_file(&header);
+
+    log::debug!("Writing FFI headers to \"{}\"", header.display());
+
+    let mut cmd = Command::new(&ctx.cargo);
+    cmd.arg("test")
+        .arg("--package=rune-native")
+        .arg("--features=c-headers")
+        .arg("--")
+        .arg("generate_headers")
+        .env("RUNE_HEADER_FILE", &header);
+
+    log::debug!("Executing {:?}", cmd);
+    let status = cmd
+        .status()
+        .context("Unable to run `cargo`. Is it installed?")?;
+
+    anyhow::ensure!(status.success(), "Unable to generate the header file.");
 
     Ok(())
 }
@@ -342,7 +353,7 @@ fn compile_example_runes(ctx: &Context) -> Result<(), Error> {
     let destination_dir = dist.join("examples");
 
     let copy = BulkCopy::new(&[
-        "**/Runefile",
+        "**/Runefile.yml",
         "*.tflite",
         "*.csv",
         "*.wav",
@@ -356,7 +367,7 @@ fn compile_example_runes(ctx: &Context) -> Result<(), Error> {
         .context("Unable to read the examples directory")?
     {
         let dir = entry.context("Unable to read the dir entry")?;
-        let runefile = dir.path().join("Runefile");
+        let runefile = dir.path().join("Runefile.yml");
 
         if !runefile.exists() {
             continue;
@@ -388,8 +399,7 @@ fn compile_example_rune(
     let mut cmd = Command::new(cargo);
     cmd.arg("run")
         .arg("--release")
-        .arg("--package")
-        .arg("rune")
+        .arg("--package=rune-cli")
         .arg("--")
         .arg("build")
         .arg(&runefile)
@@ -419,7 +429,7 @@ fn compile_rune_binary(ctx: &Context) -> Result<(), Error> {
         cargo,
         target_dir,
         dist,
-        workspace_cargo_toml,
+        project_root,
         ..
     } = ctx;
 
@@ -427,32 +437,22 @@ fn compile_rune_binary(ctx: &Context) -> Result<(), Error> {
 
     let mut cmd = Command::new(cargo);
     cmd.arg("build")
-        .arg(if log::log_enabled!(log::Level::Debug) {
-            "--verbose"
-        } else {
-            "--quiet"
-        })
-        .arg("--workspace")
+        .arg("--package=rune-cli")
         .arg("--release")
-        .arg("--manifest-path")
-        .arg(&workspace_cargo_toml);
+        .current_dir(project_root);
     log::debug!("Executing {:?}", cmd);
     let status = cmd.status().context("Unable to invoke `cargo`")?;
 
     log::debug!("Executing {:?}", cmd);
     anyhow::ensure!(status.success(), "`cargo build` failed");
 
-    BulkCopy::new(&[
-        "**/rune",
-        "**/rune.exe",
-        "**/*.a",
-        "**/*.so",
-        "**/*.dylib",
-        "**/*.dll",
-    ])?
-    .with_max_depth(1)
-    .copy(target_dir.join("release"), dist)
-    .context("Unable to copy pre-compiled binaries into the dist directory")?;
+    BulkCopy::new(&["**/rune", "**/rune.exe", "**/*rune_native*"])?
+        .with_max_depth(1)
+        .with_blacklist(&["*.d"])?
+        .copy(target_dir.join("release"), dist)
+        .context(
+            "Unable to copy pre-compiled binaries into the dist directory",
+        )?;
 
     Ok(())
 }
