@@ -12,7 +12,6 @@ version = "0.2.1"
 
 targets = [
     "x86_64-unknown-linux-gnu",
-    "armv7-unknown-linux-gnueabihf",
     "aarch64-unknown-linux-gnu",
 ]
 
