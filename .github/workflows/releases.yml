@@ -172,6 +172,8 @@ jobs:
 
   rune_native:
     name: Build librune_native for ${{ matrix.target }}
+    needs:
+      - check_date
     strategy:
       fail-fast: false
       matrix:
@@ -268,6 +270,8 @@ jobs:
   rune_native_mac:
     name: Build librune_native for MacOS
     runs-on: macos-latest
+    needs:
+      - check_date
     steps:
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
