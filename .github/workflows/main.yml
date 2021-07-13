@@ -125,11 +125,11 @@ jobs:
           # 32-bit Raspberry Pi (2/3/4)
           - os: ubuntu-18.04
             target: armv7-unknown-linux-gnueabihf
-            features: wasmer-runtime,tflite
+            features: wasmer-runtime
           # 64-bit Raspberry Pi (4)
           - os: ubuntu-18.04
             target: aarch64-unknown-linux-gnu
-            features: wasmer-runtime,tflite
+            features: wasmer-runtime
           # MacOS
           # FIXME: The tflite crate doesn't compile under cross so we are doing
           # a native build in a separate rune_native_mac job
@@ -229,7 +229,7 @@ jobs:
       - name: MacOS - Prepare LLVM
         run: |
           LLVM_PATH=${{ env.LLVM_PATH }}
-          LLVM_VERSION=${{ matrix.clang }}
+          LLVM_VERSION=11.0
           ## already done inside install-llvm-action
           # echo "PATH="$LLVM_PATH:$PATH"
           # echo "LD_LIBRARY_PATH=$LLVM_PATH/lib/:$LD_LIBRARY_PATH" >> $GITHUB_ENV
