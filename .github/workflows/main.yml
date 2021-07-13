@@ -221,7 +221,6 @@ jobs:
           # We need to update rustup because the mac version is out of date and
           # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
           curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
-        if: runner.os == 'macOS'
       - name: Setup Rust
         run: rustup show
       - name: Set target
@@ -229,13 +228,11 @@ jobs:
       - name: Compile
         run: |
           cargo build --package=rune-native \
-                      --target=${{ env.target }} \
                       --features=wasmer-runtime,tflite \
                       --verbose --locked --release
       - name: Generate the header file
         run: |
           cargo test --package=rune-native \
-                     --target=${{ env.target }} \
                      --features=wasmer-runtime,tflite \
                      --features=c-headers \
                      --verbose --locked --release \
@@ -245,7 +242,7 @@ jobs:
         run: clang-format -i target/rune.h
       - name: Generate archive
         run: |
-          TARGET_DIR=target/${{ env.target }}/release
+          TARGET_DIR=target/release
           rm $TARGET_DIR/*.d
           zip -j -9 rune_native.$TARGET.zip \
             target/rune.h \
