@@ -224,6 +224,22 @@ jobs:
         with:
           version: "11.0"
           directory: ${{ runner.temp }}/llvm
+      # It looks like KyleMayes/install-llvm-action doesn't fully set up LLVM
+      # https://github.com/KyleMayes/install-llvm-action/issues/15
+      - name: MacOS - Prepare LLVM
+        run: |
+          LLVM_PATH=${{ env.LLVM_PATH }}
+          LLVM_VERSION=${{ matrix.clang }}
+          ## already done inside install-llvm-action
+          # echo "PATH="$LLVM_PATH:$PATH"
+          # echo "LD_LIBRARY_PATH=$LLVM_PATH/lib/:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          # echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib/:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+          echo "CPATH=$LLVM_PATH/lib/clang/$LLVM_VERSION/include/" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$LLVM_PATH/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$LLVM_PATH/include" >> $GITHUB_ENV
+          echo "CC=$LLVM_PATH/bin/clang" >> $GITHUB_ENV
+          echo "CXX=$LLVM_PATH/bin/clang++" >> $GITHUB_ENV
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
