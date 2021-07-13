@@ -112,7 +112,7 @@ jobs:
       - name: Compile the Wheel
         run: |
           pip3 install maturin
-          maturin build --manifest-path python/Cargo.toml \
+          maturin build --manifest-path bindings/python/Cargo.toml \
                         --bindings pyo3 \
                         --manylinux off \
                         --no-sdist \
@@ -120,7 +120,7 @@ jobs:
       - name: Sanity Check
         run: |
           pip3 install target/wheels/rune_py*.whl
-          python3 -m unittest python/tests/integration_tests.py
+          python3 -m unittest bindings/python/tests/integration_tests.py
       - name: Upload Wheels
         uses: actions/upload-artifact@v2
         with:
