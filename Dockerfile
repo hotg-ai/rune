@@ -10,7 +10,7 @@ COPY . /app/
 RUN rustup show && \
     cargo fetch && \
     # Install Rune
-    cargo install --root / --path /app/rune && \
+    cargo install --root / --path /app/crates/rune-cli --locked --verbose && \
     rune version --verbose && \
     # Delete any bulky dependencies installed with Rune
     rm -rf target $CARGO_HOME/git $CARGO_HOME/registry
@@ -31,3 +31,5 @@ RUN apt-get update -y && \
     sh rustup-init.sh --default-toolchain none -y && \
     rustup component add rustfmt && \
     rustup show
+
+CMD [ "rune" ]
