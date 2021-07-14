@@ -593,7 +593,7 @@ fn request_capability_set_param(
     value_ptr: WasmPtr<u8, Array>,
     value_len: u32,
     value_type: u32,
-) -> Result<(), RuntimeError> {
+) -> Result<u32, RuntimeError> {
     let memory = env
         .memory
         .get_ref()
@@ -641,7 +641,7 @@ fn request_capability_set_param(
             .map_err(runtime_error)?;
     }
 
-    Ok(())
+    Ok(0)
 }
 
 fn request_provider_response(
@@ -1024,8 +1024,7 @@ mod tf {
 #[cfg(test)]
 mod tests {
     use syn::{ForeignItem, ForeignItemFn, Item};
-    use wasmer::Export;
-
+    use wasmer::{Export, Store};
     use super::*;
 
     fn extern_functions(src: &str) -> impl Iterator<Item = ForeignItemFn> {
@@ -1050,8 +1049,11 @@ mod tests {
         let store = Store::default();
         let intrinsics_rs = include_str!("../../wasm/src/intrinsics.rs");
         let intrinsics = extern_functions(intrinsics_rs).map(|f| f.sig);
+        let mut registrar = Registrar::new(&store);
 
-        let imports = BaseImage::default().into_imports(&store);
+        BaseImage::default().initialize_imports(&mut registrar);
+
+        let imports = registrar.into_import_object();
 
         for intrinsic in intrinsics {
             let name = intrinsic.ident.to_string();

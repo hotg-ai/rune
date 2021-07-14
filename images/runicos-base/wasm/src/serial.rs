@@ -18,7 +18,9 @@ impl Serial {
         unsafe {
             Serial {
                 id: intrinsics::request_output(outputs::SERIAL),
-                buffer: RefCell::new(alloc::vec![0; INITIAL_BUFFER_SIZE]),
+                buffer: RefCell::new(
+                    alloc::vec![0; Serial::INITIAL_BUFFER_SIZE],
+                ),
             }
         }
     }
@@ -43,14 +45,13 @@ impl Serial {
         // designed a Rune that asks for more resources than its environment can
         // provide, and we should blow up loudly.
         loop {
-            match serde_json_core::to_slice(&msg, &mut buffer[..]) {
+            match serde_json_core::to_slice(msg, &mut buffer[..]) {
                 Ok(bytes_written) => {
                     self.log(&buffer[..bytes_written]);
                     return;
                 },
                 Err(serde_json_core::ser::Error::BufferFull) => {
                     let new_len = buffer.len() * 2;
-                    self.log(msg.as_bytes());
                     buffer.resize(new_len, 0);
                 },
                 Err(e) => panic!("Unable to serialize the data as JSON: {}", e),

@@ -44,12 +44,11 @@ impl DerefMut for RunicosBaseImage {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.inner }
 }
 
-#[cfg(feature = "wasmer-runtime")]
-impl<'a> Image<rune_wasmer_runtime::Registrar<'a>> for RunicosBaseImage {
-    fn initialize_imports(
-        self,
-        registrar: &mut rune_wasmer_runtime::Registrar<'a>,
-    ) {
+impl<R> Image<R> for RunicosBaseImage
+where
+    BaseImage: Image<R>,
+{
+    fn initialize_imports(self, registrar: &mut R) {
         self.inner.initialize_imports(registrar);
     }
 }

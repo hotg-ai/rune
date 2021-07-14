@@ -83,14 +83,14 @@ pub struct Registrar<'s> {
 }
 
 impl<'s> Registrar<'s> {
-    fn new(store: &'s Store) -> Self {
+    pub fn new(store: &'s Store) -> Self {
         Registrar {
             namespaces: HashMap::default(),
             store,
         }
     }
 
-    fn into_import_object(self) -> ImportObject {
+    pub fn into_import_object(self) -> ImportObject {
         let mut obj = ImportObject::default();
 
         for (name, namespace) in self.namespaces {
