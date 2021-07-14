@@ -330,7 +330,7 @@ jobs:
         run: |
           TARGET_DIR=target/release
           rm $TARGET_DIR/*.d
-          zip -j -9 rune_native.$TARGET.zip \
+          zip -j -9 rune_native.$target.zip \
             target/rune.h \
             $TARGET_DIR/*rune_native* \
             bindings/native/README.md \
