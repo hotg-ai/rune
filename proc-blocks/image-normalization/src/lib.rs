@@ -10,7 +10,7 @@ use rune_proc_blocks::{ProcBlock, Transform};
 
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 #[non_exhaustive]
-#[transform(input = [u8; 3], output = [f32; 3])]
+#[transform(input = [u8; 4], output = [f32; 4])]
 pub struct ImageNormalization {
     pub red: Distribution,
     pub green: Distribution,
@@ -46,19 +46,21 @@ impl Transform<Tensor<f32>> for ImageNormalization {
     type Output = Tensor<f32>;
 
     fn transform(&mut self, mut input: Tensor<f32>) -> Self::Output {
-        let mut view = input.view_mut::<3>()
-            .expect("The image normalization proc block only supports outputs of the form [channels, rows, columns]");
+        let mut view = input.view_mut::<4>()
+            .expect("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels]");
 
-        let [channels, _, _] = view.dimensions();
+        let [frames, _rows, _columns, channels] = view.dimensions();
 
-        assert_eq!(
-            channels, 3,
-            "The image must have 3 channels - red, green, and blue"
+        assert_eq!(channels, 3,
+                "the image normalization proc block only supports images with 3 channels, but there are {} channels in a {}",
+                channels,  input.shape(),
         );
 
-        transform(self.red, 0, &mut view);
-        transform(self.green, 1, &mut view);
-        transform(self.blue, 2, &mut view);
+        for frame in 0..frames {
+            transform(self.red, frame, 0, &mut view);
+            transform(self.green, frame, 1, &mut view);
+            transform(self.blue, frame, 2, &mut view);
+        }
 
         input
     }
@@ -66,14 +68,15 @@ impl Transform<Tensor<f32>> for ImageNormalization {
 
 fn transform(
     d: Distribution,
+    frame: usize,
     channel: usize,
-    view: &mut TensorViewMut<'_, f32, 3>,
+    view: &mut TensorViewMut<'_, f32, 4>,
 ) {
-    let [_, rows, columns] = view.dimensions();
+    let [_frames, rows, columns, _channels] = view.dimensions();
 
     for row in 0..rows {
         for column in 0..columns {
-            let ix = [channel, row, column];
+            let ix = [frame, row, column, channel];
             let current_value = view[ix];
             view[ix] = d.z_score(current_value);
         }
@@ -83,12 +86,12 @@ fn transform(
 impl HasOutputs for ImageNormalization {
     fn set_output_dimensions(&mut self, dimensions: &[usize]) {
         match *dimensions {
-            [1, _, _] | [3, _, _] => {},
-            [channels, _, _] => panic!(
+            [_, _, _, 3] => {},
+            [_, _, _, channels] => panic!(
                 "The number of channels should be either 1 or 3, found {}",
                 channels
             ),
-            _ => panic!("The image normalization proc block only supports outputs of the form [channels, rows, columns], found {:?}", dimensions),
+            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
         }
     }
 }
@@ -99,10 +102,14 @@ mod tests {
 
     #[test]
     fn normalizing_with_default_distribution_is_noop() {
-        let red = [[1.0], [4.0], [7.0], [10.0]];
-        let green = [[2.0], [5.0], [8.0], [11.0]];
-        let blue = [[3.0], [6.0], [9.0], [12.0]];
-        let image: Tensor<f32> = Tensor::from([red, green, blue]);
+        let pixel_11 = [1.0, 2.0, 3.0];
+        let pixel_12 = [4.0, 5.0, 6.0];
+        let first_row = [pixel_11, pixel_12];
+        let pixel_21 = [7.0, 8.0, 9.0];
+        let pixel_22 = [10.0, 11.0, 12.0];
+        let second_row = [pixel_21, pixel_22];
+        let frame = [first_row, second_row];
+        let image: Tensor<f32> = Tensor::from([frame]);
         let mut norm = ImageNormalization::default();
 
         let got = norm.transform(image.clone());

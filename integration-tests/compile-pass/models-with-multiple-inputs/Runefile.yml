@@ -1,0 +1,17 @@
+version: 1
+image: asdf
+pipeline:
+  rand:
+    capability: RAND
+    outputs:
+      - type: f32
+        dimensions: [128]
+
+  model:
+    model: ./sine.tflite
+    inputs:
+      - rand
+      - rand
+    outputs:
+      - type: f32
+        dimensions: [1]

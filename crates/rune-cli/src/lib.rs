@@ -14,11 +14,15 @@ pub use crate::{
 };
 
 pub const DEFAULT_RUST_LOG: &str = concat!(
-    "info,",
+    "warning,",
     "rune=debug,",
-    "rune_runtime=debug,",
+    "rune_cli=debug,",
     "rune_codegen=debug,",
+    "rune_core=debug,",
+    "rune_runtime=debug,",
     "rune_syntax=debug,",
+    "rune_wasmer_runtime=debug,",
+    "runicos_base_runtime=debug,",
 );
 
 #[derive(

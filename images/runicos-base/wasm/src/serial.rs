@@ -1,24 +1,33 @@
 use rune_core::{Sink, outputs, Tensor};
 use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
-use core::fmt::Debug;
+use core::{fmt::Debug, cell::RefCell};
+use alloc::vec::Vec;
 
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Serial {
     id: u32,
+    buffer: RefCell<Vec<u8>>,
 }
 
 impl Serial {
-    // FIXME(Michael-F-Bryan): drop this back down to 8192 or figure out a way
-    // to use a pre-allocated buffer.
-    pub const MAX_MESSAGE_SIZE: usize = 8192 * 16;
+    const INITIAL_BUFFER_SIZE: usize = 1024;
 
     pub fn new() -> Self {
         unsafe {
             Serial {
                 id: intrinsics::request_output(outputs::SERIAL),
+                buffer: RefCell::new(
+                    alloc::vec![0; Serial::INITIAL_BUFFER_SIZE],
+                ),
             }
+        }
+    }
+
+    fn log(&self, msg: &[u8]) {
+        unsafe {
+            intrinsics::consume_output(self.id, msg.as_ptr(), msg.len() as u32);
         }
     }
 
@@ -26,13 +35,27 @@ impl Serial {
     where
         M: Serialize,
     {
-        let mut buffer = [0; Self::MAX_MESSAGE_SIZE];
-        let bytes_written = serde_json_core::to_slice(&msg, &mut buffer)
-            .expect("Unable to serialize the data as JSON");
-        let msg = &buffer[..bytes_written];
+        let mut buffer = self.buffer.borrow_mut();
 
-        unsafe {
-            intrinsics::consume_output(self.id, msg.as_ptr(), msg.len() as u32);
+        // Keep resizing our internal buffer until it's big enough to hold the
+        // full message. If we try to use more memory than the WebAssembly VM
+        // wants to give us, this will OOM and we'll abort the Rune.
+        //
+        // In general that's the desired outcome because it means you've
+        // designed a Rune that asks for more resources than its environment can
+        // provide, and we should blow up loudly.
+        loop {
+            match serde_json_core::to_slice(msg, &mut buffer[..]) {
+                Ok(bytes_written) => {
+                    self.log(&buffer[..bytes_written]);
+                    return;
+                },
+                Err(serde_json_core::ser::Error::BufferFull) => {
+                    let new_len = buffer.len() * 2;
+                    buffer.resize(new_len, 0);
+                },
+                Err(e) => panic!("Unable to serialize the data as JSON: {}", e),
+            }
         }
     }
 }

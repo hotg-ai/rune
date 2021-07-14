@@ -3,6 +3,7 @@ use anyhow::{Error, Context};
 use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
+use rune_core::Shape;
 use rune_syntax::{
     hir::{
         HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
@@ -11,6 +12,8 @@ use rune_syntax::{
     yaml::Value,
 };
 use serde::Serialize;
+
+const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
 /// Generate the Rune's `lib.rs` file.
 pub fn generate(
@@ -271,13 +274,94 @@ fn initialize_node(
                 let mut #name = #type_name::default();
             }
         },
-        Stage::Model(_) => {
+        Stage::Model(_)
+            if node.input_slots.len() == 1 && node.output_slots.len() == 1 =>
+        {
             let model_file = format!("{}.tflite", name);
             quote! {
                 let mut #name = #image_crate::Model::load(include_bytes!(#model_file));
             }
-        },
+        }
+        Stage::Model(_) => initialize_model(rune, name, node, image_crate),
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
+    }
+}
+
+fn initialize_model(
+    rune: &Rune,
+    name: Ident,
+    node: &Node,
+    image_crate: &TokenStream,
+) -> TokenStream {
+    let model_file = format!("{}.tflite", name);
+    let inputs = node
+        .input_slots
+        .iter()
+        .map(|slot_id| rune.slots[slot_id].element_type)
+        .map(|id| to_shape(rune, &id))
+        .map(|s| shape(&s));
+    let outputs = node
+        .output_slots
+        .iter()
+        .map(|slot_id| rune.slots[slot_id].element_type)
+        .map(|id| to_shape(rune, &id))
+        .map(|s| shape(&s));
+
+    quote! {
+        let mut #name = #image_crate::MultiModel::load(
+            #TFLITE_MIMETYPE,
+            include_bytes!(#model_file),
+            &[ #(#inputs),* ],
+            &[ #(#outputs),* ],
+        );
+    }
+}
+
+fn to_shape(rune: &Rune, type_id: &HirId) -> Shape<'static> {
+    let (primitive, dimensions) = match &rune.types[type_id] {
+        Type::Buffer {
+            underlying_type,
+            dimensions,
+        } => match &rune.types[underlying_type] {
+            Type::Primitive(p) => (p, dimensions.as_slice()),
+            _ => unreachable!(),
+        },
+        Type::Primitive(p) => (p, [1].as_ref()),
+        Type::Any | Type::Unknown => {
+            unreachable!("All types should be resolved by now")
+        },
+    };
+
+    let element_type = match primitive {
+        Primitive::U8 => rune_core::reflect::Type::u8,
+        Primitive::I8 => rune_core::reflect::Type::i8,
+        Primitive::U16 => rune_core::reflect::Type::u16,
+        Primitive::I16 => rune_core::reflect::Type::i16,
+        Primitive::U32 => rune_core::reflect::Type::u32,
+        Primitive::I32 => rune_core::reflect::Type::i32,
+        Primitive::F32 => rune_core::reflect::Type::f32,
+        Primitive::U64 => rune_core::reflect::Type::u64,
+        Primitive::I64 => rune_core::reflect::Type::i64,
+        Primitive::F64 => rune_core::reflect::Type::f64,
+        Primitive::String => rune_core::reflect::Type::String,
+    };
+
+    Shape::new(element_type, dimensions.to_vec())
+}
+
+fn shape(s: &Shape<'_>) -> TokenStream {
+    let element_type = s
+        .element_type()
+        .rust_name()
+        .expect("The type should be named");
+    let element_type = Ident::new(element_type, Span::call_site());
+    let dimensions = s.dimensions();
+
+    quote! {
+        rune_core::Shape::new(
+            rune_core::reflect::Type::#element_type,
+            [#(#dimensions),*].as_ref()
+        )
     }
 }
 
@@ -587,8 +671,18 @@ mod tests {
         version: 1
 
         pipeline:
+          rand:
+            capability: RAND
+            outputs:
+            - type: f32
+              dimensions: [1]
           sine:
             model: ./sine_model.tflite
+            inputs:
+            - rand
+            outputs:
+            - type: f32
+              dimensions: [1]
         "#,
         );
         let id = rune.names["sine"];
@@ -828,6 +922,109 @@ mod tests {
 
         let should_be = quote! {
             let sine_out_0: Tensor<u8> = sine.transform(audio_out_0.clone());
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn evaluate_model_with_multiple_inputs_and_outputs() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+        version: 1
+
+        pipeline:
+          audio:
+            capability: SOUND
+            outputs:
+            - type: u8
+              dimensions: [18000]
+          rand:
+            capability: RAND
+            outputs:
+            - type: f32
+              dimensions: [1]
+          sine:
+            model: ./sine.tflite
+            inputs:
+            - audio
+            - rand
+            outputs:
+              - type: u8
+                dimensions: [1]
+              - type: i16
+                dimensions: [2, 3, 4]
+          debug:
+            out: SERIAL
+            inputs:
+              - sine
+        "#,
+        );
+        let id = rune.names["sine"];
+        let node = &rune.stages[&id];
+
+        let got = evaluate_node(&rune, id, &node).to_token_stream();
+
+        let should_be = quote! {
+            let (sine_out_0, sine_out_1): (Tensor<u8>, Tensor<i16>) = sine.transform((audio_out_0.clone(), rand_out_0.clone()));
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn initialize_model_with_multiple_inputs_and_outputs() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+        version: 1
+
+        pipeline:
+          audio:
+            capability: SOUND
+            outputs:
+            - type: u8
+              dimensions: [18000]
+          rand:
+            capability: RAND
+            outputs:
+            - type: f32
+              dimensions: [1]
+          sine:
+            model: ./sine.tflite
+            inputs:
+            - audio
+            - rand
+            outputs:
+              - type: u8
+                dimensions: [1]
+              - type: i16
+                dimensions: [2, 3, 4]
+          debug:
+            out: SERIAL
+            inputs:
+              - sine
+        "#,
+        );
+        let id = rune.names["sine"];
+        let node = &rune.stages[&id];
+        let image_crate = quote!(runicos_base_wasm);
+
+        let got =
+            initialize_node(&rune, id, &node, &image_crate).to_token_stream();
+
+        let should_be = quote! {
+            let mut sine = runicos_base_wasm::MultiModel::load(
+                #TFLITE_MIMETYPE,
+                include_bytes!("sine.tflite"),
+                &[
+                    rune_core::Shape::new(rune_core::reflect::Type::u8, [18000usize].as_ref()),
+                    rune_core::Shape::new(rune_core::reflect::Type::f32, [1usize].as_ref())
+                ],
+                &[
+                    rune_core::Shape::new(rune_core::reflect::Type::u8, [1usize].as_ref()),
+                    rune_core::Shape::new(rune_core::reflect::Type::i16, [2usize, 3usize, 4usize].as_ref())
+                ],
+            );
         };
         assert_quote_eq!(got, should_be);
     }

@@ -1,13 +1,7 @@
-mod function;
-
 #[cfg(feature = "builtins")]
 pub mod common_capabilities;
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
-
-pub use function::{
-    Function, Signature, FromValuesError, WasmTypeList, CallContext,
-};
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -41,19 +35,8 @@ pub enum WasmType {
     I64,
 }
 
-pub trait Image {
-    fn initialize_imports(self, registrar: &mut dyn Registrar);
-}
-
-/// A helper type for registering functions and variables that the WebAssembly
-/// will be given access to.
-pub trait Registrar {
-    fn register_function(
-        &mut self,
-        namespace: &str,
-        name: &str,
-        function: Function,
-    );
+pub trait Image<Registrar> {
+    fn initialize_imports(self, registrar: &mut Registrar);
 }
 
 /// Something a Rune can send output to.

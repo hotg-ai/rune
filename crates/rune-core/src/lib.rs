@@ -11,7 +11,9 @@ mod logging;
 mod pipelines;
 mod pixel_format;
 pub mod reflect;
+mod shape;
 mod tensor;
+mod tensor_list;
 mod value;
 
 pub use crate::{
@@ -21,31 +23,69 @@ pub use crate::{
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},
     logging::SerializableRecord,
+    shape::Shape,
+    tensor_list::{TensorList, TensorListMut},
 };
 
-pub mod capabilities {
-    pub const RAND: u32 = 1;
-    pub const SOUND: u32 = 2;
-    pub const ACCEL: u32 = 3;
-    pub const IMAGE: u32 = 4;
-    pub const RAW: u32 = 5;
+macro_rules! constants {
+    ($name:ident { $(
+        $(#[$constant_meta:meta])*
+        $constant:ident = $value:expr
+    ),* $(,)* }) => {
+        pub mod $name {
+            $(
+                $( #[$constant_meta] )*
+                pub const $constant: u32 = $value;
+            )*
 
-    pub fn from_str(value: &str) -> Option<u32> {
-        match value {
-            "RAND" => Some(RAND),
-            "SOUND" => Some(SOUND),
-            "ACCEL" => Some(ACCEL),
-            "IMAGE" => Some(IMAGE),
-            "RAW" => Some(RAW),
-            _ => None,
+            pub const fn all() -> &'static [(&'static str, u32)] {
+                &[
+                    $(
+                        (stringify!($constant), $value)
+                    ),*
+                ]
+            }
+
+
+            pub fn from_name(name: &str) -> Option<u32> {
+                for (candidate, id) in all() {
+                    if *candidate == name {
+                        return Some(*id);
+                    }
+                }
+
+                None
+            }
+
+            pub fn name(value: u32) -> Option<&'static str> {
+                for (name, candidate) in all().iter() {
+                    if *candidate == value {
+                        return Some(*name);
+                    }
+                }
+
+                None
+            }
         }
+    };
+}
+
+constants! {
+    capabilities {
+        RAND = 1,
+        SOUND = 2,
+        ACCEL = 3,
+        IMAGE = 4,
+        RAW = 5,
     }
 }
 
-pub mod outputs {
-    /// A serial device which consumes JSON-encoded data.
-    pub const SERIAL: u32 = 1;
-    pub const BLE: u32 = 2;
-    pub const PIN: u32 = 3;
-    pub const WIFI: u32 = 4;
+constants! {
+    outputs {
+        /// A serial device which consumes JSON-encoded data.
+        SERIAL = 1,
+        BLE = 2,
+        PIN = 3,
+        WIFI = 4,
+    }
 }

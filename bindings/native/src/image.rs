@@ -1,17 +1,18 @@
 use anyhow::Context;
 use log::Record;
 use rune_runtime::Image;
-use runicos_base_runtime::BaseImage;
-use rune_core::Value;
+use runicos_base_runtime::{BaseImage, ModelFactory};
+use rune_core::{Shape, Value};
 use safer_ffi::{
     boxed::Box,
-    char_p::char_p_ref,
+    char_p::{char_p_raw, char_p_ref},
     closure::{BoxDynFnMut0, BoxDynFnMut1},
     derive_ReprC, ffi_export,
     slice::{slice_mut, slice_raw, slice_ref},
 };
 use std::{
-    convert::TryInto,
+    convert::{TryInto, TryFrom},
+    cell::Cell,
     ffi::c_void,
     ops::{Deref, DerefMut},
     ptr::NonNull,
@@ -43,8 +44,11 @@ impl DerefMut for RunicosBaseImage {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.inner }
 }
 
-impl Image for RunicosBaseImage {
-    fn initialize_imports(self, registrar: &mut dyn rune_runtime::Registrar) {
+impl<R> Image<R> for RunicosBaseImage
+where
+    BaseImage: Image<R>,
+{
+    fn initialize_imports(self, registrar: &mut R) {
         self.inner.initialize_imports(registrar);
     }
 }
@@ -56,11 +60,11 @@ impl Image for RunicosBaseImage {
 ///
 /// On Linux and MacOS, interence is performed using the `tflite` crate
 /// (bindings to TensorFlow Lite). Other platforms will need to specify the
-/// model factory manually (see `rune_image_set_model()`).
+/// model factory manually (see `rune_image_register_model_handler()`).
 #[ffi_export]
 pub fn rune_image_new() -> Box<RunicosBaseImage> {
     Box::new(RunicosBaseImage {
-        inner: BaseImage::new(),
+        inner: BaseImage::with_defaults(),
     })
 }
 
@@ -75,7 +79,7 @@ pub fn rune_image_set_log(
 ) {
     let factory = Mutex::new(factory);
 
-    image.with_log(move |record| {
+    image.with_logger(move |record| {
         let record = LogRecord::from(record);
 
         let mut factory = factory.lock().unwrap();
@@ -91,21 +95,33 @@ pub fn rune_image_set_log(
     });
 }
 
+#[derive_ReprC]
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum CapabilityType {
+    Rand = rune_core::capabilities::RAND,
+    Sound = rune_core::capabilities::SOUND,
+    Accel = rune_core::capabilities::ACCEL,
+    Image = rune_core::capabilities::IMAGE,
+    Raw = rune_core::capabilities::RAW,
+}
+
 #[ffi_export]
-pub fn rune_image_set_raw(
+pub fn rune_image_set_capability_handler(
     image: &mut RunicosBaseImage,
+    capability: CapabilityType,
     factory: BoxDynFnMut0<Box<CapabilityResult>>,
 ) {
     let factory = Mutex::new(factory);
 
-    image.with_raw(move || {
+    image.register_capability(capability as u32, move || {
         let mut factory = factory.lock().unwrap();
         let result: std::boxed::Box<_> = factory.call().into();
 
         match result.into_std() {
             Ok(v) => {
                 let boxed: std::boxed::Box<_> = v.into();
-                Ok(boxed)
+                Ok(boxed as std::boxed::Box<dyn rune_runtime::Capability>)
             },
             Err(e) => {
                 let boxed: std::boxed::Box<Error> = e.into();
@@ -172,29 +188,82 @@ impl rune_runtime::Capability for Capability {
 unsafe impl Send for Capability {}
 unsafe impl Sync for Capability {}
 
+/// Register a function for generating models with the specified mimetype.
+///
+/// Note: TensorFlow Lite models have a mimetype of "application/tflite-model".
 #[ffi_export]
-pub fn rune_image_set_model(
+pub fn rune_image_register_model_handler(
     image: &mut RunicosBaseImage,
+    mimetype: char_p_ref,
     factory: BoxDynFnMut1<Box<ModelResult>, slice_raw<u8>>,
 ) {
     let factory = Mutex::new(factory);
 
-    image.with_model(move |model: &[u8]| {
-        let mut factory = factory.lock().unwrap();
-        let result: std::boxed::Box<_> =
-            factory.call(slice_ref::from(model).into()).into();
+    image.register_model(mimetype.to_str(), NativeModelFactory(factory));
+}
+
+struct NativeModelFactory(Mutex<BoxDynFnMut1<Box<ModelResult>, slice_raw<u8>>>);
+
+impl ModelFactory for NativeModelFactory {
+    fn new_model(
+        &self,
+        model_bytes: &[u8],
+        inputs: Option<&[rune_core::Shape<'_>]>,
+        outputs: Option<&[rune_core::Shape<'_>]>,
+    ) -> Result<std::boxed::Box<dyn runicos_base_runtime::Model>, anyhow::Error>
+    {
+        let mut factory = self.0.lock().unwrap();
+        let result: std::boxed::Box<ModelResult> =
+            factory.call(slice_ref::from(model_bytes).into()).into();
 
         match result.into_std() {
             Ok(v) => {
-                let boxed: std::boxed::Box<_> = v.into();
-                Ok(boxed)
+                let model = NativeModel::try_from(v)?;
+
+                if let Some(inputs) = inputs {
+                    ensure_shapes_equal(inputs, &model.inputs)
+                        .context("Invalid inputs")?;
+                }
+                if let Some(outputs) = outputs {
+                    ensure_shapes_equal(outputs, &model.outputs)
+                        .context("Invalid outputs")?;
+                }
+
+                Ok(std::boxed::Box::new(model)
+                    as std::boxed::Box<dyn runicos_base_runtime::Model>)
             },
             Err(e) => {
                 let boxed: std::boxed::Box<Error> = e.into();
                 Err((*boxed).into_inner())
             },
         }
-    });
+    }
+}
+
+fn ensure_shapes_equal(
+    from_rune: &[Shape],
+    from_model: &[Shape],
+) -> Result<(), anyhow::Error> {
+    if from_rune == from_model {
+        return Ok(());
+    }
+
+    fn pretty_shapes(shapes: &[Shape<'_>]) -> String {
+        format!(
+            "[{}]",
+            shapes
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+
+    anyhow::bail!(
+            "The Rune said tensors would be {}, but the model said they would be {}",
+            pretty_shapes(from_rune),
+            pretty_shapes(from_model),
+        );
 }
 
 #[derive_ReprC]
@@ -210,34 +279,83 @@ pub struct Model {
     generate: Option<
         unsafe extern "C" fn(
             *mut c_void,
-            input: slice_raw<u8>,
-            output: slice_raw<u8>,
+            input: slice_raw<slice_raw<u8>>,
+            output: slice_raw<slice_raw<u8>>,
         ) -> Box<IntegerOrErrorResult>,
     >,
+    inputs: Option<unsafe extern "C" fn(*mut c_void) -> slice_raw<char_p_raw>>,
+    outputs: Option<unsafe extern "C" fn(*mut c_void) -> slice_raw<char_p_raw>>,
     free: Option<unsafe extern "C" fn(*mut c_void)>,
 }
 
-impl runicos_base_runtime::Model for Model {
+/// A wrapper around a [`Model`] which implements the interface expected by our
+/// base image.
+struct NativeModel {
+    vtable: Model,
+    inputs: Vec<Shape<'static>>,
+    outputs: Vec<Shape<'static>>,
+}
+
+impl TryFrom<Model> for NativeModel {
+    type Error = anyhow::Error;
+
+    fn try_from(vtable: Model) -> Result<NativeModel, Self::Error> {
+        let inputs = Vec::new();
+        let outputs = Vec::new();
+
+        Ok(NativeModel {
+            vtable,
+            inputs,
+            outputs,
+        })
+    }
+}
+
+impl runicos_base_runtime::Model for NativeModel {
     fn infer(
         &mut self,
-        input: &[u8],
-        output: &mut [u8],
+        input: &[&[Cell<u8>]],
+        output: &[&[Cell<u8>]],
     ) -> Result<(), anyhow::Error> {
-        let generate =
-            self.generate.context("No generate function provided")?;
-        let user_data = match self.user_data {
+        let generate = self
+            .vtable
+            .generate
+            .context("No generate function provided")?;
+        let user_data = match self.vtable.user_data {
             Some(u) => u.as_ptr(),
             None => std::ptr::null_mut(),
         };
 
         unsafe {
-            let input = slice_ref::from(input);
-            let output = slice_mut::from(output);
-            generate(user_data, input.into(), output.into());
+            let input: Vec<_> = input
+                .iter()
+                .map(|s| {
+                    std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len())
+                })
+                .map(slice_ref::from)
+                .map(slice_raw::from)
+                .collect();
+            let output: Vec<_> = output
+                .iter()
+                .map(|s| {
+                    std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len())
+                })
+                .map(slice_ref::from)
+                .map(slice_raw::from)
+                .collect();
+            generate(
+                user_data,
+                slice_ref::from(input.as_slice()).into(),
+                slice_ref::from(output.as_slice()).into(),
+            );
         }
 
         Ok(())
     }
+
+    fn input_shapes(&self) -> &[rune_core::Shape<'_>] { &self.inputs }
+
+    fn output_shapes(&self) -> &[rune_core::Shape<'_>] { &self.outputs }
 }
 
 unsafe impl Send for Model {}

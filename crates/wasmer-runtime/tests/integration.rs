@@ -5,14 +5,14 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
 };
-use rune_runtime::{Function, Image, Registrar};
+use rune_runtime::Image;
 use tempfile::TempDir;
 use anyhow::Error;
-use wasmer::{Module, Store};
-use rune_wasmer_runtime::Runtime;
+use wasmer::{Function, Module, Store};
+use rune_wasmer_runtime::{Registrar, Runtime};
 
 #[test]
-fn load_and_call_the_empty_rune() {
+fn load_and_call_a_rune_that_does_nothing() {
     let src = include_str!("fixtures/empty.rs");
     let store = Store::default();
     let module = compile_standalone_wasm(src, &store).unwrap();
@@ -24,12 +24,12 @@ fn load_and_call_the_empty_rune() {
 
 struct Empty;
 
-impl Image for Empty {
-    fn initialize_imports(self, _: &mut dyn Registrar) {}
+impl Image<Registrar<'_>> for Empty {
+    fn initialize_imports(self, _: &mut Registrar<'_>) {}
 }
 
 #[test]
-fn call_image_function_from_manifest() {
+fn call_host_function_from_manifest() {
     let calls = Arc::new(AtomicUsize::new(0));
     let src = include_str!("fixtures/image-function.rs");
     let store = Store::default();
@@ -44,18 +44,21 @@ fn call_image_function_from_manifest() {
     assert_eq!(times_called, 1);
 }
 
+#[derive(Clone, wasmer::WasmerEnv)]
 struct Tracked {
     calls: Arc<AtomicUsize>,
 }
 
-impl Image for Tracked {
-    fn initialize_imports(self, registrar: &mut dyn Registrar) {
-        let handle = Arc::clone(&self.calls);
+impl Image<Registrar<'_>> for Tracked {
+    fn initialize_imports(self, registrar: &mut Registrar<'_>) {
+        let func = Function::new_native_with_env(
+            registrar.store(),
+            self,
+            |t: &Tracked| {
+                t.calls.fetch_add(1, Ordering::SeqCst);
+            },
+        );
 
-        let func = Function::new(move |_, ()| {
-            handle.fetch_add(1, Ordering::SeqCst);
-            Ok(())
-        });
         registrar.register_function("env", "tick", func);
     }
 }

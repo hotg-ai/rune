@@ -31,6 +31,11 @@ impl TestSuite {
         for test in &self.tests {
             let name = &test.name;
 
+            if !cb.should_run(name) {
+                cb.on_skip(name);
+                continue;
+            }
+
             match test.run(ctx) {
                 Outcome::Skipped => cb.on_skip(name),
                 Outcome::Pass => cb.on_pass(name),
@@ -48,6 +53,8 @@ pub trait Callbacks {
     fn on_skip(&mut self, name: &FullName);
     fn on_bug(&mut self, name: &FullName, error: Error);
     fn on_fail(&mut self, name: &FullName, errors: Vec<Error>, output: Output);
+    /// Should this test be executed?
+    fn should_run(&mut self, _name: &FullName) -> bool { true }
 }
 
 #[derive(Debug)]

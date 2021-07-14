@@ -82,6 +82,16 @@ macro_rules! declare_type {
                         _ => None,
                     }
                 }
+
+                /// The size this type would occupy in bytes.
+                pub fn size_of(&self) -> Option<usize> {
+                    match *self {
+                        $(
+                          Type::$name => Some(core::mem::size_of::<$name>()),
+                        )*
+                        _ => None,
+                    }
+                }
             }
 
             $(

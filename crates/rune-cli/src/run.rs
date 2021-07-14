@@ -2,7 +2,10 @@ use std::{fs::File, path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use hound::WavReader;
 use log;
-use rune_runtime::common_capabilities::{Accelerometer, Image, Random, Raw, Sound};
+use rune_core::capabilities;
+use rune_runtime::{
+    common_capabilities::{Accelerometer, Image, Random, Raw, Sound},
+};
 use rune_wasmer_runtime::Runtime;
 use runicos_base_runtime::BaseImage;
 
@@ -142,14 +145,17 @@ fn extend_caps<'a, I, F, T>(
 }
 
 fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
-    let mut env = BaseImage::default();
+    let mut env = BaseImage::with_defaults();
 
     for cap in capabilities {
         match cap {
             Capability::RandomSeed { seed } => {
                 log::debug!("Setting the RNG's seed to {}", seed);
                 let seed = *seed;
-                env.with_rand(move || Ok(Box::new(Random::seeded(seed))));
+                env.register_capability(capabilities::RAND, move || {
+                    Ok(Box::new(Random::seeded(seed))
+                        as Box<dyn rune_runtime::Capability>)
+                });
             },
             Capability::RandomData { filename } => {
                 log::debug!(
@@ -167,10 +173,11 @@ fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
                     !random_bytes.is_empty(),
                     "The random data file was empty"
                 );
-                env.with_rand(move || {
+                env.register_capability(capabilities::RAND, move || {
                     Ok(Box::new(Random::with_repeated_data(
                         random_bytes.clone(),
-                    )))
+                    ))
+                        as Box<dyn rune_runtime::Capability>)
                 });
             },
             Capability::Accelerometer { filename } => {
@@ -190,14 +197,20 @@ fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
                     acc.samples().len(),
                     filename.display()
                 );
-                env.with_accelerometer(move || Ok(Box::new(acc.clone())));
+                env.register_capability(capabilities::ACCEL, move || {
+                    Ok(Box::new(acc.clone())
+                        as Box<dyn rune_runtime::Capability>)
+                });
             },
             Capability::Image { filename } => {
                 log::debug!("Loading an image from \"{}\"", filename.display());
                 let img = image::open(filename).with_context(|| {
                     format!("Unable to load \"{}\"", filename.display())
                 })?;
-                env.with_image(move || Ok(Box::new(Image::new(img.clone()))));
+                env.register_capability(capabilities::IMAGE, move || {
+                    Ok(Box::new(Image::new(img.clone()))
+                        as Box<dyn rune_runtime::Capability>)
+                });
             },
             Capability::Sound { filename } => {
                 let f = File::open(filename).with_context(|| {
@@ -214,8 +227,9 @@ fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
                     .collect::<Result<Vec<_>, _>>()
                     .context("Unable to parse the WAV file's samples")?;
 
-                env.with_sound(move || {
-                    Ok(Box::new(Sound::new(samples.clone())))
+                env.register_capability(capabilities::SOUND, move || {
+                    Ok(Box::new(Sound::new(samples.clone()))
+                        as Box<dyn rune_runtime::Capability>)
                 });
             },
             Capability::Raw { filename } => {
@@ -225,7 +239,10 @@ fn initialize_image(capabilities: &[Capability]) -> Result<BaseImage, Error> {
                         filename.display()
                     )
                 })?;
-                env.with_raw(move || Ok(Box::new(Raw::new(bytes.clone()))));
+                env.register_capability(capabilities::RAW, move || {
+                    Ok(Box::new(Raw::new(bytes.clone()))
+                        as Box<dyn rune_runtime::Capability>)
+                });
             },
         }
     }
