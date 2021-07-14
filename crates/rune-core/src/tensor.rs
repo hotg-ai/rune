@@ -207,6 +207,35 @@ impl<T: Clone, const WIDTH: usize, const HEIGHT: usize, const DEPTH: usize>
     }
 }
 
+macro_rules! array_type {
+    ($element:ident, [$dim:ident $(,)?]) => { [$element; $dim] };
+    ($element:ident, [$dim:ident, $($rest:ident),*]) => {
+        [array_type!($element, [$($rest),*]); $dim]
+    };
+}
+
+macro_rules! from_array {
+    ($($name:ident : $letter:ident),*) => {
+        impl<Element: Clone, $(const $letter: usize),*> From<array_type!(Element, [$($letter),*])> for Tensor<Element> {
+            fn from(array: array_type!(Element, [$($letter),*])) -> Self {
+                let elements = core::iter::once(&array)
+                    $(
+                        .flat_map(|$name| $name.iter())
+                    )*
+                    .cloned()
+                    .collect();
+                Tensor::new_row_major(elements, alloc::vec![$($letter),*])
+            }
+        }
+    };
+}
+
+from_array!(a: A, b: B, c: C, d: D);
+from_array!(a: A, b: B, c: C, d: D, e: E);
+from_array!(a: A, b: B, c: C, d: D, e: E, f: F);
+from_array!(a: A, b: B, c: C, d: D, e: E, f: F, g: G);
+from_array!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H);
+
 impl<'a, T: Clone> From<&'a [T]> for Tensor<T> {
     fn from(array: &'a [T]) -> Self {
         let dims = alloc::vec![array.len()];
