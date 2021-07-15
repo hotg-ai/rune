@@ -7,6 +7,8 @@ pipeline:
     outputs:
     - type: u8
       dimensions: [1, 384, 384, 3]
+    args:
+      source: 0
 
   normalized_content_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
@@ -23,6 +25,8 @@ pipeline:
     outputs:
     - type: f32
       dimensions: [1, 1, 1, 100]
+    args:
+      source: 1
 
   style_transform:
     model: ./style_transform.tflite
