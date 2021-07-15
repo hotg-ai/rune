@@ -87,7 +87,7 @@ extern "C" {
         model_id: u32,
         inputs: *const *const u8,
         outputs: *mut *mut u8,
-    );
+    ) -> u32;
 
     /// Load a model (as a byte buffer) into the runtime, telling it how many
     /// inputs and outputs there will be.
