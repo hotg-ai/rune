@@ -100,11 +100,11 @@ dependencies = [
 
 [[package]]
 name = "audio_float_conversion"
-version = "0.1.0"
+version = "0.4.0-dev"
 dependencies = [
  "pretty_assertions",
- "rune-pb-core",
- "runic-types",
+ "rune-core",
+ "rune-proc-blocks",
 ]
 
 [[package]]
