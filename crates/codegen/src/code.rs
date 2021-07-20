@@ -3,7 +3,7 @@ use anyhow::{Error, Context};
 use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
-use hotg_rune_core::Shape;
+use hotg_rune_core::{Shape, TFLITE_MIMETYPE};
 use hotg_rune_syntax::{
     hir::{
         HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
@@ -12,8 +12,6 @@ use hotg_rune_syntax::{
     yaml::Value,
 };
 use serde::Serialize;
-
-const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
 /// Generate the Rune's `lib.rs` file.
 pub fn generate(
