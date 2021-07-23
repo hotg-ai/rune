@@ -346,7 +346,7 @@ fn rune_model_infer(
     model_id: u32,
     inputs: WasmPtr<WasmPtr<u8, Array>, Array>,
     outputs: WasmPtr<WasmPtr<u8, Array>, Array>,
-) -> Result<(), RuntimeError> {
+) -> Result<u32, RuntimeError> {
     let memory = env
         .memory
         .get_ref()
@@ -371,7 +371,7 @@ fn rune_model_infer(
         .context("Inference failed")
         .map_err(runtime_error)?;
 
-    Ok(())
+    Ok(0)
 }
 
 fn vector_of_tensors<'vm>(
