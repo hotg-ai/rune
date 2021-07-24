@@ -150,9 +150,11 @@ impl<S: SourceBackedCapability> Debug for LazilyInitializedCapability<S> {
 
 /// A [`Capability`] which can be created by from some source object and a
 /// [`Builder`].
-pub trait SourceBackedCapability: Capability + Sized {
+pub trait SourceBackedCapability: Send + Debug + Sized + 'static {
     type Source: Debug + Send + Sync + 'static;
     type Builder: Builder + Debug + Send + Sync + 'static;
+
+    fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, Error>;
 
     fn from_builder(
         builder: Self::Builder,

@@ -1,46 +1,28 @@
 use std::{
-    convert::{TryFrom, TryInto},
-    fmt::{self, Formatter, Debug},
+    convert::TryFrom,
+    fmt::{self, Debug, Formatter},
 };
-use anyhow::Error;
-use image::{GenericImageView, DynamicImage};
-use crate::{Capability, ParameterError};
+
+use anyhow::{Context, Error};
+use image::{DynamicImage, GenericImageView};
 use rune_core::{PixelFormat, Value};
+
+use crate::{
+    ParameterError,
+    common_capabilities::multi::{Builder, SourceBackedCapability},
+};
 
 #[derive(Clone, PartialEq)]
 pub struct Image {
-    original: DynamicImage,
-    cached: Option<DynamicImage>,
-    processed: ImageProcessing,
+    processed: DynamicImage,
 }
 
-impl Image {
-    pub fn new(image: DynamicImage) -> Self {
-        let processed = ImageProcessing::default();
+impl SourceBackedCapability for Image {
+    type Builder = ImageSettings;
+    type Source = DynamicImage;
 
-        Image {
-            original: image,
-            processed,
-            cached: None,
-        }
-    }
-
-    fn invalidate_cache(&mut self) { self.cached = None; }
-
-    fn cached_image(&mut self) -> &DynamicImage {
-        let Image {
-            original,
-            cached,
-            processed,
-        } = self;
-
-        cached.get_or_insert_with(|| process(original, *processed))
-    }
-}
-
-impl Capability for Image {
-    fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
-        let bytes = self.cached_image().as_bytes();
+    fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, anyhow::Error> {
+        let bytes = self.processed.as_bytes();
 
         let len = std::cmp::min(bytes.len(), buffer.len());
         buffer[..len].copy_from_slice(&bytes[..len]);
@@ -48,126 +30,88 @@ impl Capability for Image {
         Ok(len)
     }
 
-    fn set_parameter(
-        &mut self,
-        name: &str,
-        value: Value,
-    ) -> Result<(), ParameterError> {
-        match name {
-            "pixel_format" => update_processing_field(self, value, |p| {
-                &mut p.desired_pixel_format
-            }),
-            "width" => {
-                update_processing_field(self, value, |p| &mut p.desired_width)
+    fn from_builder(
+        builder: ImageSettings,
+        image: &DynamicImage,
+    ) -> Result<Self, anyhow::Error> {
+        let (pixel_format, width, height) = builder
+            .deconstruct()
+            .context("Not all parameters were provided")?;
+
+        let image = image.resize_exact(
+            width,
+            height,
+            image::imageops::FilterType::CatmullRom,
+        );
+
+        let image = match pixel_format {
+            PixelFormat::GrayScale => {
+                DynamicImage::ImageLuma8(image.to_luma8())
             },
-            "height" => {
-                update_processing_field(self, value, |p| &mut p.desired_height)
-            },
-            _ => {
-                log::warn!("Unknown parameter: \"{}\" = {}", name, value);
-                Ok(())
-            },
-        }
-    }
-}
+            PixelFormat::RGB => DynamicImage::ImageRgb8(image.to_rgb8()),
+            PixelFormat::BGR => DynamicImage::ImageBgr8(image.to_bgr8()),
+        };
 
-fn update_processing_field<F, T>(
-    image: &mut Image,
-    value: Value,
-    getter: F,
-) -> Result<(), ParameterError>
-where
-    T: TryFrom<Value>,
-    T::Error: std::error::Error + Send + Sync + 'static,
-    F: FnOnce(&mut ImageProcessing) -> &mut Option<T>,
-{
-    let dest = getter(&mut image.processed);
-    *dest = Some(
-        T::try_from(value)
-            .map_err(|e| ParameterError::invalid_value(value, e))?,
-    );
-
-    image.invalidate_cache();
-
-    Ok(())
-}
-
-#[derive(Debug, Copy, Clone, Default, PartialEq)]
-struct ImageProcessing {
-    desired_pixel_format: Option<PixelFormat>,
-    desired_width: Option<i32>,
-    desired_height: Option<i32>,
-}
-
-fn process(image: &DynamicImage, config: ImageProcessing) -> DynamicImage {
-    let ImageProcessing {
-        desired_pixel_format,
-        desired_width,
-        desired_height,
-    } = config;
-
-    let mut processed = image.clone();
-
-    if let Some(pixel_format) = desired_pixel_format {
-        processed = apply_pixel_format(&processed, pixel_format);
-    }
-
-    if let Some(resized) = apply_resize(
-        &processed,
-        desired_width.and_then(|w| w.try_into().ok()),
-        desired_height.and_then(|h| h.try_into().ok()),
-    ) {
-        processed = resized;
-    }
-
-    processed
-}
-
-fn apply_resize(
-    image: &DynamicImage,
-    desired_width: Option<u32>,
-    desired_height: Option<u32>,
-) -> Option<DynamicImage> {
-    let (current_width, current_height) = image.dimensions();
-    let (desired_width, desired_height) = match (desired_width, desired_height)
-    {
-        (None, None) => return None,
-        (None, Some(height)) => (current_width, height),
-        (Some(width), None) => (width, current_height),
-        (Some(width), Some(height)) => (width, height),
-    };
-
-    Some(image.resize_exact(
-        desired_width,
-        desired_height,
-        image::imageops::FilterType::CatmullRom,
-    ))
-}
-
-fn apply_pixel_format(
-    image: &DynamicImage,
-    pixel_format: PixelFormat,
-) -> DynamicImage {
-    match pixel_format {
-        PixelFormat::GrayScale => DynamicImage::ImageLuma8(image.to_luma8()),
-        PixelFormat::RGB => DynamicImage::ImageRgb8(image.to_rgb8()),
-        PixelFormat::BGR => DynamicImage::ImageBgr8(image.to_bgr8()),
+        Ok(Image { processed: image })
     }
 }
 
 impl Debug for Image {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Image {
-            original,
-            cached,
-            processed,
-        } = self;
+        let Image { processed } = self;
 
-        f.debug_struct("ProcessedImage")
-            .field("original", &DebugImage(original))
-            .field("cached", &cached.as_ref().map(DebugImage))
+        f.debug_struct("Image")
             .field("processed", processed)
             .finish()
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub struct ImageSettings {
+    pixel_format: Option<PixelFormat>,
+    width: Option<u32>,
+    height: Option<u32>,
+}
+
+impl ImageSettings {
+    fn deconstruct(self) -> Result<(PixelFormat, u32, u32), Error> { todo!() }
+}
+
+impl Builder for ImageSettings {
+    fn set_parameter(
+        &mut self,
+        key: &str,
+        value: rune_core::Value,
+    ) -> Result<(), ParameterError> {
+        let ImageSettings {
+            pixel_format,
+            width,
+            height,
+        } = self;
+
+        match key {
+            "pixel_format" => update_parameter(pixel_format, value),
+            "width" => update_parameter(width, value),
+            "height" => update_parameter(height, value),
+            _ => Err(ParameterError::UnsupportedParameter),
+        }
+    }
+}
+
+fn update_parameter<T>(
+    dest: &mut Option<T>,
+    value: Value,
+) -> Result<(), ParameterError>
+where
+    T: TryFrom<Value>,
+    T::Error: std::error::Error + Send + Sync + 'static,
+{
+    match T::try_from(value) {
+        Ok(value) => {
+            *dest = Some(value);
+            Ok(())
+        },
+        Err(e) => Err(ParameterError::invalid_value(value, e)),
     }
 }
 
@@ -197,32 +141,5 @@ fn pixel_type_name(image: &DynamicImage) -> &'static str {
         DynamicImage::ImageLumaA16(_) => "LumaA16",
         DynamicImage::ImageRgb16(_) => "Rgb16",
         DynamicImage::ImageRgba16(_) => "Rgba16",
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resize_the_image() {
-        let mut image =
-            Image::new(DynamicImage::ImageRgb8(image::RgbImage::new(128, 128)));
-
-        image.set_parameter("width", Value::from(64)).unwrap();
-        assert!(image.cached.is_none());
-        assert_eq!(image.processed.desired_width, Some(64));
-
-        let got = image.cached_image();
-        assert_eq!(got.dimensions(), (64, 128));
-        assert!(image.cached.is_some());
-
-        image.set_parameter("height", Value::from(256)).unwrap();
-        assert!(image.cached.is_none());
-        assert_eq!(image.processed.desired_height, Some(256));
-
-        let got = image.cached_image();
-        assert_eq!(got.dimensions(), (64, 256));
-        assert!(image.cached.is_some());
     }
 }

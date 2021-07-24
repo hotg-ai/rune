@@ -103,6 +103,25 @@ impl Value {
     }
 }
 
+impl TryFrom<Value> for u32 {
+    type Error = InvalidConversionError;
+
+    fn try_from(value: Value) -> Result<Self, InvalidConversionError> {
+        match value {
+            Value::Integer(i) => {
+                u32::try_from(i).map_err(|_| InvalidConversionError {
+                    target_type: Type::Integer,
+                    value,
+                })
+            },
+            _ => Err(InvalidConversionError {
+                target_type: Type::Integer,
+                value,
+            }),
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
