@@ -1,5 +1,6 @@
 mod accelerometer;
 mod image;
+pub mod multi;
 mod random;
 mod raw;
 mod sound;
@@ -8,7 +9,7 @@ use crate::ParameterError;
 
 pub use self::{
     accelerometer::Accelerometer, random::Random, sound::Sound, image::Image,
-    raw::Raw,
+    raw::Raw, multi::new_multiplexer,
 };
 
 use anyhow::Error;
