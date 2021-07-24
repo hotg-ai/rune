@@ -1,16 +1,11 @@
 use std::{
-    convert::TryFrom,
     fmt::{self, Debug, Formatter},
 };
-
 use anyhow::{Context, Error};
 use image::{DynamicImage, GenericImageView};
-use rune_core::{PixelFormat, Value};
-
-use crate::{
-    ParameterError,
-    common_capabilities::multi::{Builder, SourceBackedCapability},
-};
+use rune_core::PixelFormat;
+use rune_runtime::{ParameterError};
+use crate::run::multi::{Builder, SourceBackedCapability};
 
 #[derive(Clone, PartialEq)]
 pub struct Image {
@@ -74,7 +69,20 @@ pub struct ImageSettings {
 }
 
 impl ImageSettings {
-    fn deconstruct(self) -> Result<(PixelFormat, u32, u32), Error> { todo!() }
+    fn deconstruct(self) -> Result<(PixelFormat, u32, u32), Error> {
+        let ImageSettings {
+            pixel_format,
+            width,
+            height,
+        } = self;
+
+        let pixel_format = pixel_format
+            .context("The \"pixel_format\" parameter wasn't set")?;
+        let width = width.context("The \"width\" parameter wasn't set")?;
+        let height = height.context("The \"height\" parameter wasn't set")?;
+
+        Ok((pixel_format, width, height))
+    }
 }
 
 impl Builder for ImageSettings {
@@ -90,28 +98,11 @@ impl Builder for ImageSettings {
         } = self;
 
         match key {
-            "pixel_format" => update_parameter(pixel_format, value),
-            "width" => update_parameter(width, value),
-            "height" => update_parameter(height, value),
+            "pixel_format" => super::try_from_int_value(pixel_format, value),
+            "width" => super::try_from_int_value(width, value),
+            "height" => super::try_from_int_value(height, value),
             _ => Err(ParameterError::UnsupportedParameter),
         }
-    }
-}
-
-fn update_parameter<T>(
-    dest: &mut Option<T>,
-    value: Value,
-) -> Result<(), ParameterError>
-where
-    T: TryFrom<Value>,
-    T::Error: std::error::Error + Send + Sync + 'static,
-{
-    match T::try_from(value) {
-        Ok(value) => {
-            *dest = Some(value);
-            Ok(())
-        },
-        Err(e) => Err(ParameterError::invalid_value(value, e)),
     }
 }
 
@@ -125,7 +116,7 @@ impl<'a> Debug for DebugImage<'a> {
         f.debug_struct("Image")
             .field("dimensions", &dims)
             .field("pixel_type", &pixel)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

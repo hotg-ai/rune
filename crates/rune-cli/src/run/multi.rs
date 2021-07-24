@@ -3,11 +3,9 @@ use std::{
     fmt::{self, Debug, Formatter},
     sync::Arc,
 };
-
 use anyhow::{Context, Error};
 use rune_core::Value;
-
-use crate::{Capability, ParameterError};
+use rune_runtime::{Capability, ParameterError};
 
 /// Get a function for creating new [`Capability`] objects which can be
 /// initialized by switching between different source values based on the
@@ -63,7 +61,7 @@ enum LazilyInitializedCapability<S: SourceBackedCapability> {
 }
 
 impl<S: SourceBackedCapability> LazilyInitializedCapability<S> {
-    /// Get the [`SourcedCapability`], initializing it if necessary.
+    /// Get the [`SourceBackedCapability`], initializing it if necessary.
     fn initialize(&mut self) -> Result<&mut S, Error> {
         if let LazilyInitializedCapability::Incomplete {
             builder,
@@ -133,9 +131,9 @@ impl<S: SourceBackedCapability> Debug for LazilyInitializedCapability<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             LazilyInitializedCapability::Incomplete {
-                sources,
                 builder,
                 selected_source,
+                ..
             } => f
                 .debug_struct("Initialized")
                 .field("builder", builder)
