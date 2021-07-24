@@ -1,5 +1,6 @@
 use std::{
     fmt::{self, Debug, Formatter},
+    path::Path,
 };
 use anyhow::{Context, Error};
 use image::{DynamicImage, GenericImageView};
@@ -14,7 +15,7 @@ pub struct Image {
 
 impl SourceBackedCapability for Image {
     type Builder = ImageSettings;
-    type Source = DynamicImage;
+    type Source = ImageSource;
 
     fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, anyhow::Error> {
         let bytes = self.processed.as_bytes();
@@ -27,13 +28,13 @@ impl SourceBackedCapability for Image {
 
     fn from_builder(
         builder: ImageSettings,
-        image: &DynamicImage,
+        image: &ImageSource,
     ) -> Result<Self, anyhow::Error> {
         let (pixel_format, width, height) = builder
             .deconstruct()
             .context("Not all parameters were provided")?;
 
-        let image = image.resize_exact(
+        let image = image.0.resize_exact(
             width,
             height,
             image::imageops::FilterType::CatmullRom,
@@ -106,14 +107,25 @@ impl Builder for ImageSettings {
     }
 }
 
-struct DebugImage<'a>(&'a DynamicImage);
+pub struct ImageSource(DynamicImage);
 
-impl<'a> Debug for DebugImage<'a> {
+impl ImageSource {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let path = path.as_ref();
+        let img = image::open(path).with_context(|| {
+            format!("Unable to read an image from \"{}\"", path.display())
+        })?;
+
+        Ok(ImageSource(img))
+    }
+}
+
+impl Debug for ImageSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let dims = self.0.dimensions();
-        let pixel = pixel_type_name(self.0);
+        let pixel = pixel_type_name(&self.0);
 
-        f.debug_struct("Image")
+        f.debug_struct("ImageSource")
             .field("dimensions", &dims)
             .field("pixel_type", &pixel)
             .finish_non_exhaustive()

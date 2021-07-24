@@ -34,7 +34,7 @@ pub(crate) fn rune_output(
         };
 
         let argument = match extension {
-            "png" => "--image",
+            "png" | "jpg" => "--image",
             "wav" => "--sound",
             "csv" => "--accelerometer",
             "rand" => "--random",

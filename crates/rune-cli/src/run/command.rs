@@ -1,15 +1,11 @@
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
-use image::DynamicImage;
 use log;
 use rune_core::capabilities;
 use rune_runtime::common_capabilities::Random;
 use crate::run::{
-    Accelerometer, Image, Raw, Sound, accelerometer::Samples, new_multiplexer,
-    sound::AudioClip,
+    Accelerometer, Image, Raw, Sound, accelerometer::Samples,
+    image::ImageSource, new_multiplexer, sound::AudioClip,
 };
 use rune_wasmer_runtime::Runtime;
 use runicos_base_runtime::BaseImage;
@@ -153,7 +149,7 @@ impl Run {
             Capability::Image { filename } => filename,
         );
         let image = image
-            .map(|f| open_image(f))
+            .map(|f| ImageSource::from_file(f))
             .collect::<Result<Vec<_>, Error>>()?;
 
         let raw = chain_capabilities!(
@@ -194,13 +190,6 @@ impl Run {
 
         Ok(img)
     }
-}
-
-fn open_image(path: impl AsRef<Path>) -> Result<DynamicImage, Error> {
-    let path = path.as_ref();
-    image::open(path).with_context(|| {
-        format!("Unable to read an image from \"{}\"", path.display())
-    })
 }
 
 #[derive(Debug, Clone, PartialEq)]
