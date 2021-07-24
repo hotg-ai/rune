@@ -22,7 +22,8 @@ where
     move || {
         anyhow::ensure!(
             sources.len() > 0,
-            "No sources were provided for this capability type"
+            "No sources were provided for this capability type ({})",
+            std::any::type_name::<S>(),
         );
 
         Ok(Box::new(LazilyInitializedCapability::<S>::Incomplete {
@@ -77,6 +78,13 @@ impl<S: SourceBackedCapability> LazilyInitializedCapability<S> {
                     sources.len()
                 )
             })?;
+
+            log::debug!(
+                "Initializing the \"{}\" with {:?} and {:?}",
+                std::any::type_name::<S>(),
+                builder,
+                source,
+            );
 
             let cap = S::from_builder(builder, source)
                 .context("Unable to initialize the capability")?;

@@ -6,6 +6,7 @@ use anyhow::{Context, Error};
 use image::DynamicImage;
 use log;
 use rune_core::capabilities;
+use rune_runtime::common_capabilities::Random;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples, new_multiplexer,
     sound::AudioClip,
@@ -123,6 +124,11 @@ impl Run {
             ..
         } = self;
 
+        if !capabilities.is_empty() {
+            log::warn!("The \"--capability\" flag has been deprecated in favour of the more auto-complete friendly variants.");
+            log::warn!("For example, use \"--image person.png\" instead of \"--capability image:person.png\"");
+        }
+
         let accelerometer = chain_capabilities!(
             accelerometer,
             capabilities,
@@ -178,6 +184,13 @@ impl Run {
             new_multiplexer::<Accelerometer, _>(accelerometer),
         )
         .register_capability(capabilities::RAW, new_multiplexer::<Raw, _>(raw));
+
+        if let Some(seed) = *random {
+            img.register_capability(capabilities::RAND, move || {
+                Ok(Box::new(Random::seeded(seed))
+                    as Box<dyn rune_runtime::Capability>)
+            });
+        }
 
         Ok(img)
     }

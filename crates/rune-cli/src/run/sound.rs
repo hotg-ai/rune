@@ -79,18 +79,9 @@ impl SourceBackedCapability for Sound {
         builder: SoundSettings,
         source: &AudioClip,
     ) -> Result<Self, Error> {
-        // TODO: Resample to match the desired sample rate.
-        let (frequency, duration) = builder.build()?;
-
-        let total_samples = usize::try_from(
-            (frequency as u128) * duration.as_micros() / 1_000_000,
-        )?;
-        anyhow::ensure!(
-            total_samples <= source.samples.len(),
-            "{} samples requested but only {} are available",
-            total_samples,
-            source.samples.len(),
-        );
+        // TODO: Resample to match the desired sample rate instead of just using
+        // frequency and duration to calculate the number of samples.
+        let total_samples = builder.total_samples(source.samples.len())?;
 
         Ok(Sound {
             pcm_samples: source.samples[..total_samples].to_vec(),
@@ -105,17 +96,38 @@ pub struct SoundSettings {
 }
 
 impl SoundSettings {
-    fn build(self) -> Result<(u32, Duration), Error> {
-        let SoundSettings {
-            frequency,
-            duration,
-        } = self;
-        let frequency =
-            frequency.context("The \"frequency\" parameter wasn't set")?;
-        let duration =
-            duration.context("The \"sample_duration\" parameter wasn't set")?;
+    fn total_samples(&self, max_samples: usize) -> Result<usize, Error> {
+        match *self {
+            SoundSettings {
+                frequency: None,
+                duration: None,
+            } => Ok(max_samples),
+            SoundSettings {
+                frequency: Some(frequency),
+                duration: Some(duration),
+            } => {
+                let total_samples = usize::try_from(
+                    (frequency as u128) * duration.as_micros() / 1_000_000,
+                )?;
 
-        Ok((frequency, duration))
+                if total_samples > max_samples {
+                    anyhow::bail!(
+                        "{} samples were requested but only {} are available",
+                        total_samples,
+                        max_samples
+                    );
+                }
+
+                Ok(total_samples)
+            },
+
+            SoundSettings { duration: None, .. } => {
+                anyhow::bail!("The \"sample_duration\" parameter wasn't set")
+            },
+            SoundSettings {
+                frequency: None, ..
+            } => anyhow::bail!("The \"frequency\" parameter wasn't set"),
+        }
     }
 }
 
