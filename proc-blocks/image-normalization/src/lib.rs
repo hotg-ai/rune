@@ -36,7 +36,7 @@ where
     let value = value.to_f32()?;
     debug_assert!(min <= value && value <= max);
 
-    Some((max - value) / (max - min))
+    Some((value - min) / (max - min))
 }
 
 impl HasOutputs for ImageNormalization {
@@ -58,18 +58,12 @@ mod tests {
 
     #[test]
     fn normalizing_with_default_distribution_is_noop() {
-        let pixel_11 = [1.0, 2.0, 3.0];
-        let pixel_12 = [4.0, 5.0, 6.0];
-        let first_row = [pixel_11, pixel_12];
-        let pixel_21 = [7.0, 8.0, 9.0];
-        let pixel_22 = [10.0, 11.0, 12.0];
-        let second_row = [pixel_21, pixel_22];
-        let frame = [first_row, second_row];
-        let image: Tensor<f32> = Tensor::from([frame]);
+        let input: Tensor<u8> = Tensor::from([0, 127, 255]);
         let mut norm = ImageNormalization::default();
+        let should_be: Tensor<f32> = Tensor::from([0.0, 127.0 / 255.0, 1.0]);
 
-        let got = norm.transform(image.clone());
+        let got = norm.transform(input);
 
-        assert_eq!(got, image);
+        assert_eq!(got, should_be);
     }
 }
