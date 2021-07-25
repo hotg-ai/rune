@@ -9,7 +9,7 @@ pipeline:
       dimensions: [1, 384, 384, 3]
     args:
       source: 0
-      pixel-format: "@PixelFormat::GrayScale"
+      pixel-format: "@PixelFormat::RGB"
       width: 384
       height: 384
 
@@ -20,7 +20,7 @@ pipeline:
       dimensions: [1, 256, 256, 3]
     args:
       source: 1
-      pixel-format: "@PixelFormat::GrayScale"
+      pixel-format: "@PixelFormat::RGB"
       width: 256
       height: 256
 
