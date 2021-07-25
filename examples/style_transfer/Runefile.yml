@@ -31,8 +31,6 @@ pipeline:
     outputs:
     - type: f32
       dimensions: [1, 384, 384, 3]
-    args:
-      rgb: [0, 256]
 
   normalized_style_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
