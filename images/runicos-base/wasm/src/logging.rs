@@ -15,9 +15,7 @@ impl Logger {
 }
 
 impl Log for Logger {
-    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        metadata.level() <= log::max_level()
-    }
+    fn enabled(&self, _metadata: &Metadata<'_>) -> bool { true }
 
     fn log(&self, r: &Record<'_>) {
         if !self.enabled(r.metadata()) {

@@ -7,10 +7,8 @@ mod noise_filtering;
 mod normalize;
 
 use self::{
-    fft::Fft,
-    image_normalization::{ImageNormalization, Distribution},
-    noise_filtering::NoiseFiltering,
-    normalize::Normalize,
+    fft::Fft, image_normalization::ImageNormalization,
+    noise_filtering::NoiseFiltering, normalize::Normalize,
 };
 use pyo3::{PyResult, Python, types::PyModule};
 
@@ -21,7 +19,6 @@ pub fn register(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Normalize>()?;
     m.add_class::<NoiseFiltering>()?;
     m.add_class::<ImageNormalization>()?;
-    m.add_class::<Distribution>()?;
 
     Ok(())
 }

@@ -1,86 +1,42 @@
 #![no_std]
 
-mod distribution;
-
-pub use crate::distribution::{Distribution, DistributionConversionError};
-
-use core::{convert::TryInto, fmt::Display};
-use rune_core::{HasOutputs, Tensor, TensorViewMut};
+use num_traits::{Bounded, ToPrimitive};
+use rune_core::{HasOutputs, Tensor};
 use rune_proc_blocks::{ProcBlock, Transform};
 
+/// A normalization routine which takes some tensor of integers and fits their
+/// values to the range `[0, 1]` as `f32`'s.
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 #[non_exhaustive]
-#[transform(input = [u8; 4], output = [f32; 4])]
-pub struct ImageNormalization {
-    pub red: Distribution,
-    pub green: Distribution,
-    pub blue: Distribution,
-}
+#[transform(input = [u8; _], output = [f32; _])]
+#[transform(input = [i8; _], output = [f32; _])]
+#[transform(input = [u16; _], output = [f32; _])]
+#[transform(input = [i16; _], output = [f32; _])]
+#[transform(input = [u32; _], output = [f32; _])]
+#[transform(input = [i32; _], output = [f32; _])]
+pub struct ImageNormalization {}
 
-impl ImageNormalization {
-    /// A shortcut for initializing the red, green, and blue distributions in
-    /// one call.
-    pub fn set_rgb<D>(&mut self, distribution: D) -> &mut Self
-    where
-        D: TryInto<Distribution>,
-        D::Error: Display,
-    {
-        let d = match distribution.try_into() {
-            Ok(d) => d,
-            Err(e) => panic!("Invalid distribution: {}", e),
-        };
-
-        self.set_red(d).set_green(d).set_blue(d)
-    }
-}
-
-impl Transform<Tensor<u8>> for ImageNormalization {
+impl<T> Transform<Tensor<T>> for ImageNormalization
+where
+    T: Bounded + ToPrimitive + Copy,
+{
     type Output = Tensor<f32>;
 
-    fn transform(&mut self, input: Tensor<u8>) -> Self::Output {
-        self.transform(input.map(|_dims, &elem| elem as f32))
+    fn transform(&mut self, input: Tensor<T>) -> Self::Output {
+        input.map(|_, &value| normalize(value).expect("Cast should never fail"))
     }
 }
 
-impl Transform<Tensor<f32>> for ImageNormalization {
-    type Output = Tensor<f32>;
+fn normalize<T>(value: T) -> Option<f32>
+where
+    T: Bounded + ToPrimitive,
+{
+    let min = T::min_value().to_f32()?;
+    let max = T::max_value().to_f32()?;
+    let value = value.to_f32()?;
+    debug_assert!(min <= value && value <= max);
 
-    fn transform(&mut self, mut input: Tensor<f32>) -> Self::Output {
-        let mut view = input.view_mut::<4>()
-            .expect("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels]");
-
-        let [frames, _rows, _columns, channels] = view.dimensions();
-
-        assert_eq!(channels, 3,
-                "the image normalization proc block only supports images with 3 channels, but there are {} channels in a {}",
-                channels,  input.shape(),
-        );
-
-        for frame in 0..frames {
-            transform(self.red, frame, 0, &mut view);
-            transform(self.green, frame, 1, &mut view);
-            transform(self.blue, frame, 2, &mut view);
-        }
-
-        input
-    }
-}
-
-fn transform(
-    d: Distribution,
-    frame: usize,
-    channel: usize,
-    view: &mut TensorViewMut<'_, f32, 4>,
-) {
-    let [_frames, rows, columns, _channels] = view.dimensions();
-
-    for row in 0..rows {
-        for column in 0..columns {
-            let ix = [frame, row, column, channel];
-            let current_value = view[ix];
-            view[ix] = d.z_score(current_value);
-        }
-    }
+    Some((value - min) / (max - min))
 }
 
 impl HasOutputs for ImageNormalization {
@@ -102,18 +58,12 @@ mod tests {
 
     #[test]
     fn normalizing_with_default_distribution_is_noop() {
-        let pixel_11 = [1.0, 2.0, 3.0];
-        let pixel_12 = [4.0, 5.0, 6.0];
-        let first_row = [pixel_11, pixel_12];
-        let pixel_21 = [7.0, 8.0, 9.0];
-        let pixel_22 = [10.0, 11.0, 12.0];
-        let second_row = [pixel_21, pixel_22];
-        let frame = [first_row, second_row];
-        let image: Tensor<f32> = Tensor::from([frame]);
+        let input: Tensor<u8> = Tensor::from([0, 127, 255]);
         let mut norm = ImageNormalization::default();
+        let should_be: Tensor<f32> = Tensor::from([0.0, 127.0 / 255.0, 1.0]);
 
-        let got = norm.transform(image.clone());
+        let got = norm.transform(input);
 
-        assert_eq!(got, image);
+        assert_eq!(got, should_be);
     }
 }
