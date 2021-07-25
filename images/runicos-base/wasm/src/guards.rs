@@ -33,6 +33,7 @@ pub struct SetupGuard {
 impl SetupGuard {
     pub fn new() -> Self {
         static LOGGER: Logger = Logger::new();
+        log::set_max_level(log::STATIC_MAX_LEVEL);
         log::set_logger(&LOGGER).unwrap();
 
         SetupGuard {

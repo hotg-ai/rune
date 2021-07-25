@@ -7,7 +7,7 @@ use std::{
         atomic::{AtomicU32, Ordering},
     },
 };
-use log::Record;
+use log::{Level, Record};
 use anyhow::{Context, Error};
 use rune_core::{SerializableRecord, Shape, capabilities, outputs};
 use rune_runtime::{
@@ -42,10 +42,7 @@ impl BaseImage {
         let mut image = BaseImage::new();
 
         image
-            .with_logger(|r| {
-                log::logger().log(r);
-                Ok(())
-            })
+            .with_logger(default_log_function)
             .register_output(outputs::SERIAL, serial_factory)
             .register_capability(capabilities::RAND, || {
                 Ok(Box::new(Random::from_os()) as Box<dyn Capability>)
@@ -215,6 +212,17 @@ impl<'vm> Image<rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
                     consume_output,
                 ),
             );
+    }
+}
+
+fn default_log_function(record: &Record<'_>) -> Result<(), Error> {
+    log::logger().log(record);
+
+    if record.level() > Level::Error {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("{}", record.args())
+            .context("The Rune encountered a fatal error"))
     }
 }
 
@@ -721,14 +729,19 @@ fn debug(
 
         log::debug!("Received message: {}", message);
 
-        if let Ok(record) = serde_json::from_str::<SerializableRecord>(message)
-        {
-            record
-                .with_record(|r| (env.log)(r))
-                .context("Logging failed")
-                .map_err(runtime_error)?;
-        } else {
-            log::warn!("{}", message);
+        match serde_json::from_str::<SerializableRecord>(message) {
+            Ok(record) => {
+                record
+                    .with_record(|r| (env.log)(r))
+                    .map_err(runtime_error)?;
+            },
+            Err(e) => {
+                log::warn!(
+                    "Unable to deserialize {:?} as a log message: {}",
+                    message,
+                    e
+                );
+            },
         }
     }
 
