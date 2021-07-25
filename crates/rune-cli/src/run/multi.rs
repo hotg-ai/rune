@@ -75,7 +75,7 @@ impl<S: SourceBackedCapability> LazilyInitializedCapability<S> {
                 format!(
                     "There is no source with index {} (# sources: {})",
                     selected_source,
-                    sources.len()
+                    sources.len(),
                 )
             })?;
 

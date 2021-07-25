@@ -17,7 +17,7 @@ pipeline:
     capability: IMAGE
     outputs:
     - type: u8
-      dimensions: [1, 384, 384, 3]
+      dimensions: [1, 256, 256, 3]
     args:
       source: 1
       pixel-format: "@PixelFormat::GrayScale"
@@ -31,6 +31,8 @@ pipeline:
     outputs:
     - type: f32
       dimensions: [1, 384, 384, 3]
+    args:
+      rgb: [0, 256]
 
   normalized_style_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
