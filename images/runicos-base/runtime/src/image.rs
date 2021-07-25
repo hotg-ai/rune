@@ -564,23 +564,35 @@ fn request_capability(
 ) -> Result<u32, RuntimeError> {
     match env.factories.get(&capability_type) {
         Some(f) => {
-            let cap = f.new_capability().map_err(runtime_error)?;
+            let cap = f
+                .new_capability()
+                .with_context(|| {
+                    match rune_core::capabilities::name(capability_type) {
+                        Some(n) => {
+                            format!("Unable to create the \"{}\" capability", n)
+                        },
+                        None => format!(
+                            "Unable to create capability type {}",
+                            capability_type
+                        ),
+                    }
+                })
+                .map_err(runtime_error)?;
             let id = env.identifiers.next();
             env.instances.lock().unwrap().insert(id, cap);
             Ok(id)
         },
-        None => {
-            if let Some(name) = rune_core::capabilities::name(capability_type) {
+        None => match rune_core::capabilities::name(capability_type) {
+            Some(name) => {
                 return Err(runtime_error(anyhow::anyhow!(
                     "No \"{}\" capability registered",
                     name
                 )));
-            }
-
-            Err(runtime_error(anyhow::anyhow!(
+            },
+            None => Err(runtime_error(anyhow::anyhow!(
                 "No capability registered for capability type {}",
                 capability_type
-            )))
+            ))),
         },
     }
 }
@@ -675,8 +687,7 @@ fn request_provider_response(
         .unwrap()
         .get_mut(&capability_id)
         .context("No such capability")
-        .map_err(runtime_error)?
-        .generate(buffer)
+        .and_then(|c| c.generate(buffer))
         .map_err(runtime_error)?;
 
     Ok(buffer.len() as u32)

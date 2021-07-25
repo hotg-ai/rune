@@ -9,14 +9,20 @@ pipeline:
       dimensions: [1, 384, 384, 3]
     args:
       source: 0
+      pixel-format: "@PixelFormat::GrayScale"
+      width: 384
+      height: 384
 
   style:
     capability: IMAGE
     outputs:
     - type: u8
-      dimensions: [1, 384, 384, 3]
+      dimensions: [1, 256, 256, 3]
     args:
       source: 1
+      pixel-format: "@PixelFormat::GrayScale"
+      width: 256
+      height: 256
 
   normalized_content_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
@@ -25,6 +31,8 @@ pipeline:
     outputs:
     - type: f32
       dimensions: [1, 384, 384, 3]
+    args:
+      rgb: [0, 256]
 
   normalized_style_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
@@ -32,7 +40,7 @@ pipeline:
     - style
     outputs:
     - type: f32
-      dimensions: [1, 384, 384, 3]
+      dimensions: [1, 256, 256, 3]
 
   style_vector:
     model: ./style_predict.tflite

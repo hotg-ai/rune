@@ -40,7 +40,7 @@ impl<R: RngCore + Debug + Send + 'static> Capability for Random<R> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DummyRng {
+struct DummyRng {
     data: Vec<u8>,
 }
 

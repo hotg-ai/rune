@@ -9,6 +9,7 @@ pipeline:
           - 16000
     args:
       hz: 16000
+      sample_duration_ms: 1000
   fft:
     proc-block: "hotg-ai/rune#proc-blocks/fft"
     inputs:
