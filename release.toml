@@ -3,6 +3,8 @@ sign-tag = true
 consolidate-commits = true
 consolidate-pushes = true
 dev-version-ext = "-dev"
+# We'll tag manually
+disable-tag = true
 
 # Make sure all crates are well-formed. We're updating "X.Y.Z-dev" to "X.Y.Z"
 # so ignore the "-dev" prefix.
