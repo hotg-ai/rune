@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 homepage = "https://hotg.dev/"
 repository = "https://github.com/hotg-ai/rune"
 categories = ["science", "wasm"]
-keywords = ["rune", "runtime", "tinyml", "container", "machine", "learning"]
+keywords = ["rune", "runtime", "tinyml", "container"]
 description = "The runtime side of the runicos/base image."
 readme = "README.md"
 

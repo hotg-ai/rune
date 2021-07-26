@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 homepage = "https://hotg.dev/"
 repository = "https://github.com/hotg-ai/rune"
 categories = ["science", "wasm"]
-keywords = ["rune", "runtime", "tinyml", "container", "machine", "learning"]
+keywords = ["rune", "runtime", "tinyml", "machine", "learning"]
 description = "Common abstractions and utilities used by Rune runtimes."
 readme = "README.md"
 
