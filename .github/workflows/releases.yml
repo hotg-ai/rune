@@ -3,10 +3,10 @@ name: Releases
 on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
-  workflow_dispatch:
   push:
     tags:
       - v*
+  workflow_dispatch:
 
 jobs:
   # Check to see whether there have been any commits since the last run,
