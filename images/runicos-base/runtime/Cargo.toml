@@ -1,6 +1,6 @@
 [package]
 name = "hotg-runicos-base-runtime"
-version = "0.4.0-dev"
+version = "0.4.0"
 edition = "2018"
 authors = ["The Rune Developers <admin@hotg.ai>"]
 license = "MIT OR Apache-2.0"
