@@ -4,5 +4,6 @@ consolidate-commits = true
 consolidate-pushes = true
 dev-version-ext = "-dev"
 
-# Make sure all crates are well-formed
-pre-release-hook = ["cargo", "xtask", "check-manifests"]
+# Make sure all crates are well-formed. We're updating "X.Y.Z-dev" to "X.Y.Z"
+# so ignore the "-dev" prefix.
+pre-release-hook = ["cargo", "xtask", "check-manifests", "--ignore-dev-versions"]

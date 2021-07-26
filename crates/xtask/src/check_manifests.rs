@@ -15,7 +15,11 @@ const REPOSITORY: &str = "https://github.com/hotg-ai/rune";
 const NAME_PREFIX: &str = "hotg-run";
 
 #[derive(Debug, structopt::StructOpt)]
-pub struct CheckManifests {}
+pub struct CheckManifests {
+    /// Treat versions like "1.2.3-dev" as "1.2.3".
+    #[structopt(long)]
+    ignore_dev_versions: bool,
+}
 
 impl CheckManifests {
     pub fn run(self, project_root: &Path) -> Result<(), Error> {
@@ -55,8 +59,15 @@ impl CheckManifests {
             .map(Error::from)
             .collect();
 
-        let versions: HashSet<_> =
+        let mut versions: HashSet<_> =
             crates.iter().map(|c| c.package.version.clone()).collect();
+
+        if self.ignore_dev_versions {
+            versions = versions
+                .into_iter()
+                .map(|v| v.trim_end_matches("-dev").to_string())
+                .collect();
+        }
 
         if versions.len() != 1 {
             let e = anyhow::anyhow!("All published crates should have the same version, but found {:?}", versions);
