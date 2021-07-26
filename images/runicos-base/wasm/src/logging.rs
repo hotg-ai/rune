@@ -1,5 +1,5 @@
 use log::{Log, Metadata, Record};
-use rune_core::{SerializableRecord, BufWriter};
+use hotg_rune_core::{SerializableRecord, BufWriter};
 use crate::intrinsics;
 use alloc::borrow::Cow;
 use core::fmt::{Display, Write};

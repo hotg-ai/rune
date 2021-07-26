@@ -6,8 +6,8 @@ extern crate alloc;
 #[macro_use]
 extern crate std;
 
-pub use rune_core::{HasOutputs, Tensor};
-use rune_proc_blocks::{ProcBlock, Transform};
+pub use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_proc_blocks::{ProcBlock, Transform};
 
 // TODO: Add Generics
 

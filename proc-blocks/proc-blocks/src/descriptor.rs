@@ -26,7 +26,7 @@ pub struct TransformDescriptor<'a> {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TensorDescriptor<'a> {
-    pub element_type: rune_core::reflect::Type,
+    pub element_type: hotg_rune_core::reflect::Type,
     pub dimensions: Dimensions<'a>,
 }
 

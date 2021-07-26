@@ -4,8 +4,8 @@ use std::{
     sync::Arc,
 };
 use anyhow::{Context, Error};
-use rune_core::Value;
-use rune_runtime::{Capability, ParameterError};
+use hotg_rune_core::Value;
+use hotg_rune_runtime::{Capability, ParameterError};
 
 /// Get a function for creating new [`Capability`] objects which can be
 /// initialized by switching between different source values based on the

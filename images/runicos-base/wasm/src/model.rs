@@ -1,4 +1,4 @@
-use rune_core::{Tensor, HasOutputs};
+use hotg_rune_core::{Tensor, HasOutputs};
 use crate::intrinsics;
 use alloc::vec::Vec;
 use core::marker::PhantomData;

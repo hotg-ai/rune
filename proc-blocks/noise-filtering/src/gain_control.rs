@@ -3,7 +3,7 @@
 //! [tf]: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/experimental/microfrontend/lib/pcan_gain_control.c
 
 use alloc::vec::Vec;
-use rune_core::{Tensor};
+use hotg_rune_core::{Tensor};
 
 const WIDE_DYNAMIC_FUNCTION_BITS: usize = 32;
 const WIDE_DYNAMIC_FUNCTION_LUT_SIZE: usize =

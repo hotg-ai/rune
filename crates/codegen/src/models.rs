@@ -6,7 +6,7 @@ use anyhow::{Context, Error};
 use crate::Environment;
 
 pub(crate) fn load(
-    rune: &rune_syntax::hir::Rune,
+    rune: &hotg_rune_syntax::hir::Rune,
     env: &mut dyn Environment,
 ) -> Result<HashMap<PathBuf, Vec<u8>>, Error> {
     let mut models = HashMap::new();

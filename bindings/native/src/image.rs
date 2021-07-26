@@ -1,8 +1,8 @@
 use anyhow::Context;
 use log::Record;
-use rune_runtime::Image;
-use runicos_base_runtime::{BaseImage, ModelFactory};
-use rune_core::{Shape, Value};
+use hotg_rune_runtime::Image;
+use hotg_runicos_base_runtime::{BaseImage, ModelFactory};
+use hotg_rune_core::{Shape, Value};
 use safer_ffi::{
     boxed::Box,
     char_p::{char_p_raw, char_p_ref},
@@ -99,11 +99,11 @@ pub fn rune_image_set_log(
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum CapabilityType {
-    Rand = rune_core::capabilities::RAND,
-    Sound = rune_core::capabilities::SOUND,
-    Accel = rune_core::capabilities::ACCEL,
-    Image = rune_core::capabilities::IMAGE,
-    Raw = rune_core::capabilities::RAW,
+    Rand = hotg_rune_core::capabilities::RAND,
+    Sound = hotg_rune_core::capabilities::SOUND,
+    Accel = hotg_rune_core::capabilities::ACCEL,
+    Image = hotg_rune_core::capabilities::IMAGE,
+    Raw = hotg_rune_core::capabilities::RAW,
 }
 
 #[ffi_export]
@@ -121,7 +121,7 @@ pub fn rune_image_set_capability_handler(
         match result.into_std() {
             Ok(v) => {
                 let boxed: std::boxed::Box<_> = v.into();
-                Ok(boxed as std::boxed::Box<dyn rune_runtime::Capability>)
+                Ok(boxed as std::boxed::Box<dyn hotg_rune_runtime::Capability>)
             },
             Err(e) => {
                 let boxed: std::boxed::Box<Error> = e.into();
@@ -151,7 +151,7 @@ pub struct Capability {
     free: Option<unsafe extern "C" fn(*mut c_void)>,
 }
 
-impl rune_runtime::Capability for Capability {
+impl hotg_rune_runtime::Capability for Capability {
     fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, anyhow::Error> {
         unsafe {
             let buffer = slice_mut::from(buffer);
@@ -180,7 +180,7 @@ impl rune_runtime::Capability for Capability {
         &mut self,
         _name: &str,
         _value: Value,
-    ) -> Result<(), rune_runtime::ParameterError> {
+    ) -> Result<(), hotg_rune_runtime::ParameterError> {
         todo!()
     }
 }
@@ -208,9 +208,9 @@ impl ModelFactory for NativeModelFactory {
     fn new_model(
         &self,
         model_bytes: &[u8],
-        inputs: Option<&[rune_core::Shape<'_>]>,
-        outputs: Option<&[rune_core::Shape<'_>]>,
-    ) -> Result<std::boxed::Box<dyn runicos_base_runtime::Model>, anyhow::Error>
+        inputs: Option<&[hotg_rune_core::Shape<'_>]>,
+        outputs: Option<&[hotg_rune_core::Shape<'_>]>,
+    ) -> Result<std::boxed::Box<dyn hotg_runicos_base_runtime::Model>, anyhow::Error>
     {
         let mut factory = self.0.lock().unwrap();
         let result: std::boxed::Box<ModelResult> =
@@ -230,7 +230,7 @@ impl ModelFactory for NativeModelFactory {
                 }
 
                 Ok(std::boxed::Box::new(model)
-                    as std::boxed::Box<dyn runicos_base_runtime::Model>)
+                    as std::boxed::Box<dyn hotg_runicos_base_runtime::Model>)
             },
             Err(e) => {
                 let boxed: std::boxed::Box<Error> = e.into();
@@ -311,7 +311,7 @@ impl TryFrom<Model> for NativeModel {
     }
 }
 
-impl runicos_base_runtime::Model for NativeModel {
+impl hotg_runicos_base_runtime::Model for NativeModel {
     fn infer(
         &mut self,
         input: &[&[Cell<u8>]],
@@ -353,9 +353,9 @@ impl runicos_base_runtime::Model for NativeModel {
         Ok(())
     }
 
-    fn input_shapes(&self) -> &[rune_core::Shape<'_>] { &self.inputs }
+    fn input_shapes(&self) -> &[hotg_rune_core::Shape<'_>] { &self.inputs }
 
-    fn output_shapes(&self) -> &[rune_core::Shape<'_>] { &self.outputs }
+    fn output_shapes(&self) -> &[hotg_rune_core::Shape<'_>] { &self.outputs }
 }
 
 unsafe impl Send for Model {}

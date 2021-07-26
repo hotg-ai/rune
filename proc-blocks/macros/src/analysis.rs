@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span};
-use rune_core::reflect::Type;
+use hotg_rune_core::reflect::Type;
 use quote::quote;
 use syn::{
     Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,
@@ -396,7 +396,7 @@ fn make_custom_section(
 }
 
 fn export_path(_attrs: &[syn::Attribute]) -> Result<Path, Error> {
-    let default = syn::parse_str("rune_proc_blocks::internal")
+    let default = syn::parse_str("hotg_rune_proc_blocks::internal")
         .expect("Hard-coded values should always parse");
 
     Ok(default)
@@ -443,28 +443,28 @@ mod tests {
             },
         ];
         let exports: Path =
-            syn::parse_str("rune_proc_blocks::internal").unwrap();
+            syn::parse_str("hotg_rune_proc_blocks::internal").unwrap();
         let expected_assertions = TransformAssertions {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: exports.clone(),
             assertions: vec![
                 TransformAssertion {
                     input: syn::parse_str(
-                        "rune_proc_blocks::internal::Tensor<f32>",
+                        "hotg_rune_proc_blocks::internal::Tensor<f32>",
                     )
                     .unwrap(),
                     output: syn::parse_str(
-                        "rune_proc_blocks::internal::Tensor<u8>",
+                        "hotg_rune_proc_blocks::internal::Tensor<u8>",
                     )
                     .unwrap(),
                 },
                 TransformAssertion {
                     input: syn::parse_str(
-                        "rune_proc_blocks::internal::Tensor<f32>",
+                        "hotg_rune_proc_blocks::internal::Tensor<f32>",
                     )
                     .unwrap(),
                     output: syn::parse_str(
-                        "rune_proc_blocks::internal::Tensor<u8>",
+                        "hotg_rune_proc_blocks::internal::Tensor<u8>",
                     )
                     .unwrap(),
                 },

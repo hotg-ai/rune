@@ -4,7 +4,7 @@ use std::{
 };
 use anyhow::{Context, Error};
 use build_info::BuildInfo;
-use rune_syntax::{
+use hotg_rune_syntax::{
     hir::{HirId, Rune, SourceKind},
     yaml::{Type, Value},
 };
@@ -120,7 +120,7 @@ impl Metadata {
 
         for section in sections {
             match section.name {
-                rune_codegen::GRAPH_CUSTOM_SECTION => {
+                hotg_rune_codegen::GRAPH_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(rune) => {
                             meta.simplified_rune =
@@ -135,7 +135,7 @@ impl Metadata {
                         },
                     }
                 },
-                rune_codegen::VERSION_CUSTOM_SECTION => {
+                hotg_rune_codegen::VERSION_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(v) => {
                             meta.rune_cli_build_info = Some(v);
@@ -177,10 +177,9 @@ impl SimplifiedRune {
                 .collect();
 
             match &node.stage {
-                rune_syntax::hir::Stage::Source(rune_syntax::hir::Source {
-                    kind,
-                    parameters,
-                }) => {
+                hotg_rune_syntax::hir::Stage::Source(
+                    hotg_rune_syntax::hir::Source { kind, parameters },
+                ) => {
                     let kind = kind.clone();
                     let parameters = parameters.clone();
                     capabilities.insert(
@@ -192,9 +191,9 @@ impl SimplifiedRune {
                         },
                     );
                 },
-                rune_syntax::hir::Stage::Sink(_) => {},
-                rune_syntax::hir::Stage::Model(_) => {},
-                rune_syntax::hir::Stage::ProcBlock(_) => {},
+                hotg_rune_syntax::hir::Stage::Sink(_) => {},
+                hotg_rune_syntax::hir::Stage::Model(_) => {},
+                hotg_rune_syntax::hir::Stage::ProcBlock(_) => {},
             }
         }
 
@@ -204,15 +203,18 @@ impl SimplifiedRune {
 
 fn resolve_type(rune: &Rune, type_id: HirId) -> Type {
     let (primitive, dims) = match &rune.types[&type_id] {
-        rune_syntax::hir::Type::Primitive(p) => (p, vec![1]),
-        rune_syntax::hir::Type::Buffer {
+        hotg_rune_syntax::hir::Type::Primitive(p) => (p, vec![1]),
+        hotg_rune_syntax::hir::Type::Buffer {
             underlying_type,
             dimensions,
         } => match &rune.types[underlying_type] {
-            rune_syntax::hir::Type::Primitive(p) => (p, dimensions.clone()),
+            hotg_rune_syntax::hir::Type::Primitive(p) => {
+                (p, dimensions.clone())
+            },
             _ => unreachable!(),
         },
-        rune_syntax::hir::Type::Unknown | rune_syntax::hir::Type::Any => {
+        hotg_rune_syntax::hir::Type::Unknown
+        | hotg_rune_syntax::hir::Type::Any => {
             unreachable!("All types should have been resolved")
         },
     };

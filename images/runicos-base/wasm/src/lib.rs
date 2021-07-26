@@ -25,7 +25,7 @@ pub use self::{
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use rune_core::BufWriter;
+use hotg_rune_core::BufWriter;
 use crate::allocator::Allocator;
 use dlmalloc::GlobalDlmalloc;
 

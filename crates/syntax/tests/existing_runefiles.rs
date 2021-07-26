@@ -2,7 +2,7 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
-use rune_syntax::Diagnostics;
+use hotg_rune_syntax::Diagnostics;
 
 macro_rules! parse_and_analyse {
     ($example:ident) => {
@@ -16,7 +16,7 @@ macro_rules! parse_and_analyse {
 
             #[test]
             fn parse() {
-                match rune_syntax::parse(SRC) {
+                match hotg_rune_syntax::parse(SRC) {
                     Ok(parsed) => {
                         let expected_span =
                             codespan::Span::new(0, SRC.len() as u32);
@@ -30,12 +30,12 @@ macro_rules! parse_and_analyse {
             fn analyse() {
                 let file = SimpleFile::new("Runefile", SRC);
 
-                let parsed = rune_syntax::parse(file.source()).unwrap();
+                let parsed = hotg_rune_syntax::parse(file.source()).unwrap();
 
                 assert!(parsed.instructions.len() > 1);
 
                 let mut diags = Diagnostics::new();
-                rune_syntax::analyse(&parsed, &mut diags);
+                hotg_rune_syntax::analyse(&parsed, &mut diags);
 
                 let mut writer = Buffer::no_color();
                 let config = Config::default();

@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{LitByteStr, Path};
-use rune_core::reflect::Type as ReflectType;
+use hotg_rune_core::reflect::Type as ReflectType;
 use crate::{
     descriptor::{
         ProcBlockDescriptor, TransformDescriptor, TensorDescriptor, Dimensions,

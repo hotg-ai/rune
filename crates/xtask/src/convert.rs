@@ -1,6 +1,6 @@
 use std::{path::PathBuf, fs::File, io::Write};
 use anyhow::{Error, Context};
-use rune_syntax::Diagnostics;
+use hotg_rune_syntax::Diagnostics;
 use codespan_reporting::{
     files::SimpleFile,
     term::{ColorArg, Config, termcolor::StandardStream},
@@ -33,12 +33,13 @@ impl Convert {
                 format!("Unable to read \"{}\"", self.filename.display())
             })?;
 
-        let runefile =
-            rune_syntax::parse(&src).context("Unable to parse the Runefile")?;
+        let runefile = hotg_rune_syntax::parse(&src)
+            .context("Unable to parse the Runefile")?;
 
         let mut diags = Diagnostics::new();
-        let document =
-            rune_syntax::yaml::document_from_runefile(&runefile, &mut diags);
+        let document = hotg_rune_syntax::yaml::document_from_runefile(
+            &runefile, &mut diags,
+        );
 
         let mut writer = StandardStream::stdout(self.colour.0);
         let config = Config::default();

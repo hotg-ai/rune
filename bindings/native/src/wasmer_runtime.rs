@@ -1,4 +1,4 @@
-use rune_wasmer_runtime::Runtime;
+use hotg_rune_wasmer_runtime::Runtime;
 use safer_ffi::{derive_ReprC, slice::slice_ref, ffi_export, boxed::Box};
 use crate::{image::RunicosBaseImage, BoxedError, RuneResult};
 #[allow(unused_imports)]

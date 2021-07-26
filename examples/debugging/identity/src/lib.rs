@@ -1,6 +1,6 @@
 #![no_std]
-use rune_core::HasOutputs;
-use rune_proc_blocks::{Transform, ProcBlock};
+use hotg_rune_core::HasOutputs;
+use hotg_rune_proc_blocks::{Transform, ProcBlock};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, ProcBlock)]
 #[transform(input=u8, output=u8)]

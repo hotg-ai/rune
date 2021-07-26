@@ -1,14 +1,14 @@
 use std::{path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use log;
-use rune_core::capabilities;
-use rune_runtime::common_capabilities::Random;
+use hotg_rune_core::capabilities;
+use hotg_rune_runtime::common_capabilities::Random;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
     image::ImageSource, new_multiplexer, sound::AudioClip,
 };
-use rune_wasmer_runtime::Runtime;
-use runicos_base_runtime::BaseImage;
+use hotg_rune_wasmer_runtime::Runtime;
+use hotg_runicos_base_runtime::BaseImage;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {
@@ -184,7 +184,7 @@ impl Run {
         if let Some(seed) = *random {
             img.register_capability(capabilities::RAND, move || {
                 Ok(Box::new(Random::seeded(seed))
-                    as Box<dyn rune_runtime::Capability>)
+                    as Box<dyn hotg_rune_runtime::Capability>)
             });
         }
 

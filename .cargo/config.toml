@@ -1,6 +1,6 @@
 [alias]
 xtask = "run --package xtask --bin xtask --"
-rune = "run --package rune-cli --"
+rune = "run --package hotg-rune-cli --"
 integration-tests = "run --package rune-integration-tests --"
 it = "integration-tests"
 

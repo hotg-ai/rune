@@ -4,8 +4,8 @@ use std::{
 };
 use anyhow::{Context, Error};
 use image::{DynamicImage, GenericImageView};
-use rune_core::PixelFormat;
-use rune_runtime::{ParameterError};
+use hotg_rune_core::PixelFormat;
+use hotg_rune_runtime::{ParameterError};
 use crate::run::multi::{Builder, SourceBackedCapability};
 
 #[derive(Clone, PartialEq)]
@@ -90,7 +90,7 @@ impl Builder for ImageSettings {
     fn set_parameter(
         &mut self,
         key: &str,
-        value: rune_core::Value,
+        value: hotg_rune_core::Value,
     ) -> Result<(), ParameterError> {
         let ImageSettings {
             pixel_format,
