@@ -236,7 +236,7 @@ fn generate_ffi_header(ctx: &Context) -> Result<(), Error> {
 
     let mut cmd = Command::new(&ctx.cargo);
     cmd.arg("test")
-        .arg("--package=rune-native")
+        .arg("--package=hotg-rune-native")
         .arg("--features=c-headers")
         .arg("--")
         .arg("generate_headers")
