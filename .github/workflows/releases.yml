@@ -237,13 +237,13 @@ jobs:
           crate: cross
       - name: Compile
         run: |
-          cross build --package=rune-native \
+          cross build --package=hotg-rune-native \
                       --target=${{ matrix.target }} \
                       --features=${{ matrix.features }} \
                       --verbose --locked --release
       - name: Generate the header file
         run: |
-          cross test --package=rune-native \
+          cross test --package=hotg-rune-native \
                      --target=${{ matrix.target }} \
                      --features=${{ matrix.features }} \
                      --features=c-headers \
@@ -316,12 +316,12 @@ jobs:
         run: echo "target=$(rustc --version --verbose | grep host | cut -d' ' -f 2)" >> $GITHUB_ENV
       - name: Compile
         run: |
-          cargo build --package=rune-native \
+          cargo build --package=hotg-rune-native \
                       --features=wasmer-runtime,tflite \
                       --verbose --locked --release
       - name: Generate the header file
         run: |
-          cargo test --package=rune-native \
+          cargo test --package=hotg-rune-native \
                      --features=wasmer-runtime,tflite \
                      --features=c-headers \
                      --verbose --locked --release \
