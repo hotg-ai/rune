@@ -4,6 +4,9 @@ on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
   workflow_dispatch:
+  push:
+    tags:
+      - v*
 
 jobs:
   # Check to see whether there have been any commits since the last run,
@@ -353,6 +356,17 @@ jobs:
       - rune_native_mac
     if: ${{ needs.check_date.outputs.should_run != 'false' }}
     steps:
+      - name: Tagged Release Variables
+        if: contains(github.ref, "refs/tags/")
+        run: |
+          tag=$(dirname ${{ github.ref }})
+          echo "title=Released $tag" >> $GITHUB_ENV
+          echo "tag=$tag" >> $GITHUB_ENV
+      - name: Nightly Release Variables
+        if: !contains(github.ref, "refs/tags/")
+        run: |
+          echo "title=Nightly Release" >> $GITHUB_ENV
+          echo "tag=nightly" >> $GITHUB_ENV
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Fetch Pre-Compiled Binaries
@@ -367,9 +381,10 @@ jobs:
         if: github.ref == 'refs/heads/master'
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "nightly"
-          prerelease: true
-          title: "Nightly Release"
+          automatic_release_tag: ${{ env.tag }}
+          draft: contains(github.ref, "refs/tags/")
+          prerelease: !contains(github.ref, "refs/tags/")
+          title: ${{ env.title }}
           files: |
             releases/*.zip
             releases/*.whl
