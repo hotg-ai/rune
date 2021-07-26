@@ -383,7 +383,7 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ env.tag }}
           draft: contains(github.ref, "refs/tags/")
-          prerelease: !contains(github.ref, "refs/tags/")
+          prerelease: ${{ !contains(github.ref, "refs/tags/") }}
           title: ${{ env.title }}
           files: |
             releases/*.zip
