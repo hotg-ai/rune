@@ -357,13 +357,13 @@ jobs:
     if: ${{ needs.check_date.outputs.should_run != 'false' }}
     steps:
       - name: Tagged Release Variables
-        if: contains(github.ref, "refs/tags/")
+        if: contains(github.ref, 'refs/tags/')
         run: |
           tag=$(dirname ${{ github.ref }})
           echo "title=Released $tag" >> $GITHUB_ENV
           echo "tag=$tag" >> $GITHUB_ENV
       - name: Nightly Release Variables
-        if: ${{ !contains(github.ref, "refs/tags/") }}
+        if: ${{ !contains(github.ref, 'refs/tags/') }}
         run: |
           echo "title=Nightly Release" >> $GITHUB_ENV
           echo "tag=nightly" >> $GITHUB_ENV
@@ -382,8 +382,8 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ env.tag }}
-          draft: contains(github.ref, "refs/tags/")
-          prerelease: ${{ !contains(github.ref, "refs/tags/") }}
+          draft: contains(github.ref, 'refs/tags/')
+          prerelease: ${{ !contains(github.ref, 'refs/tags/') }}
           title: ${{ env.title }}
           files: |
             releases/*.zip
