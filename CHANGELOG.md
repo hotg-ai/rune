@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   command-line tool from scratch and include all necessary dependencies
   ([#203](https://github.com/hotg-ai/rune/pull/203))
 
-## [v0.3.0] - TinyML Summit Release (2021-05-25)
+## [0.3.0] - TinyML Summit Release (2021-05-25)
 
 ### Added
 
@@ -89,13 +89,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type names in generated Rust code can't contain hyphens
   ([#137](https://github.com/hotg-ai/rune/pull/137))
 
-## [v0.2.1] - 2021-03-21
+## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
 [Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.4.0...HEAD
 [0.4.0]: https://github.com/hotg-ai/rune/compare/v0.3.0...hotg-rune-cli-v0.4.0
-[v0.3.0]: https://github.com/hotg-ai/rune/compare/v0.2.1...v0.3.0
-[v0.2.1]: https://github.com/hotg-ai/rune/compare/86763cdbb0...v0.2.1
+[0.3.0]: https://github.com/hotg-ai/rune/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/hotg-ai/rune/compare/86763cdbb0...v0.2.1
 
 [tinyml]: https://github.com/hotg-ai/rune/releases/tag/TinyMLSummity-RC1
 [build-info]: https://docs.rs/build-info-common/0.0.23/build_info_common/struct.BuildInfo.html
