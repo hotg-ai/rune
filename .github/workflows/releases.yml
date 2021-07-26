@@ -363,7 +363,7 @@ jobs:
           echo "title=Released $tag" >> $GITHUB_ENV
           echo "tag=$tag" >> $GITHUB_ENV
       - name: Nightly Release Variables
-        if: !contains(github.ref, "refs/tags/")
+        if: ${{ !contains(github.ref, "refs/tags/") }}
         run: |
           echo "title=Nightly Release" >> $GITHUB_ENV
           echo "tag=nightly" >> $GITHUB_ENV
