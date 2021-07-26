@@ -9,10 +9,6 @@ mod analysis;
 mod expand;
 mod types;
 
-// This is a bit hacky, but by using a #[path] attribute we can share the
-// descriptor definitions without actually needing to move them to a common
-// dependency.
-#[path = "../../proc-blocks/src/descriptor.rs"]
 #[allow(dead_code)]
 mod descriptor;
 
