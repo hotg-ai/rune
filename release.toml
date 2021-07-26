@@ -3,3 +3,6 @@ sign-tag = true
 consolidate-commits = true
 consolidate-pushes = true
 dev-version-ext = "-dev"
+
+# Make sure all crates are well-formed
+pre-release-hook = ["cargo", "xtask", "check-manifests"]

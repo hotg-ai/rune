@@ -12,6 +12,7 @@ const AUTHORS: &[&str] = &["The Rune Developers <admin@hotg.ai>"];
 const LICENSE: &str = "MIT OR Apache-2.0";
 const HOMEPAGE: &str = "https://hotg.dev/";
 const REPOSITORY: &str = "https://github.com/hotg-ai/rune";
+const NAME_PREFIX: &str = "hotg-run";
 
 #[derive(Debug, structopt::StructOpt)]
 pub struct CheckManifests {}
@@ -103,6 +104,7 @@ fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
                 homepage,
                 repository,
                 readme,
+                name,
                 ..
             },
         ..
@@ -115,6 +117,7 @@ fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
     expect.array_field("Authors", &authors).to_equal(AUTHORS);
     expect.array_field("Categories", &categories).is_not_empty();
     expect.array_field("Keywords", &keywords).is_not_empty();
+    expect.field("Name", Some(name)).starts_with(NAME_PREFIX);
     expect.field("Description", description.as_deref()).is_set();
     expect
         .field("README", readme.as_deref())
@@ -287,6 +290,17 @@ impl<'diag, 'value> Expect<'diag, 'value> {
                     format!("should be set to \"{}\"", should_be),
                 );
             },
+        }
+    }
+
+    fn starts_with(self, prefix: &str) {
+        match self.actual {
+            Some(s) if s.starts_with(prefix) => {},
+            Some(s) => self.diags.push(
+                self.field,
+                format!("should start with \"{}\", found \"{}\"", prefix, s),
+            ),
+            None => self.diags.push(self.field, "should be set"),
         }
     }
 }
