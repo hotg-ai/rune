@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     ffi::OsStr,
     fmt::{self, Debug, Display, Formatter},
     path::{Path, PathBuf},
@@ -59,18 +59,26 @@ impl CheckManifests {
             .map(Error::from)
             .collect();
 
-        let mut versions: HashSet<_> =
-            crates.iter().map(|c| c.package.version.clone()).collect();
+        let mut versions: HashMap<&str, Vec<&str>> = HashMap::new();
 
-        if self.ignore_dev_versions {
-            versions = versions
-                .into_iter()
-                .map(|v| v.trim_end_matches("-dev").to_string())
-                .collect();
+        for krate in &crates {
+            let version = if self.ignore_dev_versions {
+                krate.package.version.trim_end_matches("-dev")
+            } else {
+                &krate.package.version
+            };
+
+            versions
+                .entry(version)
+                .or_default()
+                .push(&krate.package.name);
         }
 
         if versions.len() != 1 {
-            let e = anyhow::anyhow!("All published crates should have the same version, but found {:?}", versions);
+            let e = anyhow::anyhow!(
+                "All published crates should have the same version, but found {:#?}",
+                versions,
+            );
             diagnostics.push(e);
         }
 
