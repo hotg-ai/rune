@@ -1,6 +1,6 @@
 [package]
 name = "hotg-runicos-base-runtime"
-version = "0.4.0"
+version = "0.4.1-dev"
 edition = "2018"
 authors = ["The Rune Developers <admin@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -16,14 +16,14 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.40"
 log = "0.4.14"
-hotg-rune-runtime = { path = "../../../crates/runtime", version = "0.4.0-dev", features = ["builtins"] }
-hotg-rune-core = { path = "../../../crates/rune-core", version = "0.4.0-dev", features = ["std"] }
+hotg-rune-runtime = { path = "../../../crates/runtime", version = "0.4.1-dev", features = ["builtins"] }
+hotg-rune-core = { path = "../../../crates/rune-core", version = "0.4.1-dev", features = ["std"] }
 serde_json = { version = "1" }
 # Note: This doesn't cross-compile due to https://github.com/boncheolgu/tflite-rs/issues/49
 tflite = { version = "0.9.5", optional = true }
 wasmer = "2.0.0"
 wasmer-vm = "2.0.0"
-hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "0.4.0-dev" }
+hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "0.4.1-dev" }
 
 [features]
 default = ["tflite"]
