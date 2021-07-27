@@ -378,7 +378,7 @@ jobs:
       - name: Print Artifacts
         run: ls -la releases
       - uses: "marvinpinto/action-automatic-releases@latest"
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' || contains(github.ref, 'refs/tags/')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ env.tag }}
