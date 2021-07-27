@@ -1,4 +1,4 @@
-use rune_core::{Shape, TensorList, TensorListMut, HasOutputs};
+use hotg_rune_core::{Shape, TensorList, TensorListMut, HasOutputs};
 use alloc::{
     vec::Vec,
     string::{String, ToString},

@@ -236,7 +236,7 @@ fn generate_ffi_header(ctx: &Context) -> Result<(), Error> {
 
     let mut cmd = Command::new(&ctx.cargo);
     cmd.arg("test")
-        .arg("--package=rune-native")
+        .arg("--package=hotg-rune-native")
         .arg("--features=c-headers")
         .arg("--")
         .arg("generate_headers")
@@ -399,7 +399,7 @@ fn compile_example_rune(
     let mut cmd = Command::new(cargo);
     cmd.arg("run")
         .arg("--release")
-        .arg("--package=rune-cli")
+        .arg("--package=hotg-rune-cli")
         .arg("--")
         .arg("build")
         .arg(&runefile)
@@ -437,7 +437,7 @@ fn compile_rune_binary(ctx: &Context) -> Result<(), Error> {
 
     let mut cmd = Command::new(cargo);
     cmd.arg("build")
-        .arg("--package=rune-cli")
+        .arg("--package=hotg-rune-cli")
         .arg("--release")
         .current_dir(project_root);
     log::debug!("Executing {:?}", cmd);

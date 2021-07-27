@@ -1,6 +1,6 @@
 [package]
-name = "rune-proc-block-macros"
-version = "0.4.0-dev"
+name = "hotg-rune-proc-block-macros"
+version = "0.4.1-dev"
 edition = "2018"
 authors = ["The Rune Developers <admin@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -19,7 +19,7 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0.27"
 quote = "1.0.9"
-rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev", default-features = false }
+hotg-rune-core = { path = "../../crates/rune-core", version = "0.4.1-dev", default-features = false }
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = "1.0.64"
 syn = { version = "1.0.72", features = ["extra-traits", "full"] }
@@ -27,4 +27,4 @@ syn = { version = "1.0.72", features = ["extra-traits", "full"] }
 [dev-dependencies]
 difference = "2.0.0"
 pretty_assertions = "0.7.2"
-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.0-dev" }
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.1-dev" }

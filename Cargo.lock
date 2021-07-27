@@ -100,11 +100,11 @@ dependencies = [
 
 [[package]]
 name = "audio_float_conversion"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "pretty_assertions",
- "rune-core",
- "rune-proc-blocks",
 ]
 
 [[package]]
@@ -845,16 +845,16 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
 name = "fft"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "hound",
  "libm",
  "mel",
  "nalgebra",
  "normalize",
  "pretty_assertions",
- "rune-core",
- "rune-proc-blocks",
  "sonogram",
 ]
 
@@ -1036,6 +1036,196 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotg-rune-cli"
+version = "0.4.1-dev"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "build-info",
+ "build-info-build",
+ "chrono",
+ "clap",
+ "codespan-reporting",
+ "dirs",
+ "env_logger 0.8.4",
+ "hotg-rune-codegen",
+ "hotg-rune-core",
+ "hotg-rune-runtime",
+ "hotg-rune-syntax",
+ "hotg-rune-wasmer-runtime",
+ "hotg-runicos-base-runtime",
+ "hound",
+ "image",
+ "indexmap",
+ "log",
+ "once_cell",
+ "petgraph",
+ "predicates 1.0.8",
+ "rand",
+ "serde",
+ "serde_json",
+ "structopt",
+ "strum",
+ "tempfile",
+ "tflite",
+ "walkdir",
+ "wasmparser",
+]
+
+[[package]]
+name = "hotg-rune-codegen"
+version = "0.4.1-dev"
+dependencies = [
+ "anyhow",
+ "build-info",
+ "cargo_toml",
+ "heck",
+ "hotg-rune-core",
+ "hotg-rune-syntax",
+ "log",
+ "once_cell",
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
+name = "hotg-rune-core"
+version = "0.4.1-dev"
+dependencies = [
+ "log",
+ "serde",
+]
+
+[[package]]
+name = "hotg-rune-integration-tests"
+version = "0.4.1-dev"
+dependencies = [
+ "anyhow",
+ "env_logger 0.8.4",
+ "log",
+ "once_cell",
+ "regex",
+ "structopt",
+ "walkdir",
+]
+
+[[package]]
+name = "hotg-rune-native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-info",
+ "build-info-build",
+ "hotg-rune-core",
+ "hotg-rune-runtime",
+ "hotg-rune-wasmer-runtime",
+ "hotg-runicos-base-runtime",
+ "log",
+ "paste 1.0.5",
+ "safer-ffi",
+]
+
+[[package]]
+name = "hotg-rune-proc-block-macros"
+version = "0.4.1-dev"
+dependencies = [
+ "difference",
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
+name = "hotg-rune-proc-blocks"
+version = "0.4.1-dev"
+dependencies = [
+ "hotg-rune-core",
+ "hotg-rune-proc-block-macros",
+ "serde",
+]
+
+[[package]]
+name = "hotg-rune-runtime"
+version = "0.4.1-dev"
+dependencies = [
+ "anyhow",
+ "hotg-rune-core",
+ "hound",
+ "image",
+ "log",
+ "rand",
+ "thiserror",
+]
+
+[[package]]
+name = "hotg-rune-syntax"
+version = "0.4.1-dev"
+dependencies = [
+ "codespan",
+ "codespan-reporting",
+ "indexmap",
+ "once_cell",
+ "pest",
+ "pest_derive",
+ "pretty_assertions",
+ "regex",
+ "serde",
+ "serde_yaml",
+]
+
+[[package]]
+name = "hotg-rune-wasmer-runtime"
+version = "0.4.1-dev"
+dependencies = [
+ "anyhow",
+ "hotg-rune-core",
+ "hotg-rune-runtime",
+ "log",
+ "tempfile",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
+]
+
+[[package]]
+name = "hotg-runicos-base-runtime"
+version = "0.4.1-dev"
+dependencies = [
+ "anyhow",
+ "hotg-rune-core",
+ "hotg-rune-runtime",
+ "hotg-rune-wasmer-runtime",
+ "log",
+ "serde_json",
+ "syn",
+ "tflite",
+ "wasmer",
+ "wasmer-vm",
+]
+
+[[package]]
+name = "hotg-runicos-base-wasm"
+version = "0.4.1-dev"
+dependencies = [
+ "dlmalloc",
+ "hotg-rune-core",
+ "log",
+ "serde",
+ "serde-json-core",
+ "serde_json",
+]
+
+[[package]]
 name = "hound"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1100,11 +1290,11 @@ dependencies = [
 
 [[package]]
 name = "image-normalization"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "num-traits",
- "rune-core",
- "rune-proc-blocks",
 ]
 
 [[package]]
@@ -1207,10 +1397,10 @@ dependencies = [
 
 [[package]]
 name = "label"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
- "rune-core",
- "rune-proc-blocks",
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
 ]
 
 [[package]]
@@ -1441,10 +1631,10 @@ dependencies = [
 
 [[package]]
 name = "modulo"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
+ "hotg-rune-proc-blocks",
  "num-traits",
- "rune-proc-blocks",
 ]
 
 [[package]]
@@ -1455,10 +1645,10 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "most_confident_indices"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
- "rune-core",
- "rune-proc-blocks",
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
 ]
 
 [[package]]
@@ -1490,12 +1680,12 @@ dependencies = [
 
 [[package]]
 name = "noise-filtering"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "libm",
  "paste 1.0.5",
- "rune-core",
- "rune-proc-blocks",
 ]
 
 [[package]]
@@ -1510,9 +1700,9 @@ dependencies = [
 
 [[package]]
 name = "normalize"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
- "rune-proc-blocks",
+ "hotg-rune-proc-blocks",
 ]
 
 [[package]]
@@ -2162,208 +2352,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "rune-cli"
-version = "0.4.0-dev"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "build-info",
- "build-info-build",
- "chrono",
- "clap",
- "codespan-reporting",
- "dirs",
- "env_logger 0.8.4",
- "hound",
- "image",
- "indexmap",
- "log",
- "once_cell",
- "petgraph",
- "predicates 1.0.8",
- "rand",
- "rune-codegen",
- "rune-core",
- "rune-runtime",
- "rune-syntax",
- "rune-wasmer-runtime",
- "runicos-base-runtime",
- "serde",
- "serde_json",
- "structopt",
- "strum",
- "tempfile",
- "tflite",
- "walkdir",
- "wasmparser",
-]
-
-[[package]]
-name = "rune-codegen"
-version = "0.4.0-dev"
-dependencies = [
- "anyhow",
- "build-info",
- "cargo_toml",
- "heck",
- "log",
- "once_cell",
- "pretty_assertions",
- "proc-macro2",
- "quote",
- "rune-core",
- "rune-syntax",
- "serde",
- "serde_json",
- "tempfile",
- "toml",
-]
-
-[[package]]
-name = "rune-core"
-version = "0.4.0-dev"
-dependencies = [
- "log",
- "serde",
-]
-
-[[package]]
-name = "rune-integration-tests"
-version = "0.4.0-dev"
-dependencies = [
- "anyhow",
- "env_logger 0.8.4",
- "log",
- "once_cell",
- "regex",
- "structopt",
- "walkdir",
-]
-
-[[package]]
-name = "rune-native"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-info",
- "build-info-build",
- "log",
- "paste 1.0.5",
- "rune-core",
- "rune-runtime",
- "rune-wasmer-runtime",
- "runicos-base-runtime",
- "safer-ffi",
-]
-
-[[package]]
-name = "rune-proc-block-macros"
-version = "0.4.0-dev"
-dependencies = [
- "difference",
- "pretty_assertions",
- "proc-macro2",
- "quote",
- "rune-core",
- "rune-proc-blocks",
- "serde",
- "serde_json",
- "syn",
-]
-
-[[package]]
-name = "rune-proc-blocks"
-version = "0.4.0-dev"
-dependencies = [
- "rune-core",
- "rune-proc-block-macros",
- "serde",
-]
-
-[[package]]
-name = "rune-runtime"
-version = "0.4.0-dev"
-dependencies = [
- "anyhow",
- "hound",
- "image",
- "log",
- "rand",
- "rune-core",
- "thiserror",
-]
-
-[[package]]
-name = "rune-syntax"
-version = "0.4.0-dev"
-dependencies = [
- "codespan",
- "codespan-reporting",
- "indexmap",
- "once_cell",
- "pest",
- "pest_derive",
- "pretty_assertions",
- "regex",
- "serde",
- "serde_yaml",
-]
-
-[[package]]
-name = "rune-wasmer-runtime"
-version = "0.4.0-dev"
-dependencies = [
- "anyhow",
- "log",
- "rune-core",
- "rune-runtime",
- "tempfile",
- "wasmer",
- "wasmer-types",
- "wasmer-vm",
-]
-
-[[package]]
 name = "rune_py"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 dependencies = [
  "fft",
+ "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "image-normalization",
  "noise-filtering",
  "normalize",
  "numpy",
  "paste 1.0.5",
  "pyo3",
- "rune-core",
- "rune-proc-blocks",
-]
-
-[[package]]
-name = "runicos-base-runtime"
-version = "0.4.0-dev"
-dependencies = [
- "anyhow",
- "log",
- "rune-core",
- "rune-runtime",
- "rune-wasmer-runtime",
- "serde_json",
- "syn",
- "tflite",
- "wasmer",
- "wasmer-vm",
-]
-
-[[package]]
-name = "runicos-base-wasm"
-version = "0.4.0-dev"
-dependencies = [
- "dlmalloc",
- "log",
- "rune-core",
- "serde",
- "serde-json-core",
- "serde_json",
 ]
 
 [[package]]
@@ -3191,8 +3191,8 @@ dependencies = [
  "devx-pre-commit",
  "env_logger 0.8.4",
  "globset",
+ "hotg-rune-syntax",
  "log",
- "rune-syntax",
  "serde",
  "serde_json",
  "structopt",

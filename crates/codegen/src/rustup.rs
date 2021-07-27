@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 
 /// The version of Rust that the `rune` project is pinned to.
 pub static NIGHTLY_VERSION: Lazy<String> = Lazy::new(|| {
-    let rust_toolchain = include_str!("../../../rust-toolchain.toml");
+    let rust_toolchain = include_str!("../rust-toolchain.toml");
     let parsed: OverrideFile = toml::from_str(rust_toolchain).unwrap();
 
     parsed

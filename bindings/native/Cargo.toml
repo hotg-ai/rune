@@ -1,5 +1,5 @@
 [package]
-name = "rune-native"
+name = "hotg-rune-native"
 version = "0.1.0"
 edition = "2018"
 publish = false
@@ -16,10 +16,10 @@ anyhow = "1.0.41"
 build-info = "0.0.23"
 log = "0.4.14"
 paste = "1.0.5"
-rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
-rune-runtime = { path = "../../crates/runtime", version = "0.4.0-dev" }
-rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.0-dev" , optional = true }
-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.0-dev" , default-features = false }
+hotg-rune-core = { path = "../../crates/rune-core", version = "0.4.1-dev" }
+hotg-rune-runtime = { path = "../../crates/runtime", version = "0.4.1-dev" }
+hotg-rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "0.4.1-dev" , optional = true }
+hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.1-dev" , default-features = false }
 safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
 
 [build-dependencies]
@@ -27,5 +27,5 @@ build-info-build = "0.0.23"
 
 [features]
 c-headers = ["safer-ffi/headers"]
-wasmer-runtime = ["rune-wasmer-runtime"]
-tflite = ["runicos-base-runtime/tflite"]
+wasmer-runtime = ["hotg-rune-wasmer-runtime"]
+tflite = ["hotg-runicos-base-runtime/tflite"]

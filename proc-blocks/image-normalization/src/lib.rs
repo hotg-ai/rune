@@ -1,8 +1,8 @@
 #![no_std]
 
 use num_traits::{Bounded, ToPrimitive};
-use rune_core::{HasOutputs, Tensor};
-use rune_proc_blocks::{ProcBlock, Transform};
+use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_proc_blocks::{ProcBlock, Transform};
 
 /// A normalization routine which takes some tensor of integers and fits their
 /// values to the range `[0, 1]` as `f32`'s.

@@ -5,14 +5,14 @@ pub mod multi;
 mod raw;
 mod sound;
 
-use rune_runtime::ParameterError;
+use hotg_rune_runtime::ParameterError;
 
 pub use self::{
     accelerometer::Accelerometer, sound::Sound, image::Image, raw::Raw,
     multi::new_multiplexer, command::Run,
 };
 
-use rune_core::Value;
+use hotg_rune_core::Value;
 use std::convert::{TryFrom, TryInto};
 
 pub(crate) fn try_from_int_value<T>(

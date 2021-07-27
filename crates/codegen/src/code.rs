@@ -3,8 +3,8 @@ use anyhow::{Error, Context};
 use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
-use rune_core::Shape;
-use rune_syntax::{
+use hotg_rune_core::Shape;
+use hotg_rune_syntax::{
     hir::{
         HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
         SourceKind, Stage, Type,
@@ -20,7 +20,7 @@ pub fn generate(
     rune: &Rune,
     build_info: Option<serde_json::Value>,
 ) -> Result<String, Error> {
-    let image_crate = quote!(runicos_base_wasm);
+    let image_crate = quote!(hotg_runicos_base_wasm);
     let preamble = preamble(rune, build_info)?;
     let manifest = manifest_function(rune, &image_crate);
     let call = call();
@@ -333,17 +333,17 @@ fn to_shape(rune: &Rune, type_id: &HirId) -> Shape<'static> {
     };
 
     let element_type = match primitive {
-        Primitive::U8 => rune_core::reflect::Type::u8,
-        Primitive::I8 => rune_core::reflect::Type::i8,
-        Primitive::U16 => rune_core::reflect::Type::u16,
-        Primitive::I16 => rune_core::reflect::Type::i16,
-        Primitive::U32 => rune_core::reflect::Type::u32,
-        Primitive::I32 => rune_core::reflect::Type::i32,
-        Primitive::F32 => rune_core::reflect::Type::f32,
-        Primitive::U64 => rune_core::reflect::Type::u64,
-        Primitive::I64 => rune_core::reflect::Type::i64,
-        Primitive::F64 => rune_core::reflect::Type::f64,
-        Primitive::String => rune_core::reflect::Type::String,
+        Primitive::U8 => hotg_rune_core::reflect::Type::u8,
+        Primitive::I8 => hotg_rune_core::reflect::Type::i8,
+        Primitive::U16 => hotg_rune_core::reflect::Type::u16,
+        Primitive::I16 => hotg_rune_core::reflect::Type::i16,
+        Primitive::U32 => hotg_rune_core::reflect::Type::u32,
+        Primitive::I32 => hotg_rune_core::reflect::Type::i32,
+        Primitive::F32 => hotg_rune_core::reflect::Type::f32,
+        Primitive::U64 => hotg_rune_core::reflect::Type::u64,
+        Primitive::I64 => hotg_rune_core::reflect::Type::i64,
+        Primitive::F64 => hotg_rune_core::reflect::Type::f64,
+        Primitive::String => hotg_rune_core::reflect::Type::String,
     };
 
     Shape::new(element_type, dimensions.to_vec())
@@ -358,8 +358,8 @@ fn shape(s: &Shape<'_>) -> TokenStream {
     let dimensions = s.dimensions();
 
     quote! {
-        rune_core::Shape::new(
-            rune_core::reflect::Type::#element_type,
+        hotg_rune_core::Shape::new(
+            hotg_rune_core::reflect::Type::#element_type,
             [#(#dimensions),*].as_ref()
         )
     }
@@ -505,8 +505,8 @@ fn preamble(
         extern crate alloc;
 
         use alloc::boxed::Box;
-        use rune_core::*;
-        use rune_proc_blocks::*;
+        use hotg_rune_core::*;
+        use hotg_rune_proc_blocks::*;
 
         #rune_graph
         #build_info
@@ -540,7 +540,7 @@ mod tests {
         io::{Read, Write},
         process::{Command, Stdio},
     };
-    use rune_syntax::{Diagnostics, yaml::Document};
+    use hotg_rune_syntax::{Diagnostics, yaml::Document};
     use super::*;
 
     fn rustfmt(tokens: TokenStream) -> String {
@@ -585,7 +585,7 @@ mod tests {
     fn rune(doc: &str) -> Rune {
         let doc = Document::parse(doc).unwrap();
         let mut diags = Diagnostics::new();
-        let rune = rune_syntax::analyse_yaml_runefile(&doc, &mut diags);
+        let rune = hotg_rune_syntax::analyse_yaml_runefile(&doc, &mut diags);
         assert!(diags.is_empty(), "{:#?}", diags);
 
         rune
@@ -1017,12 +1017,12 @@ mod tests {
                 #TFLITE_MIMETYPE,
                 include_bytes!("sine.tflite"),
                 &[
-                    rune_core::Shape::new(rune_core::reflect::Type::u8, [18000usize].as_ref()),
-                    rune_core::Shape::new(rune_core::reflect::Type::f32, [1usize].as_ref())
+                    hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::u8, [18000usize].as_ref()),
+                    hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::f32, [1usize].as_ref())
                 ],
                 &[
-                    rune_core::Shape::new(rune_core::reflect::Type::u8, [1usize].as_ref()),
-                    rune_core::Shape::new(rune_core::reflect::Type::i16, [2usize, 3usize, 4usize].as_ref())
+                    hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::u8, [1usize].as_ref()),
+                    hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::i16, [2usize, 3usize, 4usize].as_ref())
                 ],
             );
         };

@@ -3,10 +3,10 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use rune_codegen::{
+use hotg_rune_codegen::{
     Compilation, DefaultEnvironment, GitSpecifier, RuneProject, Verbosity,
 };
-use rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
+use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
 
@@ -91,7 +91,7 @@ impl Build {
         };
         let mut env = DefaultEnvironment::for_compilation(&compilation)
             .with_build_info(crate::version::version().clone());
-        let blob = rune_codegen::generate_with_env(compilation, &mut env)
+        let blob = hotg_rune_codegen::generate_with_env(compilation, &mut env)
             .context("Rune compilation failed")?;
 
         log::debug!("Generated {} bytes", blob.len());
@@ -174,12 +174,12 @@ pub(crate) fn analyze(
         Some("yaml") | Some("yml") => {
             let parsed = Document::parse(&src)
                 .context("Unable to parse the Runefile")?;
-            rune_syntax::analyse_yaml_runefile(&parsed, &mut diags)
+            hotg_rune_syntax::analyse_yaml_runefile(&parsed, &mut diags)
         },
         _ => {
-            let parsed = rune_syntax::parse(&src)
+            let parsed = hotg_rune_syntax::parse(&src)
                 .context("Unable to parse the Runefile")?;
-            let rune = rune_syntax::analyse(&parsed, &mut diags);
+            let rune = hotg_rune_syntax::analyse(&parsed, &mut diags);
             rune
         },
     };

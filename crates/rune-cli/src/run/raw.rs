@@ -1,4 +1,4 @@
-use rune_runtime::{Capability, ParameterError};
+use hotg_rune_runtime::{Capability, ParameterError};
 use crate::run::multi::{Builder, SourceBackedCapability};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,7 +20,7 @@ impl Capability for Raw {
     fn set_parameter(
         &mut self,
         _name: &str,
-        _value: rune_core::Value,
+        _value: hotg_rune_core::Value,
     ) -> Result<(), ParameterError> {
         Ok(())
     }
@@ -51,7 +51,7 @@ impl Builder for NullBuilder {
     fn set_parameter(
         &mut self,
         _key: &str,
-        _value: rune_core::Value,
+        _value: hotg_rune_core::Value,
     ) -> Result<(), ParameterError> {
         Err(ParameterError::UnsupportedParameter)
     }

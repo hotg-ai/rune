@@ -3,6 +3,9 @@ name: Releases
 on:
   schedule:
   - cron: '0 0 * * *' # midnight UTC
+  push:
+    tags:
+      - v*
   workflow_dispatch:
 
 jobs:
@@ -234,13 +237,13 @@ jobs:
           crate: cross
       - name: Compile
         run: |
-          cross build --package=rune-native \
+          cross build --package=hotg-rune-native \
                       --target=${{ matrix.target }} \
                       --features=${{ matrix.features }} \
                       --verbose --locked --release
       - name: Generate the header file
         run: |
-          cross test --package=rune-native \
+          cross test --package=hotg-rune-native \
                      --target=${{ matrix.target }} \
                      --features=${{ matrix.features }} \
                      --features=c-headers \
@@ -313,12 +316,12 @@ jobs:
         run: echo "target=$(rustc --version --verbose | grep host | cut -d' ' -f 2)" >> $GITHUB_ENV
       - name: Compile
         run: |
-          cargo build --package=rune-native \
+          cargo build --package=hotg-rune-native \
                       --features=wasmer-runtime,tflite \
                       --verbose --locked --release
       - name: Generate the header file
         run: |
-          cargo test --package=rune-native \
+          cargo test --package=hotg-rune-native \
                      --features=wasmer-runtime,tflite \
                      --features=c-headers \
                      --verbose --locked --release \
@@ -353,6 +356,17 @@ jobs:
       - rune_native_mac
     if: ${{ needs.check_date.outputs.should_run != 'false' }}
     steps:
+      - name: Tagged Release Variables
+        if: contains(github.ref, 'refs/tags/')
+        run: |
+          tag=$(dirname ${{ github.ref }})
+          echo "title=Released $tag" >> $GITHUB_ENV
+          echo "tag=$tag" >> $GITHUB_ENV
+      - name: Nightly Release Variables
+        if: ${{ !contains(github.ref, 'refs/tags/') }}
+        run: |
+          echo "title=Nightly Release" >> $GITHUB_ENV
+          echo "tag=nightly" >> $GITHUB_ENV
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Fetch Pre-Compiled Binaries
@@ -364,12 +378,13 @@ jobs:
       - name: Print Artifacts
         run: ls -la releases
       - uses: "marvinpinto/action-automatic-releases@latest"
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' || contains(github.ref, 'refs/tags/')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "nightly"
-          prerelease: true
-          title: "Nightly Release"
+          automatic_release_tag: ${{ env.tag }}
+          draft: contains(github.ref, 'refs/tags/')
+          prerelease: ${{ !contains(github.ref, 'refs/tags/') }}
+          title: ${{ env.title }}
           files: |
             releases/*.zip
             releases/*.whl

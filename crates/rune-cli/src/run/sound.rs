@@ -8,8 +8,8 @@ use std::{
 };
 use anyhow::{Context, Error};
 use hound::{WavReader, WavSpec};
-use rune_core::{Value};
-use rune_runtime::ParameterError;
+use hotg_rune_core::{Value};
+use hotg_rune_runtime::ParameterError;
 
 use crate::run::multi::{Builder, SourceBackedCapability};
 

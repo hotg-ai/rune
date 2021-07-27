@@ -2,7 +2,7 @@ use anyhow::Error;
 use structopt::{clap::AppSettings, StructOpt};
 use env_logger::Env;
 use strum::VariantNames;
-use rune_cli::{
+use hotg_rune_cli::{
     Build, ColorChoice, DEFAULT_RUST_LOG, Format, Graph, Inspect, ModelInfo,
     Run, Version,
 };

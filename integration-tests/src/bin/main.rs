@@ -1,6 +1,6 @@
 use regex::Regex;
 use anyhow::{Context, Error};
-use rune_integration_tests::{Callbacks, FullName, TestContext};
+use hotg_rune_integration_tests::{Callbacks, FullName, TestContext};
 use once_cell::sync::Lazy;
 use structopt::StructOpt;
 use std::{
@@ -24,7 +24,7 @@ fn main() -> Result<(), Error> {
         filters,
     } = Args::from_args();
 
-    let tests = rune_integration_tests::discover(&test_directory)
+    let tests = hotg_rune_integration_tests::discover(&test_directory)
         .context("Unable to discover tests")?;
 
     let ctx = TestContext::build(&rune_project_dir)

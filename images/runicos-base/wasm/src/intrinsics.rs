@@ -109,7 +109,7 @@ extern "C" {
     /// Request a capability with a particular type, yielding a unique handle
     /// that can be used to refer to the capability later on.
     ///
-    /// See [`rune_core::capabilities`] to find out which capabilities are
+    /// See [`hotg_rune_core::capabilities`] to find out which capabilities are
     /// available.
     pub fn request_capability(capability_type: u32) -> u32;
 
@@ -127,7 +127,7 @@ extern "C" {
 
     /// Ask the runtime to allocate a new output of the specified type.
     ///
-    /// See [`rune_core::outputs`] to find out which outputs are available.
+    /// See [`hotg_rune_core::outputs`] to find out which outputs are available.
     /// Invalid or unsupported parameters will trigger a trap and abort at
     /// runtime.
     pub fn request_output(out_type: u32) -> u32;

@@ -1,6 +1,6 @@
 [package]
 name = "fft"
-version = "0.4.0-dev"
+version = "0.4.1-dev"
 authors = ["Kartik Thakore <kartik@thakore.ai"]
 edition = "2018"
 publish = false
@@ -8,15 +8,15 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rune-core = { path = "../../crates/rune-core", version = "0.4.0-dev" }
+hotg-rune-core = { path = "../../crates/rune-core", version = "0.4.1-dev" }
 hound = "3.4"
 sonogram = {git = "https://github.com/hotg-ai/sonogram", rev = "009bc0cba44267d8a0807e43c9bb0712f0f334ea" }
 nalgebra = { version = "0.26.1", default-features = false, features = ["alloc"] }
 libm = "0.2.1"
 # See https://github.com/hotg-ai/rune/pull/107#issuecomment-825806000
 mel = { git = "https://github.com/hotg-ai/mel", rev = "017694ee3143c11ea9b75ba6cd27fe7c8a69a867", default-features = false }
-normalize = { path = "../normalize", version = "0.4.0-dev" }
-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.0-dev" }
+normalize = { path = "../normalize", version = "0.4.1-dev" }
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.1-dev" }
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"

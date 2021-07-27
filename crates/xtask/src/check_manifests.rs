@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     ffi::OsStr,
     fmt::{self, Debug, Display, Formatter},
     path::{Path, PathBuf},
@@ -12,9 +12,14 @@ const AUTHORS: &[&str] = &["The Rune Developers <admin@hotg.ai>"];
 const LICENSE: &str = "MIT OR Apache-2.0";
 const HOMEPAGE: &str = "https://hotg.dev/";
 const REPOSITORY: &str = "https://github.com/hotg-ai/rune";
+const NAME_PREFIX: &str = "hotg-run";
 
 #[derive(Debug, structopt::StructOpt)]
-pub struct CheckManifests {}
+pub struct CheckManifests {
+    /// Treat versions like "1.2.3-dev" as "1.2.3".
+    #[structopt(long)]
+    ignore_dev_versions: bool,
+}
 
 impl CheckManifests {
     pub fn run(self, project_root: &Path) -> Result<(), Error> {
@@ -54,11 +59,26 @@ impl CheckManifests {
             .map(Error::from)
             .collect();
 
-        let versions: HashSet<_> =
-            crates.iter().map(|c| c.package.version.clone()).collect();
+        let mut versions: HashMap<&str, Vec<&str>> = HashMap::new();
+
+        for krate in &crates {
+            let version = if self.ignore_dev_versions {
+                krate.package.version.trim_end_matches("-dev")
+            } else {
+                &krate.package.version
+            };
+
+            versions
+                .entry(version)
+                .or_default()
+                .push(&krate.package.name);
+        }
 
         if versions.len() != 1 {
-            let e = anyhow::anyhow!("All published crates should have the same version, but found {:?}", versions);
+            let e = anyhow::anyhow!(
+                "All published crates should have the same version, but found {:#?}",
+                versions,
+            );
             diagnostics.push(e);
         }
 
@@ -103,6 +123,7 @@ fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
                 homepage,
                 repository,
                 readme,
+                name,
                 ..
             },
         ..
@@ -115,6 +136,10 @@ fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
     expect.array_field("Authors", &authors).to_equal(AUTHORS);
     expect.array_field("Categories", &categories).is_not_empty();
     expect.array_field("Keywords", &keywords).is_not_empty();
+    expect
+        .array_field("Keywords", &keywords)
+        .length_less_than(5);
+    expect.field("Name", Some(name)).starts_with(NAME_PREFIX);
     expect.field("Description", description.as_deref()).is_set();
     expect
         .field("README", readme.as_deref())
@@ -242,6 +267,20 @@ impl<'diag, 'value, T: Debug> ExpectArray<'diag, 'value, T> {
                 .push(self.field, "shouldn't be empty".to_string());
         }
     }
+
+    fn length_less_than(self, max: usize) {
+        if self.actual.len() > max {
+            self.diags.push(
+                self.field,
+                format!(
+                    "expected at most {} values but found {} ({:?})",
+                    max,
+                    self.actual.len(),
+                    self.actual,
+                ),
+            );
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -287,6 +326,17 @@ impl<'diag, 'value> Expect<'diag, 'value> {
                     format!("should be set to \"{}\"", should_be),
                 );
             },
+        }
+    }
+
+    fn starts_with(self, prefix: &str) {
+        match self.actual {
+            Some(s) if s.starts_with(prefix) => {},
+            Some(s) => self.diags.push(
+                self.field,
+                format!("should start with \"{}\", found \"{}\"", prefix, s),
+            ),
+            None => self.diags.push(self.field, "should be set"),
         }
     }
 }

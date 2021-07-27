@@ -23,7 +23,7 @@ use std::{
     process::Command,
 };
 use anyhow::{Context, Error};
-use rune_syntax::hir::Rune;
+use hotg_rune_syntax::hir::Rune;
 
 #[derive(Debug)]
 pub struct Compilation {

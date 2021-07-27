@@ -7,7 +7,7 @@ use core::{
     fmt::Debug,
     ops::{Div, Sub},
 };
-use rune_proc_blocks::{Transform, HasOutputs, Tensor};
+use hotg_rune_proc_blocks::{Transform, HasOutputs, Tensor};
 
 pub fn normalize<T>(input: &mut [T])
 where
@@ -26,7 +26,7 @@ where
 
 /// Normalize the input to the range `[0, 1]`.
 #[derive(
-    Debug, Default, Clone, Copy, PartialEq, rune_proc_blocks::ProcBlock,
+    Debug, Default, Clone, Copy, PartialEq, hotg_rune_proc_blocks::ProcBlock,
 )]
 #[non_exhaustive]
 #[transform(input = [f32; 1], output = [f32; 1])]

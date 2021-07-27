@@ -9,10 +9,6 @@ mod analysis;
 mod expand;
 mod types;
 
-// This is a bit hacky, but by using a #[path] attribute we can share the
-// descriptor definitions without actually needing to move them to a common
-// dependency.
-#[path = "../../proc-blocks/src/descriptor.rs"]
 #[allow(dead_code)]
 mod descriptor;
 
@@ -29,10 +25,10 @@ use syn::DeriveInput;
 /// 1D `Tensor<T>`.
 ///
 /// ```rust
-/// use rune_proc_blocks::{ProcBlock, Transform};
-/// use rune_core::Tensor;
+/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
+/// use hotg_rune_core::Tensor;
 ///
-/// #[derive(Default, rune_proc_block_macros::ProcBlock)]
+/// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// #[transform(input = f32, output = f32)]
 /// struct Foo { }
 ///
@@ -46,10 +42,10 @@ use syn::DeriveInput;
 /// compile.
 ///
 /// ```rust,compile_fail
-/// use rune_proc_blocks::{ProcBlock, Transform};
-/// use rune_core::Tensor;
+/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
+/// use hotg_rune_core::Tensor;
 ///
-/// #[derive(Default, rune_proc_block_macros::ProcBlock)]  // Error: the trait bound `Foo: rune_proc_blocks::Transform<Tensor<f32>>` is not satisfied
+/// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]  // Error: the trait bound `Foo: hotg_rune_proc_blocks::Transform<Tensor<f32>>` is not satisfied
 /// #[transform(input = f32, output = f32)]
 /// struct Foo { }
 ///
@@ -63,10 +59,10 @@ use syn::DeriveInput;
 /// `_` indicates the transformation works with *any* number of dimensions.
 ///
 /// ```rust
-/// use rune_proc_blocks::{ProcBlock, Transform};
-/// use rune_core::Tensor;
+/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
+/// use hotg_rune_core::Tensor;
 ///
-/// #[derive(Default, rune_proc_block_macros::ProcBlock)]
+/// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// #[transform(input = [f32; _], output = [u8; 1920])]
 /// #[transform(input = str, output = [i16; 2])]
 /// struct Foo { }
@@ -87,9 +83,9 @@ use syn::DeriveInput;
 /// "properties" and will get some generated setters.
 ///
 /// ```rust
-/// use rune_proc_blocks::ProcBlock;
+/// use hotg_rune_proc_blocks::ProcBlock;
 ///
-/// #[derive(Default, rune_proc_block_macros::ProcBlock)]
+/// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// struct Foo {
 ///     first: &'static str,
 ///     second: u32,
@@ -108,9 +104,9 @@ use syn::DeriveInput;
 /// A parameter can opt-out of this with the `#[proc_block(skip)]` attribute.
 ///
 /// ```rust,compile_fail
-/// use rune_proc_blocks::ProcBlock;
+/// use hotg_rune_proc_blocks::ProcBlock;
 ///
-/// #[derive(Default, rune_proc_block_macros::ProcBlock)]
+/// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// struct Foo {
 ///     #[proc_block(skip)]
 ///     skip_me: String,

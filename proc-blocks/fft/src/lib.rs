@@ -14,8 +14,8 @@ extern crate pretty_assertions;
 pub type Fft = ShortTimeFourierTransform;
 
 use alloc::vec::Vec;
-use rune_core::{HasOutputs, Tensor};
-use rune_proc_blocks::{ProcBlock, Transform};
+use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_proc_blocks::{ProcBlock, Transform};
 use sonogram::SpecOptionsBuilder;
 use mel;
 use nalgebra::DMatrix;

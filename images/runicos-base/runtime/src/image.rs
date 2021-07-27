@@ -9,13 +9,13 @@ use std::{
 };
 use log::{Level, Record};
 use anyhow::{Context, Error};
-use rune_core::{SerializableRecord, Shape, capabilities, outputs};
-use rune_runtime::{
+use hotg_rune_core::{SerializableRecord, Shape, capabilities, outputs};
+use hotg_rune_runtime::{
     Capability, Image, Output, common_capabilities::Random,
     common_outputs::Serial,
 };
 use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
-use rune_wasmer_runtime::Registrar;
+use hotg_rune_wasmer_runtime::Registrar;
 
 const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
@@ -90,7 +90,7 @@ impl BaseImage {
     }
 }
 
-impl<'vm> Image<rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
+impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
     fn initialize_imports(self, registrar: &mut Registrar<'vm>) {
         let BaseImage {
             capabilities,
@@ -249,7 +249,7 @@ fn request_output(
     let factory = env
         .factories
         .get(&output_type)
-        .with_context(|| match rune_core::outputs::name(output_type) {
+        .with_context(|| match hotg_rune_core::outputs::name(output_type) {
             Some(name) => {
                 format!("No handler registered for output \"{}\"", name)
             },
@@ -575,7 +575,7 @@ fn request_capability(
             let cap = f
                 .new_capability()
                 .with_context(|| {
-                    match rune_core::capabilities::name(capability_type) {
+                    match hotg_rune_core::capabilities::name(capability_type) {
                         Some(n) => {
                             format!("Unable to create the \"{}\" capability", n)
                         },
@@ -590,7 +590,7 @@ fn request_capability(
             env.instances.lock().unwrap().insert(id, cap);
             Ok(id)
         },
-        None => match rune_core::capabilities::name(capability_type) {
+        None => match hotg_rune_core::capabilities::name(capability_type) {
             Some(name) => {
                 return Err(runtime_error(anyhow::anyhow!(
                     "No \"{}\" capability registered",
@@ -641,7 +641,7 @@ fn request_capability_set_param(
         // Safety: this is sound when there are no concurrent modifications
         let value: &[u8] =
             std::slice::from_raw_parts(value.as_ptr().cast(), value.len());
-        let value = rune_core::Value::from_le_bytes(ty, value)
+        let value = hotg_rune_core::Value::from_le_bytes(ty, value)
             .context("Invalid value")
             .map_err(runtime_error)?;
 
@@ -839,7 +839,7 @@ mod tf {
     use super::*;
     use anyhow::Context;
     use log::Level;
-    use rune_core::reflect::Type;
+    use hotg_rune_core::reflect::Type;
     use tflite::{
         FlatBufferModel, Interpreter, InterpreterBuilder,
         context::{ElementKind, TensorInfo},

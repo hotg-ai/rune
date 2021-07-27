@@ -2,8 +2,8 @@ use pyo3::{
     PyAny, PyObject, PyObjectProtocol, PyResult, Python, ToPyObject,
     prelude::{pyclass, pymethods, pyproto},
 };
-use rune_core::Tensor;
-use rune_proc_blocks::Transform;
+use hotg_rune_core::Tensor;
+use hotg_rune_proc_blocks::Transform;
 
 use crate::proc_blocks::utils;
 

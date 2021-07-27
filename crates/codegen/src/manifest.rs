@@ -4,7 +4,7 @@ use cargo_toml::{
     Manifest, Package, PatchSet, Product, Profiles, Publish, Resolver,
     TargetDepsSet, Workspace,
 };
-use rune_syntax::hir::Rune;
+use hotg_rune_syntax::hir::Rune;
 
 use crate::{GitSpecifier, RuneProject};
 
@@ -65,14 +65,14 @@ fn dependencies(
     deps.insert(String::from("log"), log);
 
     deps.insert(
-        String::from("rune-core"),
+        String::from("hotg-rune-core"),
         Dependency::Detailed(rune_project_dependency(
             "crates/rune-core",
             project,
         )),
     );
     deps.insert(
-        String::from("rune-proc-blocks"),
+        String::from("hotg-rune-proc-blocks"),
         Dependency::Detailed(rune_project_dependency(
             "proc-blocks/proc-blocks",
             project,
@@ -80,7 +80,7 @@ fn dependencies(
     );
     // hard-code the "runicos/base" image
     deps.insert(
-        String::from("runicos-base-wasm"),
+        String::from("hotg-runicos-base-wasm"),
         Dependency::Detailed(rune_project_dependency(
             "images/runicos-base/wasm",
             project,
@@ -102,7 +102,7 @@ fn dependencies(
 
 fn proc_block_dependency(
     name: &str,
-    path: &rune_syntax::ast::Path,
+    path: &hotg_rune_syntax::ast::Path,
     project: &RuneProject,
     current_dir: &Path,
 ) -> DependencyDetail {
@@ -132,7 +132,7 @@ fn proc_block_dependency(
 }
 
 fn local_proc_block(
-    path: &rune_syntax::ast::Path,
+    path: &hotg_rune_syntax::ast::Path,
     current_dir: &Path,
 ) -> DependencyDetail {
     DependencyDetail {
@@ -143,7 +143,7 @@ fn local_proc_block(
 
 fn builtin_proc_block(
     name: &str,
-    path: &rune_syntax::ast::Path,
+    path: &hotg_rune_syntax::ast::Path,
     project: &RuneProject,
 ) -> DependencyDetail {
     match project {
@@ -159,7 +159,7 @@ fn builtin_proc_block(
     }
 }
 
-fn is_builtin(path: &rune_syntax::ast::Path) -> bool {
+fn is_builtin(path: &hotg_rune_syntax::ast::Path) -> bool {
     path.base == "hotg-ai/rune"
 }
 
@@ -274,9 +274,9 @@ mod tests {
 
         assert_eq!(got.len(), 4);
         assert!(got.contains_key("log"));
-        assert!(got.contains_key("rune-core"));
-        assert!(got.contains_key("rune-proc-blocks"));
-        assert!(got.contains_key("runicos-base-wasm"));
+        assert!(got.contains_key("hotg-rune-core"));
+        assert!(got.contains_key("hotg-rune-proc-blocks"));
+        assert!(got.contains_key("hotg-runicos-base-wasm"));
     }
 
     #[test]

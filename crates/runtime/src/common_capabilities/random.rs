@@ -33,7 +33,7 @@ impl<R: RngCore + Debug + Send + 'static> Capability for Random<R> {
     fn set_parameter(
         &mut self,
         _name: &str,
-        _value: rune_core::Value,
+        _value: hotg_rune_core::Value,
     ) -> Result<(), ParameterError> {
         Err(ParameterError::UnsupportedParameter)
     }

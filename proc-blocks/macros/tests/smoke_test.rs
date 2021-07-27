@@ -1,16 +1,16 @@
 #[macro_use]
 extern crate pretty_assertions;
 
-use rune_proc_blocks::{
+use hotg_rune_proc_blocks::{
     Dimension, Dimensions, ProcBlock, ProcBlockDescriptor, TensorDescriptor,
     Transform, TransformDescriptor,
 };
-use rune_core::{Tensor, reflect::Type};
+use hotg_rune_core::{Tensor, reflect::Type};
 
 /// A dummy proc block.
 ///
 /// Can it handle multiple lines of input?
-#[derive(rune_proc_block_macros::ProcBlock, Default, PartialEq)]
+#[derive(hotg_rune_proc_block_macros::ProcBlock, Default, PartialEq)]
 #[transform(input = [f32; 3], output = u8)]
 #[transform(input = [u8; _], output = [f32; 1])]
 struct Foo {

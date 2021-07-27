@@ -1,7 +1,7 @@
 #![no_std]
 
 use num_traits::{FromPrimitive, ToPrimitive};
-use rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
+use hotg_rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
 
 pub fn modulo<T>(modulus: f32, values: &mut [T])
 where

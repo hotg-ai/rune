@@ -5,7 +5,7 @@ pub mod common_outputs;
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};
-use rune_core::{InvalidConversionError, Value};
+use hotg_rune_core::{InvalidConversionError, Value};
 
 /// A primitive type that can be passed between host and WebAssembly guest.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]

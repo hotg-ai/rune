@@ -2,7 +2,7 @@
 
 use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
-use rune_syntax::hir::{HirId, NameTable, Node, Rune, Slot, Type};
+use hotg_rune_syntax::hir::{HirId, NameTable, Node, Rune, Slot, Type};
 use codespan_reporting::term::termcolor::ColorChoice;
 use indexmap::IndexMap;
 
@@ -149,10 +149,10 @@ fn declare_nodes(
         })?;
 
         let colour = match &node.stage {
-            rune_syntax::hir::Stage::Source(_) => "lightgreen",
-            rune_syntax::hir::Stage::Model(_) => "violet",
-            rune_syntax::hir::Stage::ProcBlock(_) => "tan1",
-            rune_syntax::hir::Stage::Sink(_) => "indianred1",
+            hotg_rune_syntax::hir::Stage::Source(_) => "lightgreen",
+            hotg_rune_syntax::hir::Stage::Model(_) => "violet",
+            hotg_rune_syntax::hir::Stage::ProcBlock(_) => "tan1",
+            hotg_rune_syntax::hir::Stage::Sink(_) => "indianred1",
         };
 
         write!(
@@ -190,10 +190,12 @@ fn format_node_label(
     }
 
     let qualifier = match &node.stage {
-        rune_syntax::hir::Stage::Source(s) => s.kind.to_string(),
-        rune_syntax::hir::Stage::Sink(s) => s.kind.to_string(),
-        rune_syntax::hir::Stage::Model(m) => m.model_file.display().to_string(),
-        rune_syntax::hir::Stage::ProcBlock(p) => p.path.to_string(),
+        hotg_rune_syntax::hir::Stage::Source(s) => s.kind.to_string(),
+        hotg_rune_syntax::hir::Stage::Sink(s) => s.kind.to_string(),
+        hotg_rune_syntax::hir::Stage::Model(m) => {
+            m.model_file.display().to_string()
+        },
+        hotg_rune_syntax::hir::Stage::ProcBlock(p) => p.path.to_string(),
     };
 
     writeln!(w, "      <tr><td>{}: {}</td></tr>", name, qualifier)?;

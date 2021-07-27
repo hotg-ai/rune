@@ -5,11 +5,11 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
 };
-use rune_runtime::Image;
+use hotg_rune_runtime::Image;
 use tempfile::TempDir;
 use anyhow::Error;
 use wasmer::{Function, Module, Store};
-use rune_wasmer_runtime::{Registrar, Runtime};
+use hotg_rune_wasmer_runtime::{Registrar, Runtime};
 
 #[test]
 fn load_and_call_a_rune_that_does_nothing() {

@@ -5,7 +5,7 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
+use hotg_rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
 
 /// A proc block which, when given a set of indices, will return their
 /// associated labels.
@@ -13,8 +13,8 @@ use rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
 /// # Examples
 /// ```rust
 /// # use label::Label;
-/// # use rune_core::Tensor;
-/// # use rune_proc_blocks::Transform;
+/// # use hotg_rune_core::Tensor;
+/// # use hotg_rune_proc_blocks::Transform;
 /// let mut proc_block = Label::default();
 /// proc_block.set_labels(["zero", "one", "two", "three"]);
 /// let input = Tensor::new_vector(vec![3, 1, 2]);
