@@ -77,7 +77,7 @@ fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
     let mut env = DefaultEnvironment::for_compilation(&compilation);
 
     let blob = hotg_rune_codegen::generate_with_env(compilation, &mut env)
-        .context("Rune compilation failed").unwrap();
+        .expect("Rune compilation failed");
 
     assert!(blob.len() != 0);
 
