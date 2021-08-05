@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use tempdir::TempDir;
 use std::path::{Path, PathBuf};
-use anyhow::{Context, Error};
+use anyhow::Context;
 use hotg_rune_cli::run::{
     Image,
     image::ImageSource,
@@ -45,20 +45,13 @@ fn load_rune(path: PathBuf) -> Vec<u8> {
     }).unwrap()
 }
 
-fn parse_runefile(runefile: &Path) -> Result<Rune, Error> {
-    let src = std::fs::read_to_string(runefile).with_context(|| {
-        format!("Unable to read \"{}\"", runefile.display())
-    }).unwrap();
-
+fn parse_runefile(runefile: &Path) -> Rune {
+    let src = std::fs::read_to_string(runefile).unwrap();
     let mut diags = Diagnostics::new();
     let parsed = Document::parse(&src).unwrap();
     let rune = hotg_rune_syntax::analyse_yaml_runefile(&parsed, &mut diags);
-
-    if diags.has_errors() {
-        anyhow::bail!("Aborting compilation due to errors.");
-    }
-
-    Ok(rune)
+    assert!(!diags.has_errors());
+    rune
 }
 
 fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
@@ -84,7 +77,8 @@ fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
 
 fn sine_build_benchmark(c: &mut Criterion) {
     let base = example_dir().join("sine");
-    let rune = parse_runefile(base.join("Runefile.yml").as_path()).unwrap();
+    let runefile = base.join("Runefile.yml");
+    let rune = parse_runefile(&runefile);
 
     c.bench_function("sine_build",
         |b| b.iter(|| { build_rune(&base, String::from("sine"), rune.clone()) }));
