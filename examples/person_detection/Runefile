@@ -1,8 +1,8 @@
 FROM runicos/base
 
-CAPABILITY<U8[1, 96, 96]> image IMAGE --height 96 --width 96 --pixel-format @PixelFormat::GrayScale
+CAPABILITY<U8[1, 96, 96, 1]> image IMAGE --height 96 --width 96 --pixel-format @PixelFormat::GrayScale
 
-MODEL<U8[96, 96],U8[3]> person_detection ./model.tflite
+MODEL<U8[96, 96],U8[1, 1, 1, 3]> person_detection ./model.tflite
 
 PROC_BLOCK<U8[3],U32[1]> most_confident_index hotg-ai/rune#proc-blocks/most_confident_indices --count=1
 PROC_BLOCK<U32[1],UTF8[1]> label hotg-ai/rune#proc-blocks/label --labels=unknown,person_prob,not_person_prob

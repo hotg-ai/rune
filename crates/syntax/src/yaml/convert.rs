@@ -210,7 +210,7 @@ fn determine_image(
     }
 
     match from {
-        Some(from) => Path::from(&from.image),
+        Some(from) => from.image.clone().into(),
         None => {
             diags.push(
                 Diagnostic::error().with_message("No base image specified"),

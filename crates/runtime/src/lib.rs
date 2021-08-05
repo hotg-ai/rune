@@ -1,6 +1,4 @@
 #[cfg(feature = "builtins")]
-pub mod common_capabilities;
-#[cfg(feature = "builtins")]
 pub mod common_outputs;
 
 use anyhow::Error;

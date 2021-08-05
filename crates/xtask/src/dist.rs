@@ -328,7 +328,7 @@ fn archive_name(target_dir: &Path) -> Result<PathBuf, Error> {
         .lines()
         .filter_map(|line| {
             if line.contains("host") {
-                line.split(" ").skip(1).next()
+                line.split(' ').nth(1)
             } else {
                 None
             }

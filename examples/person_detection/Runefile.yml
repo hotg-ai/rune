@@ -9,6 +9,7 @@ pipeline:
           - 1
           - 96
           - 96
+          - 1
     args:
       pixel-format: "@PixelFormat::GrayScale"
       height: 96
@@ -20,6 +21,9 @@ pipeline:
     outputs:
       - type: U8
         dimensions:
+          - 1
+          - 1
+          - 1
           - 3
   most_confident_index:
     proc-block: "hotg-ai/rune#proc-blocks/most_confident_indices"

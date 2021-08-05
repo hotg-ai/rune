@@ -6,8 +6,10 @@ pipeline:
     outputs:
       - type: F32
         dimensions:
+          - 1
           - 128
           - 3
+          - 1
     args:
       n: 128
   normalize:
@@ -17,8 +19,10 @@ pipeline:
     outputs:
       - type: f32
         dimensions:
+          - 1
           - 128
           - 3
+          - 1
   gesture:
     model: "./model.tflite"
     inputs:
@@ -26,6 +30,7 @@ pipeline:
     outputs:
       - type: f32
         dimensions:
+          - 1
           - 4
   most_confident_index:
     proc-block: "hotg-ai/rune#proc-blocks/most_confident_indices"

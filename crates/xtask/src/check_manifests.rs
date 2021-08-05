@@ -248,6 +248,7 @@ struct ExpectArray<'diag, 'value, T> {
     actual: &'value [T],
 }
 
+#[allow(clippy::wrong_self_convention)] // this is a fluent interface, not normal code
 impl<'diag, 'value, T: Debug> ExpectArray<'diag, 'value, T> {
     fn to_equal<V>(self, value: &[V])
     where
@@ -301,6 +302,7 @@ struct Expect<'diag, 'value> {
     actual: Option<&'value str>,
 }
 
+#[allow(clippy::wrong_self_convention)] // this is a fluent interface, not normal code
 impl<'diag, 'value> Expect<'diag, 'value> {
     fn is_set(self) {
         if self.actual.is_none() {

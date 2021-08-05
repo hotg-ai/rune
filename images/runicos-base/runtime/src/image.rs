@@ -9,15 +9,14 @@ use std::{
 };
 use log::{Level, Record};
 use anyhow::{Context, Error};
-use hotg_rune_core::{SerializableRecord, Shape, capabilities, outputs};
-use hotg_rune_runtime::{
-    Capability, Image, Output, common_capabilities::Random,
-    common_outputs::Serial,
+use hotg_rune_core::{
+    SerializableRecord, Shape, capabilities, outputs, TFLITE_MIMETYPE,
 };
+use hotg_rune_runtime::{Capability, Image, Output, common_outputs::Serial};
 use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
 use hotg_rune_wasmer_runtime::Registrar;
 
-const TFLITE_MIMETYPE: &str = "application/tflite-model";
+use crate::random::Random;
 
 type LogFunc = dyn Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static;
 
@@ -154,7 +153,7 @@ impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
                 "request_provider_response",
                 Function::new_native_with_env(
                     store,
-                    cap_env.clone(),
+                    cap_env,
                     request_provider_response,
                 ),
             )
@@ -344,7 +343,10 @@ fn tfm_model_invoke(
         .context("Invalid output")
         .map_err(runtime_error)?;
 
-    model.infer(&[input], &[output]).map_err(runtime_error)?;
+    // Safety: See safety comment from rune_model_infer()
+    unsafe {
+        model.infer(&[input], &[output]).map_err(runtime_error)?;
+    }
 
     Ok(0)
 }
@@ -374,10 +376,14 @@ fn rune_model_infer(
         .context("Invalid outputs")
         .map_err(runtime_error)?;
 
-    model
-        .infer(&inputs, &outputs)
-        .context("Inference failed")
-        .map_err(runtime_error)?;
+    // Safety: WebAssembly is single-threaded and this function isn't
+    // re-entrant so we've got unique access to `output`.
+    unsafe {
+        model
+            .infer(&inputs, &outputs)
+            .context("Inference failed")
+            .map_err(runtime_error)?;
+    }
 
     Ok(0)
 }
@@ -753,7 +759,15 @@ impl Default for BaseImage {
 }
 
 pub trait Model: Send + Sync + 'static {
-    fn infer(
+    /// Run inference on the input tensors, writing the results to `outputs`.
+    ///
+    /// # Safety
+    ///
+    /// Implementations can assume that they have unique access to `outputs`
+    /// (i.e. converting the `&[Cell<u8>]` to `&mut [u8]` is valid).
+    ///
+    /// The `inputs` parameter may be aliased.
+    unsafe fn infer(
         &mut self,
         inputs: &[&[Cell<u8>]],
         outputs: &[&[Cell<u8>]],
@@ -992,7 +1006,7 @@ mod tf {
     }
 
     impl super::Model for TensorFlowLiteModel {
-        fn infer(
+        unsafe fn infer(
             &mut self,
             inputs: &[&[Cell<u8>]],
             outputs: &[&[Cell<u8>]],
@@ -1019,6 +1033,8 @@ mod tf {
                     .tensor_buffer_mut(ix)
                     .context("Unable to get the input buffer")?;
 
+                // FIXME: Figure out how to tell TensorFlow Lite to use the
+                // input buffers directly instead of copying.
                 for (src, dest) in input.iter().zip(buffer) {
                     *dest = src.get();
                 }
@@ -1031,6 +1047,8 @@ mod tf {
                     .tensor_buffer(ix)
                     .context("Unable to get the output buffer")?;
 
+                // FIXME: Figure out how to tell TensorFlow Lite to use the
+                // output buffers directly instead of copying.
                 for (src, dest) in buffer.iter().zip(*output) {
                     dest.set(*src);
                 }

@@ -210,8 +210,10 @@ impl ModelFactory for NativeModelFactory {
         model_bytes: &[u8],
         inputs: Option<&[hotg_rune_core::Shape<'_>]>,
         outputs: Option<&[hotg_rune_core::Shape<'_>]>,
-    ) -> Result<std::boxed::Box<dyn hotg_runicos_base_runtime::Model>, anyhow::Error>
-    {
+    ) -> Result<
+        std::boxed::Box<dyn hotg_runicos_base_runtime::Model>,
+        anyhow::Error,
+    > {
         let mut factory = self.0.lock().unwrap();
         let result: std::boxed::Box<ModelResult> =
             factory.call(slice_ref::from(model_bytes).into()).into();
@@ -312,7 +314,7 @@ impl TryFrom<Model> for NativeModel {
 }
 
 impl hotg_runicos_base_runtime::Model for NativeModel {
-    fn infer(
+    unsafe fn infer(
         &mut self,
         input: &[&[Cell<u8>]],
         output: &[&[Cell<u8>]],
@@ -326,29 +328,27 @@ impl hotg_runicos_base_runtime::Model for NativeModel {
             None => std::ptr::null_mut(),
         };
 
-        unsafe {
-            let input: Vec<_> = input
-                .iter()
-                .map(|s| {
-                    std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len())
-                })
-                .map(slice_ref::from)
-                .map(slice_raw::from)
-                .collect();
-            let output: Vec<_> = output
-                .iter()
-                .map(|s| {
-                    std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len())
-                })
-                .map(slice_ref::from)
-                .map(slice_raw::from)
-                .collect();
-            generate(
-                user_data,
-                slice_ref::from(input.as_slice()).into(),
-                slice_ref::from(output.as_slice()).into(),
-            );
-        }
+        let input: Vec<_> = input
+            .iter()
+            .map(|s| {
+                std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len())
+            })
+            .map(slice_ref::from)
+            .map(slice_raw::from)
+            .collect();
+        let output: Vec<_> = output
+            .iter()
+            .map(|s| {
+                std::slice::from_raw_parts(s.as_ptr() as *const u8, s.len())
+            })
+            .map(slice_ref::from)
+            .map(slice_raw::from)
+            .collect();
+        generate(
+            user_data,
+            slice_ref::from(input.as_slice()).into(),
+            slice_ref::from(output.as_slice()).into(),
+        );
 
         Ok(())
     }

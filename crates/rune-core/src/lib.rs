@@ -27,6 +27,9 @@ pub use crate::{
     tensor_list::{TensorList, TensorListMut},
 };
 
+/// The mimetype used for a TensorFlow Lite model.
+pub const TFLITE_MIMETYPE: &str = "application/tflite-model";
+
 macro_rules! constants {
     ($name:ident { $(
         $(#[$constant_meta:meta])*

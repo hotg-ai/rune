@@ -77,24 +77,19 @@ impl Path {
     }
 }
 
-impl<'a> From<&'a Path> for crate::ast::Path {
-    fn from(p: &'a Path) -> crate::ast::Path {
+impl From<Path> for crate::ast::Path {
+    fn from(p: Path) -> crate::ast::Path {
         let Path {
             base,
             sub_path,
             version,
         } = p;
-        crate::ast::Path::new(
-            base.clone(),
-            sub_path.clone(),
-            version.clone(),
-            Span::new(0, 0),
-        )
+        crate::ast::Path::new(base, sub_path, version, Span::new(0, 0))
     }
 }
 
-impl<'a> From<&'a crate::ast::Path> for Path {
-    fn from(p: &'a crate::ast::Path) -> Path {
+impl From<crate::ast::Path> for Path {
+    fn from(p: crate::ast::Path) -> Path {
         let crate::ast::Path {
             base,
             sub_path,
@@ -102,7 +97,7 @@ impl<'a> From<&'a crate::ast::Path> for Path {
             ..
         } = p;
 
-        Path::new(base.clone(), sub_path.clone(), version.clone())
+        Path::new(base, sub_path, version)
     }
 }
 
@@ -265,8 +260,8 @@ impl Stage {
     }
 }
 
-impl<'a> From<&'a Stage> for hir::Stage {
-    fn from(s: &'a Stage) -> hir::Stage {
+impl From<Stage> for hir::Stage {
+    fn from(s: Stage) -> hir::Stage {
         match s {
             Stage::Model { model, .. } => hir::Stage::Model(hir::Model {
                 model_file: model.into(),
@@ -276,7 +271,6 @@ impl<'a> From<&'a Stage> for hir::Stage {
             } => hir::Stage::ProcBlock(hir::ProcBlock {
                 path: proc_block.into(),
                 parameters: args
-                    .clone()
                     .into_iter()
                     .map(|(k, v)| (k.replace("-", "_"), v))
                     .collect(),
@@ -286,7 +280,6 @@ impl<'a> From<&'a Stage> for hir::Stage {
             } => hir::Stage::Source(hir::Source {
                 kind: capability.as_str().into(),
                 parameters: args
-                    .clone()
                     .into_iter()
                     .map(|(k, v)| (k.replace("-", "_"), v))
                     .collect(),

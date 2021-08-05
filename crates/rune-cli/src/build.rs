@@ -96,6 +96,15 @@ impl Build {
 
         log::debug!("Generated {} bytes", blob.len());
 
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "Unable to create the \"{}\" directory",
+                    parent.display()
+                )
+            })?;
+        }
+
         std::fs::write(&dest, &blob).with_context(|| {
             format!("Unable to write to \"{}\"", dest.display())
         })?;

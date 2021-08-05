@@ -3,7 +3,7 @@ use anyhow::{Error, Context};
 use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
-use hotg_rune_core::Shape;
+use hotg_rune_core::{Shape, TFLITE_MIMETYPE};
 use hotg_rune_syntax::{
     hir::{
         HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
@@ -12,8 +12,6 @@ use hotg_rune_syntax::{
     yaml::Value,
 };
 use serde::Serialize;
-
-const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
 /// Generate the Rune's `lib.rs` file.
 pub fn generate(
@@ -274,14 +272,6 @@ fn initialize_node(
                 let mut #name = #type_name::default();
             }
         },
-        Stage::Model(_)
-            if node.input_slots.len() == 1 && node.output_slots.len() == 1 =>
-        {
-            let model_file = format!("{}.tflite", name);
-            quote! {
-                let mut #name = #image_crate::Model::load(include_bytes!(#model_file));
-            }
-        }
         Stage::Model(_) => initialize_model(rune, name, node, image_crate),
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
     }
@@ -308,7 +298,7 @@ fn initialize_model(
         .map(|s| shape(&s));
 
     quote! {
-        let mut #name = #image_crate::MultiModel::load(
+        let mut #name = #image_crate::Model::load(
             #TFLITE_MIMETYPE,
             include_bytes!(#model_file),
             &[ #(#inputs),* ],
@@ -421,7 +411,7 @@ fn quote_value(value: &Value) -> TokenStream {
     match value {
         Value::Int(i) => quote!(#i),
         Value::Float(f) => quote!(#f),
-        Value::String(s) if s.starts_with("@") => {
+        Value::String(s) if s.starts_with('@') => {
             let rust_code = &s[1..];
             match rust_code.parse() {
                 Ok(tokens) => tokens,
@@ -693,7 +683,18 @@ mod tests {
             initialize_node(&rune, id, node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = runicos_base_wasm::Model::load(include_bytes!("sine.tflite"));
+            let mut sine = runicos_base_wasm::Model::load(
+                "application/tflite-model",
+                include_bytes!("sine.tflite"),
+                &[hotg_rune_core::Shape::new(
+                    hotg_rune_core::reflect::Type::f32,
+                    [1usize].as_ref()
+                )],
+                &[hotg_rune_core::Shape::new(
+                    hotg_rune_core::reflect::Type::f32,
+                    [1usize].as_ref()
+                )],
+            );
         };
         assert_quote_eq!(got, should_be);
     }
@@ -1013,7 +1014,7 @@ mod tests {
             initialize_node(&rune, id, &node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = runicos_base_wasm::MultiModel::load(
+            let mut sine = runicos_base_wasm::Model::load(
                 #TFLITE_MIMETYPE,
                 include_bytes!("sine.tflite"),
                 &[

@@ -257,13 +257,7 @@ impl Parse for DocAttr {
     }
 }
 
-fn remove_leading_space(s: &str) -> &str {
-    if s.starts_with(" ") {
-        &s[1..]
-    } else {
-        s
-    }
-}
+fn remove_leading_space(s: &str) -> &str { s.strip_prefix(' ').unwrap_or(s) }
 
 fn analyse_properties(
     input: &DeriveInput,
@@ -364,7 +358,7 @@ impl Parse for FieldAttribute {
         }
 
         if ident == "skip" {
-            return Ok(FieldAttribute::Skipped);
+            Ok(FieldAttribute::Skipped)
         } else {
             todo!("Handle #[proc_block({})]", ident)
         }

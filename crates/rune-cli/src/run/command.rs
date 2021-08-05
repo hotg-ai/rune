@@ -2,13 +2,12 @@ use std::{path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use log;
 use hotg_rune_core::capabilities;
-use hotg_rune_runtime::common_capabilities::Random;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
-    image::ImageSource, new_multiplexer, sound::AudioClip,
+    image::ImageSource, new_multiplexer, runecoral_inference, sound::AudioClip,
 };
 use hotg_rune_wasmer_runtime::Runtime;
-use hotg_runicos_base_runtime::BaseImage;
+use hotg_runicos_base_runtime::{BaseImage, Random};
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {
@@ -180,6 +179,9 @@ impl Run {
             new_multiplexer::<Accelerometer, _>(accelerometer),
         )
         .register_capability(capabilities::RAW, new_multiplexer::<Raw, _>(raw));
+
+        runecoral_inference::override_model_handler(&mut img)
+            .context("Unable to register the librunecoral inference backend")?;
 
         if let Some(seed) = *random {
             img.register_capability(capabilities::RAND, move || {

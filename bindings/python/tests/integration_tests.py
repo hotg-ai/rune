@@ -46,4 +46,4 @@ class FftTest(unittest.TestCase):
 
         spectrum = fft(samples)
 
-        self.assertEqual(1960, len(spectrum))
+        self.assertEqual((1, 1960), spectrum.shape)

@@ -1,9 +1,9 @@
-//! A gain control routine inspired by the [TensorFlow function][tf].
+//! A gain control routine ported from the [TensorFlow function][tf].
 //!
 //! [tf]: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/experimental/microfrontend/lib/pcan_gain_control.c
 
 use alloc::vec::Vec;
-use hotg_rune_core::{Tensor};
+use hotg_rune_core::Tensor;
 
 const WIDE_DYNAMIC_FUNCTION_BITS: usize = 32;
 const WIDE_DYNAMIC_FUNCTION_LUT_SIZE: usize =
@@ -152,16 +152,16 @@ fn wide_dynamic_function(x: u32, lookup_table: &[i16]) -> i16 {
     let index_offset = 4 * interval as usize - 6;
 
     let frac = if interval < 11 {
-        x << 11 - interval
+        x << (11 - interval)
     } else {
-        x >> interval - 11
+        x >> (interval - 11)
     };
     let frac = (frac & 0x3ff) as i16;
 
     let mut result = (lookup_table[index_offset + 2] as i32 * frac as i32) >> 5;
     result += ((lookup_table[index_offset + 1] as u32) << 5) as i32;
     result *= frac as i32;
-    result = (result + (1_i32 << 14)) >> 15 as i32;
+    result = (result + (1_i32 << 14)) >> 15;
     result += lookup_table[index_offset] as i32;
 
     result as i16

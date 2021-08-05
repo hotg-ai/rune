@@ -30,10 +30,7 @@ impl<T: PartialOrd + Copy> Transform<Tensor<T>> for MostConfidentIndices {
     type Output = Tensor<u32>;
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
-        let view = input
-            .view::<1>()
-            .expect("This proc block only supports 1D inputs");
-        let elements = view.elements();
+        let elements = input.elements();
         assert!(
             self.count <= elements.len(),
             "Unable to take the top {} values from a {}-item input",

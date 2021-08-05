@@ -11,7 +11,6 @@ mod guards;
 pub mod intrinsics;
 mod logging;
 mod model;
-mod model_v2;
 pub mod serial;
 mod stats_allocator;
 
@@ -21,7 +20,6 @@ pub use self::{
     logging::Logger,
     model::Model,
     serial::Serial,
-    model_v2::Model as MultiModel,
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};

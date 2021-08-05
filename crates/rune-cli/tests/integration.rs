@@ -1,7 +1,6 @@
 use assert_cmd::Command;
 use walkdir::WalkDir;
 use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
 fn project_root() -> PathBuf {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -21,15 +20,21 @@ fn project_root() -> PathBuf {
 
 fn example_dir() -> PathBuf { project_root().join("examples") }
 
-fn person_detection_dir() -> PathBuf { example_dir().join("person_detection") }
+fn cache_dir() -> PathBuf {
+    project_root().join("target").join(concat!(
+        env!("CARGO_PKG_NAME"),
+        "-",
+        module_path!()
+    ))
+}
 
 #[cfg(target_os = "linux")] // See https://github.com/hotg-ai/rune/issues/131
 #[test]
 fn person_detection() {
-    let person_detection_dir = person_detection_dir();
+    let person_detection_dir = example_dir().join("person_detection");
     let runefile = person_detection_dir.join("Runefile");
-    let build_dir = TempDir::new().unwrap();
-    let rune = build_dir.path().join("person_detection.rune");
+    let build_dir = cache_dir().join("person_detection");
+    let rune = build_dir.join("person_detection.rune");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("build")
@@ -41,10 +46,7 @@ fn person_detection() {
     let image = person_detection_dir.join("image_grayscale.png");
 
     let mut cmd = Command::cargo_bin("rune").unwrap();
-    cmd.arg("run")
-        .arg(&rune)
-        .arg("--capability")
-        .arg(format!("image:{}", image.display()));
+    cmd.arg("run").arg(&rune).arg("--image").arg(image);
 
     cmd.assert()
         .success()
@@ -62,12 +64,18 @@ fn build_all_examples() {
                 || entry.file_name() == "Runefile.yml"
         });
 
+    let cache_dir = cache_dir().join("all-examples");
+
     for runefile in runefiles {
+        let path = runefile.path();
+        let name = path.parent().unwrap().file_name().unwrap();
+        let cache_dir = cache_dir.join(name);
+
         let mut cmd = Command::cargo_bin("rune").unwrap();
         cmd.arg("build")
-            .arg(runefile.path())
+            .arg(path)
             .arg("--cache-dir")
-            .arg(project_root().join("target").join(env!("CARGO_PKG_NAME")))
+            .arg(&cache_dir)
             .assert()
             .success();
     }
