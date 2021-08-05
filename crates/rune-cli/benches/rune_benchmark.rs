@@ -45,12 +45,12 @@ fn parse_runefile(runefile: &Path) -> Rune {
     rune
 }
 
-fn build_rune(rune_path: PathBuf, rune_name: String, rune: Rune) {
+fn build_rune(rune_path: PathBuf, name: String, rune: Rune) {
     let rune_build_dir = TempDir::new("rune_build_dir").unwrap();
 
     let compilation = Compilation {
-        name: rune_name,
-        rune: rune,
+        name,
+        rune,
         working_directory: rune_build_dir.path().to_path_buf(),
         current_directory: rune_path,
         rune_project: RuneProject::Disk(project_root()),
