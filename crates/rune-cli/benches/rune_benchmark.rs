@@ -20,21 +20,12 @@ use hotg_rune_codegen::{
 
 use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 
-// TODO: Refactor this out as this is shared with tests
 pub fn project_root() -> PathBuf {
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .canonicalize()
-        .unwrap();
-
-    for ancestor in manifest_dir.ancestors() {
-        if ancestor.join(".git").is_dir() {
-            return ancestor.to_path_buf();
-        }
-    }
-
-    unreachable!(
-        "Unable to determine the project's root directory. Where is \".git/\"?"
-    );
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .find(|path| path.join(".git").exists())
+        .expect("Unable to determine the project's root directory. Where is \".git/\"?")
+        .to_path_buf()
 }
 
 pub fn example_dir() -> PathBuf { project_root().join("examples") }
