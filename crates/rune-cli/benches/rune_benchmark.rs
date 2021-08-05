@@ -45,14 +45,14 @@ fn parse_runefile(runefile: &Path) -> Rune {
     rune
 }
 
-fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
+fn build_rune(rune_path: PathBuf, rune_name: String, rune: Rune) {
     let rune_build_dir = TempDir::new("rune_build_dir").unwrap();
 
     let compilation = Compilation {
         name: rune_name,
         rune: rune,
         working_directory: rune_build_dir.path().to_path_buf(),
-        current_directory: rune_path.clone(),
+        current_directory: rune_path,
         rune_project: RuneProject::Disk(project_root()),
         optimized: true,
         verbosity: Verbosity::Quiet,
@@ -72,7 +72,7 @@ fn sine_build_benchmark(c: &mut Criterion) {
     let rune = parse_runefile(&runefile);
 
     c.bench_function("sine_build",
-        |b| b.iter(|| { build_rune(&base, String::from("sine"), rune.clone()) }));
+        |b| b.iter(|| { build_rune(base.clone(), String::from("sine"), rune.clone()) }));
 }
 
 fn sine_inference_benchmark(c: &mut Criterion) {
