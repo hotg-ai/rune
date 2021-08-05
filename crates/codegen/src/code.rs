@@ -688,11 +688,11 @@ mod tests {
                 include_bytes!("sine.tflite"),
                 &[hotg_rune_core::Shape::new(
                     hotg_rune_core::reflect::Type::f32,
-                    [1usize].as_ref(),
+                    [1usize].as_ref()
                 )],
                 &[hotg_rune_core::Shape::new(
                     hotg_rune_core::reflect::Type::f32,
-                    [1usize].as_ref(),
+                    [1usize].as_ref()
                 )],
             );
         };

@@ -2409,7 +2409,7 @@ dependencies = [
 [[package]]
 name = "runecoral"
 version = "0.1.0"
-source = "git+https://github.com/hotg-ai/librunecoral#89205e7fbd5d16aa00734cad002aaa1308cfae1a"
+source = "git+https://github.com/hotg-ai/librunecoral#5b2757efc5f6753a75ace98fd49d3f589bd8da78"
 dependencies = [
  "bindgen 0.58.1",
  "libloading",
