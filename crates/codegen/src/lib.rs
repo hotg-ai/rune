@@ -103,7 +103,7 @@ pub fn generate_with_env(
         models,
     };
 
-    env.compile(project).context("Compilation failed")
+    env.compile(project)
 }
 
 #[derive(Debug, Clone, PartialEq)]
