@@ -123,7 +123,7 @@ pub fn proc_block(input: TokenStream) -> TokenStream {
 
     let tokens = analysis::analyse(&input)
         .map(ToTokens::into_token_stream)
-        .unwrap_or_else(|e| e.into_compile_error().into());
+        .unwrap_or_else(|e| e.into_compile_error());
 
     TokenStream::from(tokens)
 }

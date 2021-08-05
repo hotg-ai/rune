@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use rand::{RngCore, SeedableRng, rngs::SmallRng};
-use crate::{Capability, ParameterError};
+use hotg_rune_runtime::{Capability, ParameterError};
 
 /// A [`Capability`] that defers to a random number generator.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -72,6 +72,7 @@ impl RngCore for DummyRng {
     }
 
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-        Ok(self.fill_bytes(dest))
+        self.fill_bytes(dest);
+        Ok(())
     }
 }

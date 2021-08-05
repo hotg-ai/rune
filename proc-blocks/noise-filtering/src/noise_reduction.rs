@@ -66,19 +66,19 @@ impl NoiseReduction {
 
         let signal = input.make_elements_mut();
 
-        for i in 0..self.estimate.len() {
+        for (i, value) in signal.iter_mut().enumerate() {
             let smoothing = if i % 2 == 0 {
                 self.even_smoothing as u64
             } else {
                 self.odd_smoothing as u64
             };
 
-            let one_minus_smoothing = (1 << NOISE_REDUCTION_BITS) - 0;
+            let one_minus_smoothing = 1 << NOISE_REDUCTION_BITS;
 
             // update the estimate of the noise
-            let signal_scaled_up = (signal[i] << self.smoothing_bits) as u64;
-            let mut estimate = (signal_scaled_up * smoothing)
-                + (self.estimate[i] as u64 * one_minus_smoothing)
+            let signal_scaled_up = (*value << self.smoothing_bits) as u64;
+            let mut estimate = ((signal_scaled_up * smoothing)
+                + (self.estimate[i] as u64 * one_minus_smoothing))
                 >> NOISE_REDUCTION_BITS;
             self.estimate[i] = estimate as u32;
 
@@ -86,12 +86,12 @@ impl NoiseReduction {
             // estimate
             estimate = core::cmp::min(estimate, signal_scaled_up);
 
-            let floor = (signal[i] as u64 * self.min_signal_remaining as u64)
+            let floor = (*value as u64 * self.min_signal_remaining as u64)
                 >> NOISE_REDUCTION_BITS;
             let subtracted =
                 (signal_scaled_up - estimate) >> self.smoothing_bits;
 
-            signal[i] = core::cmp::max(floor, subtracted) as u32;
+            *value = core::cmp::max(floor, subtracted) as u32;
         }
 
         input

@@ -17,7 +17,6 @@ use alloc::vec::Vec;
 use hotg_rune_core::{HasOutputs, Tensor};
 use hotg_rune_proc_blocks::{ProcBlock, Transform};
 use sonogram::SpecOptionsBuilder;
-use mel;
 use nalgebra::DMatrix;
 
 #[derive(Debug, Clone, PartialEq, ProcBlock)]
@@ -29,7 +28,7 @@ pub struct ShortTimeFourierTransform {
 
 const DEFAULT_SAMPLE_RATE: u32 = 16000;
 const DEFAULT_BINS: usize = 480;
-const DEFAULT_WINDOW_OVERLAP: f32 = 0.6666666666666667;
+const DEFAULT_WINDOW_OVERLAP: f32 = 0.6666667;
 
 impl ShortTimeFourierTransform {
     pub const fn new() -> Self {
@@ -77,12 +76,11 @@ impl ShortTimeFourierTransform {
             power_spectrum_matrix_unflipped.transpose();
         let mut power_spectrum_vec: Vec<_> =
             power_spectrum_matrix_transposed.row_iter().collect();
-        &power_spectrum_vec.reverse();
+        power_spectrum_vec.reverse();
         let power_spectrum_matrix: DMatrix<f64> =
             DMatrix::from_rows(&power_spectrum_vec);
         let mel_spectrum_matrix = &mel_filter_matrix * &power_spectrum_matrix;
-        let mel_spectrum_matrix =
-            mel_spectrum_matrix.map(|energy| libm::sqrt(energy));
+        let mel_spectrum_matrix = mel_spectrum_matrix.map(libm::sqrt);
 
         let min_value = mel_spectrum_matrix
             .data
@@ -102,13 +100,10 @@ impl ShortTimeFourierTransform {
             .map(|freq| 65536.0 * (freq - min_value) / (max_value - min_value))
             .map(|freq| freq as u32)
             .collect();
+
         let mut out = [0; 1960];
-
-        for i in 0..1960 {
-            out[i] = res[i];
-        }
-
-        return out;
+        out.copy_from_slice(&res[..1960]);
+        out
     }
 }
 

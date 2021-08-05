@@ -17,7 +17,6 @@ pub fn analyse(doc: &Document, diags: &mut Diagnostics) -> Rune {
 
     match doc {
         Document::V1 { image, pipeline } => {
-            let image = &image;
             ctx.rune.base_image = Some(image.clone().into());
 
             ctx.register_stages(&pipeline);
@@ -82,7 +81,7 @@ impl<'diag> Context<'diag> {
             self.rune.stages.insert(
                 id,
                 Node {
-                    stage: hir::Stage::from(stage),
+                    stage: stage.clone().into(),
                     input_slots: Vec::new(),
                     output_slots: Vec::new(),
                 },
@@ -310,7 +309,7 @@ fn detect_cycles(
     let got = stack.pop_back();
     debug_assert_eq!(got, Some(id));
 
-    return false;
+    false
 }
 
 #[cfg(test)]

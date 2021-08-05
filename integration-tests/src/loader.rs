@@ -115,7 +115,7 @@ impl Test {
         })
     }
 
-    pub fn is_ignored(&self) -> bool { self.name.name.starts_with("_") }
+    pub fn is_ignored(&self) -> bool { self.name.name.starts_with('_') }
 
     fn get_rune_output(&self, ctx: &TestContext) -> Result<Output, Error> {
         match self.name.category {

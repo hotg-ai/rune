@@ -511,7 +511,7 @@ impl ProcBlock {
     pub fn name(&self) -> &str {
         let full_name = self.path.sub_path.as_ref().unwrap_or(&self.path.base);
 
-        let start_of_name = full_name.rfind("/").map(|ix| ix + 1).unwrap_or(0);
+        let start_of_name = full_name.rfind('/').map(|ix| ix + 1).unwrap_or(0);
 
         &full_name[start_of_name..]
     }

@@ -24,6 +24,7 @@ tflite = { version = "0.9.5", optional = true }
 wasmer = "2.0.0"
 wasmer-vm = "2.0.0"
 hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "0.4.1-dev" }
+rand = "0.8.4"
 
 [features]
 default = ["tflite"]

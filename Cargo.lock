@@ -1206,6 +1206,7 @@ dependencies = [
  "hotg-rune-runtime",
  "hotg-rune-wasmer-runtime",
  "log",
+ "rand",
  "serde_json",
  "syn",
  "tflite",

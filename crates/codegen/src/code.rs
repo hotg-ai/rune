@@ -419,7 +419,7 @@ fn quote_value(value: &Value) -> TokenStream {
     match value {
         Value::Int(i) => quote!(#i),
         Value::Float(f) => quote!(#f),
-        Value::String(s) if s.starts_with("@") => {
+        Value::String(s) if s.starts_with('@') => {
             let rust_code = &s[1..];
             match rust_code.parse() {
                 Ok(tokens) => tokens,

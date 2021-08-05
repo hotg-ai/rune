@@ -74,7 +74,7 @@ impl FromStr for Shape<'static> {
     type Err = FormatError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let opening_bracket = s.find("[").ok_or(FormatError::Malformed)?;
+        let opening_bracket = s.find('[').ok_or(FormatError::Malformed)?;
         let element_type = s[..opening_bracket].trim();
         let ty = Type::from_rust_name(element_type).ok_or_else(|| {
             FormatError::UnknownElementType {
@@ -82,13 +82,13 @@ impl FromStr for Shape<'static> {
             }
         })?;
 
-        let closing_bracket = s.rfind("]").ok_or(FormatError::Malformed)?;
+        let closing_bracket = s.rfind(']').ok_or(FormatError::Malformed)?;
 
         let between_brackets = &s[opening_bracket + 1..closing_bracket];
 
         let mut dimensions = Vec::new();
 
-        for word in between_brackets.split(",") {
+        for word in between_brackets.split(',') {
             let word = word.trim();
             let dimension = word.parse::<usize>().map_err(|e| {
                 FormatError::BadDimension {

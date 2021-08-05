@@ -108,11 +108,11 @@ fn proc_block_dependency(
 ) -> DependencyDetail {
     if is_builtin(path) {
         return builtin_proc_block(name, path, project);
-    } else if path.base.starts_with(".") {
+    } else if path.base.starts_with('.') {
         return local_proc_block(path, current_dir);
     }
 
-    if path.sub_path.is_none() && !path.base.contains("/") {
+    if path.sub_path.is_none() && !path.base.contains('/') {
         if let Some(version) = &path.version {
             // it's from crates.io
             return DependencyDetail {

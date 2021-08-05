@@ -12,12 +12,11 @@ use anyhow::{Context, Error};
 use hotg_rune_core::{
     SerializableRecord, Shape, capabilities, outputs, TFLITE_MIMETYPE,
 };
-use hotg_rune_runtime::{
-    Capability, Image, Output, common_capabilities::Random,
-    common_outputs::Serial,
-};
+use hotg_rune_runtime::{Capability, Image, Output, common_outputs::Serial};
 use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
 use hotg_rune_wasmer_runtime::Registrar;
+
+use crate::random::Random;
 
 type LogFunc = dyn Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static;
 
@@ -154,7 +153,7 @@ impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
                 "request_provider_response",
                 Function::new_native_with_env(
                     store,
-                    cap_env.clone(),
+                    cap_env,
                     request_provider_response,
                 ),
             )

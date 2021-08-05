@@ -2,13 +2,12 @@ use std::{path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use log;
 use hotg_rune_core::capabilities;
-use hotg_rune_runtime::common_capabilities::Random;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
     image::ImageSource, new_multiplexer, sound::AudioClip,
 };
 use hotg_rune_wasmer_runtime::Runtime;
-use hotg_runicos_base_runtime::BaseImage;
+use hotg_runicos_base_runtime::{BaseImage, Random};
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {
