@@ -38,6 +38,7 @@ structopt = "0.3.21"
 strum = { version = "0.20.0", features = ["derive"] }
 tflite = "0.9.5"
 wasmparser = "0.78.2"
+runecoral = { git = "https://github.com/hotg-ai/librunecoral" }
 
 [dev-dependencies]
 assert_cmd = "1.0.3"
