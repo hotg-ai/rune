@@ -106,9 +106,10 @@ fn microspeech_inference_benchmark(c: &mut Criterion) {
     let base = example_dir().join("microspeech");
 
     let mut img = BaseImage::with_defaults();
+    let wav_file = base.join("data").join("right").join("fb7eb481_nohash_0.wav");
     img.register_capability(
         capabilities::SOUND,
-        new_multiplexer::<Sound, _>(vec![AudioClip::from_wav_file(base.join("data").join("right").join("fb7eb481_nohash_0.wav")).unwrap()]));
+        new_multiplexer::<Sound, _>(vec![AudioClip::from_wav_file(wav_file).unwrap()]));
 
     let mut runtime = Runtime::load(&load_rune(base.join("microspeech.rune")), img)
         .context("Unable to create rune runtime")
