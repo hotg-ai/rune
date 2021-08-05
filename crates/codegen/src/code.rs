@@ -683,7 +683,18 @@ mod tests {
             initialize_node(&rune, id, node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = runicos_base_wasm::Model::load(include_bytes!("sine.tflite"));
+            let mut sine = runicos_base_wasm::Model::load(
+                "application/tflite-model",
+                include_bytes!("sine.tflite"),
+                &[hotg_rune_core::Shape::new(
+                    hotg_rune_core::reflect::Type::f32,
+                    [1usize].as_ref(),
+                )],
+                &[hotg_rune_core::Shape::new(
+                    hotg_rune_core::reflect::Type::f32,
+                    [1usize].as_ref(),
+                )],
+            );
         };
         assert_quote_eq!(got, should_be);
     }
