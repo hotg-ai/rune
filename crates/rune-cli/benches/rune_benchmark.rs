@@ -79,7 +79,7 @@ fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
     let blob = hotg_rune_codegen::generate_with_env(compilation, &mut env)
         .expect("Rune compilation failed");
 
-    assert!(blob.len() != 0);
+    assert_ne!(blob.len(), 0);
 
     rune_build_dir.close().expect("Unable to close the rune build directory");
 }
