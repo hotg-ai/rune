@@ -80,8 +80,6 @@ fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
         .expect("Rune compilation failed");
 
     assert_ne!(blob.len(), 0);
-
-    rune_build_dir.close().expect("Unable to close the rune build directory");
 }
 
 fn sine_build_benchmark(c: &mut Criterion) {
