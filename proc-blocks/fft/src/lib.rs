@@ -13,7 +13,7 @@ extern crate pretty_assertions;
 /// version of this crate.
 pub type Fft = ShortTimeFourierTransform;
 
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 use hotg_rune_core::{HasOutputs, Tensor};
 use hotg_rune_proc_blocks::{ProcBlock, Transform};
 use sonogram::SpecOptionsBuilder;
@@ -117,7 +117,7 @@ impl Transform<Tensor<i16>> for ShortTimeFourierTransform {
     fn transform(&mut self, input: Tensor<i16>) -> Self::Output {
         let input = input.elements().to_vec();
         let stft = self.transform_inner(input);
-        Tensor::new_vector(stft.iter().copied())
+        Tensor::new_row_major(Arc::new(stft), alloc::vec![1, stft.len()])
     }
 }
 
@@ -135,6 +135,6 @@ mod tests {
 
         let got = fft_pb.transform(input);
 
-        assert_eq!(got.dimensions(), &[1960]);
+        assert_eq!(got.dimensions(), &[1, 1960]);
     }
 }

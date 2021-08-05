@@ -123,9 +123,9 @@ fn unscale(number: u16) -> f32 {
 impl HasOutputs for NoiseReduction {
     fn set_output_dimensions(&mut self, dimensions: &[usize]) {
         match *dimensions {
-            [len] => self.estimate.resize(len, 0),
+            [1, len, ] => self.estimate.resize(len, 0),
             _ => panic!(
-                "This transform only supports 1D outputs, not {:?}",
+                "This transform only supports outputs of the form [1, _], not {:?}",
                 dimensions
             ),
         }
@@ -134,13 +134,16 @@ impl HasOutputs for NoiseReduction {
 
 #[cfg(test)]
 mod tests {
+    use alloc::sync::Arc;
+
     use super::*;
 
     /// https://github.com/tensorflow/tensorflow/blob/5dcfc51118817f27fad5246812d83e5dccdc5f72/tensorflow/lite/experimental/microfrontend/lib/noise_reduction_test.cc#L41-L59
     #[test]
     fn test_noise_reduction_estimate() {
         let mut state = NoiseReduction::default();
-        let input = Tensor::new_vector(vec![247311, 508620]);
+        let input =
+            Tensor::new_row_major(Arc::new([247311, 508620]), vec![1, 2]);
         let should_be = vec![6321887, 31248341];
 
         let _ = state.transform(input);
@@ -152,8 +155,10 @@ mod tests {
     #[test]
     fn test_noise_reduction() {
         let mut state = NoiseReduction::default();
-        let input = Tensor::new_vector(vec![247311, 508620]);
-        let should_be = Tensor::new_vector(vec![241137, 478104]);
+        let input =
+            Tensor::new_row_major(Arc::new([247311, 508620]), vec![1, 2]);
+        let should_be =
+            Tensor::new_row_major(Arc::new([241137, 478104]), vec![1, 2]);
 
         let got = state.transform(input);
 

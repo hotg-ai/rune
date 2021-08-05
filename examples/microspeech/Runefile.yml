@@ -6,7 +6,8 @@ pipeline:
     outputs:
       - type: I16
         dimensions:
-          - 16000
+        - 1
+        - 16000
     args:
       hz: 16000
       sample_duration_ms: 1000
@@ -17,7 +18,8 @@ pipeline:
     outputs:
       - type: U32
         dimensions:
-          - 1960
+        - 1
+        - 1960
   noise_filtering:
     proc-block: "hotg-ai/rune#proc-blocks/noise-filtering"
     inputs:
@@ -25,7 +27,8 @@ pipeline:
     outputs:
       - type: I8
         dimensions:
-          - 1960
+        - 1
+        - 1960
   model:
     model: "./model.tflite"
     inputs:
@@ -33,7 +36,8 @@ pipeline:
     outputs:
       - type: I8
         dimensions:
-          - 6
+        - 1
+        - 6
   most_confident:
     proc-block: "hotg-ai/rune#proc-blocks/most_confident_indices"
     inputs:
@@ -41,7 +45,7 @@ pipeline:
     outputs:
       - type: U32
         dimensions:
-          - 1
+        - 1
     args:
       count: 1
   label:
