@@ -272,14 +272,6 @@ fn initialize_node(
                 let mut #name = #type_name::default();
             }
         },
-        Stage::Model(_)
-            if node.input_slots.len() == 1 && node.output_slots.len() == 1 =>
-        {
-            let model_file = format!("{}.tflite", name);
-            quote! {
-                let mut #name = #image_crate::Model::load(include_bytes!(#model_file));
-            }
-        }
         Stage::Model(_) => initialize_model(rune, name, node, image_crate),
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
     }
@@ -306,7 +298,7 @@ fn initialize_model(
         .map(|s| shape(&s));
 
     quote! {
-        let mut #name = #image_crate::MultiModel::load(
+        let mut #name = #image_crate::Model::load(
             #TFLITE_MIMETYPE,
             include_bytes!(#model_file),
             &[ #(#inputs),* ],
@@ -1011,7 +1003,7 @@ mod tests {
             initialize_node(&rune, id, &node, &image_crate).to_token_stream();
 
         let should_be = quote! {
-            let mut sine = runicos_base_wasm::MultiModel::load(
+            let mut sine = runicos_base_wasm::Model::load(
                 #TFLITE_MIMETYPE,
                 include_bytes!("sine.tflite"),
                 &[
