@@ -109,6 +109,8 @@ impl Build {
             format!("Unable to write to \"{}\"", dest.display())
         })?;
 
+        log::info!("The Rune was written to \"{}\"", dest.display());
+
         Ok(())
     }
 

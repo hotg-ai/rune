@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Users will no longer need to manually install nightly because a
+  `rust-toolchain.toml` will be copied into the generated project
+- If the `LIBRUNECORAL_SO` environment variable is set, `rune run` will use the
+  specified shared library for hardware acceleration
+
+### Changed
+
+- The tensor dimensions specified in a Runefile now need to *exactly* match the
+  dimensions expected by the model. Previously users would be allowed to pass
+  something like `u8[192, 192]` to a model expecting `u8[1, 192, 192, 1]`.
+
 ## [0.4.0] - 2021-07-27
 
 ### Added

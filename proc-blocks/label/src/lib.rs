@@ -58,12 +58,15 @@ where
 
 impl HasOutputs for Label {
     fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        assert_eq!(
-            dimensions.len(),
-            1,
-            "This proc block only supports 1D outputs (requested output: {:?})",
-            dimensions
-        );
+        match dimensions {
+            [rest @ .., _] if rest.iter().all(|d| *d == 1) => {},
+            _ => {
+                panic!(
+                    "This proc block only supports 1D outputs (requested output: {:?})",
+                    dimensions
+                );
+            },
+        }
     }
 }
 

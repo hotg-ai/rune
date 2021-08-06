@@ -8,7 +8,6 @@ mod environment;
 mod manifest;
 mod models;
 mod project;
-pub mod rustup;
 
 pub use crate::{
     environment::{Environment, DefaultEnvironment},
@@ -95,12 +94,16 @@ pub fn generate_with_env(
     let lib_rs = crate::code::generate(&c.rune, env.build_info())
         .context("Unable to generate the \"lib.rs\" file")?;
 
+    let rust_toolchain_toml =
+        include_str!("../../../rust-toolchain.toml").to_string();
+
     let project = Project {
         name: c.name,
         manifest,
         config,
         lib_rs,
         models,
+        rust_toolchain_toml,
     };
 
     env.compile(project)
