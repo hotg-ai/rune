@@ -1,10 +1,10 @@
-mod accelerometer;
-mod command;
-mod image;
+pub mod accelerometer;
+pub mod command;
+pub mod image;
 pub mod multi;
-mod raw;
 mod runecoral_inference;
-mod sound;
+pub mod raw;
+pub mod sound;
 
 use hotg_rune_runtime::ParameterError;
 

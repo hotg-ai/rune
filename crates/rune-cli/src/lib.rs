@@ -2,7 +2,7 @@ mod build;
 mod graph;
 mod inspect;
 mod model_info;
-mod run;
+pub mod run;
 mod version;
 
 use codespan_reporting::term::termcolor;
