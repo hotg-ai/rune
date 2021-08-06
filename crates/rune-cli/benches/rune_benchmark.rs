@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use tempdir::TempDir;
 use std::path::{Path, PathBuf};
-use anyhow::{Context};
+use anyhow::{Context, Error};
 use hotg_rune_cli::run::{
     Image,
     image::ImageSource,
@@ -12,6 +13,12 @@ use hotg_rune_cli::run::{
 use hotg_rune_wasmer_runtime::Runtime;
 use hotg_runicos_base_runtime::BaseImage;
 use hotg_rune_core::capabilities;
+
+use hotg_rune_codegen::{
+    Compilation, DefaultEnvironment, RuneProject, Verbosity,
+};
+
+use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 
 // TODO: Refactor this out as this is shared with tests
 pub fn project_root() -> PathBuf {
@@ -36,6 +43,53 @@ fn load_rune(path: PathBuf) -> Vec<u8> {
     std::fs::read(&path).with_context(|| {
         format!("Unable to read \"{}\"", path.display())
     }).unwrap()
+}
+
+fn parse_runefile(runefile: &Path) -> Result<Rune, Error> {
+    let src = std::fs::read_to_string(runefile).with_context(|| {
+        format!("Unable to read \"{}\"", runefile.display())
+    }).unwrap();
+
+    let mut diags = Diagnostics::new();
+    let parsed = Document::parse(&src).unwrap();
+    let rune = hotg_rune_syntax::analyse_yaml_runefile(&parsed, &mut diags);
+
+    if diags.has_errors() {
+        anyhow::bail!("Aborting compilation due to errors.");
+    }
+
+    Ok(rune)
+}
+
+fn build_rune(rune_path: &PathBuf, rune_name: String, rune: Rune) {
+    let rune_build_dir = TempDir::new("rune_build_dir").unwrap();
+
+    let compilation = Compilation {
+        name: rune_name,
+        rune: rune,
+        working_directory: rune_build_dir.path().to_path_buf(),
+        current_directory: rune_path.clone(),
+        rune_project: RuneProject::Disk(project_root()),
+        optimized: true,
+        verbosity: Verbosity::Quiet,
+    };
+
+    let mut env = DefaultEnvironment::for_compilation(&compilation);
+
+    let blob = hotg_rune_codegen::generate_with_env(compilation, &mut env)
+        .context("Rune compilation failed").unwrap();
+
+    assert!(blob.len() != 0);
+
+    rune_build_dir.close().expect("Unable to close the rune build directory");
+}
+
+fn sine_build_benchmark(c: &mut Criterion) {
+    let base = example_dir().join("sine");
+    let rune = parse_runefile(base.join("Runefile.yml").as_path()).unwrap();
+
+    c.bench_function("sine_build",
+        |b| b.iter(|| { build_rune(&base, String::from("sine"), rune.clone()) }));
 }
 
 fn sine_inference_benchmark(c: &mut Criterion) {
@@ -82,8 +136,13 @@ fn styletransfer_inference_benchmark(c: &mut Criterion) {
 }
 
 criterion_group!(
+    name = build_benchmark;
+    config = Criterion::default().significance_level(0.1).sample_size(10);
+    targets = sine_build_benchmark);
+
+criterion_group!(
     name = inference_benchmark;
     config = Criterion::default().significance_level(0.1).sample_size(10);
     targets = sine_inference_benchmark, microspeech_inference_benchmark, styletransfer_inference_benchmark);
 
-criterion_main!(inference_benchmark);
+criterion_main!(build_benchmark, inference_benchmark);

@@ -1,4 +1,4 @@
-mod build;
+pub mod build;
 mod graph;
 mod inspect;
 mod model_info;
