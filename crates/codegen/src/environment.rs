@@ -25,7 +25,6 @@ pub struct DefaultEnvironment {
     working_directory: PathBuf,
     current_directory: PathBuf,
     optimize: bool,
-    rust_version: String,
     verbosity: Verbosity,
     build_info: Option<BuildInfo>,
 }
@@ -36,7 +35,6 @@ impl DefaultEnvironment {
             working_directory: c.working_directory.clone(),
             current_directory: c.current_directory.clone(),
             optimize: c.optimized,
-            rust_version: crate::rustup::NIGHTLY_VERSION.clone(),
             verbosity: c.verbosity,
             build_info: None,
         }
@@ -89,14 +87,15 @@ impl DefaultEnvironment {
         let lib_rs = self.working_directory.join("lib.rs");
         write(lib_rs, project.lib_rs.as_bytes())?;
 
+        let toolchain_file = self.working_directory.join("rust-toolchain.toml");
+        write(toolchain_file, project.rust_toolchain_toml.as_bytes())?;
+
         Ok(())
     }
 
     fn cargo_build(&self) -> Result<(), Error> {
         let mut cmd = Command::new("cargo");
-        cmd.arg(format!("+{}", self.rust_version))
-            .arg("build")
-            .arg("--target=wasm32-unknown-unknown");
+        cmd.arg("build").arg("--target=wasm32-unknown-unknown");
 
         self.verbosity.add_flags(&mut cmd);
         cmd.current_dir(&self.working_directory);

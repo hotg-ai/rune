@@ -1201,7 +1201,6 @@ dependencies = [
  "hotg-rune-core",
  "hotg-rune-syntax",
  "log",
- "once_cell",
  "pretty_assertions",
  "proc-macro2",
  "quote",
