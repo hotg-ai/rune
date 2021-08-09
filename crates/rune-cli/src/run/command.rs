@@ -70,6 +70,12 @@ pub struct Run {
         help = "Seed the runtime's Random Number Generator"
     )]
     random: Option<u64>,
+    #[structopt(
+        long,
+        env,
+        help = "The librunecoral.so library to use for hardware acceleration"
+    )]
+    librunecoral: Option<PathBuf>,
 }
 
 impl Run {
@@ -180,8 +186,11 @@ impl Run {
         )
         .register_capability(capabilities::RAW, new_multiplexer::<Raw, _>(raw));
 
-        runecoral_inference::override_model_handler(&mut img)
-            .context("Unable to register the librunecoral inference backend")?;
+        runecoral_inference::override_model_handler(
+            &mut img,
+            self.librunecoral.as_deref(),
+        )
+        .context("Unable to register the librunecoral inference backend")?;
 
         if let Some(seed) = *random {
             img.register_capability(capabilities::RAND, move || {

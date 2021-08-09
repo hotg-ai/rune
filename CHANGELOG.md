@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Users will no longer need to manually install nightly because a
   `rust-toolchain.toml` will be copied into the generated project
-- If the `LIBRUNECORAL_SO` environment variable is set, `rune run` will use the
-  specified shared library for hardware acceleration
+- If the `LIBRUNECORAL` environment variable is set or the `--librunecoral`
+  flag is provided, `rune run` will use the specified shared library for
+  hardware acceleration on TPU-enabled devices
 
 ### Changed
 

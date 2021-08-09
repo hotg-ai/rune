@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::Cell, convert::TryInto, sync::Mutex};
+use std::{borrow::Cow, cell::Cell, convert::TryInto, path::Path, sync::Mutex};
 
 use anyhow::{Context, Error};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE, reflect::Type};
@@ -7,9 +7,12 @@ use runecoral::{ElementType, Tensor, TensorDescriptor, TensorMut};
 
 /// Overrides the TensorFlow Lite model handler with `librunecoral`, if
 /// available.
-pub fn override_model_handler(img: &mut BaseImage) -> Result<(), Error> {
-    let rune_coral = if let Some(path) = std::env::var_os("LIBRUNECORAL_SO") {
-        // First we try to use the *.dll file specified by the user
+pub fn override_model_handler(
+    img: &mut BaseImage,
+    library_path: Option<&Path>,
+) -> Result<(), Error> {
+    let rune_coral = if let Some(path) = library_path {
+        // First we try to use the *.so specified by the user
         log::debug!("Loading librunecoral from {:?}", path);
         runecoral::RuneCoral::load(path)?
     } else if let Ok(rune_coral) = runecoral::RuneCoral::load("runecoral") {
