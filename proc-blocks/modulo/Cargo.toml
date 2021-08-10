@@ -1,7 +1,7 @@
 [package]
 name = "modulo"
-version = "0.4.1-dev"
-authors = ["Michael-F-Bryan <michaelfbryan@gmail.com>"]
+version = "0.5.2"
+authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 publish = false
 
@@ -9,4 +9,4 @@ publish = false
 
 [dependencies]
 num-traits = { version = "0.2.14", default-features = false }
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.1-dev" }
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.5.2" }

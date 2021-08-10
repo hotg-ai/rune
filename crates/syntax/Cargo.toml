@@ -1,7 +1,7 @@
 [package]
 name = "hotg-rune-syntax"
-version = "0.4.1-dev"
-authors = ["The Rune Developers <admin@hotg.ai>"]
+version = "0.5.2"
+authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 description = "Runefile parsing and analysis."
 license = "MIT OR Apache-2.0"

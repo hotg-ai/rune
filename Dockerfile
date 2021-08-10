@@ -1,6 +1,6 @@
 FROM rust:1.53 as build
 
-RUN apt-get update -y && apt-get -y install libclang-dev curl build-essential git
+RUN apt-get update -y && apt-get -y install libclang-dev clang curl build-essential git 
 
 WORKDIR /app
 # Putting the toolchain file in / means we always use the right rustc version

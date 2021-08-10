@@ -95,7 +95,7 @@ pub fn generate_with_env(
         .context("Unable to generate the \"lib.rs\" file")?;
 
     let rust_toolchain_toml =
-        include_str!("../../../rust-toolchain.toml").to_string();
+        include_str!("../rust-toolchain.toml").to_string();
 
     let project = Project {
         name: c.name,

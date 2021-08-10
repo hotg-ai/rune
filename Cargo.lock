@@ -100,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "audio_float_conversion"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-blocks",
@@ -942,7 +942,7 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
 name = "fft"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-blocks",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-cli"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1169,6 +1169,7 @@ dependencies = [
  "hotg-rune-runtime",
  "hotg-rune-syntax",
  "hotg-rune-wasmer-runtime",
+ "hotg-runecoral",
  "hotg-runicos-base-runtime",
  "hound",
  "image",
@@ -1178,7 +1179,6 @@ dependencies = [
  "petgraph",
  "predicates 1.0.8",
  "rand 0.8.4",
- "runecoral",
  "serde",
  "serde_json",
  "structopt",
@@ -1192,7 +1192,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-codegen"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "build-info",
@@ -1212,7 +1212,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-core"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "log",
  "serde",
@@ -1220,7 +1220,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-integration-tests"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "env_logger 0.8.4",
@@ -1233,7 +1233,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-native"
-version = "0.1.0"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "build-info",
@@ -1249,7 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-block-macros"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "difference",
  "hotg-rune-core",
@@ -1264,7 +1264,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-blocks"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-block-macros",
@@ -1273,7 +1273,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-runtime"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "hotg-rune-core",
@@ -1286,7 +1286,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-syntax"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "codespan",
  "codespan-reporting",
@@ -1302,7 +1302,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-wasmer-runtime"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "hotg-rune-core",
@@ -1315,8 +1315,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotg-runecoral"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f035005efc0906a397d3c9f025b57d483c7c387df953462ec02415fffc17ba4"
+dependencies = [
+ "bindgen 0.58.1",
+ "libloading",
+ "thiserror",
+]
+
+[[package]]
 name = "hotg-runicos-base-runtime"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "hotg-rune-core",
@@ -1333,7 +1344,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-runicos-base-wasm"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "dlmalloc",
  "hotg-rune-core",
@@ -1408,7 +1419,7 @@ dependencies = [
 
 [[package]]
 name = "image-normalization"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-blocks",
@@ -1524,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "label"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-blocks",
@@ -1758,7 +1769,7 @@ dependencies = [
 
 [[package]]
 name = "modulo"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-proc-blocks",
  "num-traits",
@@ -1772,7 +1783,7 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "most_confident_indices"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-blocks",
@@ -1807,7 +1818,7 @@ dependencies = [
 
 [[package]]
 name = "noise-filtering"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-core",
  "hotg-rune-proc-blocks",
@@ -1827,7 +1838,7 @@ dependencies = [
 
 [[package]]
 name = "normalize"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "hotg-rune-proc-blocks",
 ]
@@ -2560,7 +2571,7 @@ dependencies = [
 
 [[package]]
 name = "rune_py"
-version = "0.4.1-dev"
+version = "0.5.2"
 dependencies = [
  "fft",
  "hotg-rune-core",
@@ -2571,16 +2582,6 @@ dependencies = [
  "numpy",
  "paste 1.0.5",
  "pyo3",
-]
-
-[[package]]
-name = "runecoral"
-version = "0.1.0"
-source = "git+https://github.com/hotg-ai/librunecoral#5b2757efc5f6753a75ace98fd49d3f589bd8da78"
-dependencies = [
- "bindgen 0.58.1",
- "libloading",
- "thiserror",
 ]
 
 [[package]]
@@ -3516,7 +3517,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "xtask"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "cargo_toml",
