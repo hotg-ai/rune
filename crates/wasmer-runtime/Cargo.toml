@@ -1,7 +1,7 @@
 [package]
 name = "hotg-rune-wasmer-runtime"
 version = "0.4.1-dev"
-authors = ["The Rune Developers <admin@hotg.ai>"]
+authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 homepage = "https://hotg.dev/"

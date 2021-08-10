@@ -2,7 +2,7 @@
 name = "hotg-rune-cli"
 version = "0.4.1-dev"
 edition = "2018"
-authors = ["The Rune Developers <admin@hotg.ai>"]
+authors = ["The Rune Developers <developers@hotg.ai>"]
 description = "A self-sufficient runtime for TinyML Containers."
 license = "MIT OR Apache-2.0"
 homepage = "https://hotg.dev/"
