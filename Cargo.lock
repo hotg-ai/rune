@@ -1268,7 +1268,6 @@ dependencies = [
  "difference",
  "hotg-rune-core",
  "hotg-rune-proc-block-macros",
- "hotg-rune-proc-blocks",
  "pretty_assertions",
  "serde",
 ]

@@ -14,11 +14,10 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-proc-block-macros = { path = "../macros", version = "^0.5.1"}
-hotg-rune-core = { path = "../../crates/rune-core", version = "0.5.1", default-features = false }
+hotg-rune-proc-block-macros = { path = "../macros", version = "^0.5.2" }
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.5.2", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }
 
 [dev-dependencies]
 difference = "2.0.0"
 pretty_assertions = "0.7.2"
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.5.1" }
