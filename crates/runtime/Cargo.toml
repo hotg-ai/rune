@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-runtime"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"

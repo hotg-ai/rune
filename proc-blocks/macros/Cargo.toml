@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-proc-block-macros"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -27,4 +27,4 @@ syn = { version = "1.0.72", features = ["extra-traits", "full"] }
 [dev-dependencies]
 difference = "2.0.0"
 pretty_assertions = "0.7.2"
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.1-dev" }
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.5.0"}
