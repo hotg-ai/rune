@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.4.1] - 2021-08-10
+
 ### Added
 
 - Users will no longer need to manually install nightly because a
@@ -106,7 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.4.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/{{tag_name}}...HEAD
+[0.4.1]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.4.0...{{tag_name}}
 [0.4.0]: https://github.com/hotg-ai/rune/compare/v0.3.0...hotg-rune-cli-v0.4.0
 [0.3.0]: https://github.com/hotg-ai/rune/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/hotg-ai/rune/compare/86763cdbb0...v0.2.1
