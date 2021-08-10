@@ -27,4 +27,3 @@ syn = { version = "1.0.72", features = ["extra-traits", "full"] }
 [dev-dependencies]
 difference = "2.0.0"
 pretty_assertions = "0.7.2"
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.5.1" }
