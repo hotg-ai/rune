@@ -30,7 +30,7 @@ hotg-rune-codegen = { path = "../codegen", version = "0.4.1-dev" }
 hotg-rune-runtime = { path = "../runtime", version = "0.4.1-dev" }
 hotg-rune-syntax = { path = "../syntax", version = "0.4.1-dev" }
 hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "0.4.1-dev" }
-hotg-rune-core = { path = "../rune-core", version = "0.4.1-dev" }
+hotg-rune-core = { path = "../rune-core", version = "^0.5.0"}
 hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "0.4.1-dev", features = ["tflite"] }
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"

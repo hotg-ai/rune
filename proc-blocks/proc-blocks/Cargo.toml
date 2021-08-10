@@ -15,5 +15,5 @@ readme = "README.md"
 
 [dependencies]
 hotg-rune-proc-block-macros = { path = "../macros", version = "0.4.1-dev" }
-hotg-rune-core = { path = "../../crates/rune-core", version = "0.4.1-dev", default-features = false }
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.5.0", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }
