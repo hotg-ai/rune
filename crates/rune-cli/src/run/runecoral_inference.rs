@@ -3,7 +3,7 @@ use std::{borrow::Cow, cell::Cell, convert::TryInto, path::Path, sync::Mutex};
 use anyhow::{Context, Error};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE, reflect::Type};
 use hotg_runicos_base_runtime::{BaseImage, Model, ModelFactory};
-use runecoral::{ElementType, Tensor, TensorDescriptor, TensorMut};
+use hotg_runecoral::{ElementType, InferenceContext, RuneCoral, Tensor, TensorDescriptor, TensorMut};
 
 /// Overrides the TensorFlow Lite model handler with `librunecoral`, if
 /// available.
@@ -14,8 +14,8 @@ pub fn override_model_handler(
     let rune_coral = if let Some(path) = library_path {
         // First we try to use the *.so specified by the user
         log::debug!("Loading librunecoral from {:?}", path);
-        runecoral::RuneCoral::load(path)?
-    } else if let Ok(rune_coral) = runecoral::RuneCoral::load("runecoral") {
+        RuneCoral::load(path)?
+    } else if let Ok(rune_coral) = RuneCoral::load("runecoral") {
         // Otherwise we fall back to whatever is installed/accessible on the
         // machine, ignoring any load errors.
         rune_coral
@@ -32,7 +32,7 @@ pub fn override_model_handler(
     Ok(())
 }
 
-struct RuneCoralModelFactory(runecoral::RuneCoral);
+struct RuneCoralModelFactory(RuneCoral);
 
 impl ModelFactory for RuneCoralModelFactory {
     fn new_model(
@@ -109,7 +109,7 @@ fn element_type(rune_type: &Type) -> Result<ElementType, Error> {
 }
 
 struct RuneCoralModel {
-    ctx: Mutex<runecoral::InferenceContext>,
+    ctx: Mutex<InferenceContext>,
     inputs: Vec<Shape<'static>>,
     input_descriptors: Vec<TensorDescriptor<'static>>,
     outputs: Vec<Shape<'static>>,

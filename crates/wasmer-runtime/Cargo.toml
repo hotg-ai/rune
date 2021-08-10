@@ -16,8 +16,8 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.40"
 log = "0.4.14"
-hotg-rune-runtime = { path = "../runtime", version = "^0.5.0"}
-hotg-rune-core = { path = "../rune-core", version = "^0.5.0"}
+hotg-rune-runtime = { path = "../runtime", version = "^0.5.1"}
+hotg-rune-core = { path = "../rune-core", version = "^0.5.1"}
 wasmer = "2.0"
 wasmer-types = "2.0"
 wasmer-vm = "2.0"

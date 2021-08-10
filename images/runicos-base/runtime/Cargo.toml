@@ -15,16 +15,16 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.40"
+hotg-rune-core = { path = "../../../crates/rune-core", version = "0.5.1", features = ["std"] }
+hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.5.1", features = ["builtins"] }
+hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "^0.5.1"}
 log = "0.4.14"
-hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.5.0", features = ["builtins"] }
-hotg-rune-core = { path = "../../../crates/rune-core", version = "0.5.0", features = ["std"] }
+rand = "0.8.4"
 serde_json = { version = "1" }
 # Note: This doesn't cross-compile due to https://github.com/boncheolgu/tflite-rs/issues/49
 tflite = { version = "0.9.5", optional = true }
 wasmer = "2.0.0"
 wasmer-vm = "2.0.0"
-hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "^0.5.0"}
-rand = "0.8.4"
 
 [features]
 default = ["tflite"]
