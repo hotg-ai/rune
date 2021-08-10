@@ -1169,6 +1169,7 @@ dependencies = [
  "hotg-rune-runtime",
  "hotg-rune-syntax",
  "hotg-rune-wasmer-runtime",
+ "hotg-runecoral",
  "hotg-runicos-base-runtime",
  "hound",
  "image",
@@ -1178,7 +1179,6 @@ dependencies = [
  "petgraph",
  "predicates 1.0.8",
  "rand 0.8.4",
- "runecoral",
  "serde",
  "serde_json",
  "structopt",
@@ -1212,7 +1212,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-core"
-version = "0.5.1-dev"
+version = "0.5.0"
 dependencies = [
  "log",
  "serde",
@@ -1312,6 +1312,17 @@ dependencies = [
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
+]
+
+[[package]]
+name = "hotg-runecoral"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f035005efc0906a397d3c9f025b57d483c7c387df953462ec02415fffc17ba4"
+dependencies = [
+ "bindgen 0.58.1",
+ "libloading",
+ "thiserror",
 ]
 
 [[package]]
@@ -2571,16 +2582,6 @@ dependencies = [
  "numpy",
  "paste 1.0.5",
  "pyo3",
-]
-
-[[package]]
-name = "runecoral"
-version = "0.1.0"
-source = "git+https://github.com/hotg-ai/librunecoral#5b2757efc5f6753a75ace98fd49d3f589bd8da78"
-dependencies = [
- "bindgen 0.58.1",
- "libloading",
- "thiserror",
 ]
 
 [[package]]
