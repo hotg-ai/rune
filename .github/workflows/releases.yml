@@ -359,7 +359,7 @@ jobs:
       - name: Tagged Release Variables
         if: contains(github.ref, 'refs/tags/')
         run: |
-          tag=$(dirname ${{ github.ref }})
+          tag=$(basename ${{ github.ref }})
           echo "title=Released $tag" >> $GITHUB_ENV
           echo "tag=$tag" >> $GITHUB_ENV
       - name: Nightly Release Variables
