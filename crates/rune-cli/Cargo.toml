@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-cli"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 description = "A self-sufficient runtime for TinyML Containers."

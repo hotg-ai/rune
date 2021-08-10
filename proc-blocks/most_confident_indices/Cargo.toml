@@ -1,6 +1,6 @@
 [package]
 name = "most_confident_indices"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2018"
 publish = false
 

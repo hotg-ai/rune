@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-codegen"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 description = "Code generation for compiling a Runefile to WebAssembly."

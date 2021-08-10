@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-proc-blocks"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
