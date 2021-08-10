@@ -8,5 +8,5 @@ publish = false
 
 [dependencies]
 num-traits = { version = "0.2.14", default-features = false }
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.5.0"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.5.1-dev"}
 hotg-rune-proc-blocks = { path = "../proc-blocks", version = "0.4.1-dev" }
