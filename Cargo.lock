@@ -1253,6 +1253,7 @@ version = "0.5.2"
 dependencies = [
  "difference",
  "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "pretty_assertions",
  "proc-macro2",
  "quote",
@@ -1265,10 +1266,8 @@ dependencies = [
 name = "hotg-rune-proc-blocks"
 version = "0.5.2"
 dependencies = [
- "difference",
  "hotg-rune-core",
  "hotg-rune-proc-block-macros",
- "pretty_assertions",
  "serde",
 ]
 

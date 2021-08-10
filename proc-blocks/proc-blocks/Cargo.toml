@@ -17,7 +17,3 @@ readme = "README.md"
 hotg-rune-proc-block-macros = { path = "../macros", version = "^0.5.2" }
 hotg-rune-core = { path = "../../crates/rune-core", version = "^0.5.2", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }
-
-[dev-dependencies]
-difference = "2.0.0"
-pretty_assertions = "0.7.2"
