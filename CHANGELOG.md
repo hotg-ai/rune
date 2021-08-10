@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Fixed
+
+- Fixed the algorithm used to locate internal dependencies when installed via
+  crates.io
+
 ## [0.5.2] - 2021-08-11
 
 ### Added
