@@ -423,30 +423,30 @@ class TensorFlowModel implements Model {
 }
 
 function transformSingleModel(model: Model, input: Uint8Array, output: Uint8Array, parameters: CapabilityInfo) {
-    //for backwards compatibility with older runes using single input/output tfm_model_invoke
-    if (parameters["capability"] == "image") {
-        var inputTyped = convertTypedArray(input, Uint8Array);
+    throw new Error();
+    // //for backwards compatibility with older runes using single input/output tfm_model_invoke
+    // if (parameters["capability"] == "image") {
+    //     var inputTyped = convertTypedArray(input, Uint8Array);
 
-        //pub enum PixelFormat
-        if (parameters["parameters"]["pixel_format"] == 2) {
-            //GrayScale =  3
-            input = tf.tensor2d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"]]).expandDims(0);
-        } else {
-            //RGB = 0,
-            //BGR = 1,
-            //YUV = 2,
-            input = tf.tensor3d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"], 3]).expandDims(0);
-        }
-    } else {
-        input = convertTypedArray(input, Uint8Array);
-    }
+    //     //pub enum PixelFormat
+    //     if (parameters["parameters"]["pixel_format"] == 2) {
+    //         //GrayScale =  3
+    //         input = tf.tensor2d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"]]).expandDims(0);
+    //     } else {
+    //         //RGB = 0,
+    //         //BGR = 1,
+    //         //YUV = 2,
+    //         input = tf.tensor3d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"], 3]).expandDims(0);
+    //     }
+    // } else {
+    //     input = convertTypedArray(input, Uint8Array);
+    // }
 
-    const out = model.predict(input);
-    const result = out.dataSync();
+    // const out = model.predict(input);
+    // const result = out.dataSync();
 
-    var uint8_output = convertTypedArray(result, Uint8Array);
-    output.set(result);
-
+    // var uint8_output = convertTypedArray(result, Uint8Array);
+    // output.set(result);
 }
 
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
