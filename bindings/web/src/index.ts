@@ -1,3 +1,6 @@
+import { loadTFLiteModel, TFLiteModel } from "@tensorflow/tfjs-tflite";
+import tf, { InferenceModel, Tensor, TensorLike } from "@tensorflow/tfjs";
+
 const TensorFlowLiteMimeType = "application/tflite-model";
 
 export const KnownCapabilities: Record<number, string> = {
@@ -89,23 +92,22 @@ interface Exports extends WebAssembly.Exports {
 }
 
 interface Model {
-    transform(inputArray: Uint8Array[], inputDimensions: TensorDescriptor[], outputArray: Uint8Array[], outputDimensions: TensorDescriptor[]): void;
-
+    transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void;
 }
 
 export class Runtime {
     parameters: Parameters;
     instance: WebAssembly.Instance;
-    nextId: () => number;
 
-    constructor(instance: WebAssembly.Instance, params: Parameters, id: () => number) {
+    constructor(instance: WebAssembly.Instance, params: Parameters) {
         this.instance = instance;
         this.parameters = params;
-        this.nextId = id;
     }
 
-    static async load(module: WebAssembly.Module, imports: Imports, modelConstructor: (model: ArrayBuffer) => Promise<Model> = loadTensorflowJSModel) {
-        let parameters = {};
+    static async load(module: WebAssembly.Module, imports: Imports, modelConstructor: ModelConstructor = loadTensorflowJSModel) {
+        let parameters = {
+            modelid: 0,
+        };
         let memory: WebAssembly.Memory;
 
         const { hostFunctions, finaliseModels, getParams, id } = importsToHostFunctions(
@@ -126,7 +128,7 @@ export class Runtime {
         // now we've asked for all the models to be loaded, let's wait until
         // they are done before continuing
         await finaliseModels();
-        return new Runtime(instance, parameters, id);
+        return new Runtime(instance, parameters);
     }
 
     manifest() {
@@ -174,11 +176,13 @@ function constructFromNameTable<T>(
     return [instances, create];
 }
 
+type ModelConstructor = (mimetype: string, model: ArrayBuffer, p?: Parameters) => Promise<Model>;
+
 function importsToHostFunctions(
     imports: Imports,
     getMemory: () => WebAssembly.Memory,
     getParameters: () => Parameters,
-    modelConstructor: (mimetype: string, model: ArrayBuffer, p?: Parameters) => Promise<Model>,
+    modelConstructor: ModelConstructor,
 ) {
     const memory = () => {
         const m = getMemory();
@@ -198,7 +202,7 @@ function importsToHostFunctions(
     const ids = counter();
     const [outputs, createOutput] = constructFromNameTable(ids, KnownOutputs, imports.outputs);
     const [capabilities, createCapability] = constructFromNameTable(ids, KnownCapabilities, imports.capabilities);
-    const pendingModels = [];
+    const pendingModels: Promise<[number, Model]>[] = [];
     const models: Record<number, Model> = {};
     const modelsDescription: Record<number, ModelInfo> = {};
     const utf8 = new TextDecoder();
@@ -314,7 +318,7 @@ function importsToHostFunctions(
             let outputArray = [];
             let outputDimensions = [];
             for (let i = 0; i < modelsDes!.outputs!.length; i++) {
-                let dimensions = parseDimensions(modelsDes!.outputs![i]["dimensions"]);
+                let dimensions = parseDimensions(modelsDes!.outputs![i].dimensions);
                 let o = memory().subarray(outputs + i * 4, outputs + 4 + i * 4);
                 const pointer = new Uint32Array(new Uint8Array([o[0], o[1], o[2], o[3]]).buffer)[0];
                 outputArray.push(memory().subarray(pointer, pointer + dimensions.byteSize));
@@ -324,15 +328,15 @@ function importsToHostFunctions(
             parameters().modelid++;
             return id;
         },
-        tfm_model_invoke(id, inputPtr, inputLen, outputPtr, outputLen) {
-            const model = models.get(id + models.size);
+        tfm_model_invoke(id: number, inputPtr: number, inputLen: number, outputPtr: number, outputLen: number) {
+            const model = models[id];
             if (!model) {
                 throw new Error("Invalid model");
             }
             const input = memory().subarray(inputPtr, inputPtr + inputLen);
             const output = memory().subarray(outputPtr, outputPtr + outputLen);
             //for backwards compatibility with older runes using single input/output tfm_model_invoke
-            model.transformSingleModel(input, output, parameters()[Object.keys(parameters()).length - 2]);
+            transformSingleModel(model, input, output, parameters()[Object.keys(parameters()).length - 2]);
             parameters().modelid++;
             return id;
         },
@@ -344,7 +348,12 @@ function importsToHostFunctions(
             models[id] = model;
         });
     }
-    return { hostFunctions: { env }, finaliseModels: synchroniseModelLoading, getParams: parameters, id: models };
+    return {
+        hostFunctions: { env },
+        finaliseModels: synchroniseModelLoading,
+        getParams: parameters,
+        id: models,
+    };
 }
 
 function parseDimensions(dimensions: string): Shape {
@@ -371,115 +380,117 @@ function isRuneExports(obj: any): obj is Exports {
         obj._manifest instanceof Function);
 }
 
-async function loadTensorflowJSModel(bytes: ArrayBuffer): Promise<Model> {
-    let utf16String = '';
-    let useTflite = true;
-    let model;
-    var len = bytes.byteLength;
+class TensorFlowModel implements Model {
+    private model: InferenceModel;
 
-    if (useTflite) {
-        var copyBuffer = new ArrayBuffer(bytes.buffer.byteLength);
-        var copyBytes = new Uint8Array(copyBuffer);
-        for (var i = 0; i < bytes.length; i++)
-            copyBytes[i] = bytes[i];
-        model = await tflite.loadTFLiteModel(copyBytes.buffer);
-    } else {
-        for (var i = 0; i < len; i++) {
-            utf16String += String.fromCharCode(bytes[i]);
-        }
-        let decodedString = decodeURIComponent(escape(utf16String));
-
-        await modelToIndexedDB(decodedString);
-        const model_name = "imagenet_mobilenet_v3";
-        model = await tf.loadGraphModel('indexeddb://' + model_name);
+    constructor(model: InferenceModel) {
+        this.model = model;
     }
 
+    static async loadTensorFlow(buffer: ArrayBuffer): Promise<TensorFlowModel> {
+        const decoder = new TextDecoder("utf16");
+        let decoded = decodeURIComponent(escape(decoder.decode(buffer)));
 
-    return {
-        transform(inputs, inputDims, outputs, outputDims) {
-            let inputTensors = [];
-            for (let i = 0; i < inputs.length; i++) {
-                let inputType = Uint8Array;
-                switch (inputDims[i].type) {
-                    case "f64":
-                        inputType = Float64Array;
-                        break;
-                    case "f32":
-                        inputType = Float32Array;
-                        break;
-                    case "i64":
-                        inputType = BigInt64Array;
-                        break;
-                    case "i32":
-                        inputType = Int32Array;
-                        break;
-                    case "i16":
-                        inputType = Int16Array;
-                        break;
-                    case "i8":
-                        inputType = Int16Array;
-                        break;
-                    case "u64":
-                        inputType = BigUint64Array;
-                        break;
-                    case "u32":
-                        inputType = Uint32Array;
-                        break;
-                    case "u16":
-                        inputType = Uint16Array;
-                        break;
-                    default:
-                        inputType = Uint8Array;
-                };
-                let inputTyped = convertTypedArray(inputs[i], inputType);
-                if (inputDims[i].values.length == 1) {
-                    inputTensors.push(tf.tensor1d(inputTyped, inputDims[i].values));
-                }
-                if (inputDims[i].values.length == 2) {
-                    inputTensors.push(tf.tensor2d(inputTyped, inputDims[i].values));
-                }
-                if (inputDims[i].values.length == 3) {
-                    inputTensors.push(tf.tensor3d(inputTyped, inputDims[i].values));
-                }
-                if (inputDims[i].values.length == 4) {
-                    inputTensors.push(tf.tensor4d(inputTyped, inputDims[i].values));
-                }
-                if (inputDims[i].values.length == 5) {
-                    inputTensors.push(tf.tensor5d(inputTyped, inputDims[i].values));
-                }
-            }
-            const out = model.predict(inputTensors);
-            const result = out.dataSync();
+        await modelToIndexedDB(decoded);
+        const model_name = "imagenet_mobilenet_v3";
+        const model = await tf.loadGraphModel('indexeddb://' + model_name);
 
-            var uint8_output = convertTypedArray(result, Uint8Array);
-            outputs[0].set(uint8_output);
-        },
-        transformSingleModel(input, output, parameters) {
-            //for backwards compatibility with older runes using single input/output tfm_model_invoke
-            if (parameters["capability"] == "image") {
-                var inputTyped = convertTypedArray(input, Uint8Array);
+        return new TensorFlowModel(model);
+    }
 
-                //pub enum PixelFormat
-                if (parameters["parameters"]["pixel_format"] == 2) {
-                    //GrayScale =  3
-                    input = tf.tensor2d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"]]).expandDims(0);
-                } else {
-                    //RGB = 0,
-                    //BGR = 1,
-                    //YUV = 2,
-                    input = tf.tensor3d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"], 3]).expandDims(0);
-                }
-            } else {
-                input = convertTypedArray(input, Uint8Array);
-            }
+    static async loadTensorFlowLite(buffer: ArrayBuffer): Promise<TensorFlowModel> {
+        const model = await loadTFLiteModel(buffer);
+        return new TensorFlowModel(model);
+    }
 
-            const out = model.predict(input);
-            const result = out.dataSync();
+    transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
+        const inputs = toTensors(inputArray, inputDimensions);
+        const outputs = this.model.predict(inputs, {}) as tf.Tensor[];
 
-            var uint8_output = convertTypedArray(result, Uint8Array);
-            output.set(result);
+        for (let i = 0; i <= outputArray.length; i++) {
+            const output = outputs[i];
+            const dest = outputArray[i];
+            dest.set(output.dataSync());
         }
+    }
+}
 
+function transformSingleModel(model: Model, input: Uint8Array, output: Uint8Array, parameters: CapabilityInfo) {
+    //for backwards compatibility with older runes using single input/output tfm_model_invoke
+    if (parameters["capability"] == "image") {
+        var inputTyped = convertTypedArray(input, Uint8Array);
+
+        //pub enum PixelFormat
+        if (parameters["parameters"]["pixel_format"] == 2) {
+            //GrayScale =  3
+            input = tf.tensor2d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"]]).expandDims(0);
+        } else {
+            //RGB = 0,
+            //BGR = 1,
+            //YUV = 2,
+            input = tf.tensor3d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"], 3]).expandDims(0);
+        }
+    } else {
+        input = convertTypedArray(input, Uint8Array);
+    }
+
+    const out = model.predict(input);
+    const result = out.dataSync();
+
+    var uint8_output = convertTypedArray(result, Uint8Array);
+    output.set(result);
+
+}
+
+
+function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
+    const tensors = [];
+
+    for (let i = 0; i <= buffers.length; i++) {
+        const buffer = buffers[i];
+        const shape = shapes[i];
+        const arr = toTypedArray(shape.type, buffer);
+        tensors.push(tf.tensor(arr, shape.values));
+    }
+
+    return tensors;
+}
+
+function toTypedArray(typeName: string, data: ArrayBuffer): any {
+    switch (typeName) {
+        case "f64":
+            return new Float64Array(data);
+        case "f32":
+            return new Float32Array(data);
+        case "i64":
+            return new BigInt64Array(data);
+        case "i32":
+            return new Int32Array(data);
+        case "i16":
+            return new Int16Array(data);
+        case "i8":
+            return new Int16Array(data);
+        case "u64":
+            return new BigUint64Array(data);
+        case "u32":
+            return new Uint32Array(data);
+        case "u16":
+            return new Uint16Array(data);
+        case "u8":
+            return new Uint8Array(data);
+        default:
+            throw new Error(`Unknown tensor type: ${typeName}`);
+    }
+}
+
+async function loadTensorflowJSModel(mimetype: string, bytes: ArrayBuffer, parameters?: Parameters): Promise<Model> {
+    // FIXME: figure out how to determine whether something is tflite or not
+    const useTflite = true;
+
+    if (useTflite) {
+        return await TensorFlowModel.loadTensorFlowLite(bytes);
+    } else {
+        return await TensorFlowModel.loadTensorFlow(bytes);
     }
 }
 
@@ -496,8 +507,8 @@ function convertTypedArray<T>(src: TypedArray, constructor: any): T {
 }
 
 
-async function modelToIndexedDB(model_bytes) {
-    var data = JSON.parse(LZString.decompressFromUTF16(model_bytes));
+async function modelToIndexedDB(model_bytes: string) {
+    var data = JSON.parse(LZString.decompressFromUTF16(model_bytes)!);
     var DBOpenRequest = window.indexedDB.open("tensorflowjs", 1);
     let successes = 0;
     DBOpenRequest.onupgradeneeded = function (event) {
@@ -529,24 +540,6 @@ async function modelToIndexedDB(model_bytes) {
     }
     return true;
 }
-
-function getInt32Bytes(x) {
-    var bytes = [];
-    var i = 4;
-    do {
-        bytes[--i] = x & (255);
-        x = x >> 4;
-    } while (i)
-    return bytes;
-}
-function string2Bin(str) {
-    var result = [];
-    for (var i = 0; i < str.length; i++) {
-        result.push(str.charCodeAt(i));
-    }
-    return result;
-}
-
 
 
 var LZString = function () { function o(o, r) { if (!t[o]) { t[o] = {}; for (var n = 0; n < o.length; n++)t[o][o.charAt(n)] = n } return t[o][r] } var r = String.fromCharCode, n = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=", e = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$", t = {}, i = { compressToBase64: function (o) { if (null == o) return ""; var r = i._compress(o, 6, function (o) { return n.charAt(o) }); switch (r.length % 4) { default: case 0: return r; case 1: return r + "==="; case 2: return r + "=="; case 3: return r + "=" } }, decompressFromBase64: function (r) { return null == r ? "" : "" == r ? null : i._decompress(r.length, 32, function (e) { return o(n, r.charAt(e)) }) }, compressToUTF16: function (o) { return null == o ? "" : i._compress(o, 15, function (o) { return r(o + 32) }) + " " }, decompressFromUTF16: function (o) { return null == o ? "" : "" == o ? null : i._decompress(o.length, 16384, function (r) { return o.charCodeAt(r) - 32 }) }, compressToUint8Array: function (o) { for (var r = i.compress(o), n = new Uint8Array(2 * r.length), e = 0, t = r.length; t > e; e++) { var s = r.charCodeAt(e); n[2 * e] = s >>> 8, n[2 * e + 1] = s % 256 } return n }, decompressFromUint8Array: function (o) { if (null === o || void 0 === o) return i.decompress(o); for (var n = new Array(o.length / 2), e = 0, t = n.length; t > e; e++)n[e] = 256 * o[2 * e] + o[2 * e + 1]; var s = []; return n.forEach(function (o) { s.push(r(o)) }), i.decompress(s.join("")) }, compressToEncodedURIComponent: function (o) { return null == o ? "" : i._compress(o, 6, function (o) { return e.charAt(o) }) }, decompressFromEncodedURIComponent: function (r) { return null == r ? "" : "" == r ? null : (r = r.replace(/ /g, "+"), i._decompress(r.length, 32, function (n) { return o(e, r.charAt(n)) })) }, compress: function (o) { return i._compress(o, 16, function (o) { return r(o) }) }, _compress: function (o, r, n) { if (null == o) return ""; var e, t, i, s = {}, p = {}, u = "", c = "", a = "", l = 2, f = 3, h = 2, d = [], m = 0, v = 0; for (i = 0; i < o.length; i += 1)if (u = o.charAt(i), Object.prototype.hasOwnProperty.call(s, u) || (s[u] = f++, p[u] = !0), c = a + u, Object.prototype.hasOwnProperty.call(s, c)) a = c; else { if (Object.prototype.hasOwnProperty.call(p, a)) { if (a.charCodeAt(0) < 256) { for (e = 0; h > e; e++)m <<= 1, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++; for (t = a.charCodeAt(0), e = 0; 8 > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1 } else { for (t = 1, e = 0; h > e; e++)m = m << 1 | t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t = 0; for (t = a.charCodeAt(0), e = 0; 16 > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1 } l--, 0 == l && (l = Math.pow(2, h), h++), delete p[a] } else for (t = s[a], e = 0; h > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1; l--, 0 == l && (l = Math.pow(2, h), h++), s[c] = f++, a = String(u) } if ("" !== a) { if (Object.prototype.hasOwnProperty.call(p, a)) { if (a.charCodeAt(0) < 256) { for (e = 0; h > e; e++)m <<= 1, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++; for (t = a.charCodeAt(0), e = 0; 8 > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1 } else { for (t = 1, e = 0; h > e; e++)m = m << 1 | t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t = 0; for (t = a.charCodeAt(0), e = 0; 16 > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1 } l--, 0 == l && (l = Math.pow(2, h), h++), delete p[a] } else for (t = s[a], e = 0; h > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1; l--, 0 == l && (l = Math.pow(2, h), h++) } for (t = 2, e = 0; h > e; e++)m = m << 1 | 1 & t, v == r - 1 ? (v = 0, d.push(n(m)), m = 0) : v++, t >>= 1; for (; ;) { if (m <<= 1, v == r - 1) { d.push(n(m)); break } v++ } return d.join("") }, decompress: function (o) { return null == o ? "" : "" == o ? null : i._decompress(o.length, 32768, function (r) { return o.charCodeAt(r) }) }, _decompress: function (o, n, e) { var t, i, s, p, u, c, a, l, f = [], h = 4, d = 4, m = 3, v = "", w = [], A = { val: e(0), position: n, index: 1 }; for (i = 0; 3 > i; i += 1)f[i] = i; for (p = 0, c = Math.pow(2, 2), a = 1; a != c;)u = A.val & A.position, A.position >>= 1, 0 == A.position && (A.position = n, A.val = e(A.index++)), p |= (u > 0 ? 1 : 0) * a, a <<= 1; switch (t = p) { case 0: for (p = 0, c = Math.pow(2, 8), a = 1; a != c;)u = A.val & A.position, A.position >>= 1, 0 == A.position && (A.position = n, A.val = e(A.index++)), p |= (u > 0 ? 1 : 0) * a, a <<= 1; l = r(p); break; case 1: for (p = 0, c = Math.pow(2, 16), a = 1; a != c;)u = A.val & A.position, A.position >>= 1, 0 == A.position && (A.position = n, A.val = e(A.index++)), p |= (u > 0 ? 1 : 0) * a, a <<= 1; l = r(p); break; case 2: return "" }for (f[3] = l, s = l, w.push(l); ;) { if (A.index > o) return ""; for (p = 0, c = Math.pow(2, m), a = 1; a != c;)u = A.val & A.position, A.position >>= 1, 0 == A.position && (A.position = n, A.val = e(A.index++)), p |= (u > 0 ? 1 : 0) * a, a <<= 1; switch (l = p) { case 0: for (p = 0, c = Math.pow(2, 8), a = 1; a != c;)u = A.val & A.position, A.position >>= 1, 0 == A.position && (A.position = n, A.val = e(A.index++)), p |= (u > 0 ? 1 : 0) * a, a <<= 1; f[d++] = r(p), l = d - 1, h--; break; case 1: for (p = 0, c = Math.pow(2, 16), a = 1; a != c;)u = A.val & A.position, A.position >>= 1, 0 == A.position && (A.position = n, A.val = e(A.index++)), p |= (u > 0 ? 1 : 0) * a, a <<= 1; f[d++] = r(p), l = d - 1, h--; break; case 2: return w.join("") }if (0 == h && (h = Math.pow(2, m), m++), f[l]) v = f[l]; else { if (l !== d) return null; v = s + s.charAt(0) } w.push(v), f[d++] = s + v.charAt(0), h--, s = v, 0 == h && (h = Math.pow(2, m), m++) } } }; return i }(); "function" == typeof define && define.amd ? define(function () { return LZString }) : "undefined" != typeof module && null != module && (module.exports = LZString);

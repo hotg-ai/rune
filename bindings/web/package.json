@@ -16,5 +16,10 @@
   },
   "devDependencies": {
     "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^3.8.0",
+    "@tensorflow/tfjs-core": "^3.8.0",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.4"
   }
 }
