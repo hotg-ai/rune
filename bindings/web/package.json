@@ -12,7 +12,8 @@
     "dist/**"
   ],
   "scripts": {
-    "prepublish": "tsc"
+    "prepublish": "tsc",
+    "watch": "tsc --watch"
   },
   "devDependencies": {
     "typescript": "^4.3.5"

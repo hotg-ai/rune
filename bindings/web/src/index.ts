@@ -215,9 +215,11 @@ function importsToHostFunctions(
             const message = utf8.decode(raw);
             console.log(message);
         },
+
         request_output(type: number) {
             return createOutput(type);
         },
+
         consume_output(id: number, buffer: number, len: number) {
             const output = outputs[id];
             if (output) {
@@ -228,6 +230,7 @@ function importsToHostFunctions(
                 throw new Error("Invalid output");
             }
         },
+
         request_capability(type: number) {
             const p = parameters();
             const id = Object.keys(p).length;
@@ -299,6 +302,7 @@ function importsToHostFunctions(
             modelsDescription[id] = { id, inputs, outputs, "modelSize": model_len };
             return id;
         },
+
         async rune_model_infer(id: number, inputs: number, outputs: number) {
             const model = models[id];
             let modelsDes = modelsDescription[id];
@@ -328,6 +332,7 @@ function importsToHostFunctions(
             parameters().modelid++;
             return id;
         },
+
         tfm_model_invoke(id: number, inputPtr: number, inputLen: number, outputPtr: number, outputLen: number) {
             const model = models[id];
             if (!model) {
@@ -341,6 +346,7 @@ function importsToHostFunctions(
             return id;
         },
     };
+
     async function synchroniseModelLoading() {
         const loadedModels = await Promise.all(pendingModels);
         pendingModels.length = 0;
@@ -373,6 +379,7 @@ function counter() {
     let value = 0;
     return () => { value++; return value - 1; };
 }
+
 function isRuneExports(obj: any): obj is Exports {
     return (obj &&
         obj.memory instanceof WebAssembly.Memory &&
@@ -441,7 +448,6 @@ function transformSingleModel(model: Model, input: Uint8Array, output: Uint8Arra
     output.set(result);
 
 }
-
 
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     const tensors = [];
