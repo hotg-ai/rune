@@ -13,9 +13,15 @@
   ],
   "scripts": {
     "prepublish": "tsc",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "watch:test": "jest --watch",
+    "test": "jest"
   },
   "devDependencies": {
+    "@types/jest": "^27.0.0",
+    "blob-polyfill": "^5.0.20210201",
+    "jest": "^27.0.6",
+    "ts-jest": "^27.0.4",
     "typescript": "^4.3.5"
   },
   "dependencies": {
