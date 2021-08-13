@@ -64,31 +64,17 @@ impl Build {
             name,
             working_directory.display()
         );
-        let rune_project = match rune_repo_root() {
-            Some(root_dir) => RuneProject::Disk(root_dir),
-            None => {
-                // looks like we aren't into a checked out rune dir
-                let build_info = crate::version::version();
-                let git = build_info
-                    .version_control
-                    .as_ref()
-                    .and_then(|v| v.git())
-                    .context("Unable to determine the rune project dir")?;
-                RuneProject::Git {
-                    repo: RuneProject::GITHUB_REPO.into(),
-                    specifier: GitSpecifier::Commit(git.commit_id.clone()),
-                }
-            },
-        };
+
         let compilation = Compilation {
             name,
             rune,
-            rune_project,
             current_directory,
             working_directory,
             verbosity,
+            rune_project: locate_rune_dependencies(),
             optimized: !self.debug,
         };
+
         let mut env = DefaultEnvironment::for_compilation(&compilation)
             .with_build_info(crate::version::version().clone());
         let blob = hotg_rune_codegen::generate_with_env(compilation, &mut env)
@@ -141,6 +127,38 @@ impl Build {
         }
 
         Err(Error::msg("Unable to determine the Rune's name"))
+    }
+}
+
+fn locate_rune_dependencies() -> RuneProject {
+    // We need to figure out where to pull dependencies from when building the
+    // Rune.
+
+    if let Some(root_dir) = rune_repo_root() {
+        // We are inside the Rune repository. Let's use "path" dependencies
+        // so you can iterate without needing to nake a new release every
+        // time.
+        RuneProject::Disk(root_dir)
+    } else if let Some(git) = crate::version::version()
+        .version_control
+        .as_ref()
+        .and_then(|v| v.git())
+    {
+        // We were installed using git (e.g. "cargo install --git ...") so
+        // let's use that git commit.
+        RuneProject::Git {
+            repo: RuneProject::GITHUB_REPO.into(),
+            specifier: GitSpecifier::Commit(git.commit_id.clone()),
+        }
+    } else {
+        // Otherwise, fall back to the latest nightly.
+        //
+        // Note: This is the path we'll take when installed via crates.io
+        // because crates.io doesn't bundle any git information.
+        RuneProject::Git {
+            repo: RuneProject::GITHUB_REPO.into(),
+            specifier: GitSpecifier::Tag(String::from("nightly")),
+        }
     }
 }
 

@@ -15,25 +15,85 @@ $ cargo test --workspace
 Note that we pull in several large dependencies, so the first build may take
 a couple minutes.
 
+The `rust-toolchain.toml` file will automatically make sure you use the correct
+version of Rust, but you will also need to have the following dependencies
+installed:
+
+- git
+- CMake
+- Clang
+- libclang (used by `bindegen` to generate bindings to native dependencies)
+
 The project is split up into several smaller crates using [Cargo
 Workspaces][workspaces], with the main crates being:
 
-- `syntax` - The "compiler frontend" that parses and analyses Runefiles
-- `codegen` - A crate that generates a Rust project that gets compiled as
+- `crates/syntax` - The "compiler frontend" that parses and analyses Runefiles
+- `crates/codegen` - A crate that generates a Rust project that gets compiled as
   WebAssembly to make up a Rune
-- `runtime` - Common abstractions and types used by the various Rune runtimes
-- `wasmer-runtime` - A runtime which uses `wasmer` to execute WebAssembly using
-  a user-provided `Image`
-- `rune` - The `rune` command-line program, used for compiling and running
-  Runes
-- `rune-core` - Types shared between Runes, Proc Blocks, Images, and Runtimes
+- `crates/runtime` - Common abstractions and types used by the various Rune
+  runtimes
+- `crates/wasmer-runtime` - A runtime which uses `wasmer` to execute WebAssembly
+  using a user-provided `Image`
+- `crates/rune-cli` - The `rune` command-line program, used for compiling and
+  running Runes
+- `crates/rune-core` - Types shared between Runes, Proc Blocks, Images, and
+  Runtimes
+- `crates/xtask` - A helper program for various internal tasks
 - `proc-blocks/*` - The various Rust crates that can be used as Proc Blocks
+- `proc-blocks/macros` - the `#[derive(ProcBlock)]` macro
+- `proc-blocks/proc-blocks` - a common crate that all Proc Blocks must use
 - `images/*` The various Rust crates that can be used as base images for a
   Runefile
+- `bindings/native` - FFI bindings for using `wasmer-runtime` from non-Rust
+  programs
+- `bindings/python` - Python bindings to various proc blocks and Rune
+  functionality
 - `integration-tests` - Our end-to-end test suite
-- `xtask` - A helper program for various internal tasks
-- `ffi` - FFI bindings for using `wasmer-runtime` from non-Rust programs
-- `python` - Python bindings to various proc blocks and Rune functionality
+
+The actual crate names have a `rune_` prefix to signify that they are all part
+of the Rune project. Cargo doesn't have a namespacing system and there are
+already several `rune_XXX` crates on crates.io so we've had to add an
+*additional* `hotg_` prefix to indicate the crates are related to Hammer of the
+Gods (see [hotg-ai/rune#222][issue-222] for more).
+
+Our crate structure is also complicated by the fact that there are **three**
+environments that the Rune project's code will run in, and functionality from
+one environment may not make sense (or flat out not compile) for another
+environment.
+
+The environments are:
+
+- **A developer's machine:** this is where you'll build a Rune and have access
+  to a full Rust toolchain.
+
+  It typically involves the following crates:
+  - `hotg_rune_core`
+  - `hotg_rune_cli`
+  - `hotg_rune_syntax`
+  - `hotg_rune_codegen`
+- **WebAssembly:** the Rune itself is compiled to a WebAssembly module and runs
+  inside a WebAssembly virtual machine. In general, this is a very constrained
+  environment and the code can only interact with the outside world via the
+  WebAssembly half of its "base image" (e.g. the `hotg_runicos_base_wasm`
+  crate).
+
+  It typically involves the following crates:
+  - `hotg_rune_core`
+  - `hotg_runicos_base_wasm`
+  - `hotg_rune_proc_blocks`
+  - `hotg_runecoral`
+- **Host Application:** this is the program which actually wants to execute
+  Runes. It is in charge of loading a Rune into memory and initialising it,
+  giving the WebAssembly code access to specific parts of the host application
+  (e.g. a camera feed or serial output).
+
+  It typically involves the following
+  crates:
+  - `hotg_rune_core`
+  - `hotg_rune_cli`
+  - `hotg_runicos_base_runtime`
+  - `hotg_rune_runtime`
+  - `hotg_rune_wasmer_runtime`
 
 ## Integration Tests
 
@@ -174,8 +234,7 @@ We use [`cargo xtask`][xtask] and cargo aliases to help with various things
 during development.
 
 The `cargo rune` alias will run a command using the `rune` binary in release
-mode. This will also compile the binary, so don't be surprised if the command
-seems to hang for a couple seconds on the first run.
+mode. This will also compile the binary, if necessary.
 
 ```console
 $ cargo rune --version
@@ -239,3 +298,4 @@ button. See [*Manually running a workflow*][manual-workflow] for more.
 [nightly-workflow]: https://github.com/hotg-ai/rune/actions/workflows/nightly.yml
 [manual-workflow]: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 [workspaces]: https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html
+[issue-222]: https://github.com/hotg-ai/rune/issues/222

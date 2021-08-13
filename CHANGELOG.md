@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.5.3] - 2021-08-11
+
+### Fixed
+
+- Fixed the algorithm used to locate internal dependencies when installed via
+  crates.io
+
 ## [0.5.2] - 2021-08-11
 
 ### Added
@@ -108,7 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.2...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.3...HEAD
+[0.5.3]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.2...hotg-rune-cli-v0.5.3
 [0.5.2]: https://github.com/assert-rs/predicates-rs/compare/v0.4.0...hotg-rune-cli-v0.5.2
 [0.4.0]: https://github.com/hotg-ai/rune/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hotg-ai/rune/compare/v0.2.1...v0.3.0
