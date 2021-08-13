@@ -7,6 +7,7 @@ members = [
     "integration-tests",
     "proc-blocks/*",
 ]
+exclude = ["bindings/web"]
 
 [patch.crates-io]
 serde_yaml = { git = "https://github.com/hotg-ai/serde-yaml", branch = "spans" }

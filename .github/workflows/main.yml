@@ -107,3 +107,23 @@ jobs:
         with:
           branch: gh-pages
           folder: target/doc
+
+  web-bindings:
+    name: Test Web Bindings
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            bindings/web/node_modules
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Setup Rust
+        run: rustup show
+      - name: Install Dependencies
+        run: cd bindings/web && yarn install
+      - name: Run Tests
+        run: cd bindings/web && yarn test

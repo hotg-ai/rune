@@ -1,0 +1,33 @@
+{
+  "name": "@hotg-ai/rune",
+  "version": "0.5.2",
+  "description": "Execute Runes inside a JavaScript environment.",
+  "repository": "https://github.com/hotg-ai/rune",
+  "author": "The Rune Developers <developers@hotg.ai>",
+  "license": "MIT OR Apache-2.0",
+  "private": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "prepublish": "tsc",
+    "watch": "tsc --watch",
+    "watch:test": "jest --watch",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^27.0.0",
+    "blob-polyfill": "^5.0.20210201",
+    "jest": "^27.0.6",
+    "ts-jest": "^27.0.4",
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^3.8.0",
+    "@tensorflow/tfjs-core": "^3.8.0",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.4",
+    "lz-string": "^1.4.4"
+  }
+}

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Moved the Web runtime into the `hotg-ai/rune` repo under the `bindings/web`
+  directory and turned it into a NPM package
+
 ## [0.5.3] - 2021-08-11
 
 ### Fixed
