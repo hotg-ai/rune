@@ -1,4 +1,5 @@
 use std::{
+    mem,
     process::Command,
     sync::{
         Arc,
@@ -79,5 +80,9 @@ fn compile_standalone_wasm(
     anyhow::ensure!(status.success());
 
     let raw = std::fs::read(&dest)?;
-    Ok(ParsedModule::parse(env, &raw).unwrap())
+    let module = ParsedModule::parse(env, &raw).unwrap();
+    // FIXME: work around soundness bug by leaking the raw WASM bytecode
+    // (https://github.com/wasm3/wasm3-rs/issues/25)
+    mem::forget(raw);
+    Ok(module)
 }

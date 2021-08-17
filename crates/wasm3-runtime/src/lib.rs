@@ -21,6 +21,9 @@ impl Runtime {
         I: for<'a> Image<Registrar<'a>>,
     {
         let env = Environment::new().map_err(|e| anyhow!("{}", e))?;
+        // XXX note that `ParsedModule::parse` has a soundness bug! `wasm` needs
+        // to outlive `module` to avoid it.
+        // (https://github.com/wasm3/wasm3-rs/issues/25)
         let module =
             ParsedModule::parse(&env, wasm).map_err(|e| anyhow!("{}", e))?;
         Runtime::load_from_module(module, &env, image)
