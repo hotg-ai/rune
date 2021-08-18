@@ -23,6 +23,8 @@ impl<T> Wasm3ResultExt<T> for Result<T, wasm3::error::Error> {
 #[derive(Debug)]
 pub struct Runtime {
     rt: wasm3::Runtime,
+    // XXX must be dropped after `rt` for soundness!
+    wasm: Vec<u8>,
 }
 
 impl Runtime {
@@ -32,20 +34,11 @@ impl Runtime {
     {
         let env = Environment::new().to_anyhow()?;
         // XXX note that `ParsedModule::parse` has a soundness bug! `wasm` needs
-        // to outlive `module` to avoid it.
+        // to outlive `module` to avoid it. We heap-allocate it to ensure that.
         // (https://github.com/wasm3/wasm3-rs/issues/25)
-        let module = ParsedModule::parse(&env, wasm).to_anyhow()?;
-        Runtime::load_from_module(module, &env, image)
-    }
+        let wasm = wasm.to_vec();
+        let module = ParsedModule::parse(&env, &wasm).to_anyhow()?;
 
-    pub fn load_from_module<I>(
-        module: ParsedModule,
-        env: &Environment,
-        image: I,
-    ) -> Result<Self, Error>
-    where
-        I: for<'a> Image<Registrar<'a>>,
-    {
         let rt = env.create_runtime(STACK_SIZE).to_anyhow()?;
 
         log::debug!("Instantiating the WebAssembly module");
@@ -63,7 +56,7 @@ impl Runtime {
 
         log::debug!("Loaded the Rune");
 
-        Ok(Runtime { rt })
+        Ok(Runtime { rt, wasm })
     }
 
     pub fn call(&mut self) -> Result<(), Error> {

@@ -10,15 +10,11 @@ use hotg_rune_runtime::Image;
 use tempfile::TempDir;
 use anyhow::Error;
 use hotg_rune_wasm3_runtime::{Registrar, Runtime};
-use wasm3::{Environment, ParsedModule};
 
 #[test]
 fn load_and_call_a_rune_that_does_nothing() {
     let src = include_str!("fixtures/empty.rs");
-    let env = Environment::new().unwrap();
-    let module = compile_standalone_wasm(src, &env).unwrap();
-
-    let mut runtime = Runtime::load_from_module(module, &env, Empty).unwrap();
+    let mut runtime = compile_standalone_wasm(src, Empty).unwrap();
     runtime.call().unwrap();
 }
 
@@ -32,13 +28,10 @@ impl Image<Registrar<'_>> for Empty {
 fn call_host_function_from_manifest() {
     let calls = Arc::new(AtomicUsize::new(0));
     let src = include_str!("fixtures/image-function.rs");
-    let store = Environment::new().unwrap();
-    let module = compile_standalone_wasm(src, &store).unwrap();
     let image = Tracked {
         calls: Arc::clone(&calls),
     };
-
-    let _runtime = Runtime::load_from_module(module, &store, image).unwrap();
+    let _rt = compile_standalone_wasm(src, image).unwrap();
 
     let times_called = calls.load(Ordering::SeqCst);
     assert_eq!(times_called, 1);
@@ -58,10 +51,10 @@ impl Image<Registrar<'_>> for Tracked {
     }
 }
 
-fn compile_standalone_wasm(
-    src: &str,
-    env: &Environment,
-) -> Result<ParsedModule, Error> {
+fn compile_standalone_wasm<I>(src: &str, image: I) -> Result<Runtime, Error>
+where
+    I: for<'a> Image<Registrar<'a>>,
+{
     let temp = TempDir::new()?;
     let temp = temp.path();
     let lib_rs = temp.join("lib.rs");
@@ -80,9 +73,9 @@ fn compile_standalone_wasm(
     anyhow::ensure!(status.success());
 
     let raw = std::fs::read(&dest)?;
-    let module = ParsedModule::parse(env, &raw).unwrap();
+    let rt = Runtime::load(&raw, image)?;
     // FIXME: work around soundness bug by leaking the raw WASM bytecode
     // (https://github.com/wasm3/wasm3-rs/issues/25)
     mem::forget(raw);
-    Ok(module)
+    Ok(rt)
 }
