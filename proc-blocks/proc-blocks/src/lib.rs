@@ -24,8 +24,8 @@ pub trait ProcBlock: Default + 'static {
     const DESCRIPTOR: ProcBlockDescriptor<'static>;
 }
 
-/// An internal module used give the [`hotg_rune_proc_block_macros`] crate access to
-/// all the types it will need.
+/// An internal module used give the [`hotg_rune_proc_block_macros`] crate
+/// access to all the types it will need.
 #[doc(hidden)]
 pub mod internal {
     pub use crate::{ProcBlock, Transform, descriptor::*};

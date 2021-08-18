@@ -11,7 +11,7 @@ use std::{
 };
 use codespan::Span;
 use indexmap::IndexMap;
-use crate::{ast::Path, yaml::Value};
+use crate::yaml::{Path, Value};
 
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,

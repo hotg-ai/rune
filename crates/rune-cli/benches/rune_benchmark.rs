@@ -3,20 +3,14 @@ use tempdir::TempDir;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
 use hotg_rune_cli::run::{
-    Image,
-    image::ImageSource,
-    Sound,
-    sound::AudioClip,
-    new_capability_switcher,
+    Image, image::ImageSource, Sound, sound::AudioClip, new_capability_switcher,
 };
 
 use hotg_rune_wasmer_runtime::Runtime;
 use hotg_runicos_base_runtime::BaseImage;
 use hotg_rune_core::capabilities;
 
-use hotg_rune_codegen::{
-    Compilation, DefaultEnvironment, RuneProject, Verbosity,
-};
+use hotg_rune_codegen::{Compilation, DefaultEnvironment, RuneProject, Verbosity};
 
 use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 
@@ -31,9 +25,9 @@ pub fn project_root() -> PathBuf {
 pub fn example_dir() -> PathBuf { project_root().join("examples") }
 
 fn load_rune(path: PathBuf) -> Vec<u8> {
-    std::fs::read(&path).with_context(|| {
-        format!("Unable to read \"{}\"", path.display())
-    }).unwrap()
+    std::fs::read(&path)
+        .with_context(|| format!("Unable to read \"{}\"", path.display()))
+        .unwrap()
 }
 
 fn parse_runefile(runefile: &Path) -> Rune {
@@ -71,35 +65,48 @@ fn sine_build_benchmark(c: &mut Criterion) {
     let runefile = base.join("Runefile.yml");
     let rune = parse_runefile(&runefile);
 
-    c.bench_function("sine_build",
-        |b| b.iter(|| { build_rune(base.clone(), String::from("sine"), rune.clone()) }));
+    c.bench_function("sine_build", |b| {
+        b.iter(|| build_rune(base.clone(), String::from("sine"), rune.clone()))
+    });
 }
 
 fn sine_inference_benchmark(c: &mut Criterion) {
-    let mut runtime = Runtime::load(&load_rune(example_dir().join("sine").join("sine.rune")),
-                                    BaseImage::with_defaults())
-        .context("Unable to create rune runtime")
-        .unwrap();
+    let mut runtime = Runtime::load(
+        &load_rune(example_dir().join("sine").join("sine.rune")),
+        BaseImage::with_defaults(),
+    )
+    .context("Unable to create rune runtime")
+    .unwrap();
 
-    c.bench_function("sine_inference",
-        |b| b.iter(|| { runtime.call().context("Call Failed").unwrap() }));
+    c.bench_function("sine_inference", |b| {
+        b.iter(|| runtime.call().context("Call Failed").unwrap())
+    });
 }
 
 fn microspeech_inference_benchmark(c: &mut Criterion) {
     let base = example_dir().join("microspeech");
 
     let mut img = BaseImage::with_defaults();
-    let wav_file = base.join("data").join("right").join("fb7eb481_nohash_0.wav");
+    let wav_file = base
+        .join("data")
+        .join("right")
+        .join("fb7eb481_nohash_0.wav");
     img.register_capability(
         capabilities::SOUND,
-        new_capability_switcher::<Sound, _>(vec![AudioClip::from_wav_file(wav_file).unwrap()]));
+        new_capability_switcher::<Sound, _>(vec![AudioClip::from_wav_file(
+            wav_file,
+        )
+        .unwrap()]),
+    );
 
-    let mut runtime = Runtime::load(&load_rune(base.join("microspeech.rune")), img)
-        .context("Unable to create rune runtime")
-        .unwrap();
+    let mut runtime =
+        Runtime::load(&load_rune(base.join("microspeech.rune")), img)
+            .context("Unable to create rune runtime")
+            .unwrap();
 
-    c.bench_function("microspeech_inference",
-        |b| b.iter(|| runtime.call().context("Call Failed").unwrap()));
+    c.bench_function("microspeech_inference", |b| {
+        b.iter(|| runtime.call().context("Call Failed").unwrap())
+    });
 }
 
 fn styletransfer_inference_benchmark(c: &mut Criterion) {
@@ -108,15 +115,20 @@ fn styletransfer_inference_benchmark(c: &mut Criterion) {
     let mut img = BaseImage::with_defaults();
     img.register_capability(
         capabilities::IMAGE,
-        new_capability_switcher::<Image, _>(vec![ImageSource::from_file(base.join("style.jpg")).unwrap(),
-                                         ImageSource::from_file(base.join("flower.jpg")).unwrap()]));
+        new_capability_switcher::<Image, _>(vec![
+            ImageSource::from_file(base.join("style.jpg")).unwrap(),
+            ImageSource::from_file(base.join("flower.jpg")).unwrap(),
+        ]),
+    );
 
-    let mut runtime = Runtime::load(&load_rune(base.join("style_transfer.rune")), img)
-        .context("Unable to create rune runtime")
-        .unwrap();
+    let mut runtime =
+        Runtime::load(&load_rune(base.join("style_transfer.rune")), img)
+            .context("Unable to create rune runtime")
+            .unwrap();
 
-    c.bench_function("styletransfer_inference",
-        |b| b.iter(|| runtime.call().context("Call Failed").unwrap()));
+    c.bench_function("styletransfer_inference", |b| {
+        b.iter(|| runtime.call().context("Call Failed").unwrap())
+    });
 }
 
 criterion_group!(

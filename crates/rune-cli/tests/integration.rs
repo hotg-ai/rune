@@ -32,7 +32,7 @@ fn cache_dir() -> PathBuf {
 #[test]
 fn person_detection() {
     let person_detection_dir = example_dir().join("person_detection");
-    let runefile = person_detection_dir.join("Runefile");
+    let runefile = person_detection_dir.join("Runefile.yml");
     let build_dir = cache_dir().join("person_detection");
     let rune = build_dir.join("person_detection.rune");
 
@@ -59,10 +59,7 @@ fn build_all_examples() {
     let runefiles = WalkDir::new(example_dir())
         .into_iter()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry.file_name() == "Runefile"
-                || entry.file_name() == "Runefile.yml"
-        });
+        .filter(|entry| entry.file_name() == "Runefile.yml");
 
     let cache_dir = cache_dir().join("all-examples");
 

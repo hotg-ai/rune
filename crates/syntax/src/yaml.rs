@@ -11,10 +11,7 @@ use serde::{
     ser::{Serialize, Serializer},
 };
 use codespan::Span;
-use crate::{
-    ast::{ArgumentValue, Literal},
-    hir,
-};
+use crate::hir;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "version")]
@@ -74,30 +71,6 @@ impl Path {
             sub_path: sub_path.into(),
             version: version.into(),
         }
-    }
-}
-
-impl From<Path> for crate::ast::Path {
-    fn from(p: Path) -> crate::ast::Path {
-        let Path {
-            base,
-            sub_path,
-            version,
-        } = p;
-        crate::ast::Path::new(base, sub_path, version, Span::new(0, 0))
-    }
-}
-
-impl From<crate::ast::Path> for Path {
-    fn from(p: crate::ast::Path) -> Path {
-        let crate::ast::Path {
-            base,
-            sub_path,
-            version,
-            ..
-        } = p;
-
-        Path::new(base, sub_path, version)
     }
 }
 
@@ -426,6 +399,53 @@ impl<'de> Deserialize<'de> for Input {
         let raw = Cow::<str>::deserialize(deserializer)?;
         Input::from_str(&raw).map_err(|e| D::Error::custom(e.to_string()))
     }
+}
+
+#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", untagged)]
+pub enum ArgumentValue {
+    Literal(Literal),
+    List(Vec<String>),
+}
+
+#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Literal {
+    pub kind: LiteralKind,
+    pub span: Span,
+}
+
+impl Literal {
+    pub fn new(kind: impl Into<LiteralKind>, span: Span) -> Self {
+        Literal {
+            kind: kind.into(),
+            span,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "type", content = "value")]
+pub enum LiteralKind {
+    Integer(i64),
+    Float(f32),
+    String(String),
+}
+
+impl From<i64> for LiteralKind {
+    fn from(other: i64) -> Self { LiteralKind::Integer(other) }
+}
+
+impl From<f32> for LiteralKind {
+    fn from(other: f32) -> Self { LiteralKind::Float(other) }
+}
+
+impl<'a> From<&'a str> for LiteralKind {
+    fn from(other: &'a str) -> Self { LiteralKind::String(other.to_string()) }
+}
+
+impl From<String> for LiteralKind {
+    fn from(other: String) -> Self { LiteralKind::String(other) }
 }
 
 #[cfg(test)]
