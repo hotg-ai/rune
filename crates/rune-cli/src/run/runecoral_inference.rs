@@ -3,7 +3,10 @@ use std::{borrow::Cow, cell::Cell, convert::TryInto, path::Path, sync::Mutex};
 use anyhow::{Context, Error};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE, reflect::Type};
 use hotg_runicos_base_runtime::{BaseImage, Model, ModelFactory};
-use hotg_runecoral::{ElementType, InferenceContext, RuneCoral, Tensor, TensorDescriptor, TensorMut};
+use hotg_runecoral::{
+    ElementType, InferenceContext, RuneCoral, Tensor, TensorDescriptor,
+    TensorMut,
+};
 
 /// Overrides the TensorFlow Lite model handler with `librunecoral`, if
 /// available.
