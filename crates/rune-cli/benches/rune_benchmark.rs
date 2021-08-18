@@ -7,7 +7,7 @@ use hotg_rune_cli::run::{
     image::ImageSource,
     Sound,
     sound::AudioClip,
-    new_multiplexer,
+    new_capability_switcher,
 };
 
 use hotg_rune_wasmer_runtime::Runtime;
@@ -92,7 +92,7 @@ fn microspeech_inference_benchmark(c: &mut Criterion) {
     let wav_file = base.join("data").join("right").join("fb7eb481_nohash_0.wav");
     img.register_capability(
         capabilities::SOUND,
-        new_multiplexer::<Sound, _>(vec![AudioClip::from_wav_file(wav_file).unwrap()]));
+        new_capability_switcher::<Sound, _>(vec![AudioClip::from_wav_file(wav_file).unwrap()]));
 
     let mut runtime = Runtime::load(&load_rune(base.join("microspeech.rune")), img)
         .context("Unable to create rune runtime")
@@ -108,7 +108,7 @@ fn styletransfer_inference_benchmark(c: &mut Criterion) {
     let mut img = BaseImage::with_defaults();
     img.register_capability(
         capabilities::IMAGE,
-        new_multiplexer::<Image, _>(vec![ImageSource::from_file(base.join("style.jpg")).unwrap(),
+        new_capability_switcher::<Image, _>(vec![ImageSource::from_file(base.join("style.jpg")).unwrap(),
                                          ImageSource::from_file(base.join("flower.jpg")).unwrap()]));
 
     let mut runtime = Runtime::load(&load_rune(base.join("style_transfer.rune")), img)
