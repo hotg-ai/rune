@@ -102,7 +102,7 @@ fn dependencies(
 
 fn proc_block_dependency(
     name: &str,
-    path: &hotg_rune_syntax::ast::Path,
+    path: &hotg_rune_syntax::yaml::Path,
     project: &RuneProject,
     current_dir: &Path,
 ) -> DependencyDetail {
@@ -132,7 +132,7 @@ fn proc_block_dependency(
 }
 
 fn local_proc_block(
-    path: &hotg_rune_syntax::ast::Path,
+    path: &hotg_rune_syntax::yaml::Path,
     current_dir: &Path,
 ) -> DependencyDetail {
     DependencyDetail {
@@ -143,7 +143,7 @@ fn local_proc_block(
 
 fn builtin_proc_block(
     name: &str,
-    path: &hotg_rune_syntax::ast::Path,
+    path: &hotg_rune_syntax::yaml::Path,
     project: &RuneProject,
 ) -> DependencyDetail {
     match project {
@@ -159,7 +159,7 @@ fn builtin_proc_block(
     }
 }
 
-fn is_builtin(path: &hotg_rune_syntax::ast::Path) -> bool {
+fn is_builtin(path: &hotg_rune_syntax::yaml::Path) -> bool {
     path.base == "hotg-ai/rune"
 }
 

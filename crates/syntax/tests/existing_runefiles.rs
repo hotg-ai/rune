@@ -2,7 +2,7 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
-use hotg_rune_syntax::Diagnostics;
+use hotg_rune_syntax::{Diagnostics, yaml::Document};
 
 macro_rules! parse_and_analyse {
     ($example:ident) => {
@@ -11,28 +11,17 @@ macro_rules! parse_and_analyse {
             const SRC: &str = include_str!(concat!(
                 "../../../examples/",
                 stringify!($example),
-                "/Runefile"
+                "/Runefile.yml"
             ));
 
             #[test]
-            fn parse() {
-                match hotg_rune_syntax::parse(SRC) {
-                    Ok(parsed) => {
-                        let expected_span =
-                            codespan::Span::new(0, SRC.len() as u32);
-                        assert_eq!(parsed.span, expected_span);
-                    },
-                    Err(e) => panic!("{}", e),
-                }
-            }
+            fn parse() { let _ = Document::parse(SRC).unwrap(); }
 
             #[test]
             fn analyse() {
                 let file = SimpleFile::new("Runefile", SRC);
 
-                let parsed = hotg_rune_syntax::parse(file.source()).unwrap();
-
-                assert!(parsed.instructions.len() > 1);
+                let parsed = Document::parse(file.source()).unwrap();
 
                 let mut diags = Diagnostics::new();
                 hotg_rune_syntax::analyse(&parsed, &mut diags);
@@ -58,6 +47,10 @@ macro_rules! parse_and_analyse {
     };
 }
 
-parse_and_analyse!(sine);
+parse_and_analyse!(debugging);
 parse_and_analyse!(gesture);
 parse_and_analyse!(microspeech);
+parse_and_analyse!(noop);
+parse_and_analyse!(person_detection);
+parse_and_analyse!(sine);
+parse_and_analyse!(style_transfer);

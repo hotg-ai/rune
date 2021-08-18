@@ -1,12 +1,8 @@
 mod bulk_copy;
 mod check_manifests;
-mod convert;
 mod dist;
 
-use crate::{
-    bulk_copy::BulkCopy, check_manifests::CheckManifests, convert::Convert,
-    dist::Dist,
-};
+use crate::{bulk_copy::BulkCopy, check_manifests::CheckManifests, dist::Dist};
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
 use devx_pre_commit::PreCommitContext;
@@ -35,7 +31,6 @@ fn main() -> Result<(), Error> {
                 .context("Unable to install the pre-commit hook")?;
         },
         Command::Dist(dist) => dist.run()?,
-        Command::Convert(c) => c.run()?,
         Command::CheckManifests(c) => c.run(&project_root)?,
     }
 
@@ -67,11 +62,6 @@ enum Command {
     InstallPreCommit,
     #[structopt(name = "dist", about = "Generate a release bundle")]
     Dist(Dist),
-    #[structopt(
-        name = "convert",
-        about = "Convert an old style Runefile to its YAML equivalent"
-    )]
-    Convert(Convert),
     #[structopt(
         name = "check-manifests",
         about = "Check all Cargo.toml files are"

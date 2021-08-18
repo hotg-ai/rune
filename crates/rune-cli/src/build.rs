@@ -199,19 +199,9 @@ pub(crate) fn analyze(
 
     let mut diags = Diagnostics::new();
 
-    let rune = match runefile.extension().and_then(|ext| ext.to_str()) {
-        Some("yaml") | Some("yml") => {
-            let parsed = Document::parse(&src)
-                .context("Unable to parse the Runefile")?;
-            hotg_rune_syntax::analyse_yaml_runefile(&parsed, &mut diags)
-        },
-        _ => {
-            let parsed = hotg_rune_syntax::parse(&src)
-                .context("Unable to parse the Runefile")?;
-            let rune = hotg_rune_syntax::analyse(&parsed, &mut diags);
-            rune
-        },
-    };
+    let parsed =
+        Document::parse(&src).context("Unable to parse the Runefile")?;
+    let rune = hotg_rune_syntax::analyse(&parsed, &mut diags);
 
     let mut writer = StandardStream::stdout(color);
     let config = Config::default();
