@@ -1,7 +1,0 @@
-# A Rune that reads 4 integers from some raw input and prints it to the screen.
-FROM runicos/base
-
-CAPABILITY<i32[4]> input RAW
-OUT serial
-
-RUN input serial
