@@ -7,10 +7,50 @@ use anyhow::{Context, Error};
 use hotg_rune_core::Value;
 use hotg_rune_runtime::{Capability, ParameterError};
 
+/// A [`Capability`] which can be created by from some source object and a
+/// [`Builder`].
+///
+/// # Note
+///
+/// This exists because of the way capabilities were initially designed and
+/// switching to [an improved API][issue-153] would break every Rune that has
+/// been compiled (which I'm okay with because we have version numbers) as well
+/// as the C++ runtime (which I'm not okay with because un-breaking it requires
+/// a lot of work).
+///
+/// The process for setting up a capability is very similar to what you'd do
+/// in an OO language.
+///
+/// 1. Create a new instance of the object in an incomplete state
+/// 2. Go through each of the fields and set them
+/// 3. Use the object to generate data
+///
+/// [issue-153]: https://github.com/hotg-ai/rune/issues/153
+pub trait SourceBackedCapability: Send + Debug + Sized + 'static {
+    type Source: Debug + Send + Sync + 'static;
+    type Builder: Builder + Debug + Send + Sync + 'static;
+
+    fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, Error>;
+
+    fn from_builder(
+        builder: Self::Builder,
+        source: &Self::Source,
+    ) -> Result<Self, Error>;
+}
+
+/// A [`Capability`] builder.
+pub trait Builder: Default + Debug {
+    fn set_parameter(
+        &mut self,
+        key: &str,
+        value: Value,
+    ) -> Result<(), ParameterError>;
+}
+
 /// Get a function for creating new [`Capability`] objects which can be
 /// initialized by switching between different source values based on the
 /// `"source"` parameter (i.e. an image or audio clip).
-pub fn new_multiplexer<S, I>(
+pub fn new_capability_switcher<S, I>(
     sources: I,
 ) -> impl Fn() -> Result<Box<dyn Capability>, Error>
 where
@@ -35,23 +75,6 @@ where
 }
 
 /// A [`Capability`] which may be partially initialized.
-///
-/// # Note
-///
-/// This exists because of the way capabilities were initially designed and
-/// switching to [an improved API][issue-153] would break every Rune that has
-/// been compiled (which I'm okay with because we have version numbers) as well
-/// as the C++ runtime (which I'm not okay with because un-breaking it requires
-/// a lot of work).
-///
-/// The process for setting up a capability is very similar to what you'd do
-/// in an OO language.
-///
-/// 1. Create a new instance of the object in an incomplete state
-/// 2. Go through each of the fields and set them
-/// 3. Use the object to generate data
-///
-/// [issue-153]: https://github.com/hotg-ai/rune/issues/153
 enum LazilyInitializedCapability<S: SourceBackedCapability> {
     Incomplete {
         sources: Arc<[S::Source]>,
@@ -152,27 +175,4 @@ impl<S: SourceBackedCapability> Debug for LazilyInitializedCapability<S> {
             },
         }
     }
-}
-
-/// A [`Capability`] which can be created by from some source object and a
-/// [`Builder`].
-pub trait SourceBackedCapability: Send + Debug + Sized + 'static {
-    type Source: Debug + Send + Sync + 'static;
-    type Builder: Builder + Debug + Send + Sync + 'static;
-
-    fn generate(&mut self, buffer: &mut [u8]) -> Result<usize, Error>;
-
-    fn from_builder(
-        builder: Self::Builder,
-        source: &Self::Source,
-    ) -> Result<Self, Error>;
-}
-
-/// A [`Capability`] builder.
-pub trait Builder: Default + Debug {
-    fn set_parameter(
-        &mut self,
-        key: &str,
-        value: Value,
-    ) -> Result<(), ParameterError>;
 }

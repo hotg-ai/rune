@@ -1,13 +1,14 @@
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 use anyhow::{Context, Error};
 use log;
 use hotg_rune_core::capabilities;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
-    image::ImageSource, new_multiplexer, runecoral_inference, sound::AudioClip,
+    image::ImageSource, multi::SourceBackedCapability, new_capability_switcher,
+    runecoral_inference, sound::AudioClip,
 };
 use hotg_rune_wasmer_runtime::Runtime;
-use hotg_runicos_base_runtime::{BaseImage, Random};
+use hotg_runicos_base_runtime::{BaseImage, CapabilityFactory, Random};
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Run {
@@ -16,28 +17,6 @@ pub struct Run {
     /// The number of times to execute this rune
     #[structopt(short, long, default_value = "1")]
     repeats: usize,
-    /// Initialize capabilities based on `key:value` pairs. Prefer to use
-    /// aliases like "--image" and "--sound" when the capability is builtin.
-    ///
-    /// For example:
-    ///
-    /// - `random:42` seeds the random number generator with `42`
-    ///
-    /// - `random:random_bytes.bin` provides data to be returned by the random
-    ///   number generator
-    ///
-    /// - `accel:samples.csv` is a CSV file containing `[X, Y, Z]` vectors to
-    ///   be returned by the accelerometer
-    ///
-    /// - `sound:audio.wav` is a WAV file containing samples returned by the
-    ///   sound capability
-    ///
-    /// - `image:person.png` is an image file that will be returned by the
-    ///   image capability
-    ///
-    /// - `raw:data.bin` is a file who's bytes will be used as-is
-    #[structopt(short, long = "capability")]
-    capabilities: Vec<Capability>,
     #[structopt(
         long = "accelerometer",
         aliases = &["accel"],
@@ -104,87 +83,30 @@ impl Run {
     }
 
     fn initialize_image(&self) -> Result<BaseImage, Error> {
-        macro_rules! chain_capabilities {
-            ($collection:expr, $capabilities:expr, $pattern:pat => $value:ident $(,)?) => {
-                $collection
-                    .iter()
-                    .chain($capabilities.iter().filter_map(|c| match c {
-                        $pattern => Some($value),
-                        _ => None,
-                    }))
-            };
-        }
-
-        let Run {
-            capabilities,
-            accelerometer,
-            sound,
-            image,
-            raw,
-            random,
-            ..
-        } = self;
-
-        if !capabilities.is_empty() {
-            log::warn!("The \"--capability\" flag has been deprecated in favour of the more auto-complete friendly variants.");
-            log::warn!("For example, use \"--image person.png\" instead of \"--capability image:person.png\"");
-        }
-
-        let accelerometer = chain_capabilities!(
-            accelerometer,
-            capabilities,
-            Capability::Accelerometer { filename } => filename,
-        );
-        let accelerometer = accelerometer
-            .map(|f| Samples::from_csv_file(f))
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        let sound = chain_capabilities!(
-            sound,
-            capabilities,
-            Capability::Sound { filename } => filename,
-        );
-        let sound = sound
-            .map(|f| AudioClip::from_wav_file(f))
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        let image = chain_capabilities!(
-            image,
-            capabilities,
-            Capability::Image { filename } => filename,
-        );
-        let image = image
-            .map(|f| ImageSource::from_file(f))
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        let raw = chain_capabilities!(
-            raw,
-            capabilities,
-            Capability::Raw { filename } => filename,
-        );
-        let raw = raw
-            .map(|f| {
-                std::fs::read(&f).with_context(|| {
-                    format!("Unable to read \"{}\"", f.display())
-                })
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
+        // Load the source files for each kind of Capability and create a
+        // CapabilityFactory which will instantiate Capabilities depending on
+        // the "source" index provided as a capability parameter.
+        let accelerometer = capability_switcher::<Accelerometer, _, _>(
+            &self.accelerometer,
+            |p| Samples::from_csv_file(p),
+        )?;
+        let image = capability_switcher::<Image, _, _>(&self.image, |p| {
+            ImageSource::from_file(p)
+        })?;
+        let raw = capability_switcher::<Raw, _, _>(&self.raw, |p| {
+            std::fs::read(p)
+                .with_context(|| format!("Unable to read \"{}\"", p.display()))
+        })?;
+        let sound = capability_switcher::<Sound, _, _>(&self.sound, |p| {
+            AudioClip::from_wav_file(p)
+        })?;
 
         let mut img = BaseImage::with_defaults();
 
-        img.register_capability(
-            capabilities::IMAGE,
-            new_multiplexer::<Image, _>(image),
-        )
-        .register_capability(
-            capabilities::SOUND,
-            new_multiplexer::<Sound, _>(sound),
-        )
-        .register_capability(
-            capabilities::ACCEL,
-            new_multiplexer::<Accelerometer, _>(accelerometer),
-        )
-        .register_capability(capabilities::RAW, new_multiplexer::<Raw, _>(raw));
+        img.register_capability(capabilities::ACCEL, accelerometer)
+            .register_capability(capabilities::IMAGE, image)
+            .register_capability(capabilities::RAW, raw)
+            .register_capability(capabilities::SOUND, sound);
 
         runecoral_inference::override_model_handler(
             &mut img,
@@ -192,7 +114,7 @@ impl Run {
         )
         .context("Unable to register the librunecoral inference backend")?;
 
-        if let Some(seed) = *random {
+        if let Some(seed) = self.random {
             img.register_capability(capabilities::RAND, move || {
                 Ok(Box::new(Random::seeded(seed))
                     as Box<dyn hotg_rune_runtime::Capability>)
@@ -203,51 +125,28 @@ impl Run {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-enum Capability {
-    RandomSeed { seed: u64 },
-    RandomData { filename: PathBuf },
-    Accelerometer { filename: PathBuf },
-    Image { filename: PathBuf },
-    Sound { filename: PathBuf },
-    Raw { filename: PathBuf },
-}
+/// Create a new [`CapabilityFactory`] which uses the `"source"` parameter set
+/// by a Rune at runtime to switch between inputs within the same type of
+/// capability.
+///
+/// For example, imagine passing the path for 3 images to the `rune` CLI.
+/// Inside the Rune, we'll instantiate a [`Capability`] object and set the
+/// `"source"` parameter to `1`. This then tells the [`CapabilityFactory`] that
+/// we want to read from the second image.
+fn capability_switcher<C, T, F>(
+    items: &[T],
+    mut make_source: F,
+) -> Result<impl CapabilityFactory, Error>
+where
+    C: SourceBackedCapability,
+    F: FnMut(&T) -> Result<C::Source, Error>,
+{
+    let mut sources = Vec::new();
 
-impl FromStr for Capability {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Error> {
-        let (key, value) = s
-            .split_once(":")
-            .context("Capabilities are in the form `key:value`")?;
-
-        match key {
-            "r" | "rand" | "random" => {
-                match value.parse() {
-                // it might be an integer seed
-                    Ok(seed) => Ok(Capability::RandomSeed { seed}),
-                // otherwise it's pointing us to a file containing "random" data
-                    Err(_) => Ok(Capability::RandomData { filename: PathBuf::from(value )})
-                }
-            },
-            "a" | "acc" | "accel" | "accelerometer" => {
-                Ok(Capability::Accelerometer {
-                    filename: PathBuf::from(value),
-                })
-            },
-            "i" | "img" | "image" => {
-                Ok(Capability::Image { filename: PathBuf::from(value) })
-            }
-            "w" | "raw" => {
-                Ok(Capability::Raw { filename: PathBuf::from(value) })
-            }
-            "s" | "sound" | "wav" => {
-                Ok(Capability::Sound { filename: PathBuf::from(value) })
-            },
-            other => anyhow::bail!(
-                "Supported capabilities are \"random\" and \"accelerometer\", found \"{}\"",
-                other,
-            ),
-        }
+    for item in items {
+        let source = make_source(item)?;
+        sources.push(source);
     }
+
+    Ok(new_capability_switcher::<C, _>(sources))
 }

@@ -10,7 +10,7 @@ use hotg_rune_runtime::ParameterError;
 
 pub use self::{
     accelerometer::Accelerometer, sound::Sound, image::Image, raw::Raw,
-    multi::new_multiplexer, command::Run,
+    multi::new_capability_switcher, command::Run,
 };
 
 use hotg_rune_core::Value;

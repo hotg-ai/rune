@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved the Web runtime into the `hotg-ai/rune` repo under the `bindings/web`
   directory and turned it into a NPM package
 
+### Removed
+
+- The `--capability` command-line argument (used as `rune run ./whatever.rune
+  --capability image:person.png`) has been removed after emitting a warning for
+  several versions ([#256](https://github.com/hotg-ai/rune/issues/256))
+
 ## [0.5.3] - 2021-08-11
 
 ### Fixed
