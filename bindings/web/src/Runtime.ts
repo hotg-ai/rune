@@ -23,7 +23,6 @@ type ModelInfo = {
 
 type Parameters = {
     [capabilityId: number]: CapabilityInfo,
-    modelid: number,
 }
 
 interface Exports extends WebAssembly.Exports {
@@ -41,7 +40,7 @@ export class Runtime {
         this.parameters = params;
     }
 
-    static async load(wasm: ArrayBuffer, imports: Imports, modelConstructor: ModelConstructor = loadTensorflowJSModel) {
+    static async load(wasm: ArrayBuffer, imports: Imports) {
         let parameters = {
             modelid: 0,
         };
@@ -51,7 +50,6 @@ export class Runtime {
             imports,
             () => memory,
             () => parameters,
-            modelConstructor,
         );
         const { instance } = await WebAssembly.instantiate(wasm, hostFunctions);
 
@@ -113,13 +111,10 @@ function constructFromNameTable<T>(
     return [instances, create];
 }
 
-type ModelConstructor = (mimetype: string, model: ArrayBuffer, p?: Parameters) => Promise<Model>;
-
 function importsToHostFunctions(
     imports: Imports,
     getMemory: () => WebAssembly.Memory,
     getParameters: () => Parameters,
-    modelConstructor: ModelConstructor,
 ) {
     const memory = () => {
         const m = getMemory();
@@ -188,7 +183,6 @@ function importsToHostFunctions(
             const keyBytes = memory().subarray(keyPtr, keyPtr + keyLength);
             const key = decoder.decode(keyBytes);
             const value = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
-            const valueTypeName = KnownOutputs[valueType];
             const p = parameters();
             p[id].parameters[key] = convertTypedArray(value, Int32Array);
         },
@@ -202,15 +196,16 @@ function importsToHostFunctions(
 
             cap.generate(dest, id);
         },
-        async tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
+        tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
             const modelData = memory().subarray(data, data + len);
-            const pending = modelConstructor(TensorFlowLiteMimeType, modelData, getParameters());
+            const handler = imports.modelHandlers[TensorFlowLiteMimeType];
+            const pending = handler(modelData);
             const id = ids();
             pendingModels.push(pending.then(model => [id, model]));
             modelsDescription[id] = { "id": id, "modelSize": len };
             return id;
         },
-        async rune_model_load(mimetype: number, mimetype_len: number, model: number, model_len: number, input_descriptors: number, input_len: number, output_descriptors: number, output_len: number) {
+        rune_model_load(mimetype: number, mimetype_len: number, model: number, model_len: number, input_descriptors: number, input_len: number, output_descriptors: number, output_len: number) {
             const mime = decoder.decode(memory().subarray(mimetype, mimetype + mimetype_len));
             const model_data = memory().subarray(model, model + model_len);
             //inputs
@@ -232,7 +227,11 @@ function importsToHostFunctions(
                 outputs.push({ "dimensions": outputs_string });
             }
 
-            const pending = modelConstructor(mime, model_data);
+            const handler = imports.modelHandlers[mime];
+            if (!handler) {
+                throw new Error(`No handler registered for model type, "${mime}"`);
+            }
+            const pending = handler(model_data);
             const id = ids();
 
             pendingModels.push(pending.then(model => [id, model]));
@@ -266,7 +265,6 @@ function importsToHostFunctions(
                 outputDimensions.push(dimensions);
             }
             model.transform(inputArray, inputDimensions, outputArray, outputDimensions);
-            parameters().modelid++;
             return id;
         },
 
@@ -279,7 +277,6 @@ function importsToHostFunctions(
             const output = memory().subarray(outputPtr, outputPtr + outputLen);
             //for backwards compatibility with older runes using single input/output tfm_model_invoke
             transformSingleModel(model, input, output, parameters()[Object.keys(parameters()).length - 2]);
-            parameters().modelid++;
             return id;
         },
     };
@@ -347,30 +344,7 @@ class TensorFlowModel implements Model {
 }
 
 function transformSingleModel(model: Model, input: Uint8Array, output: Uint8Array, parameters: CapabilityInfo) {
-    throw new Error();
-    // //for backwards compatibility with older runes using single input/output tfm_model_invoke
-    // if (parameters["capability"] == "image") {
-    //     var inputTyped = convertTypedArray(input, Uint8Array);
-
-    //     //pub enum PixelFormat
-    //     if (parameters["parameters"]["pixel_format"] == 2) {
-    //         //GrayScale =  3
-    //         input = tf.tensor2d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"]]).expandDims(0);
-    //     } else {
-    //         //RGB = 0,
-    //         //BGR = 1,
-    //         //YUV = 2,
-    //         input = tf.tensor3d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"], 3]).expandDims(0);
-    //     }
-    // } else {
-    //     input = convertTypedArray(input, Uint8Array);
-    // }
-
-    // const out = model.predict(input);
-    // const result = out.dataSync();
-
-    // var uint8_output = convertTypedArray(result, Uint8Array);
-    // output.set(result);
+    throw new Error(`Unable to do inference with this model. Please rebuild the Rune with "rune v0.5"`);
 }
 
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {

@@ -25,6 +25,7 @@ export interface Capability {
 export interface Imports {
     outputs: Record<number, () => Output>;
     capabilities: Record<number, (capabilityType: number) => Capability>;
+    modelHandlers: Record<string, (model: ArrayBuffer) => Promise<Model>>;
 }
 
 export interface Model {
