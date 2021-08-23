@@ -7,14 +7,14 @@ pipeline:
     capability: RAND
     outputs:
       - type: F32
-        dimensions: [1]
+        dimensions: [1, 1]
   mod360:
     proc-block: "hotg-ai/rune#proc-blocks/modulo"
     inputs:
       - rand
     outputs:
       - type: F32
-        dimensions: [1]
+        dimensions: [1, 1]
     args:
       modulus: 360.0
   sine:
@@ -23,7 +23,7 @@ pipeline:
       - mod360
     outputs:
       - type: F32
-        dimensions: [1]
+        dimensions: [1, 1]
   serial:
     out: serial
     inputs:
@@ -38,9 +38,9 @@ pipeline:
       - sine
     outputs:
       - type: F32
-        dimensions: [1]
+        dimensions: [1, 1]
       - type: F32
-        dimensions: [1]
+        dimensions: [1, 1]
 
 
   # Add another stage which captures the output from all the other stages so
