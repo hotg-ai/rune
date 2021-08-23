@@ -90,9 +90,20 @@ impl<'m> Registrar<'m> {
         Ret: WasmType,
         F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
     {
-        self.module
-            .link_closure(namespace, name, f)
-            .expect("wasm3 link_closure failed");
+        match self.module.link_closure(namespace, name, f) {
+            Ok(()) => {},
+            Err(wasm3::error::Error::FunctionNotFound) => {
+                // This error occurs when we try to link a function into the
+                // program that the program doesn't import. We
+                // just ignore that error here, since that is fine.
+            },
+            Err(e) => {
+                panic!(
+                    "wasm3 register_function failed for `{}::{}`: {}",
+                    namespace, name, e
+                );
+            },
+        }
         self
     }
 }
