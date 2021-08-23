@@ -1,4 +1,4 @@
-use std::{fmt, marker::PhantomData, mem, str::Utf8Error};
+use std::{fmt, marker::PhantomData, mem, slice, str::Utf8Error};
 
 use hotg_rune_runtime::Image;
 use wasm3::CallContext;
@@ -89,7 +89,9 @@ impl<T> WasmPtr<T, Array> {
             return None;
         }
 
-        Some(unsafe { mem::transmute(bytes) })
+        Some(unsafe {
+            slice::from_raw_parts(bytes.as_ptr() as _, length as usize)
+        })
     }
 
     /// # Safety
@@ -121,7 +123,10 @@ impl<T> WasmPtr<T, Array> {
             return None;
         }
 
-        Some(mem::transmute(bytes))
+        Some(slice::from_raw_parts_mut(
+            bytes.as_mut_ptr() as _,
+            length as usize,
+        ))
     }
 }
 
