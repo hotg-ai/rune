@@ -32,7 +32,7 @@ pipeline:
   # An example of using multiple inputs and outputs on a proc block next to the
   # Runefile.yml
   identity:
-    proc-block: "./identity"
+    proc-block: "../../../examples/debugging/identity"
     inputs:
       - mod360
       - sine
