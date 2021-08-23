@@ -1,14 +1,14 @@
 [package]
 name = "audio_float_conversion"
-version = "0.5.4-dev"
+version = "0.6.0"
 edition = "2018"
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.5.4-dev"}
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.5.4-dev"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.6.0"}
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.6.0"}
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"

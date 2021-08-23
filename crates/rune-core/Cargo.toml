@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-core"
-version = "0.5.4-dev"
+version = "0.6.0"
 description = "Core abstractions and types used across the Rune platform."
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]

@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-codegen"
-version = "0.5.4-dev"
+version = "0.6.0"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 description = "Code generation for compiling a Runefile to WebAssembly."
@@ -21,8 +21,8 @@ heck = "0.3.2"
 log = "0.4.14"
 proc-macro2 = "1.0.27"
 quote = "1.0"
-hotg-rune-core = { path = "../rune-core", version = "^0.5.4-dev"}
-hotg-rune-syntax = { path = "../syntax", version = "^0.5.4-dev"}
+hotg-rune-core = { path = "../rune-core", version = "^0.6.0"}
+hotg-rune-syntax = { path = "../syntax", version = "^0.6.0"}
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.5.8"
