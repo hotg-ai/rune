@@ -32,11 +32,11 @@ target and list of enabled features.
 
 For example, if cross-compiling to `aarch64-linux-android` (64-bit Android) with
 the `wasmer-runtime` feature (`tflite` doesn't cross-compile) then you would
-compile the `rune-native` crate with something like this:
+compile the `hotg-rune-native` crate with something like this:
 
 ```console
 $ cross build --target aarch64-linux-android \
-              --package rune-native \
+              --package hotg-rune-native \
               --features wasmer-runtime \
               --release
 $ ls -l target/aarch64-linux-android/release
@@ -70,7 +70,7 @@ additional `c-headers` feature.
 
 ```console
 $ cross test --target aarch64-linux-android \
-              --package rune-native \
+              --package hotg-rune-native \
               --features wasmer-runtime \
               --features c-headers \
               --release \
@@ -78,7 +78,7 @@ $ cross test --target aarch64-linux-android \
             generate_headers
 $ head target/rune.h
 /** \file
- * rune-native v0.1.0
+ * hotg-rune-native v0.1.0
  *
  * Authors: The Rune Developers
  * License: MIT OR Apache 2.0
