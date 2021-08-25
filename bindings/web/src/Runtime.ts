@@ -1,8 +1,6 @@
-import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import tf, { InferenceModel, Tensor } from "@tensorflow/tfjs";
-import * as LZString from "lz-string/libs/lz-string.js";
 import Shape from "./Shape";
-import { Imports, KnownCapabilities, KnownOutputs, Model, TensorFlowLiteMimeType } from ".";
+import { Imports, KnownCapabilities, KnownOutputs, Model } from ".";
+import { TensorFlowLiteMimeType } from "./builtin";
 
 type CapabilityInfo = {
     capabilityType: number,
@@ -23,9 +21,11 @@ type ModelInfo = {
 
 type Parameters = {
     [capabilityId: number]: CapabilityInfo,
-    modelid: number,
 }
 
+/**
+ * Public interface exposed by the WebAssembly module.
+ */
 interface Exports extends WebAssembly.Exports {
     memory: WebAssembly.Memory;
     _manifest(): void;
@@ -41,17 +41,16 @@ export class Runtime {
         this.parameters = params;
     }
 
-    static async load(wasm: ArrayBuffer, imports: Imports, modelConstructor: ModelConstructor = loadTensorflowJSModel) {
+    static async load(wasm: ArrayBuffer, imports: Imports) {
         let parameters = {
             modelid: 0,
         };
         let memory: WebAssembly.Memory;
 
-        const { hostFunctions, finaliseModels, getParams, id } = importsToHostFunctions(
+        const { hostFunctions, finaliseModels } = importsToHostFunctions(
             imports,
             () => memory,
             () => parameters,
-            modelConstructor,
         );
         const { instance } = await WebAssembly.instantiate(wasm, hostFunctions);
 
@@ -113,13 +112,13 @@ function constructFromNameTable<T>(
     return [instances, create];
 }
 
-type ModelConstructor = (mimetype: string, model: ArrayBuffer, p?: Parameters) => Promise<Model>;
-
+/**
+ * Generate a bunch of host functions backed by the supplied @param imports.
+ */
 function importsToHostFunctions(
     imports: Imports,
     getMemory: () => WebAssembly.Memory,
     getParameters: () => Parameters,
-    modelConstructor: ModelConstructor,
 ) {
     const memory = () => {
         const m = getMemory();
@@ -188,7 +187,6 @@ function importsToHostFunctions(
             const keyBytes = memory().subarray(keyPtr, keyPtr + keyLength);
             const key = decoder.decode(keyBytes);
             const value = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
-            const valueTypeName = KnownOutputs[valueType];
             const p = parameters();
             p[id].parameters[key] = convertTypedArray(value, Int32Array);
         },
@@ -202,15 +200,16 @@ function importsToHostFunctions(
 
             cap.generate(dest, id);
         },
-        async tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
+        tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
             const modelData = memory().subarray(data, data + len);
-            const pending = modelConstructor(TensorFlowLiteMimeType, modelData, getParameters());
+            const handler = imports.modelHandlers[TensorFlowLiteMimeType];
+            const pending = handler(modelData);
             const id = ids();
             pendingModels.push(pending.then(model => [id, model]));
             modelsDescription[id] = { "id": id, "modelSize": len };
             return id;
         },
-        async rune_model_load(mimetype: number, mimetype_len: number, model: number, model_len: number, input_descriptors: number, input_len: number, output_descriptors: number, output_len: number) {
+        rune_model_load(mimetype: number, mimetype_len: number, model: number, model_len: number, input_descriptors: number, input_len: number, output_descriptors: number, output_len: number) {
             const mime = decoder.decode(memory().subarray(mimetype, mimetype + mimetype_len));
             const model_data = memory().subarray(model, model + model_len);
             //inputs
@@ -232,7 +231,11 @@ function importsToHostFunctions(
                 outputs.push({ "dimensions": outputs_string });
             }
 
-            const pending = modelConstructor(mime, model_data);
+            const handler = imports.modelHandlers[mime];
+            if (!handler) {
+                throw new Error(`No handler registered for model type, "${mime}"`);
+            }
+            const pending = handler(model_data);
             const id = ids();
 
             pendingModels.push(pending.then(model => [id, model]));
@@ -266,7 +269,6 @@ function importsToHostFunctions(
                 outputDimensions.push(dimensions);
             }
             model.transform(inputArray, inputDimensions, outputArray, outputDimensions);
-            parameters().modelid++;
             return id;
         },
 
@@ -279,7 +281,6 @@ function importsToHostFunctions(
             const output = memory().subarray(outputPtr, outputPtr + outputLen);
             //for backwards compatibility with older runes using single input/output tfm_model_invoke
             transformSingleModel(model, input, output, parameters()[Object.keys(parameters()).length - 2]);
-            parameters().modelid++;
             return id;
         },
     };
@@ -294,8 +295,6 @@ function importsToHostFunctions(
     return {
         hostFunctions: { env },
         finaliseModels: synchroniseModelLoading,
-        getParams: parameters,
-        id: models,
     };
 }
 
@@ -311,117 +310,9 @@ function isRuneExports(obj: any): obj is Exports {
         obj._manifest instanceof Function);
 }
 
-class TensorFlowModel implements Model {
-    private model: InferenceModel;
-
-    constructor(model: InferenceModel) {
-        this.model = model;
-    }
-
-    static async loadTensorFlow(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const decoder = new TextDecoder("utf16");
-        let decoded = decodeURIComponent(escape(decoder.decode(buffer)));
-
-        await modelToIndexedDB(decoded);
-        const model_name = "imagenet_mobilenet_v3";
-        const model = await tf.loadGraphModel('indexeddb://' + model_name);
-
-        return new TensorFlowModel(model);
-    }
-
-    static async loadTensorFlowLite(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const model = await loadTFLiteModel(buffer);
-        return new TensorFlowModel(model);
-    }
-
-    transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
-        const inputs = toTensors(inputArray, inputDimensions);
-        const outputs = this.model.predict(inputs, {}) as tf.Tensor[];
-
-        for (let i = 0; i <= outputArray.length; i++) {
-            const output = outputs[i];
-            const dest = outputArray[i];
-            dest.set(output.dataSync());
-        }
-    }
-}
 
 function transformSingleModel(model: Model, input: Uint8Array, output: Uint8Array, parameters: CapabilityInfo) {
-    throw new Error();
-    // //for backwards compatibility with older runes using single input/output tfm_model_invoke
-    // if (parameters["capability"] == "image") {
-    //     var inputTyped = convertTypedArray(input, Uint8Array);
-
-    //     //pub enum PixelFormat
-    //     if (parameters["parameters"]["pixel_format"] == 2) {
-    //         //GrayScale =  3
-    //         input = tf.tensor2d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"]]).expandDims(0);
-    //     } else {
-    //         //RGB = 0,
-    //         //BGR = 1,
-    //         //YUV = 2,
-    //         input = tf.tensor3d(inputTyped, [parameters["parameters"]["width"], parameters["parameters"]["height"], 3]).expandDims(0);
-    //     }
-    // } else {
-    //     input = convertTypedArray(input, Uint8Array);
-    // }
-
-    // const out = model.predict(input);
-    // const result = out.dataSync();
-
-    // var uint8_output = convertTypedArray(result, Uint8Array);
-    // output.set(result);
-}
-
-function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
-    const tensors = [];
-
-    for (let i = 0; i <= buffers.length; i++) {
-        const buffer = buffers[i];
-        const shape = shapes[i];
-        const arr = toTypedArray(shape.type, buffer);
-        tensors.push(tf.tensor(arr, shape.values));
-    }
-
-    return tensors;
-}
-
-function toTypedArray(typeName: string, data: ArrayBuffer): any {
-    switch (typeName) {
-        case "f64":
-            return new Float64Array(data);
-        case "f32":
-            return new Float32Array(data);
-        case "i64":
-            return new BigInt64Array(data);
-        case "i32":
-            return new Int32Array(data);
-        case "i16":
-            return new Int16Array(data);
-        case "i8":
-            return new Int16Array(data);
-        case "u64":
-            return new BigUint64Array(data);
-        case "u32":
-            return new Uint32Array(data);
-        case "u16":
-            return new Uint16Array(data);
-        case "u8":
-            return new Uint8Array(data);
-        default:
-            throw new Error(`Unknown tensor type: ${typeName}`);
-    }
-}
-
-async function loadTensorflowJSModel(mimetype: string, bytes: ArrayBuffer, parameters?: Parameters): Promise<Model> {
-    // FIXME: figure out how to determine whether something is tflite or not
-    const useTflite = true;
-
-    if (useTflite) {
-        return await TensorFlowModel.loadTensorFlowLite(bytes);
-    } else {
-        return await TensorFlowModel.loadTensorFlow(bytes);
-    }
+    throw new Error(`Unable to do inference with this model. Please rebuild the Rune with "rune v0.5"`);
 }
 
 interface TypedArray extends ArrayBuffer {
@@ -436,37 +327,3 @@ function convertTypedArray<T>(src: TypedArray, constructor: any): T {
     return buffer[0] as T;
 }
 
-
-async function modelToIndexedDB(model_bytes: string) {
-    var data = JSON.parse(LZString.decompressFromUTF16(model_bytes)!);
-    var DBOpenRequest = window.indexedDB.open("tensorflowjs", 1);
-    let successes = 0;
-    DBOpenRequest.onupgradeneeded = function (event) {
-        const db = DBOpenRequest.result;
-        var objectStore = db.createObjectStore("models_store", {
-            "keyPath": "modelPath"
-        });
-        var objectInfoStore = db.createObjectStore("model_info_store", {
-            "keyPath": "modelPath"
-        });
-
-    }
-    DBOpenRequest.onsuccess = function (event) {
-        const db = DBOpenRequest.result;
-        data.models_store.modelArtifacts.weightData = new Uint32Array(data.weightData).buffer;
-        var objectStore = db.transaction("models_store", "readwrite").objectStore("models_store");
-        var objectStoreRequest = objectStore.put(data["models_store"]);
-        objectStoreRequest.onsuccess = function (event) {
-            successes++;
-        }
-        var objectInfoStore = db.transaction("model_info_store", "readwrite").objectStore("model_info_store");
-        var objectInfoStoreRequest = objectInfoStore.put(data["model_info_store"]);
-        objectInfoStoreRequest.onsuccess = function (event) {
-            successes++;
-        }
-    }
-    while (successes < 2) {
-        await new Promise(r => setTimeout(r, 100));
-    }
-    return true;
-}

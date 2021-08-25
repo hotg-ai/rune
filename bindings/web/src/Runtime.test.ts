@@ -21,6 +21,7 @@ describe.skip("Runtime", () => {
             outputs: {
                 serial: () => new SpyOutput(calls),
             },
+            modelHandlers: {},
         };
 
         const runtime = await Runtime.load(noopRune, imports);

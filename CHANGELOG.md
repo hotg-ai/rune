@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Users of the web runtime are now able to provide custom model handlers
+  (e.g. if you want to use your own ML framework)
+
 ## [0.6.0] - 2021-08-23
 
 ### Added

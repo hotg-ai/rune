@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "prepublish": "tsc",
+    "build": "tsc",
     "watch": "tsc --watch",
     "watch:test": "jest --watch",
     "test": "jest"
