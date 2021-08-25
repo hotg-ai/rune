@@ -303,34 +303,6 @@ impl From<Vec<Value>> for Value {
     fn from(list: Vec<Value>) -> Value { Value::List(list) }
 }
 
-impl From<Value> for ArgumentValue {
-    fn from(v: Value) -> ArgumentValue {
-        match v {
-            Value::Int(i) => {
-                ArgumentValue::Literal(Literal::new(i as i64, Span::new(0, 0)))
-            },
-            Value::Float(f) => {
-                ArgumentValue::Literal(Literal::new(f, Span::new(0, 0)))
-            },
-            Value::String(s) => {
-                ArgumentValue::Literal(Literal::new(s, Span::new(0, 0)))
-            },
-            Value::List(list) => {
-                let mut items = Vec::new();
-                for item in list {
-                    if let Value::String(s) = item {
-                        items.push(s.clone());
-                    } else {
-                        unimplemented!();
-                    }
-                }
-
-                ArgumentValue::List(items)
-            },
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
 pub struct Input {
     pub name: String,
@@ -399,53 +371,6 @@ impl<'de> Deserialize<'de> for Input {
         let raw = Cow::<str>::deserialize(deserializer)?;
         Input::from_str(&raw).map_err(|e| D::Error::custom(e.to_string()))
     }
-}
-
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case", untagged)]
-pub enum ArgumentValue {
-    Literal(Literal),
-    List(Vec<String>),
-}
-
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct Literal {
-    pub kind: LiteralKind,
-    pub span: Span,
-}
-
-impl Literal {
-    pub fn new(kind: impl Into<LiteralKind>, span: Span) -> Self {
-        Literal {
-            kind: kind.into(),
-            span,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "type", content = "value")]
-pub enum LiteralKind {
-    Integer(i64),
-    Float(f32),
-    String(String),
-}
-
-impl From<i64> for LiteralKind {
-    fn from(other: i64) -> Self { LiteralKind::Integer(other) }
-}
-
-impl From<f32> for LiteralKind {
-    fn from(other: f32) -> Self { LiteralKind::Float(other) }
-}
-
-impl<'a> From<&'a str> for LiteralKind {
-    fn from(other: &'a str) -> Self { LiteralKind::String(other.to_string()) }
-}
-
-impl From<String> for LiteralKind {
-    fn from(other: String) -> Self { LiteralKind::String(other) }
 }
 
 #[cfg(test)]
