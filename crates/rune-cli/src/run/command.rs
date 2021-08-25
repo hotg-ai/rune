@@ -7,7 +7,6 @@ use crate::run::{
     image::ImageSource, multi::SourceBackedCapability, new_capability_switcher,
     runecoral_inference, sound::AudioClip,
 };
-use hotg_rune_wasmer_runtime::Runtime;
 use hotg_runicos_base_runtime::{BaseImage, CapabilityFactory, Random};
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
@@ -55,6 +54,11 @@ pub struct Run {
         help = "The librunecoral.so library to use for hardware acceleration"
     )]
     librunecoral: Option<PathBuf>,
+    #[structopt(
+        long,
+        help = "Use the wasm3 WebAssembly engine instead of Wasmer"
+    )]
+    wasm3: bool,
 }
 
 impl Run {
@@ -69,14 +73,28 @@ impl Run {
             .initialize_image()
             .context("Unable to initialize the environment")?;
 
-        let mut runtime = Runtime::load(&rune, env)
-            .context("Unable to initialize the virtual machine")?;
+        if self.wasm3 {
+            let mut runtime =
+                hotg_rune_wasm3_runtime::Runtime::load(&rune, env)
+                    .context("Unable to initialize the virtual machine")?;
 
-        for i in 0..self.repeats {
-            if i > 0 {
-                log::info!("Call {}", i + 1);
+            for i in 0..self.repeats {
+                if i > 0 {
+                    log::info!("Call {}", i + 1);
+                }
+                runtime.call().context("Call failed")?;
             }
-            runtime.call().context("Call failed")?;
+        } else {
+            let mut runtime =
+                hotg_rune_wasmer_runtime::Runtime::load(&rune, env)
+                    .context("Unable to initialize the virtual machine")?;
+
+            for i in 0..self.repeats {
+                if i > 0 {
+                    log::info!("Call {}", i + 1);
+                }
+                runtime.call().context("Call failed")?;
+            }
         }
 
         Ok(())

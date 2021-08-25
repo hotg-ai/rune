@@ -1123,6 +1123,7 @@ dependencies = [
  "hotg-rune-core",
  "hotg-rune-runtime",
  "hotg-rune-syntax",
+ "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "hotg-runecoral",
  "hotg-runicos-base-runtime",
@@ -1297,12 +1298,14 @@ dependencies = [
  "anyhow",
  "hotg-rune-core",
  "hotg-rune-runtime",
+ "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "log",
  "rand 0.8.4",
  "serde_json",
  "syn",
  "tflite",
+ "wasm3",
  "wasmer",
  "wasmer-vm",
 ]
@@ -3150,9 +3153,9 @@ checksum = "2e0c4a743a309662d45f4ede961d7afa4ba4131a59a639f29b0069c3798bbcc2"
 
 [[package]]
 name = "wasm3"
-version = "0.1.3"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5f9fc9fdf59d4bb3f73c5185c8d98c42c4d65c1cb6b1251068231cd73bb6b92"
+checksum = "a139bdde910901a80d0bbe2892fb3206515e5aa926f96c8e5fd0e7bfe35b2c6e"
 dependencies = [
  "cty",
  "wasm3-sys",

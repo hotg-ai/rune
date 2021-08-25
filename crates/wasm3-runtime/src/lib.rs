@@ -23,8 +23,6 @@ impl<T> Wasm3ResultExt<T> for Result<T, wasm3::error::Error> {
 #[derive(Debug)]
 pub struct Runtime {
     rt: wasm3::Runtime,
-    // XXX must be dropped after `rt` for soundness!
-    wasm: Vec<u8>,
 }
 
 impl Runtime {
@@ -33,11 +31,7 @@ impl Runtime {
         I: for<'a> Image<Registrar<'a>>,
     {
         let env = Environment::new().to_anyhow()?;
-        // XXX note that `ParsedModule::parse` has a soundness bug! `wasm` needs
-        // to outlive `module` to avoid it. We heap-allocate it to ensure that.
-        // (https://github.com/wasm3/wasm3-rs/issues/25)
-        let wasm = wasm.to_vec();
-        let module = ParsedModule::parse(&env, &wasm).to_anyhow()?;
+        let module = ParsedModule::parse(&env, wasm).to_anyhow()?;
 
         let rt = env.create_runtime(STACK_SIZE).to_anyhow()?;
 
@@ -56,7 +50,7 @@ impl Runtime {
 
         log::debug!("Loaded the Rune");
 
-        Ok(Runtime { rt, wasm })
+        Ok(Runtime { rt })
     }
 
     pub fn call(&mut self) -> Result<(), Error> {
@@ -94,11 +88,22 @@ impl<'m> Registrar<'m> {
     where
         Args: WasmArgs,
         Ret: WasmType,
-        F: for<'cc> FnMut(&'cc CallContext, Args) -> Ret + 'static,
+        F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
     {
-        self.module
-            .link_closure(namespace, name, f)
-            .expect("wasm3 link_closure failed");
+        match self.module.link_closure(namespace, name, f) {
+            Ok(()) => {},
+            Err(wasm3::error::Error::FunctionNotFound) => {
+                // This error occurs when we try to link a function into the
+                // program that the program doesn't import. We
+                // just ignore that error here, since that is fine.
+            },
+            Err(e) => {
+                panic!(
+                    "wasm3 register_function failed for `{}::{}`: {}",
+                    namespace, name, e
+                );
+            },
+        }
         self
     }
 }

@@ -1,5 +1,4 @@
 use std::{
-    mem,
     process::Command,
     sync::{
         Arc,
@@ -74,8 +73,5 @@ where
 
     let raw = std::fs::read(&dest)?;
     let rt = Runtime::load(&raw, image)?;
-    // FIXME: work around soundness bug by leaking the raw WASM bytecode
-    // (https://github.com/wasm3/wasm3-rs/issues/25)
-    mem::forget(raw);
     Ok(rt)
 }

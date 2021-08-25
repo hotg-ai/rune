@@ -18,6 +18,7 @@ anyhow = "1.0.40"
 hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.6.1-dev", features = ["std"] }
 hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.6.1-dev", features = ["builtins"] }
 hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "^0.6.1-dev"}
+hotg-rune-wasm3-runtime = { path = "../../../crates/wasm3-runtime", version = "^0.6.1-dev"}
 log = "0.4.14"
 rand = "0.8.4"
 serde_json = { version = "1" }
@@ -25,6 +26,7 @@ serde_json = { version = "1" }
 tflite = { version = "0.9.5", optional = true }
 wasmer = "2.0.0"
 wasmer-vm = "2.0.0"
+wasm3 = "0.2.0"
 
 [features]
 default = ["tflite"]
