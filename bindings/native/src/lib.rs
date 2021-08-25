@@ -4,8 +4,8 @@
 mod result;
 mod error;
 mod image;
-#[cfg(feature = "wasmer-runtime")]
-pub mod wasmer_runtime;
+#[cfg(any(feature = "wasmer-runtime", feature = "wasm3-runtime"))]
+pub mod wasm_runtime;
 
 #[allow(unused_imports)]
 use std::ops::Not;

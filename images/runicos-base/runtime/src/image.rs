@@ -1,4 +1,7 @@
+#[cfg(feature = "wasm3-runtime")]
 mod wasm3_impl;
+
+#[cfg(feature = "wasmer-runtime")]
 mod wasmer_impl;
 
 use std::{
