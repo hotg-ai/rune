@@ -16,7 +16,11 @@ pub fn analyse(doc: &Document, diags: &mut Diagnostics) -> Rune {
     let mut ctx = Context::new(diags);
 
     match doc {
-        Document::V1 { image, pipeline } => {
+        Document::V1 {
+            image,
+            pipeline,
+            resources: _,
+        } => {
             ctx.rune.base_image = Some(image.clone().into());
 
             ctx.register_stages(&pipeline);
@@ -431,6 +435,7 @@ pipeline:
                     outputs: vec![ty!(i8[6])],
                 },
             },
+            resources: map![],
         };
 
         let got = Document::parse(src).unwrap();
@@ -467,13 +472,13 @@ pipeline:
         let inputs = vec![
             ("42", Value::Int(42)),
             ("3.14", Value::Float(3.14)),
-            ("\"42\"", Value::String(String::from("42"))),
+            ("\"42\"", Value::String("42".into())),
             (
                 "[1, 2.0, \"asdf\"]",
                 Value::List(vec![
                     Value::Int(1),
                     Value::Float(2.0),
-                    Value::String(String::from("asdf")),
+                    Value::String("asdf".into()),
                 ]),
             ),
         ];
@@ -573,6 +578,7 @@ pipeline:
                     args: IndexMap::default(),
                 }
             },
+            resources: map![],
         }
     }
 
@@ -661,6 +667,7 @@ pipeline:
                     args: IndexMap::new(),
                 },
             },
+            resources: map![],
         };
         let mut diags = Diagnostics::new();
 
