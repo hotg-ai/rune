@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display, path::Path};
 use anyhow::{Error, Context};
 use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
@@ -6,10 +6,10 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE};
 use hotg_rune_syntax::{
     hir::{
-        HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
-        SourceKind, Stage, Type,
+        HirId, ModelFile, Node, Primitive, ProcBlock, Rune, Sink, SinkKind,
+        Slot, Source, SourceKind, Stage, Type,
     },
-    yaml::Value,
+    yaml::{ResourceOrString, Value},
 };
 use serde::Serialize;
 
@@ -20,16 +20,73 @@ pub fn generate(
 ) -> Result<String, Error> {
     let image_crate = quote!(hotg_runicos_base_wasm);
     let preamble = preamble(rune, build_info)?;
+    let resources = declare_resources(rune);
     let manifest = manifest_function(rune, &image_crate);
     let call = call();
 
     let tokens = quote! {
         #preamble
+        #resources
         #manifest
         #call
     };
 
     Ok(tokens.to_token_stream().to_string())
+}
+
+fn declare_resources(rune: &Rune) -> TokenStream {
+    let mut initializers = Vec::new();
+
+    for (id, resource) in &rune.resources {
+        let name = rune.names.get_name(*id).unwrap();
+        let variable = resource_variable(name);
+
+        let unable_to_load =
+            format!("Unable to load the \"{}\" resource", name);
+
+        let t = match resource.ty {
+            hotg_rune_syntax::yaml::ResourceType::String => quote! {
+                    static ref #variable: String = {
+                        let raw = load_resource(#name) .expect(#unable_to_load);
+                        String::from_utf8(raw)
+                            .expect(concat!("The \"", #name, "\" resource wasn't a valid UTF-8 string"))
+                };
+            },
+            hotg_rune_syntax::yaml::ResourceType::Binary => quote! {
+                static ref #variable: Vec<u8> = load_resource(#name).expect(#unable_to_load);
+            },
+        };
+        initializers.push(t);
+    }
+
+    for (id, model) in rune.models() {
+        let name = rune.names.get_name(id).unwrap();
+        let variable = resource_variable(name);
+
+        if let ModelFile::FromDisk(path) = &model.model_file {
+            let path = Path::new("models").join(path.file_name().unwrap());
+            let path = path.display().to_string();
+
+            initializers.push(quote! {
+                static ref #variable: &'static [u8] = include_bytes!(#path);
+            })
+        }
+    }
+
+    if initializers.is_empty() {
+        TokenStream::new()
+    } else {
+        quote! {
+            lazy_static! {
+                #( #initializers )*
+            }
+        }
+    }
+}
+
+fn resource_variable(name: impl Display) -> Ident {
+    let name = name.to_string().replace("-", "_").to_uppercase();
+    Ident::new(&name, Span::call_site())
 }
 
 fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
@@ -283,7 +340,8 @@ fn initialize_model(
     node: &Node,
     image_crate: &TokenStream,
 ) -> TokenStream {
-    let model_file = format!("{}.tflite", name);
+    let model_variable = resource_variable(&name);
+
     let inputs = node
         .input_slots
         .iter()
@@ -300,7 +358,7 @@ fn initialize_model(
     quote! {
         let mut #name = #image_crate::Model::load(
             #TFLITE_MIMETYPE,
-            include_bytes!(#model_file),
+            &#model_variable,
             &[ #(#inputs),* ],
             &[ #(#outputs),* ],
         );
@@ -411,7 +469,7 @@ fn quote_value(value: &Value) -> TokenStream {
     match value {
         Value::Int(i) => quote!(#i),
         Value::Float(f) => quote!(#f),
-        Value::String(s) if s.starts_with('@') => {
+        Value::String(ResourceOrString::String(s)) if s.starts_with('@') => {
             let rust_code = &s[1..];
             match rust_code.parse() {
                 Ok(tokens) => tokens,
@@ -423,7 +481,11 @@ fn quote_value(value: &Value) -> TokenStream {
                 ),
             }
         },
-        Value::String(s) => quote!(#s),
+        Value::String(ResourceOrString::String(s)) => quote!(#s),
+        Value::String(ResourceOrString::Resource(resource)) => {
+            let variable = resource_variable(resource);
+            quote!(&#variable)
+        },
         Value::List(list) => {
             let values = list.iter().map(quote_value);
             quote!([#(#values),*])
@@ -493,6 +555,9 @@ fn preamble(
         #![allow(unused_imports, dead_code)]
 
         extern crate alloc;
+
+        #[macro_use]
+        extern crate lazy_static;
 
         use alloc::boxed::Box;
         use hotg_rune_core::*;
@@ -685,7 +750,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 "application/tflite-model",
-                include_bytes!("sine.tflite"),
+                &SINE,
                 &[hotg_rune_core::Shape::new(
                     hotg_rune_core::reflect::Type::f32,
                     [1usize].as_ref()
@@ -1016,7 +1081,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 #TFLITE_MIMETYPE,
-                include_bytes!("sine.tflite"),
+                &SINE,
                 &[
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::u8, [18000usize].as_ref()),
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::f32, [1usize].as_ref())
@@ -1027,6 +1092,58 @@ mod tests {
                 ],
             );
         };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn initialize_resources_and_models() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+        version: 1
+
+        pipeline:
+          random:
+            capability: RAND
+            outputs:
+            - type: u8
+              dimensions: [1]
+          sine:
+            model: ./sine.tflite
+            inputs:
+            - random
+            outputs:
+              - type: u8
+                dimensions: [1]
+          second-sine:
+            model: $SINE_MODEL
+            inputs:
+            - sine
+            outputs:
+              - type: u8
+                dimensions: [1]
+          debug:
+            out: SERIAL
+            inputs:
+              - second-sine
+        resources:
+          SINE_MODEL:
+            path: ./sine.tflite
+            type: binary
+        "#,
+        );
+
+        let got = declare_resources(&rune);
+
+        let should_be = quote! {
+            lazy_static! {
+                static ref SINE_MODEL: Vec<u8> = load_resource("SINE_MODEL")
+                    .expect("Unable to load the \"SINE_MODEL\" resource");
+                static ref SINE: &'static [u8] = include_bytes!("models/sine.tflite");
+            }
+        };
+
+        dbg!(got.to_string());
         assert_quote_eq!(got, should_be);
     }
 }

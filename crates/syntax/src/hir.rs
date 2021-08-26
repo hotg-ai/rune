@@ -11,7 +11,7 @@ use std::{
 };
 use codespan::Span;
 use indexmap::IndexMap;
-use crate::yaml::{Path, Value};
+use crate::yaml::{Path, ResourceName, ResourceType, Value};
 
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -24,6 +24,7 @@ pub struct Rune {
     pub types: IndexMap<HirId, Type>,
     pub names: NameTable,
     pub spans: IndexMap<HirId, Span>,
+    pub resources: IndexMap<HirId, Resource>,
 }
 
 impl Rune {
@@ -321,7 +322,15 @@ impl<'a> From<&'a str> for SinkKind {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
-    pub model_file: PathBuf,
+    pub model_file: ModelFile,
+}
+
+/// Where to load a model from.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ModelFile {
+    FromDisk(PathBuf),
+    Resource(ResourceName),
 }
 
 #[derive(
@@ -547,4 +556,23 @@ pub struct Slot {
     pub element_type: HirId,
     pub input_node: HirId,
     pub output_node: HirId,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Resource {
+    pub source: Option<ResourceSource>,
+    pub ty: ResourceType,
+}
+
+impl Resource {
+    pub fn span(&self) -> Span {
+        // TODO: Get span from serde_yaml
+        Span::new(0, 0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum ResourceSource {
+    Inline(String),
+    FromDisk(PathBuf),
 }

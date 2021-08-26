@@ -12,7 +12,7 @@ use serde::{
     ser::{Serialize, Serializer},
 };
 use codespan::Span;
-use crate::hir;
+use crate::hir::{self, ModelFile};
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -165,7 +165,7 @@ impl std::error::Error for PathParseError {}
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
     Model {
-        model: String,
+        model: ResourceOrString,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         inputs: Vec<Input>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -243,7 +243,12 @@ impl From<Stage> for hir::Stage {
     fn from(s: Stage) -> hir::Stage {
         match s {
             Stage::Model { model, .. } => hir::Stage::Model(hir::Model {
-                model_file: model.into(),
+                model_file: match model {
+                    ResourceOrString::Resource(r) => ModelFile::Resource(r),
+                    ResourceOrString::String(s) => {
+                        ModelFile::FromDisk(s.into())
+                    },
+                },
             }),
             Stage::ProcBlock {
                 proc_block, args, ..
@@ -443,15 +448,17 @@ impl<'de> Deserialize<'de> for Input {
 #[serde(deny_unknown_fields)]
 pub struct ResourceDeclaration {
     /// A resource who's default value is specified inline.
-    inline: Option<String>,
+    pub inline: Option<String>,
     /// A resource who's default value is meant to be loaded from a file.
-    path: Option<String>,
+    pub path: Option<String>,
     #[serde(rename = "type", default)]
-    ty: ResourceType,
+    pub ty: ResourceType,
 }
 
 /// How the resource should be treated inside the Rune.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum ResourceType {
     /// The resource should be treated like as a `&str`.
