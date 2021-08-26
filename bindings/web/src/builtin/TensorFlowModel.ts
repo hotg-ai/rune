@@ -1,11 +1,13 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import tf, { InferenceModel, Tensor } from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs";
+import { InferenceModel, Tensor } from "@tensorflow/tfjs";
 import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "..";
 import Shape from "../Shape";
 
 // Explicitly pull in the CPU backend
 import '@tensorflow/tfjs-backend-cpu';
+interface Window { input: any; output: any; }
 
 export class TensorFlowModel implements Model {
     private model: InferenceModel;
@@ -26,28 +28,24 @@ export class TensorFlowModel implements Model {
     }
 
     static async loadTensorFlowLite(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const model = await loadTFLiteModel(buffer);
+        const model = await loadTFLiteModel(buffer.slice(0));
         return new TensorFlowModel(model);
     }
 
-    transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
-        const inputs = toTensors(inputArray, inputDimensions);
-        const outputs = this.model.predict(inputs, {}) as tf.Tensor[];
-
-        for (let i = 0; i <= outputArray.length; i++) {
-            const output = outputs[i];
-            const dest = outputArray[i];
-            dest.set(output.dataSync());
-        }
+    transform(inputArrays: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
+        const inputs = toTensors(inputArrays, inputDimensions);
+        const output = this.model.predict(inputs, {});
+        const result = output.dataSync();
+        outputArray[0].set(result);
     }
 }
 
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     const tensors = [];
-
-    for (let i = 0; i <= buffers.length; i++) {
+    for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         const shape = shapes[i];
+        console.log(i, shape);
         const arr = toTypedArray(shape.type, buffer);
         tensors.push(tf.tensor(arr, shape.values));
     }

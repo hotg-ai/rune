@@ -1,3 +1,4 @@
+
 import Shape from "./Shape";
 import { Imports, KnownCapabilities, KnownOutputs, Model } from ".";
 import { TensorFlowLiteMimeType } from "./builtin";
@@ -35,7 +36,7 @@ interface Exports extends WebAssembly.Exports {
 export class Runtime {
     parameters: Parameters;
     instance: WebAssembly.Instance;
-
+    input: any;
     constructor(instance: WebAssembly.Instance, params: Parameters) {
         this.instance = instance;
         this.parameters = params;
@@ -188,7 +189,7 @@ function importsToHostFunctions(
             const key = decoder.decode(keyBytes);
             const value = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
             const p = parameters();
-            p[id].parameters[key] = convertTypedArray(value, Int32Array);
+            p[id + 1].parameters[key] = convertTypedArray<Int32Array>(value, Int32Array)[0];
         },
 
         request_provider_response(buffer: number, len: number, id: number) {
@@ -197,7 +198,6 @@ function importsToHostFunctions(
                 throw new Error("Invalid capability");
             }
             const dest = memory().subarray(buffer, buffer + len);
-
             cap.generate(dest, id);
         },
         tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
@@ -246,7 +246,6 @@ function importsToHostFunctions(
         async rune_model_infer(id: number, inputs: number, outputs: number) {
             const model = models[id];
             let modelsDes = modelsDescription[id];
-
             let inputArray = [];
             let inputDimensions = [];
 
@@ -322,8 +321,5 @@ interface TypedArray extends ArrayBuffer {
 //this function can convert any TypedArray to any other kind of TypedArray :
 function convertTypedArray<T>(src: TypedArray, constructor: any): T {
     // Instantiate a buffer (zeroed out) and copy the bytes from "src" into it.
-    const buffer = new constructor(src.byteLength);
-    buffer.set(src.buffer);
-    return buffer[0] as T;
+    return new constructor(src.buffer) as T;
 }
-
