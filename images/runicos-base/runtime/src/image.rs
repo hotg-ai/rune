@@ -1,20 +1,20 @@
+#[cfg(feature = "wasm3-runtime")]
 mod wasm3_impl;
+
+#[cfg(feature = "wasmer-runtime")]
 mod wasmer_impl;
 
 use std::{
     cell::Cell,
     collections::HashMap,
-    convert::TryInto,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicU32, Ordering},
     },
 };
 use log::{Level, Record};
-use anyhow::{Context, Error};
-use hotg_rune_core::{
-    SerializableRecord, Shape, capabilities, outputs, TFLITE_MIMETYPE,
-};
+use anyhow::Error;
+use hotg_rune_core::{Shape, capabilities, outputs, TFLITE_MIMETYPE};
 use hotg_rune_runtime::{Capability, Output, common_outputs::Serial};
 
 use crate::random::Random;

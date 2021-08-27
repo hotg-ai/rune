@@ -1196,6 +1196,7 @@ dependencies = [
  "build-info-build",
  "hotg-rune-core",
  "hotg-rune-runtime",
+ "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "hotg-runicos-base-runtime",
  "log",
