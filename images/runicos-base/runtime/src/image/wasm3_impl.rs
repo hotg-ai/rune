@@ -1,7 +1,7 @@
 use std::{fmt, marker::PhantomData, mem, slice, str::Utf8Error};
 
 use hotg_rune_runtime::Image;
-use wasm3::CallContext;
+use wasm3::{CallContext, error::Trap};
 use hotg_rune_wasm3_runtime::Registrar;
 
 use super::*;
@@ -143,15 +143,11 @@ impl WasmPtr<u8, Array> {
 
 struct RuntimeError(anyhow::Error);
 
-fn res(res: Result<u32, RuntimeError>) -> u32 {
-    match res {
-        Ok(val) => val,
-        Err(e) => {
-            // TODO figure out how to propagate this
-            log::error!("{}", e.0);
-            u32::MAX
-        },
-    }
+fn res(res: Result<u32, RuntimeError>) -> Result<u32, Trap> {
+    res.map_err(|e| {
+        log::error!("{}", e.0);
+        Trap::Abort
+    })
 }
 
 macro_rules! hostfn_wrappers {
@@ -165,7 +161,7 @@ macro_rules! hostfn_wrappers {
             fn $hostfn_name<Env $(, $name)*>(
                 f: fn(CallContext<'_>, &Env $(, $name)*) -> Result<u32, RuntimeError>,
                 env: Env,
-            ) -> impl FnMut(CallContext<'_>, ($($name,)*)) -> u32 {
+            ) -> impl FnMut(CallContext<'_>, ($($name,)*)) -> Result<u32, Trap> {
                 move |cc, ($($name,)*)| res(f(cc, &env $(, $name)*))
             }
         )+

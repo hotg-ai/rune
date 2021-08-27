@@ -2,7 +2,7 @@ use anyhow::{anyhow, Error};
 use hotg_rune_runtime::Image;
 use wasm3::{
     CallContext, Environment, Function, Module, ParsedModule, WasmArgs,
-    WasmType,
+    WasmType, error::Trap,
 };
 
 const STACK_SIZE: u32 = 1024 * 16;
@@ -88,7 +88,8 @@ impl<'m> Registrar<'m> {
     where
         Args: WasmArgs,
         Ret: WasmType,
-        F: for<'cc> FnMut(CallContext<'cc>, Args) -> Ret + 'static,
+        F: for<'cc> FnMut(CallContext<'cc>, Args) -> Result<Ret, Trap>
+            + 'static,
     {
         match self.module.link_closure(namespace, name, f) {
             Ok(()) => {},

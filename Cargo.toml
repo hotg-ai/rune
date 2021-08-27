@@ -11,3 +11,4 @@ exclude = ["bindings/web"]
 
 [patch.crates-io]
 serde_yaml = { git = "https://github.com/hotg-ai/serde-yaml", branch = "spans" }
+wasm3 = { git = "https://github.com/wasm3/wasm3-rs.git", rev = "51829c4985fbd7bcc1b52a289f4359617a258589" }
