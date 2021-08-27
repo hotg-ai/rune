@@ -46,6 +46,7 @@ impl Image<Registrar<'_>> for Tracked {
         let calls = self.calls.clone();
         registrar.register_function("env", "tick", move |_, ()| {
             calls.fetch_add(1, Ordering::SeqCst);
+            Ok(())
         });
     }
 }
