@@ -3155,8 +3155,7 @@ checksum = "2e0c4a743a309662d45f4ede961d7afa4ba4131a59a639f29b0069c3798bbcc2"
 [[package]]
 name = "wasm3"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a139bdde910901a80d0bbe2892fb3206515e5aa926f96c8e5fd0e7bfe35b2c6e"
+source = "git+https://github.com/wasm3/wasm3-rs.git?rev=51829c4985fbd7bcc1b52a289f4359617a258589#51829c4985fbd7bcc1b52a289f4359617a258589"
 dependencies = [
  "cty",
  "wasm3-sys",
@@ -3165,11 +3164,11 @@ dependencies = [
 [[package]]
 name = "wasm3-sys"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fed8ddb52050c8cdcf4bc390b053c7031e830354b0cf54c5bdb1ea831c8a7002"
+source = "git+https://github.com/wasm3/wasm3-rs.git?rev=51829c4985fbd7bcc1b52a289f4359617a258589#51829c4985fbd7bcc1b52a289f4359617a258589"
 dependencies = [
  "cc",
  "cty",
+ "shlex 0.1.1",
 ]
 
 [[package]]
