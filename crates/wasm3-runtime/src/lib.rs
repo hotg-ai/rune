@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{anyhow, Error};
 use hotg_rune_runtime::Image;
 use wasm3::{
@@ -44,8 +46,10 @@ impl Runtime {
 
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
-        let manifest: Function<(), i32> =
-            registrar.module.find_function("_manifest").to_anyhow()?;
+        let manifest: Function<(), i32> = registrar
+            .into_module()
+            .find_function("_manifest")
+            .to_anyhow()?;
         manifest.call().to_anyhow()?;
 
         log::debug!("Loaded the Rune");
@@ -72,12 +76,19 @@ impl Runtime {
     }
 }
 
-pub struct Registrar<'m> {
-    module: Module<'m>,
+pub struct Registrar<'m>(RegistrarInner<'m>);
+
+enum RegistrarInner<'m> {
+    Module(Module<'m>),
+    Tracing(HashSet<(String, String)>),
 }
 
 impl<'m> Registrar<'m> {
-    pub fn new(module: Module<'m>) -> Self { Self { module } }
+    pub fn new(module: Module<'m>) -> Self {
+        Self(RegistrarInner::Module(module))
+    }
+
+    pub fn tracing() -> Self { Self(RegistrarInner::Tracing(HashSet::new())) }
 
     pub fn register_function<Args, Ret, F>(
         &mut self,
@@ -91,20 +102,46 @@ impl<'m> Registrar<'m> {
         F: for<'cc> FnMut(CallContext<'cc>, Args) -> Result<Ret, Trap>
             + 'static,
     {
-        match self.module.link_closure(namespace, name, f) {
-            Ok(()) => {},
-            Err(wasm3::error::Error::FunctionNotFound) => {
-                // This error occurs when we try to link a function into the
-                // program that the program doesn't import. We
-                // just ignore that error here, since that is fine.
+        match &mut self.0 {
+            RegistrarInner::Module(module) => match module
+                .link_closure(namespace, name, f)
+            {
+                Ok(()) => {},
+                Err(wasm3::error::Error::FunctionNotFound) => {
+                    // This error occurs when we try to link a function into the
+                    // program that the program doesn't import. We
+                    // just ignore that error here, since that is fine.
+                },
+                Err(e) => {
+                    panic!(
+                        "wasm3 register_function failed for `{}::{}`: {}",
+                        namespace, name, e
+                    );
+                },
             },
-            Err(e) => {
-                panic!(
-                    "wasm3 register_function failed for `{}::{}`: {}",
-                    namespace, name, e
-                );
+            RegistrarInner::Tracing(trace) => {
+                trace.insert((namespace.to_string(), name.to_string()));
             },
         }
+
         self
+    }
+
+    pub fn into_module(self) -> Module<'m> {
+        match self.0 {
+            RegistrarInner::Module(m) => m,
+            RegistrarInner::Tracing(_) => {
+                panic!("called `into_module` on tracing registrar")
+            },
+        }
+    }
+
+    pub fn into_trace(self) -> HashSet<(String, String)> {
+        match self.0 {
+            RegistrarInner::Module(_) => {
+                panic!("called `into_trace` on non-tracing registrar")
+            },
+            RegistrarInner::Tracing(trace) => trace,
+        }
     }
 }
