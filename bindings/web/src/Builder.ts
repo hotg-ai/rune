@@ -17,11 +17,21 @@ export default class Builder {
     private modelHandlers: Partial<Record<string, ModelConstructor>> = {};
     private log: Logger = console.log;
 
+    /**
+     * Set a handler that will be called every time the Rune logs a message.
+     */
     public onDebug(handler: Logger): this {
         this.log = handler;
         return this;
     }
 
+    /**
+     * Add support for a capability.
+     * @param cap The name of the capability type being provided.
+     * @param constructor A function that can construct a new instance of this
+     * capability.
+     * @returns
+     */
     public withCapability<C extends keyof typeof Capabilities>(cap: C, constructor: CapabilityConstructor): this {
         const capabilityType = Capabilities[cap];
         this.capabilities[capabilityType] = constructor;
@@ -29,13 +39,20 @@ export default class Builder {
         return this;
     }
 
+    /**
+     * Add support for a new type of model.
+     * @param mimetype The "mimetype" that specifies which type of model being
+     * handled.
+     * @param constructor A constructor which will load the model.
+     * @returns
+     */
     public withModelHandler(mimetype: string, constructor: ModelConstructor): this {
         this.modelHandlers[mimetype] = constructor;
 
         return this;
     }
 
-    public async build<T = any>(rune: ArrayBuffer | string, postprocess?: (output: any) => T): Promise<() => RuneResult<T>> {
+    public async build<T = any>(rune: ArrayBuffer | string, postprocess?: (output: any) => T): Promise<() => Result<T>> {
         if (typeof rune == "string") {
             const response = await fetch(rune);
             rune = await response.arrayBuffer();
@@ -60,11 +77,11 @@ export default class Builder {
     }
 }
 
-type RuneResult<T = any> = {
-    outputs: Array<RuneOutput<T>>,
+export type Result<T = any> = {
+    outputs: Array<OutputValue<T>>,
 };
 
-type RuneOutput<T> = {
+export type OutputValue<T> = {
     id: number,
     value: T,
 };
