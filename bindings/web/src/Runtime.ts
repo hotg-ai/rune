@@ -1,6 +1,7 @@
 import Shape from "./Shape";
-import { Imports, KnownCapabilities, KnownOutputs, Model } from ".";
+import { Capability, Imports, Model, Output } from ".";
 import { TensorFlowLiteMimeType } from "./builtin";
+import { IdentityInputs } from "@tensorflow/tfjs-core";
 
 type CapabilityInfo = {
     capabilityType: number,
@@ -19,10 +20,6 @@ type ModelInfo = {
     outputs?: TensorDescriptor[],
 };
 
-type Parameters = {
-    [capabilityId: number]: CapabilityInfo,
-}
-
 /**
  * Public interface exposed by the WebAssembly module.
  */
@@ -33,24 +30,18 @@ interface Exports extends WebAssembly.Exports {
 }
 
 export class Runtime {
-    parameters: Parameters;
     instance: WebAssembly.Instance;
 
-    constructor(instance: WebAssembly.Instance, params: Parameters) {
+    constructor(instance: WebAssembly.Instance) {
         this.instance = instance;
-        this.parameters = params;
     }
 
     static async load(wasm: ArrayBuffer, imports: Imports) {
-        let parameters = {
-            modelid: 0,
-        };
         let memory: WebAssembly.Memory;
 
         const { hostFunctions, finaliseModels } = importsToHostFunctions(
             imports,
             () => memory,
-            () => parameters,
         );
         const { instance } = await WebAssembly.instantiate(wasm, hostFunctions);
 
@@ -64,7 +55,7 @@ export class Runtime {
         // now we've asked for all the models to be loaded, let's wait until
         // they are done before continuing
         await finaliseModels();
-        return new Runtime(instance, parameters);
+        return new Runtime(instance);
     }
 
     manifest() {
@@ -87,30 +78,7 @@ export class Runtime {
     }
 }
 
-function constructFromNameTable<T>(
-    nextId: () => number,
-    nameTable: Record<number, string>,
-    constructors: Record<string, (id: number) => T>,
-): [Record<number, T>, (type: number) => number] {
-    const instances: Record<number, any> = {};
-
-    function create(type: number) {
-        const name = nameTable[type];
-        if (!name) {
-            throw new Error(`type ${type} is unknown`);
-        }
-        const constructor = constructors[name];
-        if (!constructor) {
-            throw new Error(`No constructor for type ${type} called \"${name}\"`);
-        }
-
-        const id = nextId();
-        const instance = constructor(id);
-        instances[id] = instance;
-        return id;
-    }
-    return [instances, create];
-}
+type Dict<Key extends keyof any, Value> = Partial<Record<Key, Value>>;
 
 /**
  * Generate a bunch of host functions backed by the supplied @param imports.
@@ -118,7 +86,6 @@ function constructFromNameTable<T>(
 function importsToHostFunctions(
     imports: Imports,
     getMemory: () => WebAssembly.Memory,
-    getParameters: () => Parameters,
 ) {
     const memory = () => {
         const m = getMemory();
@@ -127,17 +94,10 @@ function importsToHostFunctions(
 
         return new Uint8Array(m.buffer);
     };
-    const parameters = () => {
-        const p = getParameters();
-        if (!p)
-            throw new Error("Parameters wasn't initialized");
-
-        return p;
-    };
 
     const ids = counter();
-    const [outputs, createOutput] = constructFromNameTable(ids, KnownOutputs, imports.outputs);
-    const [capabilities, createCapability] = constructFromNameTable(ids, KnownCapabilities, imports.capabilities);
+    const outputs: Dict<number, Output> = {};
+    const capabilities: Dict<number, Capability> = {};
     const pendingModels: Promise<[number, Model]>[] = [];
     const models: Record<number, Model> = {};
     const modelsDescription: Record<number, ModelInfo> = {};
@@ -153,7 +113,11 @@ function importsToHostFunctions(
         },
 
         request_output(type: number) {
-            return createOutput(type);
+            const output = imports.createOutput(type);
+            const id = ids();
+
+            outputs[id] = output;
+            return id;
         },
 
         consume_output(id: number, buffer: number, len: number) {
@@ -168,14 +132,11 @@ function importsToHostFunctions(
         },
 
         request_capability(type: number) {
-            const p = parameters();
-            const id = Object.keys(p).length;
-            p[id] = {
-                capabilityType: type,
-                capability: KnownCapabilities[type],
-                parameters: {},
-            };
-            return createCapability(type);
+            const capability = imports.createCapability(type);
+            const id = ids();
+
+            capabilities[id] = capability;
+            return id;
         },
 
         request_capability_set_param(id: number,
@@ -187,8 +148,16 @@ function importsToHostFunctions(
             const keyBytes = memory().subarray(keyPtr, keyPtr + keyLength);
             const key = decoder.decode(keyBytes);
             const value = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
-            const p = parameters();
-            p[id].parameters[key] = convertTypedArray(value, Int32Array);
+
+            const capability = capabilities[id];
+
+            if (!capability) {
+                throw new Error(`Tried to set "${key}" to ${value} but capability ${id} doesn't exist`);
+            }
+
+            // TODO: use valueType to figure out what type of array to convert to
+            // instead of assuming Int32Array.
+            capability.setParameter(key, convertTypedArray(value, Int32Array));
         },
 
         request_provider_response(buffer: number, len: number, id: number) {
@@ -198,20 +167,12 @@ function importsToHostFunctions(
             }
             const dest = memory().subarray(buffer, buffer + len);
 
-            cap.generate(dest, id);
-        },
-        tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
-            const modelData = memory().subarray(data, data + len);
-            const handler = imports.modelHandlers[TensorFlowLiteMimeType];
-            const pending = handler(modelData);
-            const id = ids();
-            pendingModels.push(pending.then(model => [id, model]));
-            modelsDescription[id] = { "id": id, "modelSize": len };
-            return id;
+            cap.generate(dest);
         },
         rune_model_load(mimetype: number, mimetype_len: number, model: number, model_len: number, input_descriptors: number, input_len: number, output_descriptors: number, output_len: number) {
             const mime = decoder.decode(memory().subarray(mimetype, mimetype + mimetype_len));
             const model_data = memory().subarray(model, model + model_len);
+
             //inputs
             let o = memory().subarray(input_descriptors, input_descriptors + 8 * input_len);
             let inputs = [];
@@ -231,11 +192,7 @@ function importsToHostFunctions(
                 outputs.push({ "dimensions": outputs_string });
             }
 
-            const handler = imports.modelHandlers[mime];
-            if (!handler) {
-                throw new Error(`No handler registered for model type, "${mime}"`);
-            }
-            const pending = handler(model_data);
+            const pending = imports.createModel(mime, model_data);
             const id = ids();
 
             pendingModels.push(pending.then(model => [id, model]));
@@ -273,15 +230,10 @@ function importsToHostFunctions(
         },
 
         tfm_model_invoke(id: number, inputPtr: number, inputLen: number, outputPtr: number, outputLen: number) {
-            const model = models[id];
-            if (!model) {
-                throw new Error("Invalid model");
-            }
-            const input = memory().subarray(inputPtr, inputPtr + inputLen);
-            const output = memory().subarray(outputPtr, outputPtr + outputLen);
-            //for backwards compatibility with older runes using single input/output tfm_model_invoke
-            transformSingleModel(model, input, output, parameters()[Object.keys(parameters()).length - 2]);
-            return id;
+            deprecated("tfm_model_invoke()", "0.5");
+        },
+        tfm_preload_model(data: number, len: number, numInputs: number, numOutputs: number) {
+            deprecated("tfm_preload_model()", "0.5");
         },
     };
 
@@ -311,10 +263,6 @@ function isRuneExports(obj: any): obj is Exports {
 }
 
 
-function transformSingleModel(model: Model, input: Uint8Array, output: Uint8Array, parameters: CapabilityInfo) {
-    throw new Error(`Unable to do inference with this model. Please rebuild the Rune with "rune v0.5"`);
-}
-
 interface TypedArray extends ArrayBuffer {
     readonly buffer: ArrayBuffer;
 }
@@ -327,3 +275,7 @@ function convertTypedArray<T>(src: TypedArray, constructor: any): T {
     return buffer[0] as T;
 }
 
+
+function deprecated(feature: string, version: string) {
+    throw new Error(`This runtime no longer supports Runes using "${feature}". Please rebuild with Rune ${version}`);
+}

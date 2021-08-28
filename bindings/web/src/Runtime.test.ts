@@ -15,13 +15,10 @@ describe.skip("Runtime", () => {
     it("can load the noop Rune", async () => {
         const calls: Uint8Array[] = [];
         const imports = {
-            capabilities: {
-                raw: () => new RawCapability(),
-            },
-            outputs: {
-                serial: () => new SpyOutput(calls),
-            },
-            modelHandlers: {},
+            createCapability: () => new RawCapability(),
+            createOutput: () => new SpyOutput(calls),
+            createModel: () => { throw new Error(); },
+            log: () => { throw new Error(); },
         };
 
         const runtime = await Runtime.load(noopRune, imports);
@@ -34,7 +31,10 @@ describe.skip("Runtime", () => {
 });
 
 class RawCapability implements Capability {
-    generate(dest: Uint8Array, id: number): void {
+    setParameter(name: string, value: number): void {
+        throw new Error("Method not implemented.");
+    }
+    generate(dest: Uint8Array): void {
         throw new Error("Method not implemented.");
     }
 }
