@@ -762,7 +762,6 @@ fn debug(
 fn runtime_error(e: Error) -> RuntimeError { RuntimeError(e) }
 
 #[cfg(test)]
-#[cfg(never)] // TODO: port this over (wasm3 lacks reflection though)
 mod tests {
     use syn::{ForeignItem, ForeignItemFn, Item};
     use hotg_rune_wasm3_runtime::Registrar;
@@ -787,29 +786,27 @@ mod tests {
 
     #[test]
     fn all_intrinsics_are_registered() {
-        let store = Store::default();
+        // Unlike the wasmer-version of this test, we don't validate function
+        // signatures here
+        // However, wasm3 already does this when linking functions to a WASM
+        // program that imports them, so this should not cause subtle
+        // bugs in practice (spawning the runtime will just fail).
+
         let intrinsics_rs = include_str!("../../../wasm/src/intrinsics.rs");
         let intrinsics = extern_functions(intrinsics_rs).map(|f| f.sig);
-        let mut registrar = Registrar::new(&store);
+        let mut registrar = Registrar::tracing();
 
         BaseImage::default().initialize_imports(&mut registrar);
 
-        let imports = registrar.into_import_object();
+        let imports = registrar.into_trace();
 
         for intrinsic in intrinsics {
             let name = intrinsic.ident.to_string();
-            let got = imports.get_export("env", &name).expect(&name);
 
-            let got = match got {
-                Export::Function(f) => f,
-                other => panic!("\"{}\" was a {:?}", name, other),
-            };
-            let host_function_signature = &got.vm_function.signature;
-            assert_eq!(
-                intrinsic.inputs.len(),
-                host_function_signature.params().len(),
-                "parameters for \"{}\" are mismatched",
-                name,
+            assert!(
+                imports.contains(&("env".to_string(), name.clone())),
+                "wasm3 API is missing function `{}`",
+                name
             );
         }
     }
