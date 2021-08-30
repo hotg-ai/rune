@@ -883,7 +883,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 "application/tflite-model",
-                &SINE,
+                &models::SINE,
                 &[hotg_rune_core::Shape::new(
                     hotg_rune_core::reflect::Type::f32,
                     [1usize].as_ref()
@@ -1214,7 +1214,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 #TFLITE_MIMETYPE,
-                &SINE,
+                &models::SINE,
                 &[
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::u8, [18000usize].as_ref()),
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::f32, [1usize].as_ref())
@@ -1270,9 +1270,12 @@ mod tests {
         let got = declare_resources(&rune, &image_crate);
 
         let should_be = quote! {
-            lazy_static! {
-                static ref SINE_MODEL: alloc::vec::Vec<u8> = hotg_runicos_base_wasm::Resource::read_to_end("SINE_MODEL");
-                static ref SINE: &'static [u8] = include_bytes!("models/sine.tflite");
+            /// Lazily loaded accessors for all resources used by this Rune.
+            mod resources {
+                lazy_static! {
+                    pub(crate) static ref SINE_MODEL: alloc::vec::Vec<u8> = hotg_runicos_base_wasm::Resource::read_to_end("SINE_MODEL");
+                    pub(crate) static ref SINE: &'static [u8] = include_bytes!("models/sine.tflite");
+                }
             }
         };
 
