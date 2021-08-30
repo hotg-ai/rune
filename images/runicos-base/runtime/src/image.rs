@@ -213,22 +213,20 @@ fn serial_factory(_: Option<&[Shape<'_>]>) -> Result<Box<dyn Output>, Error> {
 pub trait ResourceFactory: Send + Sync + 'static {
     fn open_resource(
         &self,
-        name: &str,
     ) -> Result<Box<dyn Read + Send + Sync + 'static>, Error>;
 }
 
 impl<F> ResourceFactory for F
 where
-    F: Fn(&str) -> Result<Box<dyn Read + Send + Sync + 'static>, Error>
+    F: Fn() -> Result<Box<dyn Read + Send + Sync + 'static>, Error>
         + Send
         + Sync
         + 'static,
 {
     fn open_resource(
         &self,
-        name: &str,
     ) -> Result<Box<dyn Read + Send + Sync + 'static>, Error> {
-        (self)(name)
+        (self)()
     }
 }
 

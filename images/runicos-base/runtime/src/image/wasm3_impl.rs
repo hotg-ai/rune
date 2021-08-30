@@ -804,12 +804,12 @@ fn rune_resource_open(
         .factories
         .get(name)
         .with_context(|| {
-            format!("Unable to find the \"{}\" resource factory", name)
+            format!("Unable to find the \"{}\" resource", name)
         })
         .map_err(runtime_error)?;
 
     let instance = factory
-        .open_resource(name)
+        .open_resource()
         .with_context(|| format!("Unable to load the \"{}\" resource", name))
         .map_err(runtime_error)?;
     let id = env.identifiers.next();

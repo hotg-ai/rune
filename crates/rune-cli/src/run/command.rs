@@ -6,6 +6,7 @@ use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
     image::ImageSource, multi::SourceBackedCapability, new_capability_switcher,
     runecoral_inference, sound::AudioClip,
+    resources::load_resources_from_custom_sections,
 };
 use hotg_runicos_base_runtime::{BaseImage, CapabilityFactory, Random};
 
@@ -69,9 +70,10 @@ impl Run {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
 
-        let env = self
+        let mut env = self
             .initialize_image()
             .context("Unable to initialize the environment")?;
+        load_resources_from_custom_sections(&rune, &mut env);
 
         if self.wasm3 {
             let mut runtime =

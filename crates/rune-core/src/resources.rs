@@ -1,12 +1,13 @@
 use core::fmt::{self, Formatter, Debug};
 
 /// Read an [`InlineResource`]'s data from its binary form in memory.
-pub fn inline_resource_from_bytes(bytes: &[u8]) -> Option<(&[u8], &[u8])> {
+pub fn inline_resource_from_bytes(bytes: &[u8]) -> Option<(&str, &[u8])> {
     let (name_len, rest) = read_u32(bytes)?;
     if rest.len() < name_len {
         return None;
     }
     let (name, bytes) = rest.split_at(name_len);
+    let name = core::str::from_utf8(name).ok()?;
 
     let (data_len, bytes) = read_u32(bytes)?;
     if bytes.len() < data_len {
@@ -113,7 +114,7 @@ mod tests {
         let (got_name, got_value) =
             inline_resource_from_bytes(as_bytes).unwrap();
 
-        assert_eq!(got_name, resource.name_raw());
+        assert_eq!(got_name, resource.name().unwrap());
         assert_eq!(got_value, resource.data());
     }
 }

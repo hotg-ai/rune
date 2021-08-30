@@ -240,7 +240,7 @@ fn serialize_source_kind<S: Serializer>(
     kind.to_string().serialize(ser)
 }
 
-fn wasm_custom_sections(
+pub(crate) fn wasm_custom_sections(
     wasm: &[u8],
 ) -> impl Iterator<Item = CustomSection<'_>> + '_ {
     Parser::default()
@@ -255,7 +255,7 @@ fn wasm_custom_sections(
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-struct CustomSection<'a> {
-    name: &'a str,
-    data: &'a [u8],
+pub(crate) struct CustomSection<'a> {
+    pub(crate) name: &'a str,
+    pub(crate) data: &'a [u8],
 }
