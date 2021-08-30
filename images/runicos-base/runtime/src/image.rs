@@ -7,6 +7,7 @@ mod wasmer_impl;
 use std::{
     cell::Cell,
     collections::HashMap,
+    io::Read,
     sync::{
         Arc,
         atomic::{AtomicU32, Ordering},
@@ -25,6 +26,7 @@ pub struct BaseImage {
     capabilities: HashMap<u32, Box<dyn CapabilityFactory>>,
     models: HashMap<String, Box<dyn ModelFactory>>,
     outputs: HashMap<u32, Box<dyn OutputFactory>>,
+    resources: HashMap<String, Box<dyn ResourceFactory>>,
     log: Arc<LogFunc>,
 }
 
@@ -34,6 +36,7 @@ impl BaseImage {
             capabilities: HashMap::new(),
             models: HashMap::new(),
             outputs: HashMap::new(),
+            resources: HashMap::new(),
             log: Arc::new(|_| Ok(())),
         }
     }
@@ -86,6 +89,15 @@ impl BaseImage {
         factory: impl ModelFactory,
     ) -> &mut Self {
         self.models.insert(mimetype.to_string(), Box::new(factory));
+        self
+    }
+
+    pub fn register_resource(
+        &mut self,
+        name: &str,
+        factory: impl ResourceFactory,
+    ) -> &mut Self {
+        self.resources.insert(name.to_string(), Box::new(factory));
         self
     }
 }
@@ -196,6 +208,28 @@ where
 
 fn serial_factory(_: Option<&[Shape<'_>]>) -> Result<Box<dyn Output>, Error> {
     Ok(Box::new(Serial::default()))
+}
+
+pub trait ResourceFactory: Send + Sync + 'static {
+    fn open_resource(
+        &self,
+        name: &str,
+    ) -> Result<Box<dyn Read + Send + Sync + 'static>, Error>;
+}
+
+impl<F> ResourceFactory for F
+where
+    F: Fn(&str) -> Result<Box<dyn Read + Send + Sync + 'static>, Error>
+        + Send
+        + Sync
+        + 'static,
+{
+    fn open_resource(
+        &self,
+        name: &str,
+    ) -> Result<Box<dyn Read + Send + Sync + 'static>, Error> {
+        (self)(name)
+    }
 }
 
 #[cfg(feature = "tflite")]

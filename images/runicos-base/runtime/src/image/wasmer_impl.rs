@@ -3,16 +3,16 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     sync::{Arc, Mutex},
+    io::Read,
 };
-
 use anyhow::{Context, Error};
 use hotg_rune_core::{SerializableRecord, Shape, TFLITE_MIMETYPE};
 use hotg_rune_runtime::{Capability, Image, Output};
 use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
 use hotg_rune_wasmer_runtime::Registrar;
-
-use crate::{CapabilityFactory, Model, ModelFactory, OutputFactory};
-
+use crate::{
+    CapabilityFactory, Model, ModelFactory, OutputFactory, ResourceFactory,
+};
 use super::{BaseImage, Identifiers, LogFunc};
 
 impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
@@ -21,6 +21,7 @@ impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
             capabilities,
             models,
             outputs,
+            resources,
             log,
         } = self;
         let identifiers = Identifiers::default();
@@ -43,6 +44,12 @@ impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
         };
         let output_env = OutputEnv {
             factories: Arc::new(outputs),
+            instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers,
+            memory: LazyInit::new(),
+        };
+        let resource_env = ResourceEnv {
+            factories: Arc::new(resources),
             instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers,
             memory: LazyInit::new(),
@@ -135,6 +142,33 @@ impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
                     store,
                     output_env,
                     consume_output,
+                ),
+            )
+            .register_function(
+                "env",
+                "rune_resource_open",
+                Function::new_native_with_env(
+                    store,
+                    resource_env.clone(),
+                    rune_resource_open,
+                ),
+            )
+            .register_function(
+                "env",
+                "rune_resource_read",
+                Function::new_native_with_env(
+                    store,
+                    resource_env.clone(),
+                    rune_resource_read,
+                ),
+            )
+            .register_function(
+                "env",
+                "rune_resource_close",
+                Function::new_native_with_env(
+                    store,
+                    resource_env,
+                    rune_resource_close,
                 ),
             );
     }
@@ -661,6 +695,116 @@ fn debug(
 
     Ok(0)
 }
+
+#[derive(Clone, wasmer::WasmerEnv)]
+struct ResourceEnv {
+    factories: Arc<HashMap<String, Box<dyn ResourceFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Read + Send + Sync + 'static>>>>,
+    identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
+fn rune_resource_open(
+    env: &ResourceEnv,
+    name: WasmPtr<u8, Array>,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    let name = name
+        .get_utf8_str(memory, len)
+        .context("Invalid buffer pointer")
+        .map_err(runtime_error)?;
+
+    let factory = env
+        .factories
+        .get_mut(name)
+        .with_context(|| {
+            format!("Unable to find the \"{}\" resource factory", name)
+        })
+        .map_err(runtime_error)?;
+
+    let instance = factory
+        .open_resource(name)
+        .with_context(|| format!("Unable to load the \"{}\" resource", name))
+        .map_err(runtime_error)?;
+    let id = env.identifiers.next();
+
+    env.instances.lock().unwrap().insert(id, instance);
+
+    Ok(id)
+}
+
+fn rune_resource_read(
+    env: &ResourceEnv,
+    id: u32,
+    buffer: WasmPtr<u8, Array>,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    let mut buffer = unsafe {
+        let buffer = buffer
+            .deref_mut(memory, 0, len)
+            .context("Invalid buffer pointer")
+            .map_err(runtime_error)?;
+
+        std::slice::from_raw_parts_mut(
+            buffer.as_mut_ptr() as *mut u8,
+            buffer.len(),
+        )
+    };
+
+    let instance = env
+        .instances
+        .lock()
+        .unwrap()
+        .get_mut(&id)
+        .with_context(|| format!("Unable to find the resource with ID {}", id))
+        .map_err(runtime_error)?;
+
+    let bytes_read = instance
+        .read(buffer)
+        .context("Unable to read the resource")
+        .map_err(runtime_error)?;
+
+    Ok(bytes_read as u32)
+}
+
+fn rune_resource_close(env: &ResourceEnv, id: u32) -> Result<(), RuntimeError> {
+    let instance = env.instances.lock().unwrap().remove(&id);
+
+    match instance {
+        Some(reader) => {
+            drop(reader);
+            Ok(())
+        },
+        None => {
+            let e = anyhow::anyhow!(
+                "Attempted to close resource with ID {}, but it doesn't exist",
+                id
+            );
+            Err(runtime_error(e))
+        },
+    }
+}
+
+// pub fn rune_resource_open(name: *const u8, name_len: u32) -> u32;
+// pub fn rune_resource_read( resource_id: u32, buffer: *mut u8, buffer_len:
+// u32,) -> u32; pub fn rune_resource_close(resource_id: u32);
 
 fn runtime_error(e: Error) -> RuntimeError {
     RuntimeError::from_trap(wasmer_vm::Trap::User(e.into()))
