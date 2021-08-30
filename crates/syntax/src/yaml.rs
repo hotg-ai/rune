@@ -12,7 +12,6 @@ use serde::{
     ser::{Serialize, Serializer},
 };
 use codespan::Span;
-use crate::hir::{self, ModelFile};
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -239,42 +238,6 @@ impl Stage {
     }
 }
 
-impl From<Stage> for hir::Stage {
-    fn from(s: Stage) -> hir::Stage {
-        match s {
-            Stage::Model { model, .. } => hir::Stage::Model(hir::Model {
-                model_file: match model {
-                    ResourceOrString::Resource(r) => ModelFile::Resource(r),
-                    ResourceOrString::String(s) => {
-                        ModelFile::FromDisk(s.into())
-                    },
-                },
-            }),
-            Stage::ProcBlock {
-                proc_block, args, ..
-            } => hir::Stage::ProcBlock(hir::ProcBlock {
-                path: proc_block.into(),
-                parameters: args
-                    .into_iter()
-                    .map(|(k, v)| (k.replace("-", "_"), v))
-                    .collect(),
-            }),
-            Stage::Capability {
-                capability, args, ..
-            } => hir::Stage::Source(hir::Source {
-                kind: capability.as_str().into(),
-                parameters: args
-                    .into_iter()
-                    .map(|(k, v)| (k.replace("-", "_"), v))
-                    .collect(),
-            }),
-            Stage::Out { out, .. } => hir::Stage::Sink(hir::Sink {
-                kind: out.as_str().into(),
-            }),
-        }
-    }
-}
-
 /// Something that could be either a reference to a resource (e.g. `$resource`)
 /// or a plain string (e.g. `./path`).
 #[derive(Debug, Clone, PartialEq)]
@@ -473,7 +436,7 @@ impl Default for ResourceType {
 
 /// A reference to some [`ResourceDeclaration`]. It typically looks like
 /// `$RESOURCE_NAME`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ResourceName(pub String);
 
 impl<S: Into<String>> From<S> for ResourceName {

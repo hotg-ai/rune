@@ -11,7 +11,7 @@ use std::{
 };
 use codespan::Span;
 use indexmap::IndexMap;
-use crate::yaml::{Path, ResourceName, ResourceType, Value};
+use crate::yaml::{self, Path, ResourceName, ResourceOrString, ResourceType, Value};
 
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -221,12 +221,86 @@ impl<S: AsRef<str>> Index<S> for NameTable {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum StageError {
+    MissingResource(ResourceName),
+    NotAResource { id: HirId, name: String },
+}
+
+impl Display for StageError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            StageError::MissingResource(r) => {
+                write!(f, "Unable to find the resource called \"{}\"", r,)
+            },
+            StageError::NotAResource { name, .. } => {
+                write!(f, "\"{}\" is not a resource", name)
+            },
+        }
+    }
+}
+
+impl std::error::Error for StageError {}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum Stage {
     Source(Source),
     Sink(Sink),
     Model(Model),
     ProcBlock(ProcBlock),
+}
+
+impl Stage {
+    pub fn from_yaml(
+        s: yaml::Stage,
+        resources: &IndexMap<HirId, Resource>,
+        names: &NameTable,
+    ) -> Result<Self, StageError> {
+        match s {
+            yaml::Stage::Model {
+                model: ResourceOrString::Resource(resource_name),
+                ..
+            } => match names.get_id(&resource_name) {
+                Some(id) if resources.contains_key(&id) => {
+                    Ok(Stage::Model(Model {
+                        model_file: ModelFile::Resource(id),
+                    }))
+                },
+                Some(id) => Err(StageError::NotAResource {
+                    id,
+                    name: resource_name.to_string(),
+                }),
+                None => Err(StageError::MissingResource(resource_name)),
+            },
+            yaml::Stage::Model {
+                model: ResourceOrString::String(path),
+                ..
+            } => Ok(Stage::Model(Model {
+                model_file: ModelFile::FromDisk(path.into()),
+            })),
+            yaml::Stage::ProcBlock {
+                proc_block, args, ..
+            } => Ok(Stage::ProcBlock(ProcBlock {
+                path: proc_block.into(),
+                parameters: args
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
+            })),
+            yaml::Stage::Capability {
+                capability, args, ..
+            } => Ok(Stage::Source(Source {
+                kind: capability.as_str().into(),
+                parameters: args
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
+            })),
+            yaml::Stage::Out { out, .. } => Ok(Stage::Sink(Sink {
+                kind: out.as_str().into(),
+            })),
+        }
+    }
 }
 
 impl From<Sink> for Stage {
@@ -330,7 +404,7 @@ pub struct Model {
 #[serde(rename_all = "kebab-case")]
 pub enum ModelFile {
     FromDisk(PathBuf),
-    Resource(ResourceName),
+    Resource(HirId),
 }
 
 #[derive(

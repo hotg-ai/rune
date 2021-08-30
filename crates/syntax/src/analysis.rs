@@ -23,8 +23,8 @@ pub fn analyse(doc: &Document, diags: &mut Diagnostics) -> Rune {
         } => {
             ctx.rune.base_image = Some(image.clone().into());
 
-            ctx.register_stages(pipeline);
             ctx.register_resources(resources);
+            ctx.register_stages(pipeline);
             ctx.register_output_slots(pipeline);
             ctx.construct_pipeline(pipeline);
             ctx.check_for_loops();
@@ -123,22 +123,44 @@ impl<'diag> Context<'diag> {
 
     fn register_stages(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let id = self.ids.next();
-            self.rune.stages.insert(
-                id,
-                Node {
-                    stage: stage.clone().into(),
-                    input_slots: Vec::new(),
-                    output_slots: Vec::new(),
+            let span = stage.span();
+
+            match hir::Stage::from_yaml(
+                stage.clone(),
+                &self.rune.resources,
+                &self.rune.names,
+            ) {
+                Ok(stage) => {
+                    let id = self.ids.next();
+                    self.rune.stages.insert(
+                        id,
+                        Node {
+                            stage,
+                            input_slots: Vec::new(),
+                            output_slots: Vec::new(),
+                        },
+                    );
+                    self.register_name(name, id, span);
                 },
-            );
-            self.register_name(name, id, stage.span());
+                Err(e) => {
+                    let diag = Diagnostic::error()
+                        .with_message(e.to_string())
+                        .with_labels(vec![Label::primary(
+                            (),
+                            range_span(span),
+                        )]);
+                    self.diags.push(diag);
+                },
+            }
         }
     }
 
     fn register_output_slots(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_id = self.rune.names.get_id(name).unwrap();
+            let node_id = match self.rune.names.get_id(name) {
+                Some(id) => id,
+                None => continue,
+            };
 
             let mut output_slots = Vec::new();
 
@@ -163,7 +185,10 @@ impl<'diag> Context<'diag> {
 
     fn construct_pipeline(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_id = self.rune.names.get_id(name).unwrap();
+            let node_id = match self.rune.names.get_id(name) {
+                Some(id) => id,
+                None => continue,
+            };
 
             let mut input_slots = Vec::new();
 
@@ -360,8 +385,6 @@ fn detect_cycles(
 
 #[cfg(test)]
 mod tests {
-    use crate::hir::ModelFile;
-
     use super::*;
 
     macro_rules! map {
