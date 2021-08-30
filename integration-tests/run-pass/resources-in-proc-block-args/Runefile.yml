@@ -59,9 +59,9 @@ pipeline:
     args:
       labels:
         - $silence_LABEL
-        - unknown
+        - $unknown
         - up
-        - down
+        - $down
         - left
         - right
   serial:
@@ -72,4 +72,10 @@ pipeline:
 resources:
   silence_LABEL:
     inline: silence
+    type: string
+  unknown:
+    inline: unknown
+    type: string
+  down:
+    inline: down
     type: string
