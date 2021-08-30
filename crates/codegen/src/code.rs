@@ -6,8 +6,8 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE};
 use hotg_rune_syntax::{
     hir::{
-        HirId, Model, ModelFile, Node, Primitive, ProcBlock, Rune, Sink,
-        SinkKind, Slot, Source, SourceKind, Stage, Type,
+        HirId, Model, ModelFile, Node, Primitive, ProcBlock, ResourceSource,
+        Rune, Sink, SinkKind, Slot, Source, SourceKind, Stage, Type,
     },
     yaml::{ResourceOrString, Value},
 };
@@ -17,18 +17,23 @@ use serde::Serialize;
 pub fn generate(
     rune: &Rune,
     build_info: Option<serde_json::Value>,
+    current_dir: &Path,
 ) -> Result<String, Error> {
     // TODO: Don't hard-code the image crate's name
     let image_crate = quote!(hotg_runicos_base_wasm);
 
     let preamble = preamble(rune, build_info)?;
+    let inline_resources = embed_inline_resources(rune, current_dir)?;
     let resources = declare_resources(rune, &image_crate);
+    let models = declare_models(rune);
     let manifest = manifest_function(rune, &image_crate);
     let call = call();
 
     let tokens = quote! {
         #preamble
+        #inline_resources
         #resources
+        #models
         #manifest
         #call
     };
@@ -36,23 +41,107 @@ pub fn generate(
     Ok(tokens.to_token_stream().to_string())
 }
 
+fn embed_inline_resources(
+    rune: &Rune,
+    current_dir: &Path,
+) -> Result<TokenStream, Error> {
+    let mut initializers = Vec::new();
+
+    for (id, resource) in &rune.resources {
+        let name = &rune.names[*id];
+
+        let tokens = match &resource.source {
+            Some(ResourceSource::FromDisk(path)) => {
+                inline_resource_from_disk(name, path, current_dir)
+                    .with_context(|| format!("Unable to generate the \"{}\" inline resource using \"{}\"", name, path.display()))?
+            },
+            Some(ResourceSource::Inline(data)) => {
+                inline_resource_from_literal(name, data.as_bytes())
+            },
+            None => continue,
+        };
+
+        initializers.push(tokens);
+    }
+
+    if initializers.is_empty() {
+        Ok(quote!())
+    } else {
+        Ok(quote! {
+            /// Default values for resources as defined in the Runefile.
+            ///
+            /// These resources are embedded in a WebAssembly custom section
+            /// and located at runtime.
+            mod _embedded_default_resource_values {
+                use hotg_rune_core::InlineResource;
+
+                #( #initializers )*
+            }
+        })
+    }
+}
+
+fn inline_resource_from_disk(
+    name: &str,
+    path: &Path,
+    current_dir: &Path,
+) -> Result<TokenStream, Error> {
+    let full_path = current_dir.join(path);
+    let meta = full_path.metadata()?;
+    let data_len = meta.len() as usize;
+
+    let name_len = name.len();
+    let name_bytes = Literal::byte_string(name.as_bytes());
+    let ident = variable_name(name);
+    let section = crate::RESOURCE_CUSTOM_SECTION;
+
+    let path = Path::new("resources").join(path.file_name().unwrap());
+    let path = path.display().to_string();
+
+    Ok(quote! {
+        #[link_section = #section]
+        pub(crate) static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
+            *#name_bytes,
+            *include_bytes!(#path),
+        );
+    })
+}
+
+fn inline_resource_from_literal(name: &str, data: &[u8]) -> TokenStream {
+    let name_len = name.len();
+    let name_bytes = Literal::byte_string(name.as_bytes());
+    let data_len = data.len();
+    let data_bytes = Literal::byte_string(data);
+    let section = crate::RESOURCE_CUSTOM_SECTION;
+
+    let ident = variable_name(name);
+
+    quote! {
+        #[link_section = #section]
+        pub(crate) static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
+            *#name_bytes,
+            *#data_bytes,
+        );
+    }
+}
+
 fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
     let mut initializers = Vec::new();
 
     for (id, resource) in &rune.resources {
         let name = rune.names.get_name(*id).unwrap();
-        let variable = resource_variable(name);
+        let variable = variable_name(name);
 
         let t = match resource.ty {
             hotg_rune_syntax::yaml::ResourceType::String => quote! {
-                    static ref #variable: String = {
+                    pub(crate) static ref #variable: String = {
                         let raw = #image_crate::Resource::read_to_end(#name);
                         String::from_utf8(raw)
                             .expect(concat!("The \"", #name, "\" resource wasn't a valid UTF-8 string"))
                 };
             },
             hotg_rune_syntax::yaml::ResourceType::Binary => quote! {
-                static ref #variable: alloc::vec::Vec<u8> = #image_crate::Resource::read_to_end(#name);
+                pub(crate) static ref #variable: alloc::vec::Vec<u8> = #image_crate::Resource::read_to_end(#name);
             },
         };
         initializers.push(t);
@@ -60,14 +149,14 @@ fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
 
     for (id, model) in rune.models() {
         let name = rune.names.get_name(id).unwrap();
-        let variable = resource_variable(name);
+        let variable = variable_name(name);
 
         if let ModelFile::FromDisk(path) = &model.model_file {
             let path = Path::new("models").join(path.file_name().unwrap());
             let path = path.display().to_string();
 
             initializers.push(quote! {
-                static ref #variable: &'static [u8] = include_bytes!(#path);
+                pub(crate) static ref #variable: &'static [u8] = include_bytes!(#path);
             })
         }
     }
@@ -76,14 +165,43 @@ fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
         TokenStream::new()
     } else {
         quote! {
-            lazy_static! {
-                #( #initializers )*
+            /// Lazily loaded accessors for all resources used by this Rune.
+            mod resources {
+                lazy_static! {
+                    #( #initializers )*
+                }
             }
         }
     }
 }
 
-fn resource_variable(name: impl Display) -> Ident {
+fn declare_models(rune: &Rune) -> TokenStream {
+    let mut initializers = Vec::new();
+
+    for (id, model) in rune.models() {
+        let name = rune.names.get_name(id).unwrap();
+        let variable = variable_name(name);
+
+        if let ModelFile::FromDisk(path) = &model.model_file {
+            let path = Path::new("models").join(path.file_name().unwrap());
+            let path = path.display().to_string();
+
+            initializers.push(quote! {
+                pub(crate) static #variable: &'static [u8] = include_bytes!(#path);
+            })
+        }
+    }
+
+    if initializers.is_empty() {
+        TokenStream::new()
+    } else {
+        quote! {
+            mod models { #( #initializers )* }
+        }
+    }
+}
+
+fn variable_name(name: impl Display) -> Ident {
     let name = name.to_string().replace("-", "_").to_uppercase();
     Ident::new(&name, Span::call_site())
 }
@@ -343,13 +461,17 @@ fn initialize_model(
     image_crate: &TokenStream,
 ) -> TokenStream {
     let model_variable = match model_file {
-        ModelFile::FromDisk(_) => resource_variable(&name),
+        ModelFile::FromDisk(_) => {
+            let ident = variable_name(&name);
+            quote!(models::#ident)
+        },
         ModelFile::Resource(r) => {
             let name = rune
                 .names
                 .get_name(*r)
                 .expect("All resources should be named");
-            resource_variable(name)
+            let name = variable_name(name);
+            quote!(resources::#name)
         },
     };
 
@@ -494,7 +616,7 @@ fn quote_value(value: &Value) -> TokenStream {
         },
         Value::String(ResourceOrString::String(s)) => quote!(#s),
         Value::String(ResourceOrString::Resource(resource)) => {
-            let variable = resource_variable(resource);
+            let variable = variable_name(resource);
             quote!(&#variable)
         },
         Value::List(list) => {

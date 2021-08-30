@@ -21,7 +21,7 @@ impl Resource {
             unsafe {
                 // TODO: replace with dest.spare_capacity_mut() when it is
                 // stable
-                let mut uninitialized_bytes = core::slice::from_raw_parts_mut(
+                let uninitialized_bytes = core::slice::from_raw_parts_mut(
                     dest.as_mut_ptr().add(previous_length)
                         as *mut MaybeUninit<u8>,
                     capacity - previous_length,
