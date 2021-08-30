@@ -6,8 +6,8 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE};
 use hotg_rune_syntax::{
     hir::{
-        HirId, ModelFile, Node, Primitive, ProcBlock, Rune, Sink, SinkKind,
-        Slot, Source, SourceKind, Stage, Type,
+        HirId, Model, ModelFile, Node, Primitive, ProcBlock, Rune, Sink,
+        SinkKind, Slot, Source, SourceKind, Stage, Type,
     },
     yaml::{ResourceOrString, Value},
 };
@@ -18,9 +18,11 @@ pub fn generate(
     rune: &Rune,
     build_info: Option<serde_json::Value>,
 ) -> Result<String, Error> {
+    // TODO: Don't hard-code the image crate's name
     let image_crate = quote!(hotg_runicos_base_wasm);
+
     let preamble = preamble(rune, build_info)?;
-    let resources = declare_resources(rune);
+    let resources = declare_resources(rune, &image_crate);
     let manifest = manifest_function(rune, &image_crate);
     let call = call();
 
@@ -34,26 +36,23 @@ pub fn generate(
     Ok(tokens.to_token_stream().to_string())
 }
 
-fn declare_resources(rune: &Rune) -> TokenStream {
+fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
     let mut initializers = Vec::new();
 
     for (id, resource) in &rune.resources {
         let name = rune.names.get_name(*id).unwrap();
         let variable = resource_variable(name);
 
-        let unable_to_load =
-            format!("Unable to load the \"{}\" resource", name);
-
         let t = match resource.ty {
             hotg_rune_syntax::yaml::ResourceType::String => quote! {
                     static ref #variable: String = {
-                        let raw = load_resource(#name) .expect(#unable_to_load);
+                        let raw = #image_crate::Resource::read_to_end(#name);
                         String::from_utf8(raw)
                             .expect(concat!("The \"", #name, "\" resource wasn't a valid UTF-8 string"))
                 };
             },
             hotg_rune_syntax::yaml::ResourceType::Binary => quote! {
-                static ref #variable: Vec<u8> = load_resource(#name).expect(#unable_to_load);
+                static ref #variable: alloc::vec::Vec<u8> = #image_crate::Resource::read_to_end(#name);
             },
         };
         initializers.push(t);
@@ -329,7 +328,9 @@ fn initialize_node(
                 let mut #name = #type_name::default();
             }
         },
-        Stage::Model(_) => initialize_model(rune, name, node, image_crate),
+        Stage::Model(Model { model_file }) => {
+            initialize_model(rune, name, node, model_file, image_crate)
+        },
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
     }
 }
@@ -338,9 +339,19 @@ fn initialize_model(
     rune: &Rune,
     name: Ident,
     node: &Node,
+    model_file: &ModelFile,
     image_crate: &TokenStream,
 ) -> TokenStream {
-    let model_variable = resource_variable(&name);
+    let model_variable = match model_file {
+        ModelFile::FromDisk(_) => resource_variable(&name),
+        ModelFile::Resource(r) => {
+            let name = rune
+                .names
+                .get_name(*r)
+                .expect("All resources should be named");
+            resource_variable(name)
+        },
+    };
 
     let inputs = node
         .input_slots
@@ -1132,13 +1143,13 @@ mod tests {
             type: binary
         "#,
         );
+        let image_crate = quote!(hotg_runicos_base_wasm);
 
-        let got = declare_resources(&rune);
+        let got = declare_resources(&rune, &image_crate);
 
         let should_be = quote! {
             lazy_static! {
-                static ref SINE_MODEL: Vec<u8> = load_resource("SINE_MODEL")
-                    .expect("Unable to load the \"SINE_MODEL\" resource");
+                static ref SINE_MODEL: alloc::vec::Vec<u8> = hotg_runicos_base_wasm::Resource::read_to_end("SINE_MODEL");
                 static ref SINE: &'static [u8] = include_bytes!("models/sine.tflite");
             }
         };
