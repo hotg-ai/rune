@@ -134,9 +134,9 @@ fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
 
         let t = match resource.ty {
             hotg_rune_syntax::yaml::ResourceType::String => quote! {
-                    pub(crate) static ref #variable: String = {
+                    pub(crate) static ref #variable: alloc::string::String = {
                         let raw = #image_crate::Resource::read_to_end(#name);
-                        String::from_utf8(raw)
+                        alloc::string::String::from_utf8(raw)
                             .expect(concat!("The \"", #name, "\" resource wasn't a valid UTF-8 string"))
                 };
             },
@@ -616,8 +616,8 @@ fn quote_value(value: &Value) -> TokenStream {
         },
         Value::String(ResourceOrString::String(s)) => quote!(#s),
         Value::String(ResourceOrString::Resource(resource)) => {
-            let variable = variable_name(resource);
-            quote!(&#variable)
+            let variable = variable_name(&resource.0);
+            quote!(&resources::#variable)
         },
         Value::List(list) => {
             let values = list.iter().map(quote_value);
