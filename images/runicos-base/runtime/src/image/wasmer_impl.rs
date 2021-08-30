@@ -45,7 +45,7 @@ impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
         let output_env = OutputEnv {
             factories: Arc::new(outputs),
             instances: Arc::new(Mutex::new(HashMap::new())),
-            identifiers,
+            identifiers: identifiers.clone(),
             memory: LazyInit::new(),
         };
         let resource_env = ResourceEnv {
@@ -718,14 +718,15 @@ fn rune_resource_open(
 
     // Safety: this function isn't reentrant, so we don't need to worry about
     // concurrent mutations.
-    let name = name
-        .get_utf8_str(memory, len)
-        .context("Invalid buffer pointer")
-        .map_err(runtime_error)?;
+    let name = unsafe {
+        name.get_utf8_str(memory, len)
+            .context("Invalid buffer pointer")
+            .map_err(runtime_error)?
+    };
 
     let factory = env
         .factories
-        .get_mut(name)
+        .get(name)
         .with_context(|| {
             format!("Unable to find the \"{}\" resource factory", name)
         })
@@ -756,7 +757,7 @@ fn rune_resource_read(
 
     // Safety: this function isn't reentrant, so we don't need to worry about
     // concurrent mutations.
-    let mut buffer = unsafe {
+    let buffer = unsafe {
         let buffer = buffer
             .deref_mut(memory, 0, len)
             .context("Invalid buffer pointer")
@@ -768,10 +769,8 @@ fn rune_resource_read(
         )
     };
 
-    let instance = env
-        .instances
-        .lock()
-        .unwrap()
+    let mut instances = env.instances.lock().unwrap();
+    let instance = instances
         .get_mut(&id)
         .with_context(|| format!("Unable to find the resource with ID {}", id))
         .map_err(runtime_error)?;
@@ -787,24 +786,16 @@ fn rune_resource_read(
 fn rune_resource_close(env: &ResourceEnv, id: u32) -> Result<(), RuntimeError> {
     let instance = env.instances.lock().unwrap().remove(&id);
 
-    match instance {
-        Some(reader) => {
-            drop(reader);
-            Ok(())
-        },
-        None => {
-            let e = anyhow::anyhow!(
-                "Attempted to close resource with ID {}, but it doesn't exist",
-                id
-            );
-            Err(runtime_error(e))
-        },
+    if instance.is_none() {
+        let e = anyhow::anyhow!(
+            "Attempted to close resource with ID {}, but it doesn't exist",
+            id
+        );
+        return Err(runtime_error(e));
     }
-}
 
-// pub fn rune_resource_open(name: *const u8, name_len: u32) -> u32;
-// pub fn rune_resource_read( resource_id: u32, buffer: *mut u8, buffer_len:
-// u32,) -> u32; pub fn rune_resource_close(resource_id: u32);
+    Ok(())
+}
 
 fn runtime_error(e: Error) -> RuntimeError {
     RuntimeError::from_trap(wasmer_vm::Trap::User(e.into()))

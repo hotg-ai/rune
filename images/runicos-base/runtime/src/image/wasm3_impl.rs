@@ -7,6 +7,7 @@ use std::{
     mem, slice,
     str::Utf8Error,
     sync::{Arc, Mutex},
+    io::Read,
 };
 use anyhow::{Context, Error};
 use hotg_rune_core::{SerializableRecord, Shape, TFLITE_MIMETYPE};
@@ -14,7 +15,7 @@ use hotg_rune_runtime::{Capability, Image, Output};
 use wasm3::{CallContext, error::Trap};
 use hotg_rune_wasm3_runtime::Registrar;
 use crate::{
-    CapabilityFactory, Model, ModelFactory, OutputFactory,
+    CapabilityFactory, Model, ModelFactory, OutputFactory, ResourceFactory,
     image::{BaseImage, Identifiers, LogFunc},
 };
 
@@ -198,6 +199,7 @@ impl<'vm> Image<hotg_rune_wasm3_runtime::Registrar<'vm>> for BaseImage {
             capabilities,
             models,
             outputs,
+            resources,
             log,
         } = self;
         let identifiers = Identifiers::default();
@@ -215,6 +217,11 @@ impl<'vm> Image<hotg_rune_wasm3_runtime::Registrar<'vm>> for BaseImage {
         };
         let output_env = OutputEnv {
             factories: Arc::new(outputs),
+            instances: Arc::new(Mutex::new(HashMap::new())),
+            identifiers: identifiers.clone(),
+        };
+        let resource_env = ResourceEnv {
+            factories: Arc::new(resources),
             instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers,
         };
@@ -265,6 +272,21 @@ impl<'vm> Image<hotg_rune_wasm3_runtime::Registrar<'vm>> for BaseImage {
                 "env",
                 "consume_output",
                 hostfn3(consume_output, output_env),
+            )
+            .register_function(
+                "env",
+                "rune_resource_open",
+                hostfn2(rune_resource_open, resource_env.clone()),
+            )
+            .register_function(
+                "env",
+                "rune_resource_read",
+                hostfn3(rune_resource_read, resource_env.clone()),
+            )
+            .register_function(
+                "env",
+                "rune_resource_close",
+                hostfn1(rune_resource_close, resource_env),
             );
     }
 }
@@ -754,6 +776,99 @@ fn debug(
                 e
             );
         },
+    }
+
+    Ok(0)
+}
+
+#[derive(Clone, wasmer::WasmerEnv)]
+struct ResourceEnv {
+    factories: Arc<HashMap<String, Box<dyn ResourceFactory>>>,
+    instances: Arc<Mutex<HashMap<u32, Box<dyn Read + Send + Sync + 'static>>>>,
+    identifiers: Identifiers,
+}
+
+fn rune_resource_open(
+    cc: CallContext<'_>,
+    env: &ResourceEnv,
+    name: u32,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let name: WasmPtr<u8, Array> = name.into();
+    let name = name
+        .get_utf8_str(&cc, len)
+        .context("Invalid buffer pointer")
+        .map_err(runtime_error)?;
+
+    let factory = env
+        .factories
+        .get(name)
+        .with_context(|| {
+            format!("Unable to find the \"{}\" resource factory", name)
+        })
+        .map_err(runtime_error)?;
+
+    let instance = factory
+        .open_resource(name)
+        .with_context(|| format!("Unable to load the \"{}\" resource", name))
+        .map_err(runtime_error)?;
+    let id = env.identifiers.next();
+
+    env.instances.lock().unwrap().insert(id, instance);
+
+    Ok(id)
+}
+
+fn rune_resource_read(
+    mut cc: CallContext<'_>,
+    env: &ResourceEnv,
+    id: u32,
+    buffer: u32,
+    len: u32,
+) -> Result<u32, RuntimeError> {
+    let buffer: WasmPtr<u8, Array> = buffer.into();
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    let buffer = unsafe {
+        let buffer = buffer
+            .deref_mut(&mut cc, 0, len)
+            .context("Invalid buffer pointer")
+            .map_err(runtime_error)?;
+
+        std::slice::from_raw_parts_mut(
+            buffer.as_mut_ptr() as *mut u8,
+            buffer.len(),
+        )
+    };
+
+    let mut instances = env.instances.lock().unwrap();
+    let instance = instances
+        .get_mut(&id)
+        .with_context(|| format!("Unable to find the resource with ID {}", id))
+        .map_err(runtime_error)?;
+
+    let bytes_read = instance
+        .read(buffer)
+        .context("Unable to read the resource")
+        .map_err(runtime_error)?;
+
+    Ok(bytes_read as u32)
+}
+
+fn rune_resource_close(
+    _cc: CallContext<'_>,
+    env: &ResourceEnv,
+    id: u32,
+) -> Result<u32, RuntimeError> {
+    let instance = env.instances.lock().unwrap().remove(&id);
+
+    if instance.is_none() {
+        let e = anyhow::anyhow!(
+            "Attempted to close resource with ID {}, but it doesn't exist",
+            id
+        );
+        return Err(runtime_error(e));
     }
 
     Ok(0)
