@@ -45,7 +45,6 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         const shape = shapes[i];
-        console.log(i, shape);
         const arr = toTypedArray(shape.type, buffer);
         tensors.push(tf.tensor(arr, shape.values));
     }
