@@ -9,12 +9,11 @@ use core::fmt::{self, Formatter, Debug};
 /// let resource = InlineResource::new(*b"Name", *b"Some Value");
 /// let bytes = resource.as_bytes();
 ///
-/// let (name, value, rest) = inline_resource_from_bytes(bytes)?;
+/// let (name, value, rest) = inline_resource_from_bytes(bytes).unwrap();
 ///
 /// assert_eq!(name, "Name");
 /// assert_eq!(value, b"Some Value");
 /// assert!(rest.is_empty());
-/// # Ok(())
 /// ```
 pub fn inline_resource_from_bytes(
     bytes: &[u8],

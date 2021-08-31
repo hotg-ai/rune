@@ -64,27 +64,27 @@ fn embed_inline_resources(
         initializers.push(tokens);
     }
 
-        Ok(quote! {
-            /// Default values for resources as defined in the Runefile.
-            ///
-            /// These resources are embedded in a WebAssembly custom section
-            /// and located at runtime.
-            ///
-            /// # Note to Implementors
-            ///
-            /// We put the `static` variables inside an exported function
-            /// instead of their own module because of [#56639 - *Custom section
-            /// generation under wasm32-unknown-unknown is inconsistent and
-            /// unintuitive*](https://github.com/rust-lang/rust/issues/56639)
-            #[allow(bad_style)]
-            #[doc(hidden)]
-            #[no_mangle]
-            pub extern "C" fn _embedded_default_resource_values() {
-                use hotg_rune_core::InlineResource;
+    Ok(quote! {
+        /// Default values for resources as defined in the Runefile.
+        ///
+        /// These resources are embedded in a WebAssembly custom section
+        /// and located at runtime.
+        ///
+        /// # Note to Implementors
+        ///
+        /// We put the `static` variables inside an exported function
+        /// instead of their own module because of [#56639 - *Custom section
+        /// generation under wasm32-unknown-unknown is inconsistent and
+        /// unintuitive*](https://github.com/rust-lang/rust/issues/56639)
+        #[allow(bad_style)]
+        #[doc(hidden)]
+        #[no_mangle]
+        pub extern "C" fn _embedded_default_resource_values() {
+            use hotg_rune_core::InlineResource;
 
-                #( #initializers )*
-            }
-        })
+            #( #initializers )*
+        }
+    })
 }
 
 fn inline_resource_from_disk(
@@ -814,6 +814,7 @@ mod tests {
         let should_be = quote! {
             #[no_mangle]
             pub extern "C" fn _manifest() -> u32 {
+                _embedded_default_resource_values();
                 let _setup = runicos_base_wasm::SetupGuard::default();
                 let mut audio = runicos_base_wasm::Sound::default();
                 audio.set_parameter("hz", 16000i32);
