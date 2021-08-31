@@ -7,21 +7,26 @@ use codespan_reporting::{
 use indexmap::IndexMap;
 use crate::{
     Diagnostics,
-    hir::{self, HirId, Node, Primitive, Rune, Slot},
-    yaml::*,
+    hir::{self, HirId, Node, Primitive, Resource, ResourceSource, Rune, Slot},
     utils::{Builtins, HirIds, range_span},
+    yaml::*,
 };
 
 pub fn analyse(doc: &Document, diags: &mut Diagnostics) -> Rune {
     let mut ctx = Context::new(diags);
 
     match doc {
-        Document::V1 { image, pipeline } => {
+        Document::V1 {
+            image,
+            pipeline,
+            resources,
+        } => {
             ctx.rune.base_image = Some(image.clone().into());
 
-            ctx.register_stages(&pipeline);
-            ctx.register_output_slots(&pipeline);
-            ctx.construct_pipeline(&pipeline);
+            ctx.register_resources(resources);
+            ctx.register_stages(pipeline);
+            ctx.register_output_slots(pipeline);
+            ctx.construct_pipeline(pipeline);
             ctx.check_for_loops();
         },
     }
@@ -75,24 +80,87 @@ impl<'diag> Context<'diag> {
         }
     }
 
+    fn register_resources(
+        &mut self,
+        resources: &IndexMap<String, ResourceDeclaration>,
+    ) {
+        for (name, declaration) in resources {
+            let source = match declaration {
+                ResourceDeclaration {
+                    inline: Some(inline),
+                    path: None,
+                    ..
+                } => Some(ResourceSource::Inline(inline.clone())),
+                ResourceDeclaration {
+                    inline: None,
+                    path: Some(path),
+                    ..
+                } => Some(ResourceSource::FromDisk(path.into())),
+                ResourceDeclaration {
+                    inline: None,
+                    path: None,
+                    ..
+                } => None,
+                ResourceDeclaration {
+                    inline: Some(_),
+                    path: Some(_),
+                    ..
+                } => {
+                    let diag = Diagnostic::error().with_message(format!("The resource \"{}\" can't specify both a \"path\" and \"inline\" value", name));
+                    self.diags.push(diag);
+                    continue;
+                },
+            };
+            let id = self.ids.next();
+            let resource = Resource {
+                source,
+                ty: declaration.ty,
+            };
+            self.register_name(name, id, resource.span());
+            self.rune.resources.insert(id, resource);
+        }
+    }
+
     fn register_stages(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let id = self.ids.next();
-            self.rune.stages.insert(
-                id,
-                Node {
-                    stage: stage.clone().into(),
-                    input_slots: Vec::new(),
-                    output_slots: Vec::new(),
+            let span = stage.span();
+
+            match hir::Stage::from_yaml(
+                stage.clone(),
+                &self.rune.resources,
+                &self.rune.names,
+            ) {
+                Ok(stage) => {
+                    let id = self.ids.next();
+                    self.rune.stages.insert(
+                        id,
+                        Node {
+                            stage,
+                            input_slots: Vec::new(),
+                            output_slots: Vec::new(),
+                        },
+                    );
+                    self.register_name(name, id, span);
                 },
-            );
-            self.register_name(name, id, stage.span());
+                Err(e) => {
+                    let diag = Diagnostic::error()
+                        .with_message(e.to_string())
+                        .with_labels(vec![Label::primary(
+                            (),
+                            range_span(span),
+                        )]);
+                    self.diags.push(diag);
+                },
+            }
         }
     }
 
     fn register_output_slots(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_id = self.rune.names.get_id(name).unwrap();
+            let node_id = match self.rune.names.get_id(name) {
+                Some(id) => id,
+                None => continue,
+            };
 
             let mut output_slots = Vec::new();
 
@@ -117,7 +185,10 @@ impl<'diag> Context<'diag> {
 
     fn construct_pipeline(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_id = self.rune.names.get_id(name).unwrap();
+            let node_id = match self.rune.names.get_id(name) {
+                Some(id) => id,
+                None => continue,
+            };
 
             let mut input_slots = Vec::new();
 
@@ -426,11 +497,12 @@ pipeline:
                     args: IndexMap::new(),
                 },
                 model: Stage::Model {
-                    model: String::from("./model.tflite"),
+                    model: "./model.tflite".into(),
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
                 },
             },
+            resources: map![],
         };
 
         let got = Document::parse(src).unwrap();
@@ -467,13 +539,13 @@ pipeline:
         let inputs = vec![
             ("42", Value::Int(42)),
             ("3.14", Value::Float(3.14)),
-            ("\"42\"", Value::String(String::from("42"))),
+            ("\"42\"", Value::String("42".into())),
             (
                 "[1, 2.0, \"asdf\"]",
                 Value::List(vec![
                     Value::Int(1),
                     Value::Float(2.0),
-                    Value::String(String::from("asdf")),
+                    Value::String("asdf".into()),
                 ]),
             ),
         ];
@@ -547,7 +619,7 @@ pipeline:
                     args: IndexMap::new(),
                 },
                 model: Stage::Model {
-                    model: String::from("./model.tflite"),
+                    model: "./model.tflite".into(),
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![
                         ty!(i8[6]),
@@ -573,6 +645,7 @@ pipeline:
                     args: IndexMap::default(),
                 }
             },
+            resources: map![],
         }
     }
 
@@ -661,6 +734,7 @@ pipeline:
                     args: IndexMap::new(),
                 },
             },
+            resources: map![],
         };
         let mut diags = Diagnostics::new();
 

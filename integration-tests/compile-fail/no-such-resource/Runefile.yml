@@ -1,0 +1,15 @@
+version: 1
+image: runicos/base
+pipeline:
+  random:
+    capability: RAND
+    outputs:
+      - type: f32
+        dimensions: [1]
+  some_model:
+    model: $MISSING_RESOURCE
+    inputs:
+      - random
+    outputs:
+      - type: f32
+        dimensions: [1]

@@ -146,4 +146,23 @@ extern "C" {
         buffer_len: u32,
         capability_id: u32,
     ) -> u32;
+
+    /// Open a named resource, returning a unique ID that can be used to .
+    ///
+    /// Invalid parameters will trigger a trap and abort at runtime.
+    pub fn rune_resource_open(name: *const u8, name_len: u32) -> u32;
+
+    /// Read data from a resource into the provided buffer.
+    ///
+    /// Invalid parameters will trigger a trap and abort at runtime.
+    pub fn rune_resource_read(
+        resource_id: u32,
+        buffer: *mut u8,
+        buffer_len: u32,
+    ) -> u32;
+
+    /// Close a resource
+    ///
+    /// Invalid parameters will trigger a trap and abort at runtime.
+    pub fn rune_resource_close(resource_id: u32);
 }

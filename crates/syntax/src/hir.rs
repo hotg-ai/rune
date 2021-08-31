@@ -11,7 +11,7 @@ use std::{
 };
 use codespan::Span;
 use indexmap::IndexMap;
-use crate::yaml::{Path, Value};
+use crate::yaml::{self, Path, ResourceName, ResourceOrString, ResourceType, Value};
 
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -24,6 +24,7 @@ pub struct Rune {
     pub types: IndexMap<HirId, Type>,
     pub names: NameTable,
     pub spans: IndexMap<HirId, Span>,
+    pub resources: IndexMap<HirId, Resource>,
 }
 
 impl Rune {
@@ -220,12 +221,86 @@ impl<S: AsRef<str>> Index<S> for NameTable {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum StageError {
+    MissingResource(ResourceName),
+    NotAResource { id: HirId, name: String },
+}
+
+impl Display for StageError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            StageError::MissingResource(r) => {
+                write!(f, "Unable to find the resource called \"{}\"", r,)
+            },
+            StageError::NotAResource { name, .. } => {
+                write!(f, "\"{}\" is not a resource", name)
+            },
+        }
+    }
+}
+
+impl std::error::Error for StageError {}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum Stage {
     Source(Source),
     Sink(Sink),
     Model(Model),
     ProcBlock(ProcBlock),
+}
+
+impl Stage {
+    pub fn from_yaml(
+        s: yaml::Stage,
+        resources: &IndexMap<HirId, Resource>,
+        names: &NameTable,
+    ) -> Result<Self, StageError> {
+        match s {
+            yaml::Stage::Model {
+                model: ResourceOrString::Resource(resource_name),
+                ..
+            } => match names.get_id(&resource_name) {
+                Some(id) if resources.contains_key(&id) => {
+                    Ok(Stage::Model(Model {
+                        model_file: ModelFile::Resource(id),
+                    }))
+                },
+                Some(id) => Err(StageError::NotAResource {
+                    id,
+                    name: resource_name.to_string(),
+                }),
+                None => Err(StageError::MissingResource(resource_name)),
+            },
+            yaml::Stage::Model {
+                model: ResourceOrString::String(path),
+                ..
+            } => Ok(Stage::Model(Model {
+                model_file: ModelFile::FromDisk(path.into()),
+            })),
+            yaml::Stage::ProcBlock {
+                proc_block, args, ..
+            } => Ok(Stage::ProcBlock(ProcBlock {
+                path: proc_block.into(),
+                parameters: args
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
+            })),
+            yaml::Stage::Capability {
+                capability, args, ..
+            } => Ok(Stage::Source(Source {
+                kind: capability.as_str().into(),
+                parameters: args
+                    .into_iter()
+                    .map(|(k, v)| (k.replace("-", "_"), v))
+                    .collect(),
+            })),
+            yaml::Stage::Out { out, .. } => Ok(Stage::Sink(Sink {
+                kind: out.as_str().into(),
+            })),
+        }
+    }
 }
 
 impl From<Sink> for Stage {
@@ -321,7 +396,15 @@ impl<'a> From<&'a str> for SinkKind {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
-    pub model_file: PathBuf,
+    pub model_file: ModelFile,
+}
+
+/// Where to load a model from.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ModelFile {
+    FromDisk(PathBuf),
+    Resource(HirId),
 }
 
 #[derive(
@@ -547,4 +630,23 @@ pub struct Slot {
     pub element_type: HirId,
     pub input_node: HirId,
     pub output_node: HirId,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Resource {
+    pub source: Option<ResourceSource>,
+    pub ty: ResourceType,
+}
+
+impl Resource {
+    pub fn span(&self) -> Span {
+        // TODO: Get span from serde_yaml
+        Span::new(0, 0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum ResourceSource {
+    Inline(String),
+    FromDisk(PathBuf),
 }

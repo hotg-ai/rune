@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display, path::Path};
 use anyhow::{Error, Context};
 use heck::{CamelCase, SnakeCase};
 use quote::{ToTokens, TokenStreamExt, quote};
@@ -6,10 +6,10 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use hotg_rune_core::{Shape, TFLITE_MIMETYPE};
 use hotg_rune_syntax::{
     hir::{
-        HirId, Node, Primitive, ProcBlock, Rune, Sink, SinkKind, Slot, Source,
-        SourceKind, Stage, Type,
+        HirId, Model, ModelFile, Node, Primitive, ProcBlock, ResourceSource,
+        Rune, Sink, SinkKind, Slot, Source, SourceKind, Stage, Type,
     },
-    yaml::Value,
+    yaml::{ResourceOrString, Value},
 };
 use serde::Serialize;
 
@@ -17,19 +17,203 @@ use serde::Serialize;
 pub fn generate(
     rune: &Rune,
     build_info: Option<serde_json::Value>,
+    current_dir: &Path,
 ) -> Result<String, Error> {
+    // TODO: Don't hard-code the image crate's name
     let image_crate = quote!(hotg_runicos_base_wasm);
+
     let preamble = preamble(rune, build_info)?;
+    let inline_resources = embed_inline_resources(rune, current_dir)?;
+    let resources = declare_resources(rune, &image_crate);
+    let models = declare_models(rune);
     let manifest = manifest_function(rune, &image_crate);
     let call = call();
 
     let tokens = quote! {
         #preamble
+        #inline_resources
+        #resources
+        #models
         #manifest
         #call
     };
 
     Ok(tokens.to_token_stream().to_string())
+}
+
+fn embed_inline_resources(
+    rune: &Rune,
+    current_dir: &Path,
+) -> Result<TokenStream, Error> {
+    let mut initializers = Vec::new();
+
+    for (id, resource) in &rune.resources {
+        let name = &rune.names[*id];
+
+        let tokens = match &resource.source {
+            Some(ResourceSource::FromDisk(path)) => {
+                inline_resource_from_disk(name, path, current_dir)
+                    .with_context(|| format!("Unable to generate the \"{}\" inline resource using \"{}\"", name, path.display()))?
+            },
+            Some(ResourceSource::Inline(data)) => {
+                inline_resource_from_literal(name, data.as_bytes())
+            },
+            None => continue,
+        };
+
+        initializers.push(tokens);
+    }
+
+    Ok(quote! {
+        /// Default values for resources as defined in the Runefile.
+        ///
+        /// These resources are embedded in a WebAssembly custom section
+        /// and located at runtime.
+        ///
+        /// # Note to Implementors
+        ///
+        /// We put the `static` variables inside an exported function
+        /// instead of their own module because of [#56639 - *Custom section
+        /// generation under wasm32-unknown-unknown is inconsistent and
+        /// unintuitive*](https://github.com/rust-lang/rust/issues/56639)
+        #[allow(bad_style)]
+        #[doc(hidden)]
+        #[no_mangle]
+        pub extern "C" fn _embedded_default_resource_values() {
+            use hotg_rune_core::InlineResource;
+
+            #( #initializers )*
+        }
+    })
+}
+
+fn inline_resource_from_disk(
+    name: &str,
+    path: &Path,
+    current_dir: &Path,
+) -> Result<TokenStream, Error> {
+    let full_path = current_dir.join(path);
+    let meta = full_path.metadata()?;
+    let data_len = meta.len() as usize;
+
+    let name_len = name.len();
+    let name_bytes = Literal::byte_string(name.as_bytes());
+    let ident = variable_name(name);
+    let section = crate::RESOURCE_CUSTOM_SECTION;
+
+    let path = Path::new("resources").join(path.file_name().unwrap());
+    let path = path.display().to_string();
+
+    Ok(quote! {
+        #[used]
+        #[link_section = #section]
+        pub static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
+            *#name_bytes,
+            *include_bytes!(#path),
+        );
+    })
+}
+
+fn inline_resource_from_literal(name: &str, data: &[u8]) -> TokenStream {
+    let name_len = name.len();
+    let name_bytes = Literal::byte_string(name.as_bytes());
+    let data_len = data.len();
+    let data_bytes = Literal::byte_string(data);
+    let section = crate::RESOURCE_CUSTOM_SECTION;
+
+    let ident = variable_name(name);
+
+    quote! {
+        #[used]
+        #[link_section = #section]
+        pub static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
+            *#name_bytes,
+            *#data_bytes,
+        );
+    }
+}
+
+fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
+    let mut initializers = Vec::new();
+
+    for (id, resource) in &rune.resources {
+        let name = rune.names.get_name(*id).unwrap();
+        let variable = variable_name(name);
+
+        let t = match resource.ty {
+            hotg_rune_syntax::yaml::ResourceType::String => quote! {
+                    pub(crate) static ref #variable: alloc::string::String = {
+                        let raw = #image_crate::Resource::read_to_end(#name);
+                        alloc::string::String::from_utf8(raw)
+                            .expect(concat!("The \"", #name, "\" resource wasn't a valid UTF-8 string"))
+                };
+            },
+            hotg_rune_syntax::yaml::ResourceType::Binary => quote! {
+                pub(crate) static ref #variable: alloc::vec::Vec<u8> = #image_crate::Resource::read_to_end(#name);
+            },
+        };
+        initializers.push(t);
+    }
+
+    for (id, model) in rune.models() {
+        let name = rune.names.get_name(id).unwrap();
+        let variable = variable_name(name);
+
+        if let ModelFile::FromDisk(path) = &model.model_file {
+            let path = Path::new("models").join(path.file_name().unwrap());
+            let path = path.display().to_string();
+
+            initializers.push(quote! {
+                pub(crate) static ref #variable: &'static [u8] = include_bytes!(#path);
+            })
+        }
+    }
+
+    if initializers.is_empty() {
+        TokenStream::new()
+    } else {
+        quote! {
+            /// Lazily loaded accessors for all resources used by this Rune.
+            #[allow(bad_style)]
+            mod resources {
+                lazy_static! {
+                    #( #initializers )*
+                }
+            }
+        }
+    }
+}
+
+fn declare_models(rune: &Rune) -> TokenStream {
+    let mut initializers = Vec::new();
+
+    for (id, model) in rune.models() {
+        let name = rune.names.get_name(id).unwrap();
+        let variable = variable_name(name);
+
+        if let ModelFile::FromDisk(path) = &model.model_file {
+            let path = Path::new("models").join(path.file_name().unwrap());
+            let path = path.display().to_string();
+
+            initializers.push(quote! {
+                pub(crate) static #variable: &'static [u8] = include_bytes!(#path);
+            })
+        }
+    }
+
+    if initializers.is_empty() {
+        TokenStream::new()
+    } else {
+        quote! {
+            #[allow(bad_style)]
+            mod models { #( #initializers )* }
+        }
+    }
+}
+
+fn variable_name(name: impl Display) -> Ident {
+    let name = name.to_string().replace("-", "_");
+    Ident::new(&name, Span::call_site())
 }
 
 fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
@@ -53,6 +237,7 @@ fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> u32 {
+            _embedded_default_resource_values();
             let _setup = #image_crate::SetupGuard::default();
 
             #( #initialized_node )*
@@ -272,7 +457,9 @@ fn initialize_node(
                 let mut #name = #type_name::default();
             }
         },
-        Stage::Model(_) => initialize_model(rune, name, node, image_crate),
+        Stage::Model(Model { model_file }) => {
+            initialize_model(rune, name, node, model_file, image_crate)
+        },
         Stage::ProcBlock(proc_block) => initialize_proc_block(name, proc_block),
     }
 }
@@ -281,9 +468,24 @@ fn initialize_model(
     rune: &Rune,
     name: Ident,
     node: &Node,
+    model_file: &ModelFile,
     image_crate: &TokenStream,
 ) -> TokenStream {
-    let model_file = format!("{}.tflite", name);
+    let model_variable = match model_file {
+        ModelFile::FromDisk(_) => {
+            let ident = variable_name(&name);
+            quote!(models::#ident)
+        },
+        ModelFile::Resource(r) => {
+            let name = rune
+                .names
+                .get_name(*r)
+                .expect("All resources should be named");
+            let name = variable_name(name);
+            quote!(resources::#name)
+        },
+    };
+
     let inputs = node
         .input_slots
         .iter()
@@ -300,7 +502,7 @@ fn initialize_model(
     quote! {
         let mut #name = #image_crate::Model::load(
             #TFLITE_MIMETYPE,
-            include_bytes!(#model_file),
+            &#model_variable,
             &[ #(#inputs),* ],
             &[ #(#outputs),* ],
         );
@@ -411,7 +613,7 @@ fn quote_value(value: &Value) -> TokenStream {
     match value {
         Value::Int(i) => quote!(#i),
         Value::Float(f) => quote!(#f),
-        Value::String(s) if s.starts_with('@') => {
+        Value::String(ResourceOrString::String(s)) if s.starts_with('@') => {
             let rust_code = &s[1..];
             match rust_code.parse() {
                 Ok(tokens) => tokens,
@@ -423,7 +625,11 @@ fn quote_value(value: &Value) -> TokenStream {
                 ),
             }
         },
-        Value::String(s) => quote!(#s),
+        Value::String(ResourceOrString::String(s)) => quote!(#s),
+        Value::String(ResourceOrString::Resource(resource)) => {
+            let variable = variable_name(&resource.0);
+            quote!(&*resources::#variable)
+        },
         Value::List(list) => {
             let values = list.iter().map(quote_value);
             quote!([#(#values),*])
@@ -493,6 +699,9 @@ fn preamble(
         #![allow(unused_imports, dead_code)]
 
         extern crate alloc;
+
+        #[macro_use]
+        extern crate lazy_static;
 
         use alloc::boxed::Box;
         use hotg_rune_core::*;
@@ -605,6 +814,7 @@ mod tests {
         let should_be = quote! {
             #[no_mangle]
             pub extern "C" fn _manifest() -> u32 {
+                _embedded_default_resource_values();
                 let _setup = runicos_base_wasm::SetupGuard::default();
                 let mut audio = runicos_base_wasm::Sound::default();
                 audio.set_parameter("hz", 16000i32);
@@ -685,7 +895,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 "application/tflite-model",
-                include_bytes!("sine.tflite"),
+                &models::sine,
                 &[hotg_rune_core::Shape::new(
                     hotg_rune_core::reflect::Type::f32,
                     [1usize].as_ref()
@@ -1016,7 +1226,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 #TFLITE_MIMETYPE,
-                include_bytes!("sine.tflite"),
+                &models::sine,
                 &[
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::u8, [18000usize].as_ref()),
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::f32, [1usize].as_ref())
@@ -1027,6 +1237,62 @@ mod tests {
                 ],
             );
         };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn initialize_resources_and_models() {
+        let rune = rune(
+            r#"
+        image: runicos/base
+        version: 1
+
+        pipeline:
+          random:
+            capability: RAND
+            outputs:
+            - type: u8
+              dimensions: [1]
+          sine:
+            model: ./sine.tflite
+            inputs:
+            - random
+            outputs:
+              - type: u8
+                dimensions: [1]
+          second-sine:
+            model: $SINE_MODEL
+            inputs:
+            - sine
+            outputs:
+              - type: u8
+                dimensions: [1]
+          debug:
+            out: SERIAL
+            inputs:
+              - second-sine
+        resources:
+          SINE_MODEL:
+            path: ./sine.tflite
+            type: binary
+        "#,
+        );
+        let image_crate = quote!(hotg_runicos_base_wasm);
+
+        let got = declare_resources(&rune, &image_crate);
+
+        let should_be = quote! {
+            /// Lazily loaded accessors for all resources used by this Rune.
+            #[allow(bad_style)]
+            mod resources {
+                lazy_static! {
+                    pub(crate) static ref SINE_MODEL: alloc::vec::Vec<u8> = hotg_runicos_base_wasm::Resource::read_to_end("SINE_MODEL");
+                    pub(crate) static ref sine: &'static [u8] = include_bytes!("models/sine.tflite");
+                }
+            }
+        };
+
+        dbg!(got.to_string());
         assert_quote_eq!(got, should_be);
     }
 }

@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     fmt::{self, Formatter, Display},
+    ops::Deref,
     str::FromStr,
 };
 use indexmap::IndexMap;
@@ -11,7 +12,9 @@ use serde::{
     ser::{Serialize, Serializer},
 };
 use codespan::Span;
-use crate::hir;
+
+static RESOURCE_NAME_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "version")]
@@ -20,6 +23,8 @@ pub enum Document {
     V1 {
         image: Path,
         pipeline: IndexMap<String, Stage>,
+        #[serde(default)]
+        resources: IndexMap<String, ResourceDeclaration>,
     },
 }
 
@@ -159,7 +164,7 @@ impl std::error::Error for PathParseError {}
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
     Model {
-        model: String,
+        model: ResourceOrString,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         inputs: Vec<Input>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -233,35 +238,56 @@ impl Stage {
     }
 }
 
-impl From<Stage> for hir::Stage {
-    fn from(s: Stage) -> hir::Stage {
-        match s {
-            Stage::Model { model, .. } => hir::Stage::Model(hir::Model {
-                model_file: model.into(),
-            }),
-            Stage::ProcBlock {
-                proc_block, args, ..
-            } => hir::Stage::ProcBlock(hir::ProcBlock {
-                path: proc_block.into(),
-                parameters: args
-                    .into_iter()
-                    .map(|(k, v)| (k.replace("-", "_"), v))
-                    .collect(),
-            }),
-            Stage::Capability {
-                capability, args, ..
-            } => hir::Stage::Source(hir::Source {
-                kind: capability.as_str().into(),
-                parameters: args
-                    .into_iter()
-                    .map(|(k, v)| (k.replace("-", "_"), v))
-                    .collect(),
-            }),
-            Stage::Out { out, .. } => hir::Stage::Sink(hir::Sink {
-                kind: out.as_str().into(),
-            }),
+/// Something that could be either a reference to a resource (e.g. `$resource`)
+/// or a plain string (e.g. `./path`).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResourceOrString {
+    Resource(ResourceName),
+    String(String),
+}
+
+impl Serialize for ResourceOrString {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ResourceOrString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let repr = Cow::<str>::deserialize(deserializer)?;
+
+        if repr.starts_with("$") {
+            match ResourceName::from_str(&repr) {
+                Ok(name) => Ok(ResourceOrString::Resource(name)),
+                Err(e) => Err(D::Error::custom(e)),
+            }
+        } else {
+            Ok(ResourceOrString::String(repr.into_owned()))
         }
     }
+}
+
+impl Display for ResourceOrString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ResourceOrString::String(path) => write!(f, "{}", path),
+            ResourceOrString::Resource(res) => write!(f, "{}", res),
+        }
+    }
+}
+
+impl<S: Into<String>> From<S> for ResourceOrString {
+    fn from(s: S) -> Self { ResourceOrString::String(s.into()) }
+}
+
+impl From<ResourceName> for ResourceOrString {
+    fn from(name: ResourceName) -> Self { ResourceOrString::Resource(name) }
 }
 
 #[derive(
@@ -279,7 +305,7 @@ pub struct Type {
 pub enum Value {
     Int(i32),
     Float(f32),
-    String(String),
+    String(ResourceOrString),
     List(Vec<Value>),
 }
 
@@ -292,43 +318,19 @@ impl From<i32> for Value {
 }
 
 impl From<String> for Value {
-    fn from(s: String) -> Value { Value::String(s) }
+    fn from(s: String) -> Value { Value::String(s.into()) }
 }
 
 impl<'a> From<&'a str> for Value {
-    fn from(s: &'a str) -> Value { Value::String(s.to_string()) }
+    fn from(s: &'a str) -> Value { Value::String(s.into()) }
+}
+
+impl From<ResourceName> for Value {
+    fn from(name: ResourceName) -> Value { Value::String(name.into()) }
 }
 
 impl From<Vec<Value>> for Value {
     fn from(list: Vec<Value>) -> Value { Value::List(list) }
-}
-
-impl From<Value> for ArgumentValue {
-    fn from(v: Value) -> ArgumentValue {
-        match v {
-            Value::Int(i) => {
-                ArgumentValue::Literal(Literal::new(i as i64, Span::new(0, 0)))
-            },
-            Value::Float(f) => {
-                ArgumentValue::Literal(Literal::new(f, Span::new(0, 0)))
-            },
-            Value::String(s) => {
-                ArgumentValue::Literal(Literal::new(s, Span::new(0, 0)))
-            },
-            Value::List(list) => {
-                let mut items = Vec::new();
-                for item in list {
-                    if let Value::String(s) = item {
-                        items.push(s.clone());
-                    } else {
-                        unimplemented!();
-                    }
-                }
-
-                ArgumentValue::List(items)
-            },
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
@@ -401,51 +403,106 @@ impl<'de> Deserialize<'de> for Input {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case", untagged)]
-pub enum ArgumentValue {
-    Literal(Literal),
-    List(Vec<String>),
+/// The declaration for a resource, typically something like a wordlist or
+/// environment variable.
+#[derive(
+    Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceDeclaration {
+    /// A resource who's default value is specified inline.
+    pub inline: Option<String>,
+    /// A resource who's default value is meant to be loaded from a file.
+    pub path: Option<String>,
+    #[serde(rename = "type", default)]
+    pub ty: ResourceType,
 }
 
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+/// How the resource should be treated inside the Rune.
+#[derive(
+    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
-pub struct Literal {
-    pub kind: LiteralKind,
-    pub span: Span,
+pub enum ResourceType {
+    /// The resource should be treated like as a `&str`.
+    String,
+    /// The resource should be treated like a `&[u8]`.
+    Binary,
 }
 
-impl Literal {
-    pub fn new(kind: impl Into<LiteralKind>, span: Span) -> Self {
-        Literal {
-            kind: kind.into(),
-            span,
+impl Default for ResourceType {
+    fn default() -> Self { ResourceType::String }
+}
+
+/// A reference to some [`ResourceDeclaration`]. It typically looks like
+/// `$RESOURCE_NAME`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ResourceName(pub String);
+
+impl<S: Into<String>> From<S> for ResourceName {
+    fn from(s: S) -> Self { ResourceName(s.into()) }
+}
+
+impl FromStr for ResourceName {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.starts_with("$") {
+            return Err("resource names always start with a \"$\"".into());
+        }
+
+        if !RESOURCE_NAME_PATTERN.is_match(s) {
+            return Err("should be a valid identifier".into());
+        }
+
+        Ok(ResourceName(s[1..].to_string()))
+    }
+}
+
+impl Deref for ResourceName {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl Serialize for ResourceName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ResourceName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let repr = Cow::<str>::deserialize(deserializer)?;
+
+        if !repr.starts_with("$") {
+            return Err(D::Error::custom(
+                "resource names always start with a \"$\"",
+            ));
+        }
+
+        let name = &repr[1..];
+
+        if name.is_empty() {
+            Err(D::Error::custom("the resource name is empty"))
+        } else if !RESOURCE_NAME_PATTERN.is_match(name) {
+            Err(D::Error::custom("should be a valid identifier"))
+        } else {
+            Ok(ResourceName(name.to_string()))
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "type", content = "value")]
-pub enum LiteralKind {
-    Integer(i64),
-    Float(f32),
-    String(String),
-}
-
-impl From<i64> for LiteralKind {
-    fn from(other: i64) -> Self { LiteralKind::Integer(other) }
-}
-
-impl From<f32> for LiteralKind {
-    fn from(other: f32) -> Self { LiteralKind::Float(other) }
-}
-
-impl<'a> From<&'a str> for LiteralKind {
-    fn from(other: &'a str) -> Self { LiteralKind::String(other.to_string()) }
-}
-
-impl From<String> for LiteralKind {
-    fn from(other: String) -> Self { LiteralKind::String(other) }
+impl Display for ResourceName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "${}", self.0)
+    }
 }
 
 #[cfg(test)]
@@ -532,5 +589,117 @@ mod tests {
         let got = Document::parse(src).unwrap();
 
         assert!(matches!(got, Document::V1 { .. }));
+    }
+
+    #[test]
+    fn inline_resource() {
+        let src = "inline: some data";
+        let should_be = ResourceDeclaration {
+            inline: Some(String::from("some data")),
+            ..Default::default()
+        };
+
+        let got: ResourceDeclaration = serde_yaml::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn resource_from_disk() {
+        let src = "path: ./input.txt";
+        let should_be = ResourceDeclaration {
+            path: Some(String::from("./input.txt")),
+            ..Default::default()
+        };
+
+        let got: ResourceDeclaration = serde_yaml::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn resource_with_no_default_value() {
+        let src = "resource_name: {}";
+        let should_be = ResourceDeclaration::default();
+
+        let got: IndexMap<String, ResourceDeclaration> =
+            serde_yaml::from_str(src).unwrap();
+
+        let declaration = &got[0];
+        assert_eq!(declaration, &should_be);
+    }
+
+    #[test]
+    fn model_name_from_resource() {
+        let src = "$MODEL";
+        let should_be = ResourceOrString::Resource("MODEL".into());
+
+        let got: ResourceOrString = serde_yaml::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+
+        let round_tripped = serde_yaml::to_string(&got).unwrap();
+        assert_eq!(round_tripped, "---\n$MODEL\n");
+    }
+
+    #[test]
+    #[should_panic = "should be a valid identifier"]
+    fn model_name_from_resource_must_not_be_empty() {
+        let src = "$";
+
+        let _: ResourceOrString = serde_yaml::from_str(src).unwrap();
+    }
+
+    #[test]
+    #[should_panic = "should be a valid identifier"]
+    fn model_name_from_resource_must_be_valid_identifier() {
+        let src = "$";
+
+        let _: ResourceOrString = serde_yaml::from_str(src).unwrap();
+    }
+
+    #[test]
+    fn model_name_from_path() {
+        let src = "./path";
+        let should_be = ResourceOrString::String(String::from(src));
+
+        let got: ResourceOrString = serde_yaml::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+
+        let round_tripped = serde_yaml::to_string(&got).unwrap();
+        assert_eq!(round_tripped, "---\n\"./path\"\n");
+    }
+
+    #[test]
+    fn proc_block_with_resource_for_arg() {
+        let src = r#"
+              some-proc-block:
+                proc-block: normalize
+                outputs:
+                - type: u8
+                  dimensions: [1]
+                args:
+                  word-list: $WORD_LIST
+            "#;
+        let should_be = Stage::ProcBlock {
+            proc_block: "normalize".parse().unwrap(),
+            inputs: Vec::new(),
+            outputs: vec![Type {
+                name: String::from("u8"),
+                dimensions: vec![1],
+            }],
+            args: vec![(
+                "word-list".to_string(),
+                Value::from(ResourceName::from_str("$WORD_LIST").unwrap()),
+            )]
+            .into_iter()
+            .collect(),
+        };
+
+        let got: IndexMap<String, Stage> = serde_yaml::from_str(src).unwrap();
+
+        let got = &got["some-proc-block"];
+        assert_eq!(got, &should_be);
     }
 }

@@ -6,7 +6,7 @@ mod code;
 mod config;
 mod environment;
 mod manifest;
-mod models;
+mod files;
 mod project;
 
 pub use crate::{
@@ -16,6 +16,7 @@ pub use crate::{
 
 pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
 pub const VERSION_CUSTOM_SECTION: &str = ".rune_version";
+pub const RESOURCE_CUSTOM_SECTION: &str = ".rune_resource";
 
 use std::{
     path::{PathBuf},
@@ -89,10 +90,11 @@ pub fn generate_with_env(
     );
     let config = crate::config::generate(c.optimized)
         .context("Unable to construct the \"config.toml\" file")?;
-    let models = crate::models::load(&c.rune, env)
+    let models = crate::files::load(&c.rune, env)
         .context("Unable to load the models")?;
-    let lib_rs = crate::code::generate(&c.rune, env.build_info())
-        .context("Unable to generate the \"lib.rs\" file")?;
+    let lib_rs =
+        crate::code::generate(&c.rune, env.build_info(), &c.current_directory)
+            .context("Unable to generate the \"lib.rs\" file")?;
 
     let rust_toolchain_toml =
         include_str!("../rust-toolchain.toml").to_string();

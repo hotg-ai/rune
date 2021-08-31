@@ -1,0 +1,39 @@
+version: 1
+image: runicos/base
+pipeline:
+  rand:
+    capability: RAW
+    outputs:
+      - type: F32
+        dimensions:
+        - 1
+        - 1
+  mod360:
+    proc-block: "hotg-ai/rune#proc-blocks/modulo"
+    inputs:
+      - rand
+    outputs:
+      - type: F32
+        dimensions:
+        - 1
+        - 1
+    args:
+      modulus: 360.0
+  sine:
+    model: $SINE_MODEL
+    inputs:
+      - mod360
+    outputs:
+      - type: F32
+        dimensions:
+        - 1
+        - 1
+  serial:
+    out: serial
+    inputs:
+      - sine
+
+resources:
+  SINE_MODEL:
+    type: binary
+    path: "./sinemodel.tflite"

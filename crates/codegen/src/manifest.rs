@@ -64,6 +64,14 @@ fn dependencies(
     });
     deps.insert(String::from("log"), log);
 
+    // we also need lazy_static
+    let lazy_static = Dependency::Detailed(DependencyDetail {
+        version: Some(String::from("1.0")),
+        features: vec![String::from("spin_no_std")],
+        ..empty_dependency_detail()
+    });
+    deps.insert(String::from("lazy_static"), lazy_static);
+
     deps.insert(
         String::from("hotg-rune-core"),
         Dependency::Detailed(rune_project_dependency(
@@ -272,8 +280,9 @@ mod tests {
 
         let got = dependencies(&rune, &project, Path::new("."));
 
-        assert_eq!(got.len(), 4);
+        assert_eq!(got.len(), 5);
         assert!(got.contains_key("log"));
+        assert!(got.contains_key("lazy_static"));
         assert!(got.contains_key("hotg-rune-core"));
         assert!(got.contains_key("hotg-rune-proc-blocks"));
         assert!(got.contains_key("hotg-runicos-base-wasm"));

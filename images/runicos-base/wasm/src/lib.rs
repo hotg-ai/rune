@@ -11,15 +11,17 @@ mod guards;
 pub mod intrinsics;
 mod logging;
 mod model;
+mod resources;
 pub mod serial;
 mod stats_allocator;
 
-pub use self::{
+pub use crate::{
     capability::{GenericCapability, Accelerometer, Random, Sound, Raw, Image},
     guards::{SetupGuard, PipelineGuard},
     logging::Logger,
     model::Model,
     serial::Serial,
+    resources::Resource,
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};

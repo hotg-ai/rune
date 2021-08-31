@@ -11,6 +11,7 @@ mod logging;
 mod pipelines;
 mod pixel_format;
 pub mod reflect;
+mod resources;
 mod shape;
 mod tensor;
 mod tensor_list;
@@ -25,6 +26,7 @@ pub use crate::{
     logging::SerializableRecord,
     shape::Shape,
     tensor_list::{TensorList, TensorListMut},
+    resources::{InlineResource, inline_resource_from_bytes},
 };
 
 /// The mimetype used for a TensorFlow Lite model.

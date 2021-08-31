@@ -5,6 +5,7 @@ pub mod multi;
 pub mod raw;
 mod runecoral_inference;
 pub mod sound;
+mod resources;
 
 use hotg_rune_runtime::ParameterError;
 

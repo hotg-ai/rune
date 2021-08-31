@@ -2,7 +2,9 @@
 
 use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
-use hotg_rune_syntax::hir::{HirId, NameTable, Node, Rune, Slot, Type};
+use hotg_rune_syntax::hir::{
+    HirId, Model, ModelFile, NameTable, Node, Rune, Slot, Type,
+};
 use codespan_reporting::term::termcolor::ColorChoice;
 use indexmap::IndexMap;
 
@@ -192,9 +194,12 @@ fn format_node_label(
     let qualifier = match &node.stage {
         hotg_rune_syntax::hir::Stage::Source(s) => s.kind.to_string(),
         hotg_rune_syntax::hir::Stage::Sink(s) => s.kind.to_string(),
-        hotg_rune_syntax::hir::Stage::Model(m) => {
-            m.model_file.display().to_string()
-        },
+        hotg_rune_syntax::hir::Stage::Model(Model {
+            model_file: ModelFile::FromDisk(path),
+        }) => path.display().to_string(),
+        hotg_rune_syntax::hir::Stage::Model(Model {
+            model_file: ModelFile::Resource(resource),
+        }) => resource.to_string(),
         hotg_rune_syntax::hir::Stage::ProcBlock(p) => p.path.to_string(),
     };
 
