@@ -150,9 +150,9 @@ impl Run {
 /// capability.
 ///
 /// For example, imagine passing the path for 3 images to the `rune` CLI.
-/// Inside the Rune, we'll instantiate a [`Capability`] object and set the
-/// `"source"` parameter to `1`. This then tells the [`CapabilityFactory`] that
-/// we want to read from the second image.
+/// Inside the Rune, we'll instantiate a [`SourceBackedCapability`] object and
+/// set the `"source"` parameter to `1`. This then tells the
+/// [`CapabilityFactory`] that we want to read from the second image.
 fn capability_switcher<C, T, F>(
     items: &[T],
     mut make_source: F,

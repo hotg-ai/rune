@@ -9,7 +9,18 @@ use std::{
 };
 use env_logger::Env;
 
-const DEFAULT_RUST_LOG: &str = "info";
+pub const DEFAULT_RUST_LOG: &str = concat!(
+    "info,",
+    "hotg_rune_cli=debug,",
+    "hotg_rune_codegen=debug,",
+    "hotg_rune_core=debug,",
+    "hotg_rune_runtime=debug,",
+    "hotg_rune_syntax=debug,",
+    "hotg_rune_wasmer_runtime=debug,",
+    "hotg_rune_wasm3_runtime=debug,",
+    "hotg_runicos_base_runtime=debug,",
+    "regalloc=warn,",
+);
 
 fn main() -> Result<(), Error> {
     let env = Env::new().default_filter_or(DEFAULT_RUST_LOG);

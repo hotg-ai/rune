@@ -72,7 +72,17 @@ fn embed_inline_resources(
             ///
             /// These resources are embedded in a WebAssembly custom section
             /// and located at runtime.
-            mod _embedded_default_resource_values {
+            ///
+            /// # Note to Implementors
+            ///
+            /// We put the `static` variables inside an exported function
+            /// instead of their own module because of [#56639 - *Custom section
+            /// generation under wasm32-unknown-unknown is inconsistent and
+            /// unintuitive*](https://github.com/rust-lang/rust/issues/56639)
+            #[allow(bad_style)]
+            #[doc(hidden)]
+            #[no_mangle]
+            pub extern "C" fn _embedded_default_resource_values() {
                 use hotg_rune_core::InlineResource;
 
                 #( #initializers )*
@@ -99,8 +109,9 @@ fn inline_resource_from_disk(
     let path = path.display().to_string();
 
     Ok(quote! {
+        #[used]
         #[link_section = #section]
-        pub(crate) static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
+        pub static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
             *#name_bytes,
             *include_bytes!(#path),
         );
@@ -117,8 +128,9 @@ fn inline_resource_from_literal(name: &str, data: &[u8]) -> TokenStream {
     let ident = variable_name(name);
 
     quote! {
+        #[used]
         #[link_section = #section]
-        pub(crate) static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
+        pub static #ident: InlineResource<#name_len, #data_len> = InlineResource::new(
             *#name_bytes,
             *#data_bytes,
         );
@@ -166,6 +178,7 @@ fn declare_resources(rune: &Rune, image_crate: &TokenStream) -> TokenStream {
     } else {
         quote! {
             /// Lazily loaded accessors for all resources used by this Rune.
+            #[allow(bad_style)]
             mod resources {
                 lazy_static! {
                     #( #initializers )*
@@ -196,13 +209,14 @@ fn declare_models(rune: &Rune) -> TokenStream {
         TokenStream::new()
     } else {
         quote! {
+            #[allow(bad_style)]
             mod models { #( #initializers )* }
         }
     }
 }
 
 fn variable_name(name: impl Display) -> Ident {
-    let name = name.to_string().replace("-", "_").to_uppercase();
+    let name = name.to_string().replace("-", "_");
     Ident::new(&name, Span::call_site())
 }
 
@@ -617,7 +631,7 @@ fn quote_value(value: &Value) -> TokenStream {
         Value::String(ResourceOrString::String(s)) => quote!(#s),
         Value::String(ResourceOrString::Resource(resource)) => {
             let variable = variable_name(&resource.0);
-            quote!(&resources::#variable)
+            quote!(&*resources::#variable)
         },
         Value::List(list) => {
             let values = list.iter().map(quote_value);
@@ -883,7 +897,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 "application/tflite-model",
-                &models::SINE,
+                &models::sine,
                 &[hotg_rune_core::Shape::new(
                     hotg_rune_core::reflect::Type::f32,
                     [1usize].as_ref()
@@ -1214,7 +1228,7 @@ mod tests {
         let should_be = quote! {
             let mut sine = runicos_base_wasm::Model::load(
                 #TFLITE_MIMETYPE,
-                &models::SINE,
+                &models::sine,
                 &[
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::u8, [18000usize].as_ref()),
                     hotg_rune_core::Shape::new(hotg_rune_core::reflect::Type::f32, [1usize].as_ref())
@@ -1271,10 +1285,11 @@ mod tests {
 
         let should_be = quote! {
             /// Lazily loaded accessors for all resources used by this Rune.
+            #[allow(bad_style)]
             mod resources {
                 lazy_static! {
                     pub(crate) static ref SINE_MODEL: alloc::vec::Vec<u8> = hotg_runicos_base_wasm::Resource::read_to_end("SINE_MODEL");
-                    pub(crate) static ref SINE: &'static [u8] = include_bytes!("models/sine.tflite");
+                    pub(crate) static ref sine: &'static [u8] = include_bytes!("models/sine.tflite");
                 }
             }
         };
