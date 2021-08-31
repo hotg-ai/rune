@@ -1,7 +1,24 @@
 use core::fmt::{self, Formatter, Debug};
 
 /// Read an [`InlineResource`]'s data from its binary form in memory.
-pub fn inline_resource_from_bytes(bytes: &[u8]) -> Option<(&str, &[u8])> {
+///
+/// # Examples
+///
+/// ```rust
+/// # use hotg_rune_core::{inline_resource_from_bytes, InlineResource};
+/// let resource = InlineResource::new(*b"Name", *b"Some Value");
+/// let bytes = resource.as_bytes();
+///
+/// let (name, value, rest) = inline_resource_from_bytes(bytes)?;
+///
+/// assert_eq!(name, "Name");
+/// assert_eq!(value, b"Some Value");
+/// assert!(rest.is_empty());
+/// # Ok(())
+/// ```
+pub fn inline_resource_from_bytes(
+    bytes: &[u8],
+) -> Option<(&str, &[u8], &[u8])> {
     let (name_len, rest) = read_u32(bytes)?;
     if rest.len() < name_len {
         return None;
@@ -15,12 +32,7 @@ pub fn inline_resource_from_bytes(bytes: &[u8]) -> Option<(&str, &[u8])> {
     }
     let (data, bytes) = bytes.split_at(data_len as usize);
 
-    if bytes.is_empty() {
-        // We expected to be given *exactly* the right number of bytes.
-        Some((name, data))
-    } else {
-        None
-    }
+    Some((name, data, bytes))
 }
 
 fn read_u32(buffer: &[u8]) -> Option<(usize, &[u8])> {
@@ -111,10 +123,11 @@ mod tests {
         let resource = InlineResource::new(*b"name", *b"value");
         let as_bytes = resource.as_bytes();
 
-        let (got_name, got_value) =
+        let (got_name, got_value, rest) =
             inline_resource_from_bytes(as_bytes).unwrap();
 
         assert_eq!(got_name, resource.name().unwrap());
         assert_eq!(got_value, resource.data());
+        assert!(rest.is_empty());
     }
 }

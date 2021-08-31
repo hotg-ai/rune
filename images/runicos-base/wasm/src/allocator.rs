@@ -15,7 +15,7 @@ impl<A> Allocator<A> {
 unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         let ptr = self.0.alloc(layout);
-        log::debug!(
+        log::trace!(
             "Alloc {:p}, layout = {:?}, stats = {:?}",
             ptr,
             layout,
@@ -26,7 +26,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-        log::debug!(
+        log::trace!(
             "Free {:p}, layout = {:?}, stats = {:?}",
             ptr,
             layout,
@@ -44,7 +44,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for Allocator<A> {
     ) -> *mut u8 {
         let new_ptr = self.0.realloc(ptr, layout, new_size);
 
-        log::debug!(
+        log::trace!(
             "Realloc {:p} to {} bytes at {:p}, layout = {:?}, stats = {:?}",
             ptr,
             new_size,

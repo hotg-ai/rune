@@ -64,9 +64,6 @@ fn embed_inline_resources(
         initializers.push(tokens);
     }
 
-    if initializers.is_empty() {
-        Ok(quote!())
-    } else {
         Ok(quote! {
             /// Default values for resources as defined in the Runefile.
             ///
@@ -88,7 +85,6 @@ fn embed_inline_resources(
                 #( #initializers )*
             }
         })
-    }
 }
 
 fn inline_resource_from_disk(
@@ -241,6 +237,7 @@ fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> u32 {
+            _embedded_default_resource_values();
             let _setup = #image_crate::SetupGuard::default();
 
             #( #initialized_node )*
