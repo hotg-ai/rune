@@ -1,12 +1,14 @@
-use std::path::PathBuf;
+use regex::Regex;
+use std::{fs::File, io::Read, path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use log;
 use hotg_rune_core::capabilities;
+use once_cell::sync::Lazy;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
     image::ImageSource, multi::SourceBackedCapability, new_capability_switcher,
-    runecoral_inference, sound::AudioClip,
-    resources::load_resources_from_custom_sections,
+    resources::load_resources_from_custom_sections, runecoral_inference,
+    sound::AudioClip,
 };
 use hotg_runicos_base_runtime::{BaseImage, CapabilityFactory, Random};
 
@@ -60,6 +62,12 @@ pub struct Run {
         help = "Use the wasm3 WebAssembly engine instead of Wasmer"
     )]
     wasm3: bool,
+    #[structopt(
+        long = "file-resource",
+        parse(try_from_str),
+        help = "Load a named resource from a file"
+    )]
+    file_resources: Vec<FileResource>,
 }
 
 impl Run {
@@ -70,14 +78,27 @@ impl Run {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
 
-        let mut env = self
-            .initialize_image()
-            .context("Unable to initialize the environment")?;
-        load_resources_from_custom_sections(&rune, &mut env);
+        let mut img = BaseImage::with_defaults();
+        self.register_capabilities(&mut img)?;
+        runecoral_inference::override_model_handler(
+            &mut img,
+            self.librunecoral.as_deref(),
+        )
+        .context("Unable to register the librunecoral inference backend")?;
+        load_resources_from_custom_sections(&rune, &mut img);
+        for resource in self.file_resources {
+            let path = resource.path.clone();
+            img.register_resource(&resource.name, move || {
+                let f = File::open(&path).with_context(|| {
+                    format!("Unable to open \"{}\" for reading", path.display())
+                })?;
+                Ok(Box::new(f) as Box<dyn Read + Send + Sync + 'static>)
+            });
+        }
 
         if self.wasm3 {
             let mut runtime =
-                hotg_rune_wasm3_runtime::Runtime::load(&rune, env)
+                hotg_rune_wasm3_runtime::Runtime::load(&rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
             for i in 0..self.repeats {
@@ -88,7 +109,7 @@ impl Run {
             }
         } else {
             let mut runtime =
-                hotg_rune_wasmer_runtime::Runtime::load(&rune, env)
+                hotg_rune_wasmer_runtime::Runtime::load(&rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
             for i in 0..self.repeats {
@@ -102,7 +123,7 @@ impl Run {
         Ok(())
     }
 
-    fn initialize_image(&self) -> Result<BaseImage, Error> {
+    fn register_capabilities(&self, img: &mut BaseImage) -> Result<(), Error> {
         // Load the source files for each kind of Capability and create a
         // CapabilityFactory which will instantiate Capabilities depending on
         // the "source" index provided as a capability parameter.
@@ -121,18 +142,10 @@ impl Run {
             AudioClip::from_wav_file(p)
         })?;
 
-        let mut img = BaseImage::with_defaults();
-
         img.register_capability(capabilities::ACCEL, accelerometer)
             .register_capability(capabilities::IMAGE, image)
             .register_capability(capabilities::RAW, raw)
             .register_capability(capabilities::SOUND, sound);
-
-        runecoral_inference::override_model_handler(
-            &mut img,
-            self.librunecoral.as_deref(),
-        )
-        .context("Unable to register the librunecoral inference backend")?;
 
         if let Some(seed) = self.random {
             img.register_capability(capabilities::RAND, move || {
@@ -141,7 +154,7 @@ impl Run {
             });
         }
 
-        Ok(img)
+        Ok(())
     }
 }
 
@@ -169,4 +182,30 @@ where
     }
 
     Ok(new_capability_switcher::<C, _>(sources))
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct FileResource {
+    name: String,
+    path: PathBuf,
+}
+
+impl FromStr for FileResource {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self, Error> {
+        static PATTERN: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"([a-zA-Z_][a-zA-Z0-9]*)=(.*)").unwrap());
+
+        let captures = PATTERN.captures(value).context(
+            "Expected a resource in the form \"RESOURCE_NAME=path\"",
+        )?;
+        let name = &captures[0];
+        let path = &captures[1];
+
+        Ok(FileResource {
+            name: name.to_string(),
+            path: PathBuf::from(path),
+        })
+    }
 }

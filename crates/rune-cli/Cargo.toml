@@ -40,6 +40,7 @@ strum = { version = "0.20.0", features = ["derive"] }
 tflite = "0.9.5"
 wasmparser = "0.78.2"
 hotg-runecoral = "0.1.1"
+regex = "1.5.4"
 
 [dev-dependencies]
 assert_cmd = "1.0.3"
