@@ -1,0 +1,78 @@
+<html>
+<body style="width: 360px; margin: 0 auto;">
+<meta charset="utf-8">
+<!-- main -->
+<script type="module" src="runevm.js"></script>
+
+<p id="log">Log</p>
+<script>
+    var runtime;
+    let input;
+    let output;
+    
+    //create capability and output classes
+    class ImageCapability {
+        parameters = {};
+        generate(dest,id) {
+            dest.set(input, 0);
+        }
+        setParameter(key, value) {
+            this.parameters[key] = value;
+        }
+    }
+
+    class SerialOutput {
+        consume(data) {
+            const utf8 = new TextDecoder();
+            output=JSON.parse(utf8.decode(data));
+        }
+    }
+
+    const imageCap = new ImageCapability(); 
+    const imports = {
+            createCapability: () => imageCap,
+            createOutput: () => new SerialOutput(),
+            createModel: (mime, model_data) => rune.TensorFlowModel.loadTensorFlowLite(model_data),
+            log: (log) => { console.log(log) },
+    };
+
+    async function loadRune() {
+        // 
+        document.getElementById("log").innerHTML = "Loading...";
+        var oReq = new XMLHttpRequest();
+        oReq.open("GET", "/mobilenet.rune", true);
+        oReq.responseType = "arraybuffer";
+        oReq.onload = async function (oEvent) {
+            var arrayBuffer = oReq.response; // Note: not oReq.responseText
+            if (arrayBuffer) {
+                document.getElementById("log").innerHTML = "Rune size:"+arrayBuffer.byteLength;
+                runtime = await rune.Runtime.load(arrayBuffer,imports);
+                document.getElementById("log").innerHTML = "Rune size:"+arrayBuffer.byteLength+"<br>Parameters: "+JSON.stringify(imageCap.parameters);
+            }
+            startCamera();
+        }
+        oReq.send(null);
+    }
+    loadRune();
+
+    async function startCamera() {
+        let video = document.getElementById("video");
+        let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        video.setAttribute("playsinline", true);
+	    video.srcObject = stream;
+  
+    }
+    
+    async function shoot() {
+        let video = document.getElementById("video");
+        input = rune.TensorFlowModel.resizeImage(video,224);
+        runtime.call();
+        document.getElementById("output").innerHTML=JSON.stringify(output);
+
+    }
+    </script>
+    <video id="video" width="320" height="320" autoplay></video>
+    <button type="button" onclick="shoot()">Shoot!</button>
+    <div id="output"></div>
+</body>
+</html>

@@ -157,7 +157,7 @@ function importsToHostFunctions(
 
             // TODO: use valueType to figure out what type of array to convert to
             // instead of assuming Int32Array.
-            capability.setParameter(key, convertTypedArray(value, Int32Array));
+            capability.setParameter(key, convertTypedArray<Int32Array>(value, Int32Array)[0]);
         },
 
         request_provider_response(buffer: number, len: number, id: number) {
@@ -269,10 +269,7 @@ interface TypedArray extends ArrayBuffer {
 
 //this function can convert any TypedArray to any other kind of TypedArray :
 function convertTypedArray<T>(src: TypedArray, constructor: any): T {
-    // Instantiate a buffer (zeroed out) and copy the bytes from "src" into it.
-    const buffer = new constructor(src.byteLength);
-    buffer.set(src.buffer);
-    return buffer[0] as T;
+    return new constructor(src.buffer) as T;
 }
 
 

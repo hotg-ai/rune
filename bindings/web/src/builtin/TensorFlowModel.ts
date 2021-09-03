@@ -1,5 +1,6 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
 import tf, { InferenceModel, Tensor } from "@tensorflow/tfjs";
+import { browser, image, tensor } from "@tensorflow/tfjs";
 import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "..";
 import Shape from "../Shape";
@@ -32,24 +33,28 @@ export class TensorFlowModel implements Model {
 
     transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
         const inputs = toTensors(inputArray, inputDimensions);
-        const outputs = this.model.predict(inputs, {}) as tf.Tensor[];
+        const output = this.model.predict(inputs, {}) as tf.Tensor;
+        //output is a tf.Tensor, not tf.Tensor[];
+        const dest = outputArray[0];
+        dest.set(output.dataSync());
+    }
 
-        for (let i = 0; i <= outputArray.length; i++) {
-            const output = outputs[i];
-            const dest = outputArray[i];
-            dest.set(output.dataSync());
-        }
+    static resizeImage(input:any,size:number): Uint8Array {
+        let resized = image.resizeBilinear(browser.fromPixels(input, 3), [size, size]);
+        return Uint8Array.from(resized.dataSync());
     }
 }
+
+
 
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     const tensors = [];
 
-    for (let i = 0; i <= buffers.length; i++) {
+    for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         const shape = shapes[i];
         const arr = toTypedArray(shape.type, buffer);
-        tensors.push(tf.tensor(arr, shape.values));
+        tensors.push(tensor(arr, shape.values));
     }
 
     return tensors;
