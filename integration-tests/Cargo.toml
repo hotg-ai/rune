@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-integration-tests"
-version = "0.6.1-dev"
+version = "0.7.0"
 edition = "2018"
 publish = false
 

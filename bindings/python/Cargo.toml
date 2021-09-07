@@ -1,6 +1,6 @@
 [package]
 name = "rune_py"
-version = "0.6.1-dev"
+version = "0.7.0"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 publish = false
@@ -13,12 +13,12 @@ doctest = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fft = { path = "../../proc-blocks/fft", version = "^0.6.1-dev"}
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.6.1-dev"}
-hotg-rune-proc-blocks = { path = "../../proc-blocks/proc-blocks", version = "^0.6.1-dev"}
-image-normalization = { path = "../../proc-blocks/image-normalization", version = "^0.6.1-dev"}
-noise-filtering = { path = "../../proc-blocks/noise-filtering", version = "^0.6.1-dev"}
-normalize = { path = "../../proc-blocks/normalize", version = "^0.6.1-dev"}
+fft = { path = "../../proc-blocks/fft", version = "^0.7.0"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.0"}
+hotg-rune-proc-blocks = { path = "../../proc-blocks/proc-blocks", version = "^0.7.0"}
+image-normalization = { path = "../../proc-blocks/image-normalization", version = "^0.7.0"}
+noise-filtering = { path = "../../proc-blocks/noise-filtering", version = "^0.7.0"}
+normalize = { path = "../../proc-blocks/normalize", version = "^0.7.0"}
 numpy = "0.14"
 paste = "1.0"
 pyo3 = { version = "0.14", features = ["extension-module", "abi3", "abi3-py36", "multiple-pymethods"] }

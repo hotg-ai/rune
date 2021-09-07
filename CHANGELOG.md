@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.7.0] - 2021-09-07
+
 ### Added
 
 - Users of the web runtime are now able to provide custom model handlers
@@ -161,7 +163,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.6.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.7.0...HEAD
+[0.7.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.6.0...hotg-rune-cli-v0.7.0
 [0.6.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.3...hotg-rune-cli-v0.6.0
 [0.5.3]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.2...hotg-rune-cli-v0.5.3
 [0.5.2]: https://github.com/assert-rs/predicates-rs/compare/v0.4.0...hotg-rune-cli-v0.5.2
