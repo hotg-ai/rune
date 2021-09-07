@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Users of the web runtime are now able to provide custom model handlers
   (e.g. if you want to use your own ML framework)
+- Added "Resources" to the Runefile
+  ([#273](https://github.com/hotg-ai/rune/pull/273),
+  [#285](https://github.com/hotg-ai/rune/pull/285))
+  - Resources can be loaded from disk using the `path: ./some/file.ext` syntax
+  - Resources can also be specified in the Runefile itself using the
+    `inline: "value"` syntax
+  - A model can be bound to a resource using `model: $MY_MODEL`
+  - Procedure block arguments can be set using `some_arg: $VALUE`
+  - A resource can be overridden at runtime using a different version
+  - The `rune` CLI can override resources with `--resource-file NAME=./file.ext`
+    or `--resource-string NAME=value`
+- We now fall back to using WASM3 to evaluate WebAssembly code on platforms not
+  supported by Wasmer, primarily iOS
+  ([#266](https://github.com/hotg-ai/rune/pull/266),
+  [#267](https://github.com/hotg-ai/rune/pull/267),
+  [#271](https://github.com/hotg-ai/rune/pull/271),
+  [#280](https://github.com/hotg-ai/rune/pull/280),
+  [#281](https://github.com/hotg-ai/rune/pull/281))
+- Gave the web runtime a builder type to simplify the process of initializing
+  and loading Runes ([#279](https://github.com/hotg-ai/rune/pull/279))
+
+### Fixed
+
+- Resolved an issue where `cargo install hotg-rune-cli` would fail due to an
+  accidental backwards incompatible change in the `cargo_toml` crate
+  ([#284](https://github.com/hotg-ai/rune/issues/284))
 
 ## [0.6.0] - 2021-08-23
 
