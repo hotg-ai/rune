@@ -29,7 +29,8 @@ pub(crate) fn generate(
         workspace: Some(Workspace {
             members: vec![String::from(".")],
             default_members: vec![String::from(".")],
-            ..Default::default()
+            exclude: Vec::new(),
+            metadata: None,
         }),
         ..empty_manifest()
     }

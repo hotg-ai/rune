@@ -349,9 +349,9 @@ dependencies = [
 
 [[package]]
 name = "cargo_toml"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c3596addfb02dcdc06f5252ddda9f3785f9230f5827fb4284645240fa05ad92"
+checksum = "067a0b9ae9282dd1f63b6c1e76a065d741fc1733e566dc50b5b5d8a84d7e3c4a"
 dependencies = [
  "serde",
  "serde_derive",
@@ -767,26 +767,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "devx-cmd"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "771d86e03f7f740de595375e9fb2d39e527868c57e5642e6f4f7a10e2a02a2e2"
-dependencies = [
- "log",
-]
-
-[[package]]
-name = "devx-pre-commit"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f230e4d04e6464a4ddfc854a30a60c430791f876a6564317e9d218daade6b8d9"
-dependencies = [
- "anyhow",
- "devx-cmd",
- "fs-err",
-]
-
-[[package]]
 name = "diff"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -974,12 +954,6 @@ name = "format-buf"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7aea5a5909a74969507051a3b17adc84737e31a5f910559892aedce026f4d53"
-
-[[package]]
-name = "fs-err"
-version = "2.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ebd3504ad6116843b8375ad70df74e7bfe83cac77a1f3fe73200c844d43bfe0"
 
 [[package]]
 name = "fs_extra"
@@ -2207,6 +2181,7 @@ checksum = "35100f9347670a566a67aa623369293703322bb9db77d99d7df7313b575ae0c8"
 dependencies = [
  "cfg-if 1.0.0",
  "indoc",
+ "inventory",
  "libc",
  "parking_lot",
  "paste 0.1.18",
@@ -3446,7 +3421,6 @@ dependencies = [
  "anyhow",
  "cargo_toml",
  "codespan-reporting",
- "devx-pre-commit",
  "env_logger 0.9.0",
  "globset",
  "hotg-rune-syntax",
