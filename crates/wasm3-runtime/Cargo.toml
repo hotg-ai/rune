@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-wasm3-runtime"
-version = "0.6.1-dev"
+version = "0.7.1-dev"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -14,11 +14,11 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.40"
+anyhow = "1.0"
 log = "0.4.14"
-hotg-rune-runtime = { path = "../runtime", version = "^0.6.1-dev"}
-hotg-rune-core = { path = "../rune-core", version = "^0.6.1-dev"}
-wasm3 = "0.2.0"
+hotg-rune-runtime = { path = "../runtime", version = "^0.7.1-dev"}
+hotg-rune-core = { path = "../rune-core", version = "^0.7.1-dev"}
+wasm3 = "0.3.0"
 
 [dev-dependencies]
 tempfile = "3.2.0"

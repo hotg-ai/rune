@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-version = "0.1.1-dev"
+version = "0.2.1-dev"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 publish = false
@@ -9,16 +9,15 @@ description = "Utilities used during development."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.38"
-cargo_toml = "0.9.2"
+anyhow = "1.0"
+cargo_toml = "0.10"
 codespan-reporting = "0.11.1"
-devx-pre-commit = "0.3.1"
-env_logger = "0.8.3"
+env_logger = "0.9"
 globset = "0.4.6"
 log = "0.4.14"
-hotg-rune-syntax = { path = "../syntax", version = "^0.6.1-dev"}
-serde = { version = "1.0.124", features = ["derive"] }
-serde_json = "1.0.64"
+hotg-rune-syntax = { path = "../syntax", version = "^0.7.1-dev"}
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 structopt = "0.3.21"
 walkdir = "2.3.1"
 zip = "0.5.11"

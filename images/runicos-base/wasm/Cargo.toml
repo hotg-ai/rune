@@ -1,6 +1,6 @@
 [package]
 name = "hotg-runicos-base-wasm"
-version = "0.6.1-dev"
+version = "0.7.1-dev"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -16,7 +16,7 @@ readme = "README.md"
 [target.wasm32-unknown-unknown.dependencies]
 dlmalloc = { version = "0.2.1", features = ["global"] }
 log = "0.4.14"
-hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.6.1-dev"}
+hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.7.1-dev"}
 serde = { version = "1.0.126", default-features = false }
 serde-json-core = { version = "0.4.0", default-features = false }
 serde_json = { version = "1.0.64", features = ["alloc"], default-features = false }
