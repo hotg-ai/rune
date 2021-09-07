@@ -1,15 +1,17 @@
 use std::{
+    fs::File,
     io::{Cursor, Read},
     sync::Arc,
 };
 
+use anyhow::Context;
 use hotg_runicos_base_runtime::BaseImage;
-use crate::inspect::{CustomSection, wasm_custom_sections};
+use crate::{
+    inspect::{CustomSection, wasm_custom_sections},
+    run::command::{FileResource, StringResource},
+};
 
-pub(crate) fn load_resources_from_custom_sections(
-    wasm: &[u8],
-    img: &mut BaseImage,
-) {
+pub(crate) fn load_from_custom_sections(img: &mut BaseImage, wasm: &[u8]) {
     let resources = wasm_custom_sections(wasm)
         .filter(|s| s.name == hotg_rune_codegen::RESOURCE_CUSTOM_SECTION)
         .flat_map(|CustomSection { mut data, .. }| {
@@ -33,6 +35,38 @@ pub(crate) fn load_resources_from_custom_sections(
 
         img.register_resource(name, move || {
             Ok(Box::new(Cursor::new(Arc::clone(&resource)))
+                as Box<dyn Read + Send + Sync + 'static>)
+        });
+    }
+}
+
+pub(crate) fn load_from_files(img: &mut BaseImage, files: &[FileResource]) {
+    for resource in files {
+        let path = resource.path.clone();
+
+        log::debug!("Registering the \"{}\" file resource", resource.name,);
+
+        img.register_resource(&resource.name, move || {
+            let f = File::open(&path).with_context(|| {
+                format!("Unable to open \"{}\" for reading", path.display())
+            })?;
+            Ok(Box::new(f) as Box<dyn Read + Send + Sync + 'static>)
+        });
+    }
+}
+
+pub(crate) fn load_from_strings(img: &mut BaseImage, files: &[StringResource]) {
+    for resource in files {
+        let value: Arc<[u8]> = resource.value.as_bytes().into();
+
+        log::debug!(
+            "Registering the \"{}\" resource ({} bytes)",
+            resource.name,
+            value.len()
+        );
+
+        img.register_resource(&resource.name, move || {
+            Ok(Box::new(Cursor::new(Arc::clone(&value)))
                 as Box<dyn Read + Send + Sync + 'static>)
         });
     }
