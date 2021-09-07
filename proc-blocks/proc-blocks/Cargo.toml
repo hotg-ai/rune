@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-proc-blocks"
-version = "0.7.0"
+version = "0.7.1-dev"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -14,6 +14,6 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-proc-block-macros = { path = "../macros", version = "^0.7.0"}
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.0", default-features = false }
+hotg-rune-proc-block-macros = { path = "../macros", version = "^0.7.1-dev"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.1-dev", default-features = false }
 serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }

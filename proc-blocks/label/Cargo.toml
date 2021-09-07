@@ -1,13 +1,13 @@
 [package]
 name = "label"
-version = "0.7.0"
+version = "0.7.1-dev"
 edition = "2018"
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.7.0"}
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.7.1-dev"}
 
 [dev-dependencies]
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.0"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.1-dev"}

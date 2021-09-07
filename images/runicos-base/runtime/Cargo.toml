@@ -1,6 +1,6 @@
 [package]
 name = "hotg-runicos-base-runtime"
-version = "0.7.0"
+version = "0.7.1-dev"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -15,10 +15,10 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.40"
-hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.7.0", features = ["std"] }
-hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.7.0", features = ["builtins"] }
-hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "^0.7.0", optional = true }
-hotg-rune-wasm3-runtime = { path = "../../../crates/wasm3-runtime", version = "^0.7.0", optional = true }
+hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.7.1-dev", features = ["std"] }
+hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.7.1-dev", features = ["builtins"] }
+hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "^0.7.1-dev", optional = true }
+hotg-rune-wasm3-runtime = { path = "../../../crates/wasm3-runtime", version = "^0.7.1-dev", optional = true }
 log = "0.4.14"
 rand = "0.8.4"
 serde_json = { version = "1" }
