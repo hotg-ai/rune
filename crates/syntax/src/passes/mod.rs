@@ -1,173 +1,108 @@
-mod check_for_loops;
-mod construct_pipeline;
+// mod check_for_loops;
+mod register_names;
 mod register_output_slots;
 mod register_resources;
 mod register_stages;
+mod register_tensors;
+mod update_nametable;
+
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use legion::{Resources, World};
 
 use crate::{
     Diagnostics,
-    hir::{Image, Rune},
-    utils::{Builtins, HirIds},
+    hooks::{Continuation, Ctx, Hooks},
+    passes::update_nametable::NameTable,
     yaml::*,
 };
 
-pub fn analyse(doc: Document, diags: &mut Diagnostics) -> Rune {
-    let mut rune = Rune::default();
-    let mut ids = HirIds::new();
-    let builtins = Builtins::new(&mut ids);
-    builtins.copy_into(&mut rune);
+pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
+    let mut world = World::default();
+    let mut res = initialize_resources();
 
-    let DocumentV1 {
-        image,
-        pipeline,
-        resources,
-    } = doc.to_v1();
+    if hooks.before_parse(&mut c(&mut world, &mut res))
+        != Continuation::Continue
+    {
+        return (world, res);
+    }
 
-    rune.base_image = Some(Image(image.clone().into()));
+    let doc = match Document::parse(src) {
+        Ok(d) => d,
+        Err(e) => {
+            let mut diag = Diagnostic::error().with_message(e.to_string());
+            if let Some(location) = e.location() {
+                let ix = location.index();
+                diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
+            }
+            res.get_mut::<Diagnostics>().unwrap().push(diag);
+            hooks.after_parse(&mut c(&mut world, &mut res));
+            return (world, res);
+        },
+    };
 
-    register_resources::run(
-        diags,
-        &mut ids,
-        &resources,
-        &mut rune.resources,
-        &rune.spans,
-        &mut rune.names,
-    );
+    // TODO: move document parsing here
+    res.insert(doc.to_v1());
 
-    register_stages::run(
-        &mut ids,
-        &pipeline,
-        &rune.spans,
-        &mut rune.stages,
-        &rune.resources,
-        &mut rune.names,
-        diags,
-    );
+    if hooks.after_parse(&mut c(&mut world, &mut res)) != Continuation::Continue
+    {
+        return (world, res);
+    }
 
-    register_output_slots::run(
-        &mut ids,
-        &pipeline,
-        &mut rune.types,
-        &builtins,
-        &rune.names,
-        &mut rune.slots,
-        &mut rune.stages,
-        diags,
-    );
+    Schedule::new()
+        .and_then(register_names::run_system())
+        .and_then(update_nametable::run_system())
+        .and_then(register_resources::run_system())
+        .and_then(register_stages::run_system())
+        .and_then(register_tensors::run_system())
+        .run(&mut world, &mut res);
 
-    construct_pipeline::run(
-        &pipeline,
-        &rune.names,
-        &mut rune.stages,
-        &mut rune.slots,
-        diags,
-    );
-    check_for_loops::run(
-        &rune.stages,
-        &rune.slots,
-        &rune.names,
-        &rune.spans,
-        diags,
-    );
+    if hooks.after_lowering(&mut c(&mut world, &mut res))
+        != Continuation::Continue
+    {
+        return (world, res);
+    }
 
-    rune
+    (world, res)
 }
 
-mod helpers {
-    use codespan::Span;
-    use codespan_reporting::diagnostic::{Diagnostic, Label};
-    use indexmap::IndexMap;
-    use crate::{
-        hir::{self, HirId, NameTable, Primitive},
-        utils::{Builtins, HirIds, range_span},
-    };
-    use super::*;
+pub(crate) fn initialize_resources() -> Resources {
+    let mut resources = Resources::default();
 
-    pub(crate) fn register_name(
-        name: &str,
-        id: HirId,
-        definition_span: Span,
-        spans: &IndexMap<HirId, Span>,
-        names: &mut NameTable,
-        diags: &mut Diagnostics,
-    ) {
-        if let Err(original_definition_id) = names.register(name, id) {
-            let duplicate = Label::primary((), range_span(definition_span))
-                .with_message("Original definition here");
-            let mut labels = vec![duplicate];
+    resources.insert(Diagnostics::new());
+    resources.insert(NameTable::default());
 
-            if let Some(original_definition) =
-                spans.get(&original_definition_id)
-            {
-                let original =
-                    Label::secondary((), range_span(*original_definition))
-                        .with_message("Original definition here");
-                labels.push(original);
-            }
+    resources
+}
 
-            let diag = Diagnostic::error()
-                .with_message(format!("\"{}\" is already defined", name))
-                .with_labels(labels);
-            diags.push(diag);
-        }
+fn c<'world, 'res>(
+    world: &'world mut World,
+    res: &'res mut Resources,
+) -> Ctx<'world, 'res> {
+    Ctx { world, res }
+}
+
+/// A helper type for constructing a [`legion::Schedule`] which automatically
+/// flushes the [`legion::CommandBuffer`] after each step.
+pub(crate) struct Schedule(legion::systems::Builder);
+
+impl Schedule {
+    fn new() -> Self { Schedule(legion::Schedule::builder()) }
+
+    fn and_then(
+        &mut self,
+        runnable: impl legion::systems::ParallelRunnable + 'static,
+    ) -> &mut Self {
+        self.0.add_system(runnable).flush();
+        self
     }
 
-    pub(crate) fn intern_type(
-        ids: &mut HirIds,
-        ty: &Type,
-        types: &mut IndexMap<HirId, hir::Type>,
-        builtins: &Builtins,
-        diags: &mut Diagnostics,
-    ) -> HirId {
-        let underlying_type = match primitive_type(&ty.name) {
-            Some(p) => p,
-            None => {
-                let msg = format!("Unknown type: {}", ty.name);
-                let diag = Diagnostic::warning().with_message(msg);
-                diags.push(diag);
-                return builtins.unknown_type;
-            },
-        };
-
-        let ty = if ty.dimensions.is_empty() {
-            hir::Type::Primitive(underlying_type)
-        } else {
-            hir::Type::Buffer {
-                underlying_type: builtins.get_id(underlying_type),
-                dimensions: ty.dimensions.clone(),
-            }
-        };
-
-        match types.iter().find(|(_, t)| **t == ty) {
-            Some((id, _)) => *id,
-            None => {
-                // new buffer type
-                let id = ids.next();
-                types.insert(id, ty);
-                id
-            },
-        }
-    }
-
-    pub(crate) fn primitive_type(name: &str) -> Option<Primitive> {
-        match name {
-            "u8" | "U8" => Some(Primitive::U8),
-            "i8" | "I8" => Some(Primitive::I8),
-            "u16" | "U16" => Some(Primitive::U16),
-            "i16" | "I16" => Some(Primitive::I16),
-            "u32" | "U32" => Some(Primitive::U32),
-            "i32" | "I32" => Some(Primitive::I32),
-            "u64" | "U64" => Some(Primitive::U64),
-            "i64" | "I64" => Some(Primitive::I64),
-            "f32" | "F32" => Some(Primitive::F32),
-            "f64" | "F64" => Some(Primitive::F64),
-            "utf8" | "UTF8" => Some(Primitive::String),
-            _ => None,
-        }
+    pub fn run(&mut self, world: &mut World, resources: &mut Resources) {
+        self.0.build().execute(world, resources);
     }
 }
 
 #[cfg(test)]
+#[cfg(never)]
 mod tests {
     use indexmap::IndexMap;
     use super::*;

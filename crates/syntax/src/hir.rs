@@ -1,17 +1,19 @@
 //! The *High-level Internal Representation*.
 
 use std::{
+    borrow::Borrow,
     collections::{HashMap, HashSet},
     convert::{TryFrom},
     fmt::{self, Display, Formatter},
     hash::Hash,
     io::{Error, ErrorKind, Write},
-    ops::Index,
+    ops::{Deref, Index},
     path::PathBuf,
 };
 use codespan::Span;
 use indexmap::IndexMap;
-use crate::yaml::{self, Path, ResourceName, ResourceOrString, ResourceType, Value};
+use legion::Entity;
+use crate::yaml::{Path, ResourceName, ResourceType, Value};
 
 #[derive(
     Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -146,7 +148,7 @@ fn topo_sort(
     serde::Deserialize,
 )]
 #[serde(rename_all = "kebab-case")]
-pub struct HirId(u32);
+pub struct HirId(u64);
 
 impl HirId {
     pub const ERROR: HirId = HirId(0);
@@ -257,57 +259,6 @@ pub enum Stage {
     ProcBlock(ProcBlock),
 }
 
-impl Stage {
-    pub fn from_yaml(
-        s: yaml::Stage,
-        is_resource: impl Fn(HirId) -> bool,
-        get_id_by_name: impl Fn(&str) -> Option<HirId>,
-    ) -> Result<Self, StageError> {
-        match s {
-            yaml::Stage::Model {
-                model: ResourceOrString::Resource(resource_name),
-                ..
-            } => match get_id_by_name(&resource_name) {
-                Some(id) if is_resource(id) => Ok(Stage::Model(Model {
-                    model_file: ModelFile::Resource(id),
-                })),
-                Some(id) => Err(StageError::NotAResource {
-                    id,
-                    name: resource_name.to_string(),
-                }),
-                None => Err(StageError::MissingResource(resource_name)),
-            },
-            yaml::Stage::Model {
-                model: ResourceOrString::String(path),
-                ..
-            } => Ok(Stage::Model(Model {
-                model_file: ModelFile::FromDisk(path.into()),
-            })),
-            yaml::Stage::ProcBlock {
-                proc_block, args, ..
-            } => Ok(Stage::ProcBlock(ProcBlock {
-                path: proc_block.into(),
-                parameters: args
-                    .into_iter()
-                    .map(|(k, v)| (k.replace("-", "_"), v))
-                    .collect(),
-            })),
-            yaml::Stage::Capability {
-                capability, args, ..
-            } => Ok(Stage::Source(Source {
-                kind: capability.as_str().into(),
-                parameters: args
-                    .into_iter()
-                    .map(|(k, v)| (k.replace("-", "_"), v))
-                    .collect(),
-            })),
-            yaml::Stage::Out { out, .. } => Ok(Stage::Sink(Sink {
-                kind: out.as_str().into(),
-            })),
-        }
-    }
-}
-
 impl From<Sink> for Stage {
     fn from(s: Sink) -> Self { Stage::Sink(s) }
 }
@@ -409,7 +360,7 @@ pub struct Model {
 #[serde(rename_all = "kebab-case")]
 pub enum ModelFile {
     FromDisk(PathBuf),
-    Resource(HirId),
+    Resource(Entity),
 }
 
 #[derive(
@@ -658,3 +609,51 @@ pub enum ResourceSource {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Image(pub Path);
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct Name(String);
+
+impl<S: Into<String>> From<S> for Name {
+    fn from(s: S) -> Self { Name(s.into()) }
+}
+
+impl Deref for Name {
+    type Target = String;
+
+    fn deref(&self) -> &String { &self.0 }
+}
+
+impl Display for Name {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result { f.write_str(&self.0) }
+}
+
+impl Borrow<String> for Name {
+    fn borrow(&self) -> &String { &self.0 }
+}
+impl Borrow<str> for Name {
+    fn borrow(&self) -> &str { &self.0 }
+}
+
+/// A tag component indicating this [`Entity`] is part of the Rune's pipeline.
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct PipelineNode;

@@ -2,7 +2,11 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
-use hotg_rune_syntax::{Diagnostics, yaml::Document};
+use hotg_rune_syntax::{
+    Diagnostics,
+    yaml::Document,
+    hooks::{Hooks, AfterTypeCheckingContext, Continuation},
+};
 
 macro_rules! parse_and_analyse {
     ($example:ident) => {
@@ -17,19 +21,35 @@ macro_rules! parse_and_analyse {
             #[test]
             fn parse() { let _ = Document::parse(SRC).unwrap(); }
 
+            #[derive(Default)]
+            struct AbortAfterTypecheck {
+                diags: Diagnostics,
+            }
+
+            impl Hooks for AbortAfterTypecheck {
+                fn after_type_checking(
+                    &mut self,
+                    ctx: &mut dyn AfterTypeCheckingContext,
+                ) -> Continuation {
+                    for diag in ctx.diagnostics().iter() {
+                        self.diags.push(diag.clone());
+                    }
+
+                    Continuation::Halt
+                }
+            }
+
             #[test]
             fn analyse() {
                 let file = SimpleFile::new("Runefile", SRC);
+                let mut hooks = AbortAfterTypecheck::default();
 
-                let parsed = Document::parse(file.source()).unwrap();
-
-                let mut diags = Diagnostics::new();
-                hotg_rune_syntax::analyse(parsed, &mut diags);
+                hotg_rune_syntax::build(SRC, &mut hooks);
 
                 let mut writer = Buffer::no_color();
                 let config = Config::default();
 
-                for diag in &diags {
+                for diag in &hooks.diags {
                     codespan_reporting::term::emit(
                         &mut writer,
                         &config,
@@ -39,7 +59,7 @@ macro_rules! parse_and_analyse {
                     .unwrap();
                 }
 
-                if diags.has_errors() {
+                if hooks.diags.has_errors() {
                     panic!("{}", String::from_utf8_lossy(writer.as_slice()));
                 }
             }

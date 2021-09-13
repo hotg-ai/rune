@@ -245,7 +245,7 @@ impl Stage {
 
     pub fn span(&self) -> Span {
         // TODO: Get span from serde_yaml
-        Span::new(0, 0)
+        Span::default()
     }
 }
 
@@ -429,6 +429,13 @@ pub struct ResourceDeclaration {
     pub ty: ResourceType,
 }
 
+impl ResourceDeclaration {
+    pub fn span(&self) -> Span {
+        // TODO: Get span from serde_yaml
+        Span::default()
+    }
+}
+
 /// How the resource should be treated inside the Rune.
 #[derive(
     Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
@@ -449,6 +456,13 @@ impl Default for ResourceType {
 /// `$RESOURCE_NAME`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ResourceName(pub String);
+
+impl ResourceName {
+    pub fn span(&self) -> Span {
+        // TODO: Get span from serde_yaml
+        Span::default()
+    }
+}
 
 impl<S: Into<String>> From<S> for ResourceName {
     fn from(s: S) -> Self { ResourceName(s.into()) }
