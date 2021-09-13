@@ -1,3 +1,5 @@
+//! Definitions for the Runefile's YAML format.
+
 use std::{
     borrow::Cow,
     fmt::{self, Formatter, Display},

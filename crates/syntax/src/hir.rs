@@ -1,4 +1,4 @@
-//! The *High-level Internal Representation*.
+//! The various types that make up Rune's *High-level Internal Representation*.
 
 use std::{
     borrow::Borrow,
@@ -12,11 +12,13 @@ use hotg_rune_core::Shape;
 use legion::Entity;
 use crate::yaml::{Path, ResourceType, Value};
 
+/// An output.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Sink {
     pub kind: SinkKind,
 }
 
+/// The kind of output.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum SinkKind {
@@ -42,6 +44,7 @@ impl<'a> From<&'a str> for SinkKind {
     }
 }
 
+/// A ML model.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
@@ -52,16 +55,20 @@ pub struct Model {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ModelFile {
+    /// Load the model from a file on disk.
     FromDisk(PathBuf),
+    /// Load the model from a resource embedded/injected into the Rune.
     Resource(Entity),
 }
 
+/// Something which can generate data.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Source {
     pub kind: SourceKind,
     pub parameters: HashMap<String, Value>,
 }
 
+/// Where should a [`Source`] pull its data from?
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum SourceKind {
@@ -104,16 +111,20 @@ pub struct ProcBlock {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Resource {
-    pub source: Option<ResourceSource>,
+    /// Where to read the [`Resource`]'s default value from.
+    pub default_value: Option<ResourceSource>,
     pub ty: ResourceType,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ResourceSource {
+    /// The value is specified in-line as a string.
     Inline(String),
+    /// The value should be read from disk.
     FromDisk(PathBuf),
 }
 
+/// The image a Rune is based on.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Image(pub Path);
 
@@ -166,18 +177,21 @@ impl Borrow<str> for Name {
 )]
 pub struct PipelineNode;
 
+/// The [`Shape`] a tensor may take.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Tensor(Shape<'static>);
+pub struct Tensor(pub Shape<'static>);
 
 impl From<Shape<'static>> for Tensor {
     fn from(s: Shape<'static>) -> Self { Tensor(s) }
 }
 
+/// The list of [`Tensor`]s that may be the output from a [`PipelineNode`].
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Outputs {
     pub tensors: Vec<Entity>,
 }
 
+/// The list of [`Tensor`]s that may be the inputs to a [`PipelineNode`].
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Inputs {
     pub tensors: Vec<Entity>,

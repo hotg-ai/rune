@@ -43,7 +43,7 @@ pub(crate) fn run(
         };
 
         let resource = Resource {
-            source,
+            default_value: source,
             ty: decl.ty,
         };
 
@@ -109,21 +109,21 @@ mod tests {
             (
                 Name::from("inline_string"),
                 Resource {
-                    source: Some(ResourceSource::Inline("inline".to_string())),
+                    default_value: Some(ResourceSource::Inline("inline".to_string())),
                     ty: ResourceType::String,
                 },
             ),
             (
                 Name::from("path_bytes"),
                 Resource {
-                    source: Some(ResourceSource::FromDisk("data.bin".into())),
+                    default_value: Some(ResourceSource::FromDisk("data.bin".into())),
                     ty: ResourceType::Binary,
                 },
             ),
             (
                 Name::from("no_defaults"),
                 Resource {
-                    source: None,
+                    default_value: None,
                     ty: ResourceType::Binary,
                 },
             ),
