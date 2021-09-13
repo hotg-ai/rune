@@ -58,8 +58,7 @@ impl<'diag> Context<'diag> {
     }
 
     fn register_name(&mut self, name: &str, id: HirId, definition: Span) {
-        if let Err(original_definition_id) = self.rune.names.register(name, id)
-        {
+        if let Err(original_definition_id) = self.rune.register_name(name, id) {
             let duplicate = Label::primary((), range_span(definition))
                 .with_message("Original definition here");
             let mut labels = vec![duplicate];
@@ -128,7 +127,7 @@ impl<'diag> Context<'diag> {
             match hir::Stage::from_yaml(
                 stage.clone(),
                 &self.rune.resources,
-                &self.rune.names,
+                |name| self.rune.get_id_by_name(name),
             ) {
                 Ok(stage) => {
                     let id = self.ids.next();
@@ -157,7 +156,7 @@ impl<'diag> Context<'diag> {
 
     fn register_output_slots(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_id = match self.rune.names.get_id(name) {
+            let node_id = match self.rune.get_id_by_name(name) {
                 Some(id) => id,
                 None => continue,
             };
@@ -185,7 +184,7 @@ impl<'diag> Context<'diag> {
 
     fn construct_pipeline(&mut self, pipeline: &IndexMap<String, Stage>) {
         for (name, stage) in pipeline {
-            let node_id = match self.rune.names.get_id(name) {
+            let node_id = match self.rune.get_id_by_name(name) {
                 Some(id) => id,
                 None => continue,
             };
@@ -193,19 +192,20 @@ impl<'diag> Context<'diag> {
             let mut input_slots = Vec::new();
 
             for input in stage.inputs() {
-                let incoming_node_id = match self.rune.names.get_id(&input.name)
-                {
-                    Some(id) => id,
-                    None => {
-                        let diag = Diagnostic::error().with_message(format!(
-                            "No node associated with \"{}\"",
-                            input
-                        ));
-                        self.diags.push(diag);
-                        input_slots.push(HirId::ERROR);
-                        continue;
-                    },
-                };
+                let incoming_node_id =
+                    match self.rune.get_id_by_name(&input.name) {
+                        Some(id) => id,
+                        None => {
+                            let diag =
+                                Diagnostic::error().with_message(format!(
+                                    "No node associated with \"{}\"",
+                                    input
+                                ));
+                            self.diags.push(diag);
+                            input_slots.push(HirId::ERROR);
+                            continue;
+                        },
+                    };
 
                 let incoming_node = &self.rune.stages[&incoming_node_id];
 
@@ -303,7 +303,7 @@ impl<'diag> Context<'diag> {
 
             let mut diag = Diagnostic::error().with_message(format!(
                 "Cycle detected when checking \"{}\"",
-                self.rune.names.get_name(*first).unwrap()
+                self.rune.get_name_by_id(*first).unwrap()
             ));
 
             if let Some(span) = self.rune.spans.get(first) {
@@ -315,14 +315,14 @@ impl<'diag> Context<'diag> {
             for middle_id in middle {
                 let msg = format!(
                     "... which receives input from \"{}\"...",
-                    self.rune.names.get_name(*middle_id).unwrap()
+                    self.rune.get_name_by_id(*middle_id).unwrap()
                 );
                 notes.push(msg);
             }
 
             let closing_message = format!(
                 "... which receives input from \"{}\", completing the cycle.",
-                self.rune.names.get_name(*first).unwrap()
+                self.rune.get_name_by_id(*first).unwrap()
             );
             notes.push(closing_message);
 
@@ -661,7 +661,7 @@ pipeline:
         ctx.register_stages(&pipeline);
 
         for stage_name in stages {
-            let id = ctx.rune.names.get_id(stage_name).unwrap();
+            let id = ctx.rune.get_id_by_name(stage_name).unwrap();
             assert!(ctx.rune.stages.contains_key(&id));
         }
 
@@ -689,8 +689,8 @@ pipeline:
         assert!(ctx.diags.is_empty(), "{:?}", ctx.diags);
         for (from, to) in edges {
             println!("{:?} => {:?}", from, to);
-            let from_id = ctx.rune.names.get_id(from).unwrap();
-            let to_id = ctx.rune.names.get_id(to).unwrap();
+            let from_id = ctx.rune.get_id_by_name(from).unwrap();
+            let to_id = ctx.rune.get_id_by_name(to).unwrap();
 
             assert!(ctx.rune.has_connection(from_id, to_id));
         }
@@ -742,20 +742,20 @@ pipeline:
 
         assert!(!diags.has_errors() && !diags.has_warnings(), "{:#?}", diags);
 
-        let audio_id = rune.names["audio"];
+        let audio_id = rune.get_id_by_name("audio").unwrap();
         let audio_node = &rune.stages[&audio_id];
         assert!(audio_node.input_slots.is_empty());
         assert_eq!(audio_node.output_slots.len(), 1);
         let audio_output = audio_node.output_slots[0];
 
-        let fft_id = rune.names["fft"];
+        let fft_id = rune.get_id_by_name("fft").unwrap();
         let fft_node = &rune.stages[&fft_id];
         assert_eq!(
             fft_node.input_slots,
             &[audio_output, audio_output, audio_output]
         );
 
-        let output_id = rune.names["serial"];
+        let output_id = rune.get_id_by_name("serial").unwrap();
         let output_node = &rune.stages[&output_id];
         assert_eq!(fft_node.output_slots, output_node.input_slots);
     }
@@ -772,7 +772,7 @@ pipeline:
         let should_be: Vec<_> = should_be
             .iter()
             .copied()
-            .map(|name| rune.names.get_id(name).unwrap())
+            .map(|name| rune.get_id_by_name(name).unwrap())
             .map(|id| (id, &rune.stages[&id]))
             .collect();
         assert_eq!(got, should_be);

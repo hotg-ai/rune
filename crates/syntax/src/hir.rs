@@ -22,9 +22,9 @@ pub struct Rune {
     pub stages: IndexMap<HirId, Node>,
     pub slots: IndexMap<HirId, Slot>,
     pub types: IndexMap<HirId, Type>,
-    pub names: NameTable,
     pub spans: IndexMap<HirId, Span>,
     pub resources: IndexMap<HirId, Resource>,
+    names: NameTable,
 }
 
 impl Rune {
@@ -101,6 +101,24 @@ impl Rune {
         }
 
         stack.into_iter().map(move |id| (id, &self.stages[&id]))
+    }
+}
+
+impl Rune {
+    pub fn register_name(
+        &mut self,
+        name: &str,
+        id: HirId,
+    ) -> Result<(), HirId> {
+        self.names.register(name, id)
+    }
+
+    pub fn get_id_by_name(&self, name: &str) -> Option<HirId> {
+        self.names.get_id(name)
+    }
+
+    pub fn get_name_by_id(&self, id: HirId) -> Option<&str> {
+        self.names.get_name(id)
     }
 }
 
@@ -254,13 +272,13 @@ impl Stage {
     pub fn from_yaml(
         s: yaml::Stage,
         resources: &IndexMap<HirId, Resource>,
-        names: &NameTable,
+        get_id_by_name: impl Fn(&str) -> Option<HirId>,
     ) -> Result<Self, StageError> {
         match s {
             yaml::Stage::Model {
                 model: ResourceOrString::Resource(resource_name),
                 ..
-            } => match names.get_id(&resource_name) {
+            } => match get_id_by_name(&resource_name) {
                 Some(id) if resources.contains_key(&id) => {
                     Ok(Stage::Model(Model {
                         model_file: ModelFile::Resource(id),

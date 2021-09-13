@@ -25,7 +25,7 @@ fn load_models(
 ) -> Result<(), Error> {
     for (id, model) in rune.models() {
         if let ModelFile::FromDisk(filename) = &model.model_file {
-            let name = rune.names.get_name(id)
+            let name = rune.get_name_by_id(id)
                 .with_context(|| format!("Unable to get the name of the model using \"{}\", this may be a rune bug", filename.display()))?;
 
             let raw = env
@@ -46,7 +46,7 @@ fn load_file_resources(
 ) -> Result<(), Error> {
     for (id, resource) in &rune.resources {
         if let Some(ResourceSource::FromDisk(filename)) = &resource.source {
-            let name = rune.names.get_name(*id)
+            let name = rune.get_name_by_id(*id)
                 .with_context(|| format!("Unable to get the name of the model using \"{}\", this may be a rune bug", filename.display()))?;
 
             let raw = env.read_file(filename).with_context(|| {
