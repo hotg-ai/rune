@@ -18,10 +18,8 @@ use codespan::Span;
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "version")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Document {
-    #[serde(rename = "1")]
     V1(DocumentV1),
 }
 
@@ -29,6 +27,66 @@ impl Document {
     pub fn to_v1(self) -> DocumentV1 {
         match self {
             Document::V1(d) => d,
+        }
+    }
+}
+
+impl From<DocumentV1> for Document {
+    fn from(v1: DocumentV1) -> Self { Document::V1(v1) }
+}
+
+mod document_serde {
+    use serde::de::Unexpected;
+    use serde_yaml::Value;
+
+    use super::*;
+
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct Repr<T> {
+        version: usize,
+        #[serde(flatten)]
+        inner: T,
+    }
+
+    impl<T> Repr<T> {
+        fn new(version: usize, inner: T) -> Self { Repr { version, inner } }
+    }
+
+    impl Serialize for Document {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match self {
+                Document::V1(v1) => Repr::new(1, v1).serialize(serializer),
+            }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Document {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Value::deserialize(deserializer)?;
+            let version_key = Value::from("version");
+            let version = value
+                .as_mapping()
+                .and_then(|m| m.get(&version_key))
+                .and_then(|v| v.as_u64());
+
+            match version {
+                Some(1) => {
+                    let v1: DocumentV1 = serde_yaml::from_value(value)
+                        .map_err(D::Error::custom)?;
+                    Ok(Document::V1(v1))
+                },
+                Some(other) => Err(D::Error::invalid_value(
+                    Unexpected::Unsigned(other),
+                    &"version to be 1",
+                )),
+                None => Err(D::Error::missing_field("version")),
+            }
         }
     }
 }
@@ -609,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "unknown variant `2`"]
+    #[should_panic = "expected version to be 1"]
     fn other_versions_are_an_error() {
         let src = "image: asdf\nversion: 2\npipeline:";
 

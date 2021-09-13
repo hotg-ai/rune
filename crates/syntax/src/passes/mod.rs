@@ -1,24 +1,22 @@
+mod load_resource_data;
+mod parse;
 mod register_names;
 mod register_resources;
 mod register_stages;
 mod register_tensors;
 mod update_nametable;
 
-use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{Resources, World};
-
 use crate::{
-    Diagnostics,
-    hir::Image,
+    BuildContext, Diagnostics,
     hooks::{Continuation, Ctx, Hooks},
     passes::update_nametable::NameTable,
-    yaml::*,
 };
 
 /// Execute the `rune build` process.
-pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
+pub fn build(ctx: BuildContext, hooks: &mut dyn Hooks) -> (World, Resources) {
     let mut world = World::default();
-    let mut res = initialize_resources();
+    let mut res = initialize_resources(ctx);
 
     if hooks.before_parse(&mut c(&mut world, &mut res))
         != Continuation::Continue
@@ -26,18 +24,9 @@ pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
         return (world, res);
     }
 
-    let doc = match Document::parse(src) {
-        Ok(d) => d,
-        Err(e) => {
-            res.get_mut::<Diagnostics>().unwrap().push(parse_failed(e));
-            hooks.after_parse(&mut c(&mut world, &mut res));
-            return (world, res);
-        },
-    };
-
-    let doc = doc.to_v1();
-    res.insert(Image(doc.image.clone()));
-    res.insert(doc);
+    Schedule::new()
+        .and_then(parse::run_system())
+        .run(&mut world, &mut res);
 
     if hooks.after_parse(&mut c(&mut world, &mut res)) != Continuation::Continue
     {
@@ -58,21 +47,23 @@ pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
         return (world, res);
     }
 
+    Schedule::new()
+        .and_then(load_resource_data::run_system())
+        .run(&mut world, &mut res);
+
+    if hooks.after_type_checking(&mut c(&mut world, &mut res))
+        != Continuation::Continue
+    {
+        return (world, res);
+    }
+
     (world, res)
 }
 
-fn parse_failed(e: serde_yaml::Error) -> Diagnostic<()> {
-    let mut diag = Diagnostic::error().with_message(e.to_string());
-    if let Some(location) = e.location() {
-        let ix = location.index();
-        diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
-    }
-    diag
-}
-
-pub(crate) fn initialize_resources() -> Resources {
+pub(crate) fn initialize_resources(ctx: BuildContext) -> Resources {
     let mut resources = Resources::default();
 
+    resources.insert(ctx);
     resources.insert(Diagnostics::new());
     resources.insert(NameTable::default());
 
@@ -111,88 +102,6 @@ impl Schedule {
 mod tests {
     use indexmap::IndexMap;
     use super::*;
-
-    #[test]
-    fn construct_pipeline_graph_with_multiple_inputs_and_outputs() {
-        let doc = Document::V1(DocumentV1 {
-            image: "runicos/base@latest".parse().unwrap(),
-            pipeline: map! {
-                audio: Stage::Capability {
-                    capability: String::from("SOUND"),
-                    outputs: vec![
-                        ty!(i16[16000]),
-                    ],
-                    args: map! {
-                        hz: Value::from(16000),
-                    },
-                },
-                fft: Stage::ProcBlock {
-                    proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
-                    inputs: vec![
-                        "audio".parse().unwrap(),
-                        "audio".parse().unwrap(),
-                        "audio".parse().unwrap(),
-                        ],
-                    outputs: vec![
-                        ty!(i8[1960]),
-                        ty!(i8[1960]),
-                        ty!(i8[1960]),
-                    ],
-                    args: IndexMap::new(),
-                },
-                serial: Stage::Out {
-                    out: String::from("SERIAL"),
-                    inputs: vec![
-                        "fft.0".parse().unwrap(),
-                        "fft.1".parse().unwrap(),
-                        "fft.2".parse().unwrap(),
-                    ],
-                    args: IndexMap::new(),
-                },
-            },
-            resources: map![],
-        });
-        let mut diags = Diagnostics::new();
-
-        let rune = crate::analyse(doc, &mut diags);
-
-        assert!(!diags.has_errors() && !diags.has_warnings(), "{:#?}", diags);
-
-        let audio_id = rune.get_id_by_name("audio").unwrap();
-        let audio_node = &rune.get_stage(&audio_id).unwrap();
-        assert!(audio_node.input_slots.is_empty());
-        assert_eq!(audio_node.output_slots.len(), 1);
-        let audio_output = audio_node.output_slots[0];
-
-        let fft_id = rune.get_id_by_name("fft").unwrap();
-        let fft_node = &rune.get_stage(&fft_id).unwrap();
-        assert_eq!(
-            fft_node.input_slots,
-            &[audio_output, audio_output, audio_output]
-        );
-
-        let output_id = rune.get_id_by_name("serial").unwrap();
-        let output_node = &rune.get_stage(&output_id).unwrap();
-        assert_eq!(fft_node.output_slots, output_node.input_slots);
-    }
-
-    #[test]
-    fn topological_sorting() {
-        let doc = crate::macros::dummy_document();
-        let mut diags = Diagnostics::new();
-        let rune = crate::analyse(doc, &mut diags);
-        let should_be = ["audio", "fft", "model", "label", "output"];
-
-        let got: Vec<_> = rune.sorted_pipeline().collect();
-
-        let should_be: Vec<_> = should_be
-            .iter()
-            .copied()
-            .map(|name| rune.get_id_by_name(name).unwrap())
-            .map(|id| (id, rune.get_stage(&id).unwrap()))
-            .collect();
-        assert_eq!(got, should_be);
-    }
 
     #[test]
     fn detect_pipeline_cycle() {

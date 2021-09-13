@@ -168,9 +168,19 @@ fn allocate_output_tensors(
 }
 
 fn shape(ty: &yaml::Type) -> Result<Tensor, Diagnostic<()>> {
-    let element_type = match Type::from_rust_name(&ty.name) {
-        Some(t) => t,
-        None => return Err(unknown_element_type_diagnostic(&ty.name)),
+    let element_type = match ty.name.as_str() {
+        "u8" | "U8" => Type::u8,
+        "i8" | "I8" => Type::i8,
+        "u16" | "U16" => Type::u16,
+        "i16" | "I16" => Type::i16,
+        "u32" | "U32" => Type::u32,
+        "i32" | "I32" => Type::i32,
+        "f32" | "F32" => Type::f32,
+        "u64" | "U64" => Type::u64,
+        "i64" | "I64" => Type::i64,
+        "f64" | "F64" => Type::f64,
+        "utf8" | "UTF8" => Type::str,
+        _ => return Err(unknown_element_type_diagnostic(&ty.name)),
     };
 
     Ok(Tensor::from(Shape::new(
@@ -189,7 +199,10 @@ mod tests {
     use std::str::FromStr;
 
     use legion::{World, IntoQuery};
-    use crate::passes::{self, Schedule};
+    use crate::{
+        BuildContext,
+        passes::{self, Schedule},
+    };
     use super::*;
 
     fn doc() -> DocumentV1 {
@@ -230,10 +243,11 @@ mod tests {
     #[test]
     fn construct_pipeline() {
         let mut world = World::default();
-        let mut res = passes::initialize_resources();
-        res.insert(doc());
+        let mut res =
+            passes::initialize_resources(BuildContext::from_doc(doc().into()));
 
         Schedule::new()
+            .and_then(passes::parse::run_system())
             .and_then(passes::register_names::run_system())
             .and_then(passes::update_nametable::run_system())
             .and_then(passes::register_stages::run_system())

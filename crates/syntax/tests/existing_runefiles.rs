@@ -6,12 +6,19 @@ use hotg_rune_syntax::{
     Diagnostics,
     yaml::Document,
     hooks::{Hooks, AfterTypeCheckingContext, Continuation},
+    BuildContext, Verbosity,
 };
 
 macro_rules! parse_and_analyse {
     ($example:ident) => {
         mod $example {
             use super::*;
+
+            const PATH: &str = concat!(
+                "../../../examples/",
+                stringify!($example),
+                "/Runefile.yml"
+            );
             const SRC: &str = include_str!(concat!(
                 "../../../examples/",
                 stringify!($example),
@@ -42,9 +49,17 @@ macro_rules! parse_and_analyse {
             #[test]
             fn analyse() {
                 let file = SimpleFile::new("Runefile", SRC);
+                let ctx = BuildContext {
+                    name: stringify!($example).to_string(),
+                    runefile: SRC.to_string(),
+                    working_directory: PATH.into(),
+                    current_directory: PATH.into(),
+                    optimized: false,
+                    verbosity: Verbosity::Normal,
+                };
                 let mut hooks = AbortAfterTypecheck::default();
 
-                hotg_rune_syntax::build(SRC, &mut hooks);
+                hotg_rune_syntax::build(ctx, &mut hooks);
 
                 let mut writer = Buffer::no_color();
                 let config = Config::default();

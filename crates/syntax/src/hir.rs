@@ -124,6 +124,19 @@ pub enum ResourceSource {
     FromDisk(PathBuf),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceData(Vec<u8>);
+
+impl From<Vec<u8>> for ResourceData {
+    fn from(data: Vec<u8>) -> Self { ResourceData(data) }
+}
+
+impl Deref for ResourceData {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
 /// The image a Rune is based on.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Image(pub Path);
@@ -195,4 +208,17 @@ pub struct Outputs {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Inputs {
     pub tensors: Vec<Entity>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelData(Vec<u8>);
+
+impl From<Vec<u8>> for ModelData {
+    fn from(data: Vec<u8>) -> Self { ModelData(data) }
+}
+
+impl Deref for ModelData {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target { &self.0 }
 }

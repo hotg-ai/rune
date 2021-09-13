@@ -124,11 +124,7 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 mod tests {
     use legion::{World, IntoQuery};
 
-    use crate::{
-        hir::{Name, SinkKind, SourceKind},
-        passes::{self, Schedule},
-        yaml::{ResourceDeclaration, ResourceType, Stage, Value},
-    };
+    use crate::{BuildContext, hir::{Name, SinkKind, SourceKind}, passes::{self, Schedule}, yaml::{ResourceDeclaration, ResourceType, Stage, Value}};
     use super::*;
 
     fn doc() -> DocumentV1 {
@@ -199,10 +195,11 @@ mod tests {
     #[test]
     fn register_all_stages() {
         let mut world = World::default();
-        let mut res = passes::initialize_resources();
-        res.insert(doc());
+        let mut res =
+            passes::initialize_resources(BuildContext::from_doc(doc().into()));
 
         Schedule::new()
+            .and_then(passes::parse::run_system())
             .and_then(passes::register_names::run_system())
             .and_then(passes::update_nametable::run_system())
             .and_then(passes::register_resources::run_system())

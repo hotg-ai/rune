@@ -66,6 +66,7 @@ fn path_and_inline_defined_diagnostic(
 mod tests {
     use legion::{IntoQuery, World};
     use crate::{
+        BuildContext,
         hir::Name,
         passes::{self, Schedule},
         yaml::{ResourceDeclaration, ResourceType},
@@ -103,20 +104,24 @@ mod tests {
     #[test]
     fn all_resources_are_registered() {
         let mut world = World::default();
-        let mut res = passes::initialize_resources();
-        res.insert(doc());
+        let mut res =
+            passes::initialize_resources(BuildContext::from_doc(doc().into()));
         let should_be = vec![
             (
                 Name::from("inline_string"),
                 Resource {
-                    default_value: Some(ResourceSource::Inline("inline".to_string())),
+                    default_value: Some(ResourceSource::Inline(
+                        "inline".to_string(),
+                    )),
                     ty: ResourceType::String,
                 },
             ),
             (
                 Name::from("path_bytes"),
                 Resource {
-                    default_value: Some(ResourceSource::FromDisk("data.bin".into())),
+                    default_value: Some(ResourceSource::FromDisk(
+                        "data.bin".into(),
+                    )),
                     ty: ResourceType::Binary,
                 },
             ),
@@ -130,6 +135,7 @@ mod tests {
         ];
 
         Schedule::new()
+            .and_then(passes::parse::run_system())
             .and_then(passes::register_names::run_system())
             .and_then(passes::update_nametable::run_system())
             .and_then(run_system())
