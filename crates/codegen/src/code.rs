@@ -784,7 +784,7 @@ mod tests {
     fn rune(doc: &str) -> Rune {
         let doc = Document::parse(doc).unwrap();
         let mut diags = Diagnostics::new();
-        let rune = hotg_rune_syntax::analyse(&doc, &mut diags);
+        let rune = hotg_rune_syntax::analyse(doc, &mut diags);
         assert!(diags.is_empty(), "{:#?}", diags);
 
         rune

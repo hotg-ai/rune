@@ -15,6 +15,7 @@ pub fn analyse(doc: Document, diags: &mut Diagnostics) -> Rune {
     let mut rune = Rune::default();
     let mut ids = HirIds::new();
     let builtins = Builtins::new(&mut ids);
+    builtins.copy_into(&mut rune);
 
     let DocumentV1 {
         image,
@@ -73,13 +74,11 @@ pub fn analyse(doc: Document, diags: &mut Diagnostics) -> Rune {
 }
 
 mod helpers {
-    use std::collections::HashSet;
-
     use codespan::Span;
     use codespan_reporting::diagnostic::{Diagnostic, Label};
     use indexmap::IndexMap;
     use crate::{
-        hir::{self, HirId, NameTable, Node, Primitive},
+        hir::{self, HirId, NameTable, Primitive},
         utils::{Builtins, HirIds, range_span},
     };
     use super::*;
@@ -165,39 +164,6 @@ mod helpers {
             "utf8" | "UTF8" => Some(Primitive::String),
             _ => None,
         }
-    }
-
-    pub(crate) fn has_connection(
-        stages: &IndexMap<HirId, Node>,
-        from: HirId,
-        to: HirId,
-    ) -> bool {
-        !connecting_slots(stages, from, to).is_empty()
-    }
-
-    pub(crate) fn connecting_slots(
-        stages: &IndexMap<HirId, Node>,
-        from: HirId,
-        to: HirId,
-    ) -> HashSet<HirId> {
-        let from_node = match stages.get(&from) {
-            Some(n) => n,
-            None => return HashSet::new(),
-        };
-        let to_node = match stages.get(&to) {
-            Some(n) => n,
-            None => return HashSet::new(),
-        };
-
-        let previous_outputs: HashSet<_> =
-            from_node.output_slots.iter().collect();
-        let next_inputs: HashSet<_> = to_node.input_slots.iter().collect();
-
-        previous_outputs
-            .intersection(&next_inputs)
-            .copied()
-            .copied()
-            .collect()
     }
 }
 

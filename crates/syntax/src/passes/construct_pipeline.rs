@@ -77,16 +77,49 @@ pub(crate) fn run(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::{
         Diagnostics,
-        passes::{
-            construct_pipeline, helpers, register_output_slots, register_stages,
-        },
+        passes::{construct_pipeline, register_output_slots, register_stages},
         utils::{Builtins, HirIds, dummy_document},
         yaml::{Document, DocumentV1},
     };
 
     use super::*;
+
+    fn has_connection(
+        stages: &IndexMap<HirId, Node>,
+        from: HirId,
+        to: HirId,
+    ) -> bool {
+        !connecting_slots(stages, from, to).is_empty()
+    }
+
+    fn connecting_slots(
+        stages: &IndexMap<HirId, Node>,
+        from: HirId,
+        to: HirId,
+    ) -> HashSet<HirId> {
+        let from_node = match stages.get(&from) {
+            Some(n) => n,
+            None => return HashSet::new(),
+        };
+        let to_node = match stages.get(&to) {
+            Some(n) => n,
+            None => return HashSet::new(),
+        };
+
+        let previous_outputs: HashSet<_> =
+            from_node.output_slots.iter().collect();
+        let next_inputs: HashSet<_> = to_node.input_slots.iter().collect();
+
+        previous_outputs
+            .intersection(&next_inputs)
+            .copied()
+            .copied()
+            .collect()
+    }
 
     #[test]
     fn construct_the_pipeline() {
@@ -144,7 +177,7 @@ mod tests {
             let from_id = names.get_id(from).unwrap();
             let to_id = names.get_id(to).unwrap();
 
-            assert!(helpers::has_connection(&stages, from_id, to_id));
+            assert!(has_connection(&stages, from_id, to_id));
         }
     }
 }
