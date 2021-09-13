@@ -4,10 +4,10 @@
 #[macro_use]
 extern crate pretty_assertions;
 
-mod analysis;
+mod passes;
 mod diagnostics;
 pub mod hir;
 mod utils;
 pub mod yaml;
 
-pub use crate::{analysis::analyse, diagnostics::Diagnostics};
+pub use crate::{passes::analyse, diagnostics::Diagnostics};
