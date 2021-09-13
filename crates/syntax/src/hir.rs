@@ -18,13 +18,13 @@ use crate::yaml::{self, Path, ResourceName, ResourceOrString, ResourceType, Valu
 )]
 #[serde(rename_all = "kebab-case")]
 pub struct Rune {
-    pub base_image: Option<Path>,
-    stages: IndexMap<HirId, Node>,
+    pub base_image: Option<Image>,
+    pub stages: IndexMap<HirId, Node>,
     pub slots: IndexMap<HirId, Slot>,
     pub types: IndexMap<HirId, Type>,
     pub spans: IndexMap<HirId, Span>,
-    resources: IndexMap<HirId, Resource>,
-    names: NameTable,
+    pub resources: IndexMap<HirId, Resource>,
+    pub names: NameTable,
 }
 
 impl Rune {
@@ -60,31 +60,6 @@ impl Rune {
             Stage::Source(s) => Some((h, s)),
             _ => None,
         })
-    }
-
-    pub fn has_connection(&self, from: HirId, to: HirId) -> bool {
-        !self.connecting_slots(from, to).is_empty()
-    }
-
-    pub fn connecting_slots(&self, from: HirId, to: HirId) -> HashSet<HirId> {
-        let from_node = match self.stages.get(&from) {
-            Some(n) => n,
-            None => return HashSet::new(),
-        };
-        let to_node = match self.stages.get(&to) {
-            Some(n) => n,
-            None => return HashSet::new(),
-        };
-
-        let previous_outputs: HashSet<_> =
-            from_node.output_slots.iter().collect();
-        let next_inputs: HashSet<_> = to_node.input_slots.iter().collect();
-
-        previous_outputs
-            .intersection(&next_inputs)
-            .copied()
-            .copied()
-            .collect()
     }
 
     /// Get a topological sorting of the pipeline graph.
@@ -123,10 +98,6 @@ impl Rune {
 
     pub fn register_stage(&mut self, id: HirId, stage: Node) {
         self.stages.insert(id, stage);
-    }
-
-    pub fn register_resource(&mut self, id: HirId, resource: Resource) {
-        self.resources.insert(id, resource);
     }
 
     pub fn get_stage_mut(&mut self, id: &HirId) -> Option<&mut Node> {
@@ -684,3 +655,6 @@ pub enum ResourceSource {
     Inline(String),
     FromDisk(PathBuf),
 }
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Image(pub Path);

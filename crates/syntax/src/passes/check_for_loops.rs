@@ -1,14 +1,22 @@
 use std::collections::{HashSet, VecDeque};
 
+use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use indexmap::IndexMap;
 
 use crate::{
-    hir::{HirId, Rune},
-    passes::Context,
+    Diagnostics,
+    hir::{HirId, NameTable, Node, Slot},
 };
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
-    if let Some(cycle) = next_cycle(ctx) {
+pub(crate) fn run(
+    stages: &IndexMap<HirId, Node>,
+    slots: &IndexMap<HirId, Slot>,
+    names: &NameTable,
+    spans: &IndexMap<HirId, Span>,
+    diags: &mut Diagnostics,
+) {
+    if let Some(cycle) = next_cycle(stages, slots) {
         let (first, middle) = match cycle.as_slice() {
             [first, middle @ ..] => (first, middle),
             _ => unreachable!("A cycle must have at least 2 items"),
@@ -16,10 +24,10 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
 
         let mut diag = Diagnostic::error().with_message(format!(
             "Cycle detected when checking \"{}\"",
-            ctx.rune.get_name_by_id(*first).unwrap()
+            names.get_name(*first).unwrap()
         ));
 
-        if let Some(span) = ctx.rune.spans.get(first) {
+        if let Some(span) = spans.get(first) {
             diag = diag.with_labels(vec![Label::primary((), *span)]);
         }
 
@@ -28,28 +36,31 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
         for middle_id in middle {
             let msg = format!(
                 "... which receives input from \"{}\"...",
-                ctx.rune.get_name_by_id(*middle_id).unwrap()
+                names.get_name(*middle_id).unwrap()
             );
             notes.push(msg);
         }
 
         let closing_message = format!(
             "... which receives input from \"{}\", completing the cycle.",
-            ctx.rune.get_name_by_id(*first).unwrap()
+            names.get_name(*first).unwrap()
         );
         notes.push(closing_message);
 
-        ctx.diags.push(diag.with_notes(notes));
+        diags.push(diag.with_notes(notes));
     }
 }
 
-fn next_cycle(ctx: &mut Context<'_>) -> Option<Vec<HirId>> {
+fn next_cycle(
+    stages: &IndexMap<HirId, Node>,
+    slots: &IndexMap<HirId, Slot>,
+) -> Option<Vec<HirId>> {
     // https://www.geeksforgeeks.org/detect-cycle-in-a-graph/
     let mut stack = VecDeque::new();
     let mut visited = HashSet::new();
 
-    for id in ctx.rune.stages().map(|(id, _)| id) {
-        if detect_cycles(id, &ctx.rune, &mut visited, &mut stack) {
+    for id in stages.iter().map(|(&id, _)| id) {
+        if detect_cycles(id, stages, slots, &mut visited, &mut stack) {
             return Some(stack.into());
         }
     }
@@ -59,7 +70,8 @@ fn next_cycle(ctx: &mut Context<'_>) -> Option<Vec<HirId>> {
 
 fn detect_cycles(
     id: HirId,
-    rune: &Rune,
+    stages: &IndexMap<HirId, Node>,
+    slots: &IndexMap<HirId, Slot>,
     visited: &mut HashSet<HirId>,
     stack: &mut VecDeque<HirId>,
 ) -> bool {
@@ -78,15 +90,15 @@ fn detect_cycles(
     visited.insert(id);
     stack.push_back(id);
 
-    let incoming_nodes = rune
-        .get_stage(&id)
+    let incoming_nodes = stages
+        .get(&id)
         .unwrap()
         .input_slots
         .iter()
-        .map(|slot_id| rune.slots[slot_id].input_node);
+        .map(|slot_id| slots.get(slot_id).unwrap().input_node);
 
     for incoming_node in incoming_nodes {
-        if detect_cycles(incoming_node, rune, visited, stack) {
+        if detect_cycles(incoming_node, stages, slots, visited, stack) {
             return true;
         }
     }

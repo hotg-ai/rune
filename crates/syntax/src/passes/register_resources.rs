@@ -1,18 +1,23 @@
+use codespan::Span;
 use codespan_reporting::diagnostic::Diagnostic;
 use indexmap::IndexMap;
-
 use crate::{
-    hir::{Resource, ResourceSource},
+    Diagnostics,
+    hir::{HirId, NameTable, Resource, ResourceSource},
+    passes::helpers,
+    utils::HirIds,
     yaml::ResourceDeclaration,
 };
 
-use super::Context;
-
 pub(crate) fn run(
-    ctx: &mut Context<'_>,
-    resources: &IndexMap<String, ResourceDeclaration>,
+    diags: &mut Diagnostics,
+    ids: &mut HirIds,
+    resource_decls: &IndexMap<String, ResourceDeclaration>,
+    resources: &mut IndexMap<HirId, Resource>,
+    spans: &IndexMap<HirId, Span>,
+    names: &mut NameTable,
 ) {
-    for (name, declaration) in resources {
+    for (name, declaration) in resource_decls {
         let source = match declaration {
             ResourceDeclaration {
                 inline: Some(inline),
@@ -35,16 +40,16 @@ pub(crate) fn run(
                 ..
             } => {
                 let diag = Diagnostic::error().with_message(format!("The resource \"{}\" can't specify both a \"path\" and \"inline\" value", name));
-                ctx.diags.push(diag);
+                diags.push(diag);
                 continue;
             },
         };
-        let id = ctx.ids.next();
+        let id = ids.next();
         let resource = Resource {
             source,
             ty: declaration.ty,
         };
-        ctx.register_name(name, id, resource.span());
-        ctx.rune.register_resource(id, resource);
+        helpers::register_name(name, id, resource.span(), spans, names, diags);
+        resources.insert(id, resource);
     }
 }

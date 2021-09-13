@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use codespan::Span;
 
-use crate::hir::{HirId, Primitive, Rune, Type};
+use crate::hir::{HirId, Primitive};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct HirIds {
@@ -57,12 +57,6 @@ impl Builtins {
         }
     }
 
-    pub(crate) fn copy_into(&self, rune: &mut Rune) {
-        self.for_each(|id, ty| {
-            rune.types.insert(id, ty);
-        });
-    }
-
     pub(crate) fn get_id(&self, primitive: Primitive) -> HirId {
         match primitive {
             Primitive::U8 => self.u8,
@@ -77,37 +71,6 @@ impl Builtins {
             Primitive::F64 => self.f64,
             Primitive::String => self.string,
         }
-    }
-
-    pub(crate) fn for_each(&self, mut f: impl FnMut(HirId, Type)) {
-        let Builtins {
-            unknown_type,
-            u8,
-            i8,
-            u16,
-            i16,
-            u32,
-            i32,
-            u64,
-            i64,
-            f32,
-            f64,
-            string,
-        } = *self;
-
-        f(unknown_type, Type::Unknown);
-        f(u8, Type::Primitive(Primitive::U8));
-        f(i8, Type::Primitive(Primitive::I8));
-        f(u16, Type::Primitive(Primitive::U16));
-        f(i16, Type::Primitive(Primitive::I16));
-        f(u32, Type::Primitive(Primitive::U32));
-        f(i16, Type::Primitive(Primitive::I16));
-        f(i32, Type::Primitive(Primitive::I32));
-        f(u64, Type::Primitive(Primitive::U64));
-        f(i64, Type::Primitive(Primitive::I64));
-        f(f32, Type::Primitive(Primitive::F32));
-        f(f64, Type::Primitive(Primitive::F64));
-        f(string, Type::Primitive(Primitive::String));
     }
 }
 

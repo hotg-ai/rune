@@ -1,10 +1,25 @@
 use indexmap::IndexMap;
 
-use crate::{hir::{HirId, Slot}, passes::Context, yaml::Stage};
+use crate::{
+    Diagnostics,
+    hir::{HirId, NameTable, Node, Slot, Type},
+    passes::helpers,
+    utils::{Builtins, HirIds},
+    yaml::Stage,
+};
 
-pub(crate) fn run(ctx: &mut Context<'_>, pipeline: &IndexMap<String, Stage>) {
+pub(crate) fn run(
+    ids: &mut HirIds,
+    pipeline: &IndexMap<String, Stage>,
+    types: &mut IndexMap<HirId, Type>,
+    builtins: &Builtins,
+    names: &NameTable,
+    slots: &mut IndexMap<HirId, Slot>,
+    stages: &mut IndexMap<HirId, Node>,
+    diags: &mut Diagnostics,
+) {
     for (name, stage) in pipeline {
-        let node_id = match ctx.rune.get_id_by_name(name) {
+        let node_id = match names.get_id(name) {
             Some(id) => id,
             None => continue,
         };
@@ -12,9 +27,10 @@ pub(crate) fn run(ctx: &mut Context<'_>, pipeline: &IndexMap<String, Stage>) {
         let mut output_slots = Vec::new();
 
         for ty in stage.output_types() {
-            let element_type = ctx.intern_type(ty);
-            let id = ctx.ids.next();
-            ctx.rune.slots.insert(
+            let element_type =
+                helpers::intern_type(ids, ty, types, &builtins, diags);
+            let id = ids.next();
+            slots.insert(
                 id,
                 Slot {
                     element_type,
@@ -25,7 +41,7 @@ pub(crate) fn run(ctx: &mut Context<'_>, pipeline: &IndexMap<String, Stage>) {
             output_slots.push(id);
         }
 
-        let node = ctx.rune.get_stage_mut(&node_id).unwrap();
+        let node = stages.get_mut(&node_id).unwrap();
         node.output_slots = output_slots;
     }
 }

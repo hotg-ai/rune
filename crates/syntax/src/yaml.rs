@@ -556,14 +556,6 @@ mod tests {
                 Path::new("runicos/base", None, Some(String::from("latest"))),
             ),
             (
-                "hotg-ai/rune#proc_blocks/normalize",
-                Path::new(
-                    "hotg-ai/rune",
-                    Some(String::from("proc_blocks/normalize")),
-                    None,
-                ),
-            ),
-            (
                 "https://github.com/hotg-ai/rune",
                 Path::new("https://github.com/hotg-ai/rune", None, None),
             ),
@@ -573,6 +565,14 @@ mod tests {
                     "https://github.com/hotg-ai/rune",
                     None,
                     Some(String::from("2")),
+                ),
+            ),
+            (
+                "hotg-ai/rune@v1.2#proc_blocks/normalize",
+                Path::new(
+                    "hotg-ai/rune",
+                    "proc_blocks/normalize".to_string(),
+                    "v1.2".to_string(),
                 ),
             ),
         ];
@@ -712,5 +712,144 @@ mod tests {
 
         let got = &got["some-proc-block"];
         assert_eq!(got, &should_be);
+    }
+
+    #[test]
+    fn parse_yaml_pipeline() {
+        let src = r#"
+version: 1
+image: "runicos/base"
+
+pipeline:
+  audio:
+    capability: SOUND
+    outputs:
+    - type: i16
+      dimensions: [16000]
+    args:
+      hz: 16000
+
+  fft:
+    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    inputs:
+    - audio
+    outputs:
+    - type: i8
+      dimensions: [1960]
+
+  model:
+    model: "./model.tflite"
+    inputs:
+    - fft
+    outputs:
+    - type: i8
+      dimensions: [6]
+
+  label:
+    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    inputs:
+    - model
+    outputs:
+    - type: utf8
+    args:
+      labels: ["silence", "unknown", "up", "down", "left", "right"]
+
+  output:
+    out: SERIAL
+    inputs:
+    - label
+        "#;
+        let should_be = Document::V1(DocumentV1 {
+            image: Path::new("runicos/base", None, None),
+            pipeline: map! {
+                audio: Stage::Capability {
+                    capability: String::from("SOUND"),
+                    outputs: vec![ty!(i16[16000])],
+                    args: map! { hz: Value::Int(16000) },
+                },
+                output: Stage::Out {
+                    out: String::from("SERIAL"),
+                    args: IndexMap::new(),
+                    inputs: vec!["label".parse().unwrap()],
+                },
+                label: Stage::ProcBlock {
+                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
+                    inputs: vec!["model".parse().unwrap()],
+                    outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
+                    args: map! {
+                        labels: Value::from(vec![
+                            Value::from("silence"),
+                            Value::from("unknown"),
+                            Value::from("up"),
+                            Value::from("down"),
+                            Value::from("left"),
+                            Value::from("right"),
+                        ]),
+                    },
+                },
+                fft: Stage::ProcBlock {
+                    proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
+                    inputs: vec!["audio".parse().unwrap()],
+                    outputs: vec![ty!(i8[1960])],
+                    args: IndexMap::new(),
+                },
+                model: Stage::Model {
+                    model: "./model.tflite".into(),
+                    inputs: vec!["fft".parse().unwrap()],
+                    outputs: vec![ty!(i8[6])],
+                },
+            },
+            resources: map![],
+        });
+
+        let got = Document::parse(src).unwrap();
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_audio_block() {
+        let src = r#"
+              capability: SOUND
+              outputs:
+              - type: i16
+                dimensions: [16000]
+              args:
+                hz: 16000
+        "#;
+        let should_be = Stage::Capability {
+            capability: String::from("SOUND"),
+            outputs: vec![Type {
+                name: String::from("i16"),
+                dimensions: vec![16000],
+            }],
+            args: map! { hz: Value::Int(16000) },
+        };
+
+        let got: Stage = serde_yaml::from_str(src).unwrap();
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_values() {
+        let inputs = vec![
+            ("42", Value::Int(42)),
+            ("3.14", Value::Float(3.14)),
+            ("\"42\"", Value::String("42".into())),
+            (
+                "[1, 2.0, \"asdf\"]",
+                Value::List(vec![
+                    Value::Int(1),
+                    Value::Float(2.0),
+                    Value::String("asdf".into()),
+                ]),
+            ),
+        ];
+
+        for (src, should_be) in inputs {
+            let got: Value = serde_yaml::from_str(src).unwrap();
+            assert_eq!(got, should_be);
+        }
     }
 }

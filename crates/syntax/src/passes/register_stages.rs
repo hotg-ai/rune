@@ -1,25 +1,35 @@
+use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 
 use crate::{
-    hir::{self, Node},
-    passes::Context,
+    Diagnostics,
+    hir::{self, HirId, NameTable, Node, Resource},
+    passes::helpers,
+    utils::{HirIds, range_span},
     yaml::Stage,
-    utils::range_span,
 };
 
-pub(crate) fn run(ctx: &mut Context<'_>, pipeline: &IndexMap<String, Stage>) {
+pub(crate) fn run(
+    ids: &mut HirIds,
+    pipeline: &IndexMap<String, Stage>,
+    spans: &IndexMap<HirId, Span>,
+    stages: &mut IndexMap<HirId, Node>,
+    resources: &IndexMap<HirId, Resource>,
+    names: &mut NameTable,
+    diags: &mut Diagnostics,
+) {
     for (name, stage) in pipeline {
         let span = stage.span();
 
         match hir::Stage::from_yaml(
             stage.clone(),
-            |id| ctx.rune.get_resource(&id).is_some(),
-            |name| ctx.rune.get_id_by_name(name),
+            |id| resources.contains_key(&id),
+            |name| names.get_id(name),
         ) {
             Ok(stage) => {
-                let id = ctx.ids.next();
-                ctx.rune.register_stage(
+                let id = ids.next();
+                stages.insert(
                     id,
                     Node {
                         stage,
@@ -27,13 +37,13 @@ pub(crate) fn run(ctx: &mut Context<'_>, pipeline: &IndexMap<String, Stage>) {
                         output_slots: Vec::new(),
                     },
                 );
-                ctx.register_name(name, id, span);
+                helpers::register_name(name, id, span, &spans, names, diags);
             },
             Err(e) => {
                 let diag = Diagnostic::error()
                     .with_message(e.to_string())
                     .with_labels(vec![Label::primary((), range_span(span))]);
-                ctx.diags.push(diag);
+                diags.push(diag);
             },
         }
     }
@@ -54,14 +64,26 @@ mod tests {
             Document::V1(DocumentV1 { pipeline, .. }) => pipeline,
         };
         let mut diags = Diagnostics::new();
-        let mut ctx = Context::new(&mut diags);
-        let stages = vec!["audio", "fft", "model", "label", "output"];
+        let stage_names = vec!["audio", "fft", "model", "label", "output"];
+        let mut ids = HirIds::new();
+        let spans = IndexMap::default();
+        let resources = IndexMap::default();
+        let mut stages = IndexMap::default();
+        let mut names = NameTable::default();
 
-        run(&mut ctx, &pipeline);
+        run(
+            &mut ids,
+            &pipeline,
+            &spans,
+            &mut stages,
+            &resources,
+            &mut names,
+            &mut diags,
+        );
 
-        for stage_name in stages {
-            let id = ctx.rune.get_id_by_name(stage_name).unwrap();
-            assert!(ctx.rune.get_stage(&id).is_some());
+        for stage_name in stage_names {
+            let id = names.get_id(stage_name).unwrap();
+            assert!(stages.get(&id).is_some());
         }
 
         assert!(diags.is_empty());
