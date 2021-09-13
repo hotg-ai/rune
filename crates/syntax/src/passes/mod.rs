@@ -1,6 +1,4 @@
-// mod check_for_loops;
 mod register_names;
-mod register_output_slots;
 mod register_resources;
 mod register_stages;
 mod register_tensors;
@@ -11,11 +9,13 @@ use legion::{Resources, World};
 
 use crate::{
     Diagnostics,
+    hir::Image,
     hooks::{Continuation, Ctx, Hooks},
     passes::update_nametable::NameTable,
     yaml::*,
 };
 
+/// Execute the `rune build` process.
 pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
     let mut world = World::default();
     let mut res = initialize_resources();
@@ -29,19 +29,15 @@ pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
     let doc = match Document::parse(src) {
         Ok(d) => d,
         Err(e) => {
-            let mut diag = Diagnostic::error().with_message(e.to_string());
-            if let Some(location) = e.location() {
-                let ix = location.index();
-                diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
-            }
-            res.get_mut::<Diagnostics>().unwrap().push(diag);
+            res.get_mut::<Diagnostics>().unwrap().push(parse_failed(e));
             hooks.after_parse(&mut c(&mut world, &mut res));
             return (world, res);
         },
     };
 
-    // TODO: move document parsing here
-    res.insert(doc.to_v1());
+    let doc = doc.to_v1();
+    res.insert(Image(doc.image.clone()));
+    res.insert(doc);
 
     if hooks.after_parse(&mut c(&mut world, &mut res)) != Continuation::Continue
     {
@@ -65,6 +61,15 @@ pub fn build(src: &str, hooks: &mut dyn Hooks) -> (World, Resources) {
     (world, res)
 }
 
+fn parse_failed(e: serde_yaml::Error) -> Diagnostic<()> {
+    let mut diag = Diagnostic::error().with_message(e.to_string());
+    if let Some(location) = e.location() {
+        let ix = location.index();
+        diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
+    }
+    diag
+}
+
 pub(crate) fn initialize_resources() -> Resources {
     let mut resources = Resources::default();
 
@@ -82,7 +87,7 @@ fn c<'world, 'res>(
 }
 
 /// A helper type for constructing a [`legion::Schedule`] which automatically
-/// flushes the [`legion::CommandBuffer`] after each step.
+/// flushes the [`legion::systems::CommandBuffer`] after each step.
 pub(crate) struct Schedule(legion::systems::Builder);
 
 impl Schedule {
@@ -173,7 +178,7 @@ mod tests {
 
     #[test]
     fn topological_sorting() {
-        let doc = crate::utils::dummy_document();
+        let doc = crate::macros::dummy_document();
         let mut diags = Diagnostics::new();
         let rune = crate::analyse(doc, &mut diags);
         let should_be = ["audio", "fft", "model", "label", "output"];

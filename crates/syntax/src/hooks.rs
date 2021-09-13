@@ -1,9 +1,9 @@
-//!
+//! Allow users to hook into the build process.
 
 use atomic_refcell::AtomicRef;
 use legion::{Resources, World};
 
-use crate::{Diagnostics, yaml::Document};
+use crate::{Diagnostics, hir::Image, yaml::Document};
 
 /// Callbacks that are fired at different points in the compilation process.
 pub trait Hooks {
@@ -70,18 +70,26 @@ pub trait Context {
     fn world_and_resources(&mut self) -> (&mut World, &mut Resources);
 }
 
+/// Context passed to the [`Hooks::after_parse()`] method.
 pub trait AfterParseContext: Context {
     fn document(&self) -> AtomicRef<'_, Document> {
         self.resources().get().unwrap()
     }
-}
 
-pub trait AfterLoweringContext: AfterParseContext {
+    fn image(&self) -> AtomicRef<'_, Image> { self.resources().get().unwrap() }
+
     fn diagnostics(&self) -> AtomicRef<'_, Diagnostics> {
         self.resources().get().unwrap()
     }
 }
+
+/// Context passed to the [`Hooks::after_lowering()`] method.
+pub trait AfterLoweringContext: AfterParseContext {}
+
+/// Context passed to the [`Hooks::after_type_checking()`] method.
 pub trait AfterTypeCheckingContext: AfterLoweringContext {}
+
+/// Context passed to the [`Hooks::after_compile()`] method.
 pub trait AfterCompileContext: AfterTypeCheckingContext {}
 
 pub(crate) struct Ctx<'world, 'res> {

@@ -5,10 +5,10 @@
 extern crate pretty_assertions;
 
 #[macro_use]
-mod utils;
+mod macros;
 
-mod diagnostics;
 pub mod hir;
+mod diagnostics;
 pub mod hooks;
 mod passes;
 pub mod yaml;

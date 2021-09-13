@@ -5,6 +5,7 @@ use legion::{Entity, systems::CommandBuffer};
 
 use crate::{
     Diagnostics,
+    hir::{Inputs, Outputs, Tensor},
     passes::update_nametable::NameTable,
     yaml::{self, DocumentV1},
 };
@@ -172,7 +173,10 @@ fn shape(ty: &yaml::Type) -> Result<Tensor, Diagnostic<()>> {
         None => return Err(unknown_element_type_diagnostic(&ty.name)),
     };
 
-    Ok(Tensor(Shape::new(element_type, ty.dimensions.clone())))
+    Ok(Tensor::from(Shape::new(
+        element_type,
+        ty.dimensions.clone(),
+    )))
 }
 
 fn unknown_element_type_diagnostic(name: &str) -> Diagnostic<()> {
@@ -180,21 +184,10 @@ fn unknown_element_type_diagnostic(name: &str) -> Diagnostic<()> {
         .with_message(format!("Unknown element type, \"{}\"", name))
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Tensor(Shape<'static>);
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Outputs {
-    pub tensors: Vec<Entity>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Inputs {
-    pub tensors: Vec<Entity>,
-}
-
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use legion::{World, IntoQuery};
     use crate::passes::{self, Schedule};
     use super::*;
@@ -261,7 +254,7 @@ mod tests {
         let mut tensors = <&Tensor>::query();
 
         for ((prev_name, prev_ix), (next_name, next_ix), ty) in connections {
-            let ty_should_be = Tensor(ty.parse().unwrap());
+            let ty_should_be = Tensor::from(Shape::from_str(ty).unwrap());
 
             let prev = names[prev_name];
             let outputs = outputs.get(&world, prev).unwrap();
