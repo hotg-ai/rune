@@ -150,9 +150,9 @@ macro_rules! ty {
 #[cfg(test)]
 pub fn dummy_document() -> crate::yaml::Document {
     use indexmap::IndexMap;
-    use crate::yaml::{Path, Stage, Value, Document};
+    use crate::yaml::{Document, DocumentV1, Path, Stage, Value};
 
-    Document::V1 {
+    Document::V1(DocumentV1 {
         image: Path::new("runicos/base".to_string(), None, None),
         pipeline: map! {
             audio: Stage::Capability {
@@ -200,5 +200,5 @@ pub fn dummy_document() -> crate::yaml::Document {
             }
         },
         resources: map![],
-    }
+    })
 }

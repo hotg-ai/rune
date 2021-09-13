@@ -71,7 +71,7 @@ mod tests {
         Diagnostics,
         passes::{construct_pipeline, register_output_slots, register_stages},
         utils::dummy_document,
-        yaml::Document,
+        yaml::{Document, DocumentV1},
     };
 
     use super::*;
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn construct_the_pipeline() {
         let pipeline = match dummy_document() {
-            Document::V1 { pipeline, .. } => pipeline,
+            Document::V1(DocumentV1 { pipeline, .. }) => pipeline,
         };
         let mut diags = Diagnostics::new();
         let mut ctx = Context::new(&mut diags);

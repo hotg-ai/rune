@@ -24,7 +24,7 @@ macro_rules! parse_and_analyse {
                 let parsed = Document::parse(file.source()).unwrap();
 
                 let mut diags = Diagnostics::new();
-                hotg_rune_syntax::analyse(&parsed, &mut diags);
+                hotg_rune_syntax::analyse(parsed, &mut diags);
 
                 let mut writer = Buffer::no_color();
                 let config = Config::default();

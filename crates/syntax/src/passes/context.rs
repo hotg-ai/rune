@@ -159,7 +159,7 @@ pipeline:
     inputs:
     - label
         "#;
-        let should_be = Document::V1 {
+        let should_be = Document::V1(DocumentV1 {
             image: Path::new("runicos/base", None, None),
             pipeline: map! {
                 audio: Stage::Capability {
@@ -200,7 +200,7 @@ pipeline:
                 },
             },
             resources: map![],
-        };
+        });
 
         let got = Document::parse(src).unwrap();
 
@@ -296,7 +296,7 @@ pipeline:
 
     #[test]
     fn construct_pipeline_graph_with_multiple_inputs_and_outputs() {
-        let doc = Document::V1 {
+        let doc = Document::V1(DocumentV1 {
             image: "runicos/base@latest".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability {
@@ -333,10 +333,10 @@ pipeline:
                 },
             },
             resources: map![],
-        };
+        });
         let mut diags = Diagnostics::new();
 
-        let rune = crate::analyse(&doc, &mut diags);
+        let rune = crate::analyse(doc, &mut diags);
 
         assert!(!diags.has_errors() && !diags.has_warnings(), "{:#?}", diags);
 
@@ -362,7 +362,7 @@ pipeline:
     fn topological_sorting() {
         let doc = crate::utils::dummy_document();
         let mut diags = Diagnostics::new();
-        let rune = crate::analyse(&doc, &mut diags);
+        let rune = crate::analyse(doc, &mut diags);
         let should_be = ["audio", "fft", "model", "label", "output"];
 
         let got: Vec<_> = rune.sorted_pipeline().collect();
@@ -410,7 +410,7 @@ pipeline:
         let doc = Document::parse(src).unwrap();
         let mut diags = Diagnostics::new();
 
-        let _ = crate::analyse(&doc, &mut diags);
+        let _ = crate::analyse(doc, &mut diags);
 
         assert!(diags.has_errors());
         let errors: Vec<_> = diags

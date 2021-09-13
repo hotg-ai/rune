@@ -20,12 +20,23 @@ static RESOURCE_NAME_PATTERN: Lazy<Regex> =
 #[serde(tag = "version")]
 pub enum Document {
     #[serde(rename = "1")]
-    V1 {
-        image: Path,
-        pipeline: IndexMap<String, Stage>,
-        #[serde(default)]
-        resources: IndexMap<String, ResourceDeclaration>,
-    },
+    V1(DocumentV1),
+}
+
+impl Document {
+    pub fn to_v1(self) -> DocumentV1 {
+        match self {
+            Document::V1(d) => d,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct DocumentV1 {
+    pub image: Path,
+    pub pipeline: IndexMap<String, Stage>,
+    #[serde(default)]
+    pub resources: IndexMap<String, ResourceDeclaration>,
 }
 
 impl Document {

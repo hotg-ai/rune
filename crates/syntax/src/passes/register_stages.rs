@@ -41,13 +41,17 @@ pub(crate) fn run(ctx: &mut Context<'_>, pipeline: &IndexMap<String, Stage>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Diagnostics, utils::dummy_document, yaml::Document};
+    use crate::{
+        Diagnostics,
+        utils::dummy_document,
+        yaml::{Document, DocumentV1},
+    };
     use super::*;
 
     #[test]
     fn register_all_stages() {
         let pipeline = match dummy_document() {
-            Document::V1 { pipeline, .. } => pipeline,
+            Document::V1(DocumentV1 { pipeline, .. }) => pipeline,
         };
         let mut diags = Diagnostics::new();
         let mut ctx = Context::new(&mut diags);
@@ -62,5 +66,4 @@ mod tests {
 
         assert!(diags.is_empty());
     }
-
 }
