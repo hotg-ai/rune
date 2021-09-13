@@ -114,3 +114,91 @@ impl Builtins {
 pub(crate) fn range_span(span: Span) -> Range<usize> {
     span.start().to_usize()..span.end().to_usize()
 }
+
+#[cfg(test)]
+macro_rules! map {
+    // map-like
+    ($($k:ident : $v:expr),* $(,)?) => {
+        std::iter::Iterator::collect(std::array::IntoIter::new([
+            $(
+                (String::from(stringify!($k)), $v)
+            ),*
+        ]))
+    };
+    // set-like
+    ($($v:expr),* $(,)?) => {
+        std::iter::Iterator::collect(std::array::IntoIter::new([$($v,)*]))
+    };
+}
+
+#[cfg(test)]
+macro_rules! ty {
+        ($type:ident [$($dim:expr),*]) => {
+            crate::yaml::Type {
+                name: String::from(stringify!($type)),
+                dimensions: vec![ $($dim),*],
+            }
+        };
+        ($type:ident) => {
+            crate::yaml::Type {
+                name: String::from(stringify!($type)),
+                dimensions: vec![],
+            }
+        }
+    }
+
+#[cfg(test)]
+pub fn dummy_document() -> crate::yaml::Document {
+    use indexmap::IndexMap;
+    use crate::yaml::{Path, Stage, Value, Document};
+
+    Document::V1 {
+        image: Path::new("runicos/base".to_string(), None, None),
+        pipeline: map! {
+            audio: Stage::Capability {
+                capability: String::from("SOUND"),
+                outputs: vec![
+                    ty!(i16[16000]),
+                ],
+                args: map! {
+                    hz: Value::from(16000),
+                },
+            },
+            fft: Stage::ProcBlock {
+                proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
+                inputs: vec!["audio".parse().unwrap()],
+                outputs: vec![
+                    ty!(i8[1960]),
+                ],
+                args: IndexMap::new(),
+            },
+            model: Stage::Model {
+                model: "./model.tflite".into(),
+                inputs: vec!["fft".parse().unwrap()],
+                outputs: vec![
+                    ty!(i8[6]),
+                ],
+            },
+            label: Stage::ProcBlock {
+                proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
+                inputs: vec!["model".parse().unwrap()],
+                outputs: vec![
+                    ty!(utf8),
+                ],
+                args: map! {
+                    labels: Value::List(vec![
+                        Value::from("silence"),
+                        Value::from("unknown"),
+                        Value::from("up"),
+                    ]),
+                },
+            },
+            output: Stage::Out {
+                out: String::from("SERIAL"),
+                inputs: vec!["label".parse().unwrap()],
+                args: IndexMap::default(),
+            }
+        },
+        resources: map![],
+    }
+}
