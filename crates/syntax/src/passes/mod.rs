@@ -116,7 +116,7 @@ impl<'diag> Context<'diag> {
                 ty: declaration.ty,
             };
             self.register_name(name, id, resource.span());
-            self.rune.resources.insert(id, resource);
+            self.rune.register_resource(id, resource);
         }
     }
 
@@ -126,12 +126,12 @@ impl<'diag> Context<'diag> {
 
             match hir::Stage::from_yaml(
                 stage.clone(),
-                &self.rune.resources,
+                |id| self.rune.get_resource(&id).is_some(),
                 |name| self.rune.get_id_by_name(name),
             ) {
                 Ok(stage) => {
                     let id = self.ids.next();
-                    self.rune.stages.insert(
+                    self.rune.register_stage(
                         id,
                         Node {
                             stage,
@@ -177,7 +177,7 @@ impl<'diag> Context<'diag> {
                 output_slots.push(id);
             }
 
-            let node = self.rune.stages.get_mut(&node_id).unwrap();
+            let node = self.rune.get_stage_mut(&node_id).unwrap();
             node.output_slots = output_slots;
         }
     }
@@ -207,7 +207,8 @@ impl<'diag> Context<'diag> {
                         },
                     };
 
-                let incoming_node = &self.rune.stages[&incoming_node_id];
+                let incoming_node =
+                    self.rune.get_stage(&incoming_node_id).unwrap();
 
                 if incoming_node.output_slots.is_empty() {
                     let diag = Diagnostic::error().with_message(format!(
@@ -221,10 +222,10 @@ impl<'diag> Context<'diag> {
                 }
 
                 let input_index = input.index.unwrap_or(0);
-                match incoming_node.output_slots.get(input_index) {
+                match incoming_node.output_slots.get(input_index).copied() {
                     Some(slot_id) => {
-                        input_slots.push(*slot_id);
-                        let slot = self.rune.slots.get_mut(slot_id).unwrap();
+                        input_slots.push(slot_id);
+                        let slot = self.rune.slots.get_mut(&slot_id).unwrap();
                         slot.output_node = node_id;
                     },
                     None => {
@@ -241,7 +242,7 @@ impl<'diag> Context<'diag> {
                 }
             }
 
-            let node = self.rune.stages.get_mut(&node_id).unwrap();
+            let node = self.rune.get_stage_mut(&node_id).unwrap();
             node.input_slots = input_slots;
         }
     }
@@ -335,7 +336,7 @@ impl<'diag> Context<'diag> {
         let mut stack = VecDeque::new();
         let mut visited = HashSet::new();
 
-        for id in self.rune.stages.keys().copied() {
+        for id in self.rune.stages().map(|(id, _)| id) {
             if detect_cycles(id, &self.rune, &mut visited, &mut stack) {
                 return Some(stack.into());
             }
@@ -366,7 +367,9 @@ fn detect_cycles(
     visited.insert(id);
     stack.push_back(id);
 
-    let incoming_nodes = rune.stages[&id]
+    let incoming_nodes = rune
+        .get_stage(&id)
+        .unwrap()
         .input_slots
         .iter()
         .map(|slot_id| rune.slots[slot_id].input_node);
@@ -662,7 +665,7 @@ pipeline:
 
         for stage_name in stages {
             let id = ctx.rune.get_id_by_name(stage_name).unwrap();
-            assert!(ctx.rune.stages.contains_key(&id));
+            assert!(ctx.rune.get_stage(&id).is_some());
         }
 
         assert!(diags.is_empty());
@@ -743,20 +746,20 @@ pipeline:
         assert!(!diags.has_errors() && !diags.has_warnings(), "{:#?}", diags);
 
         let audio_id = rune.get_id_by_name("audio").unwrap();
-        let audio_node = &rune.stages[&audio_id];
+        let audio_node = &rune.get_stage(&audio_id).unwrap();
         assert!(audio_node.input_slots.is_empty());
         assert_eq!(audio_node.output_slots.len(), 1);
         let audio_output = audio_node.output_slots[0];
 
         let fft_id = rune.get_id_by_name("fft").unwrap();
-        let fft_node = &rune.stages[&fft_id];
+        let fft_node = &rune.get_stage(&fft_id).unwrap();
         assert_eq!(
             fft_node.input_slots,
             &[audio_output, audio_output, audio_output]
         );
 
         let output_id = rune.get_id_by_name("serial").unwrap();
-        let output_node = &rune.stages[&output_id];
+        let output_node = &rune.get_stage(&output_id).unwrap();
         assert_eq!(fft_node.output_slots, output_node.input_slots);
     }
 
@@ -773,7 +776,7 @@ pipeline:
             .iter()
             .copied()
             .map(|name| rune.get_id_by_name(name).unwrap())
-            .map(|id| (id, &rune.stages[&id]))
+            .map(|id| (id, rune.get_stage(&id).unwrap()))
             .collect();
         assert_eq!(got, should_be);
     }

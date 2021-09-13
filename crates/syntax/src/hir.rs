@@ -19,11 +19,11 @@ use crate::yaml::{self, Path, ResourceName, ResourceOrString, ResourceType, Valu
 #[serde(rename_all = "kebab-case")]
 pub struct Rune {
     pub base_image: Option<Path>,
-    pub stages: IndexMap<HirId, Node>,
+    stages: IndexMap<HirId, Node>,
     pub slots: IndexMap<HirId, Slot>,
     pub types: IndexMap<HirId, Type>,
     pub spans: IndexMap<HirId, Span>,
-    pub resources: IndexMap<HirId, Resource>,
+    resources: IndexMap<HirId, Resource>,
     names: NameTable,
 }
 
@@ -119,6 +119,24 @@ impl Rune {
 
     pub fn get_name_by_id(&self, id: HirId) -> Option<&str> {
         self.names.get_name(id)
+    }
+
+    pub fn register_stage(&mut self, id: HirId, stage: Node) {
+        self.stages.insert(id, stage);
+    }
+
+    pub fn register_resource(&mut self, id: HirId, resource: Resource) {
+        self.resources.insert(id, resource);
+    }
+
+    pub fn get_stage_mut(&mut self, id: &HirId) -> Option<&mut Node> {
+        self.stages.get_mut(id)
+    }
+
+    pub fn get_stage(&self, id: &HirId) -> Option<&Node> { self.stages.get(id) }
+
+    pub fn get_resource(&self, id: &HirId) -> Option<&Resource> {
+        self.resources.get(id)
     }
 }
 
@@ -271,7 +289,7 @@ pub enum Stage {
 impl Stage {
     pub fn from_yaml(
         s: yaml::Stage,
-        resources: &IndexMap<HirId, Resource>,
+        is_resource: impl Fn(HirId) -> bool,
         get_id_by_name: impl Fn(&str) -> Option<HirId>,
     ) -> Result<Self, StageError> {
         match s {
@@ -279,11 +297,9 @@ impl Stage {
                 model: ResourceOrString::Resource(resource_name),
                 ..
             } => match get_id_by_name(&resource_name) {
-                Some(id) if resources.contains_key(&id) => {
-                    Ok(Stage::Model(Model {
-                        model_file: ModelFile::Resource(id),
-                    }))
-                },
+                Some(id) if is_resource(id) => Ok(Stage::Model(Model {
+                    model_file: ModelFile::Resource(id),
+                })),
                 Some(id) => Err(StageError::NotAResource {
                     id,
                     name: resource_name.to_string(),
