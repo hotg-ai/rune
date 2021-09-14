@@ -5,8 +5,7 @@ use legion::{Entity, systems::CommandBuffer};
 
 use crate::{
     Diagnostics,
-    hir::{Inputs, Outputs, Tensor},
-    passes::update_nametable::NameTable,
+    hir::{Inputs, NameTable, Outputs, Tensor},
     yaml::{self, DocumentV1},
 };
 

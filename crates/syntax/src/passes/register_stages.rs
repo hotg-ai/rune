@@ -2,8 +2,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
-    hir::{Model, ModelFile, ProcBlock, Resource, Sink, Source},
-    passes::update_nametable::NameTable,
+    hir::{Model, ModelFile, NameTable, ProcBlock, Resource, Sink, Source},
     yaml::{self, DocumentV1, ResourceName, ResourceOrString, ResourceType},
 };
 
@@ -124,7 +123,12 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 mod tests {
     use legion::{World, IntoQuery};
 
-    use crate::{BuildContext, hir::{Name, SinkKind, SourceKind}, passes::{self, Schedule}, yaml::{ResourceDeclaration, ResourceType, Stage, Value}};
+    use crate::{
+        BuildContext,
+        hir::{Name, SinkKind, SourceKind},
+        passes::{self, Schedule},
+        yaml::{ResourceDeclaration, ResourceType, Stage, Value},
+    };
     use super::*;
 
     fn doc() -> DocumentV1 {

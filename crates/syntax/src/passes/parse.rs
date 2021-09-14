@@ -11,13 +11,12 @@ pub(crate) fn run(
 ) {
     let src = &build_context.runefile;
 
-    match dbg!(Document::parse(src)) {
+    match Document::parse(src) {
         Ok(d) => {
             cmd.exec_mut(move |_, res| {
                 let v1 = d.clone().to_v1();
                 res.insert(Image(v1.image.clone()));
                 res.insert(v1);
-                // panic!();
             });
         },
         Err(e) => {

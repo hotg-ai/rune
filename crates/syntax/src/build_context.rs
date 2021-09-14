@@ -1,5 +1,6 @@
 use std::{path::PathBuf, process::Command};
 
+/// Inputs used during the compilation process.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BuildContext {
     /// The name of the Rune being compiled.
@@ -15,8 +16,40 @@ pub struct BuildContext {
     pub verbosity: Verbosity,
 }
 
-#[cfg(test)]
 impl BuildContext {
+    /// Create a new [`BuildContext`] using the convention that the
+    /// [`BuildContext.name`] is named after the
+    /// [`BuildContext.current_directory`].
+    pub fn for_directory(
+        directory: impl Into<PathBuf>,
+    ) -> Result<BuildContext, std::io::Error> {
+        let current_directory = directory.into();
+        let working_directory = current_directory.clone();
+
+        let name = current_directory
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Unable to determine the current directory's name",
+                )
+            })?;
+
+        let runefile = current_directory.join("Runefile.yml");
+        let runefile = std::fs::read_to_string(runefile)?;
+
+        Ok(BuildContext {
+            name,
+            runefile,
+            working_directory,
+            current_directory,
+            optimized: true,
+            verbosity: Verbosity::Normal,
+        })
+    }
+
+    #[cfg(test)]
     pub(crate) fn from_doc(doc: crate::yaml::Document) -> Self {
         BuildContext {
             name: "rune".to_string(),

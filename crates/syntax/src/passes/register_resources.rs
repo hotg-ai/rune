@@ -3,8 +3,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::systems::CommandBuffer;
 use crate::{
     Diagnostics,
-    hir::{Resource, ResourceSource},
-    passes::update_nametable::NameTable,
+    hir::{NameTable, Resource, ResourceSource},
     yaml::DocumentV1,
 };
 

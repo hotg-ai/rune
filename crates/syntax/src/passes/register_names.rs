@@ -14,7 +14,6 @@ pub(crate) fn run(cmd: &mut CommandBuffer, #[resource] doc: &DocumentV1) {
     }
 
     for (name, decl) in &doc.resources {
-        let name = Name::from(name);
-        cmd.push((name, decl.span()));
+        cmd.push((Name::from(name), decl.span()));
     }
 }

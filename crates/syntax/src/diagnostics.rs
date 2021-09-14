@@ -41,6 +41,8 @@ impl Diagnostics {
 
     /// Is this collection of [`Diagnostic`]s empty?
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
+
+    pub fn len(&self) -> usize { self.0.len() }
 }
 
 impl<'a> IntoIterator for &'a Diagnostics {

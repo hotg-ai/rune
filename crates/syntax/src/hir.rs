@@ -127,8 +127,8 @@ pub enum ResourceSource {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResourceData(Vec<u8>);
 
-impl From<Vec<u8>> for ResourceData {
-    fn from(data: Vec<u8>) -> Self { ResourceData(data) }
+impl<T: Into<Vec<u8>>> From<T> for ResourceData {
+    fn from(data: T) -> Self { ResourceData(data.into()) }
 }
 
 impl Deref for ResourceData {
@@ -176,6 +176,23 @@ impl Borrow<str> for Name {
     fn borrow(&self) -> &str { &self.0 }
 }
 
+impl<S> AsRef<S> for Name
+where
+    String: AsRef<S>,
+{
+    fn as_ref(&self) -> &S { self.0.as_ref() }
+}
+
+/// A lookup table mapping [`Name`] components back to their [`Entity`].
+#[derive(Debug, Default, PartialEq, Clone)]
+pub struct NameTable(HashMap<Name, Entity>);
+
+impl Deref for NameTable {
+    type Target = HashMap<Name, Entity>;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
 /// A tag component indicating this [`Entity`] is part of the Rune's pipeline.
 #[derive(
     Debug,
@@ -221,4 +238,11 @@ impl Deref for ModelData {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target { &self.0 }
+}
+impl NameTable {
+    pub(crate) fn clear(&mut self) { self.0.clear(); }
+
+    pub(crate) fn insert(&mut self, name: Name, ent: Entity) {
+        self.0.insert(name, ent);
+    }
 }

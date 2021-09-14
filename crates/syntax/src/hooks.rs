@@ -1,9 +1,13 @@
 //! Allow users to hook into the build process.
 
-use atomic_refcell::AtomicRef;
+use atomic_refcell::{AtomicRef, AtomicRefMut};
 use legion::{Resources, World};
 
-use crate::{Diagnostics, hir::Image, yaml::Document};
+use crate::{
+    Diagnostics,
+    hir::{Image, NameTable},
+    yaml::DocumentV1,
+};
 
 /// Callbacks that are fired at different points in the compilation process.
 pub trait Hooks {
@@ -72,8 +76,12 @@ pub trait Context {
 
 /// Context passed to the [`Hooks::after_parse()`] method.
 pub trait AfterParseContext: Context {
-    fn document(&self) -> AtomicRef<'_, Document> {
+    fn document(&self) -> AtomicRef<'_, DocumentV1> {
         self.resources().get().unwrap()
+    }
+
+    fn document_mut(&self) -> AtomicRefMut<'_, DocumentV1> {
+        self.resources().get_mut().unwrap()
     }
 
     fn image(&self) -> AtomicRef<'_, Image> { self.resources().get().unwrap() }
@@ -81,10 +89,18 @@ pub trait AfterParseContext: Context {
     fn diagnostics(&self) -> AtomicRef<'_, Diagnostics> {
         self.resources().get().unwrap()
     }
+
+    fn diagnostics_mut(&self) -> AtomicRefMut<'_, Diagnostics> {
+        self.resources().get_mut().unwrap()
+    }
 }
 
 /// Context passed to the [`Hooks::after_lowering()`] method.
-pub trait AfterLoweringContext: AfterParseContext {}
+pub trait AfterLoweringContext: AfterParseContext {
+    fn names(&self) -> AtomicRef<'_, NameTable> {
+        self.resources().get().unwrap()
+    }
+}
 
 /// Context passed to the [`Hooks::after_type_checking()`] method.
 pub trait AfterTypeCheckingContext: AfterLoweringContext {}

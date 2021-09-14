@@ -10,7 +10,7 @@ use legion::{Resources, World};
 use crate::{
     BuildContext, Diagnostics,
     hooks::{Continuation, Ctx, Hooks},
-    passes::update_nametable::NameTable,
+    hir::NameTable,
 };
 
 /// Execute the `rune build` process.
