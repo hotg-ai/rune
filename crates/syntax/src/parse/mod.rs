@@ -1,10 +1,17 @@
+//! The parsing phase.
+
+mod yaml;
+
+pub use self::yaml::*;
+
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::systems::CommandBuffer;
-use crate::{BuildContext, Diagnostics, hir::Image, yaml::Document};
+use crate::{BuildContext, Diagnostics, hir::Image, phases::Phase};
 
-/// Parse the Runefile into a [`Document`].
+pub fn phase() -> Phase { Phase::new().and_then(run_system()) }
+
 #[legion::system]
-pub(crate) fn run(
+fn run(
     cmd: &mut CommandBuffer,
     #[resource] build_context: &BuildContext,
     #[resource] diags: &mut Diagnostics,

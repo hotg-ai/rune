@@ -6,7 +6,7 @@ use legion::{Resources, World};
 use crate::{
     Diagnostics,
     hir::{Image, NameTable},
-    yaml::DocumentV1,
+    parse::DocumentV1,
 };
 
 /// Callbacks that are fired at different points in the compilation process.
@@ -25,7 +25,7 @@ pub trait Hooks {
         Continuation::Continue
     }
 
-    /// Callback fired after lowering a [`crate::yaml::Document`] to
+    /// Callback fired after lowering a [`crate::parse::Document`] to
     /// [`crate::hir`] types but before any type checking is applied.
     fn after_lowering(
         &mut self,
@@ -34,7 +34,7 @@ pub trait Hooks {
         Continuation::Continue
     }
 
-    /// Callback fired after type checking and before the Rune is compiled.
+    /// Callback fired after type checking and before codegen.
     fn after_type_checking(
         &mut self,
         _ctx: &mut dyn AfterTypeCheckingContext,
@@ -42,10 +42,11 @@ pub trait Hooks {
         Continuation::Continue
     }
 
-    /// Callback fired after compiling the Rune.
-    fn after_compile(
+    /// Callback fired after generating the Rust project but immediately before
+    /// it is compiled to WebAssembly.
+    fn after_codegen(
         &mut self,
-        _ctx: &mut dyn AfterCompileContext,
+        _ctx: &mut dyn AfterCodegenContext,
     ) -> Continuation {
         Continuation::Continue
     }
@@ -59,11 +60,6 @@ pub enum Continuation {
     /// Stop.
     Halt,
 }
-
-/// A [`Hooks`] implementation which does nothing.
-pub struct NopHooks;
-
-impl Hooks for NopHooks {}
 
 /// Basic contextual information passed to all [`Hooks`].
 pub trait Context {
@@ -105,8 +101,8 @@ pub trait AfterLoweringContext: AfterParseContext {
 /// Context passed to the [`Hooks::after_type_checking()`] method.
 pub trait AfterTypeCheckingContext: AfterLoweringContext {}
 
-/// Context passed to the [`Hooks::after_compile()`] method.
-pub trait AfterCompileContext: AfterTypeCheckingContext {}
+/// Context passed to the [`Hooks::after_codegen()`] method.
+pub trait AfterCodegenContext: AfterTypeCheckingContext {}
 
 pub(crate) struct Ctx<'world, 'res> {
     pub(crate) world: &'world mut World,
@@ -133,4 +129,4 @@ impl<'world, 'res> AfterLoweringContext for Ctx<'world, 'res> {}
 
 impl<'world, 'res> AfterTypeCheckingContext for Ctx<'world, 'res> {}
 
-impl<'world, 'res> AfterCompileContext for Ctx<'world, 'res> {}
+impl<'world, 'res> AfterCodegenContext for Ctx<'world, 'res> {}

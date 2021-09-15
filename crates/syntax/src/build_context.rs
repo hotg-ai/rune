@@ -50,7 +50,7 @@ impl BuildContext {
     }
 
     #[cfg(test)]
-    pub(crate) fn from_doc(doc: crate::yaml::Document) -> Self {
+    pub(crate) fn from_doc(doc: crate::parse::Document) -> Self {
         BuildContext {
             name: "rune".to_string(),
             runefile: serde_yaml::to_string(&doc).unwrap(),

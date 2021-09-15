@@ -4,7 +4,7 @@ use codespan_reporting::{
 };
 use hotg_rune_syntax::{
     Diagnostics,
-    yaml::Document,
+    parse::Document,
     hooks::{Hooks, AfterTypeCheckingContext, Continuation},
     BuildContext, Verbosity,
 };
@@ -59,7 +59,7 @@ macro_rules! parse_and_analyse {
                 };
                 let mut hooks = AbortAfterTypecheck::default();
 
-                hotg_rune_syntax::build(ctx, &mut hooks);
+                hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);
 
                 let mut writer = Buffer::no_color();
                 let config = Config::default();

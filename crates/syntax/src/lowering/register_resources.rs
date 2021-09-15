@@ -4,7 +4,7 @@ use legion::systems::CommandBuffer;
 use crate::{
     Diagnostics,
     hir::{NameTable, Resource, ResourceSource},
-    yaml::DocumentV1,
+    parse::DocumentV1,
 };
 
 /// Register all the [`Resource`]s in a [`DocumentV1`].
@@ -67,8 +67,9 @@ mod tests {
     use crate::{
         BuildContext,
         hir::Name,
-        passes::{self, Schedule},
-        yaml::{ResourceDeclaration, ResourceType},
+        phases::{self, Phase},
+        lowering,
+        parse::{ResourceDeclaration, ResourceType},
     };
     use super::*;
 
@@ -104,7 +105,7 @@ mod tests {
     fn all_resources_are_registered() {
         let mut world = World::default();
         let mut res =
-            passes::initialize_resources(BuildContext::from_doc(doc().into()));
+            phases::initialize_resources(BuildContext::from_doc(doc().into()));
         let should_be = vec![
             (
                 Name::from("inline_string"),
@@ -132,11 +133,11 @@ mod tests {
                 },
             ),
         ];
+        crate::parse::phase().run(&mut world, &mut res);
 
-        Schedule::new()
-            .and_then(passes::parse::run_system())
-            .and_then(passes::register_names::run_system())
-            .and_then(passes::update_nametable::run_system())
+        Phase::new()
+            .and_then(lowering::register_names::run_system())
+            .and_then(lowering::update_nametable::run_system())
             .and_then(run_system())
             .run(&mut world, &mut res);
 

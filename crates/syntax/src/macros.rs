@@ -17,13 +17,13 @@ macro_rules! map {
 #[cfg(test)]
 macro_rules! ty {
         ($type:ident [$($dim:expr),*]) => {
-            crate::yaml::Type {
+            crate::parse::Type {
                 name: String::from(stringify!($type)),
                 dimensions: vec![ $($dim),*],
             }
         };
         ($type:ident) => {
-            crate::yaml::Type {
+            crate::parse::Type {
                 name: String::from(stringify!($type)),
                 dimensions: vec![],
             }

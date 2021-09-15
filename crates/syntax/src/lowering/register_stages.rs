@@ -3,11 +3,11 @@ use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
     hir::{Model, ModelFile, NameTable, ProcBlock, Resource, Sink, Source},
-    yaml::{self, DocumentV1, ResourceName, ResourceOrString, ResourceType},
+    parse::{self, DocumentV1, ResourceName, ResourceOrString, ResourceType},
 };
 
 /// Attach [`Model`], [`ProcBlock`], [`Sink`], and [`Source`] components to
-/// each [`yaml::Stage`] in the [`DocumentV1`].
+/// each [`parse::Stage`] in the [`DocumentV1`].
 #[legion::system]
 #[read_component(Resource)]
 pub(crate) fn run(
@@ -25,7 +25,7 @@ pub(crate) fn run(
         };
 
         match stage {
-            yaml::Stage::Model {
+            parse::Stage::Model {
                 model: ResourceOrString::Resource(r),
                 ..
             } => {
@@ -35,7 +35,7 @@ pub(crate) fn run(
                     Err(diag) => diags.push(diag),
                 }
             },
-            yaml::Stage::Model {
+            parse::Stage::Model {
                 model: ResourceOrString::String(path),
                 ..
             } => cmd.add_component(
@@ -44,7 +44,7 @@ pub(crate) fn run(
                     model_file: ModelFile::FromDisk(path.into()),
                 },
             ),
-            yaml::Stage::ProcBlock {
+            parse::Stage::ProcBlock {
                 proc_block, args, ..
             } => cmd.add_component(
                 ent,
@@ -53,7 +53,7 @@ pub(crate) fn run(
                     parameters: args.clone().into_iter().collect(),
                 },
             ),
-            yaml::Stage::Capability {
+            parse::Stage::Capability {
                 capability, args, ..
             } => cmd.add_component(
                 ent,
@@ -62,7 +62,7 @@ pub(crate) fn run(
                     parameters: args.clone().into_iter().collect(),
                 },
             ),
-            yaml::Stage::Out { out, .. } => cmd.add_component(
+            parse::Stage::Out { out, .. } => cmd.add_component(
                 ent,
                 Sink {
                     kind: out.as_str().into(),
@@ -73,7 +73,7 @@ pub(crate) fn run(
 }
 
 fn resource_model<'a>(
-    resource_name: &yaml::ResourceName,
+    resource_name: &parse::ResourceName,
     names: &NameTable,
     get_resource: impl FnOnce(Entity) -> Option<&'a Resource> + 'a,
 ) -> Result<Model, Diagnostic<()>> {
@@ -126,8 +126,9 @@ mod tests {
     use crate::{
         BuildContext,
         hir::{Name, SinkKind, SourceKind},
-        passes::{self, Schedule},
-        yaml::{ResourceDeclaration, ResourceType, Stage, Value},
+        phases::{self, Phase},
+        lowering,
+        parse::{ResourceDeclaration, ResourceType, Stage, Value},
     };
     use super::*;
 
@@ -200,13 +201,13 @@ mod tests {
     fn register_all_stages() {
         let mut world = World::default();
         let mut res =
-            passes::initialize_resources(BuildContext::from_doc(doc().into()));
+            phases::initialize_resources(BuildContext::from_doc(doc().into()));
+        crate::parse::phase().run(&mut world, &mut res);
 
-        Schedule::new()
-            .and_then(passes::parse::run_system())
-            .and_then(passes::register_names::run_system())
-            .and_then(passes::update_nametable::run_system())
-            .and_then(passes::register_resources::run_system())
+        Phase::new()
+            .and_then(lowering::register_names::run_system())
+            .and_then(lowering::update_nametable::run_system())
+            .and_then(lowering::register_resources::run_system())
             .and_then(run_system())
             .run(&mut world, &mut res);
 

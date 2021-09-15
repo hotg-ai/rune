@@ -2,7 +2,7 @@ use legion::systems::CommandBuffer;
 
 use crate::{
     hir::{Name, PipelineNode},
-    yaml::DocumentV1,
+    parse::DocumentV1,
 };
 
 /// Goes through and registers all the named items and their locations in the

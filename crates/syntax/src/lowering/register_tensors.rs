@@ -6,7 +6,7 @@ use legion::{Entity, systems::CommandBuffer};
 use crate::{
     Diagnostics,
     hir::{Inputs, NameTable, Outputs, Tensor},
-    yaml::{self, DocumentV1},
+    parse::{self, DocumentV1},
 };
 
 /// Register all [`Tensor`]s and associate them as node [`Inputs`] or
@@ -50,7 +50,7 @@ fn register_inputs(
 
 fn register_stage_inputs(
     parent_name: &str,
-    inputs: &[yaml::Input],
+    inputs: &[parse::Input],
     names: &NameTable,
     output_tensors_by_node: &HashMap<Entity, Outputs>,
 ) -> Result<Inputs, Diagnostic<()>> {
@@ -71,7 +71,7 @@ fn register_stage_inputs(
 
 fn get_input_tensor(
     parent_name: &str,
-    input: &yaml::Input,
+    input: &parse::Input,
     names: &NameTable,
     output_tensors_by_node: &HashMap<Entity, Outputs>,
 ) -> Result<Entity, Diagnostic<()>> {
@@ -96,7 +96,7 @@ fn get_input_tensor(
     Ok(tensor)
 }
 
-fn no_such_output_diagnostic(input: &yaml::Input) -> Diagnostic<()> {
+fn no_such_output_diagnostic(input: &parse::Input) -> Diagnostic<()> {
     Diagnostic::error().with_message(format!(
         "The \"{}\" node has no {}'th output",
         input.name,
@@ -106,7 +106,7 @@ fn no_such_output_diagnostic(input: &yaml::Input) -> Diagnostic<()> {
 
 fn node_has_no_outputs_diagnostic(
     parent_name: &str,
-    input: &yaml::Input,
+    input: &parse::Input,
 ) -> Diagnostic<()> {
     Diagnostic::error().with_message(format!(
         "The \"{}\" in {}'s \"{}\" input has no inputs",
@@ -116,7 +116,7 @@ fn node_has_no_outputs_diagnostic(
 
 fn unknown_input_name_diagnostic(
     parent_name: &str,
-    input: &yaml::Input,
+    input: &parse::Input,
 ) -> Diagnostic<()> {
     Diagnostic::error().with_message(format!(
         "The \"{}\" in {}'s \"{}\" input was not defined",
@@ -154,7 +154,7 @@ fn register_outputs(
 /// Allocate new entities for each output.
 fn allocate_output_tensors(
     cmd: &mut CommandBuffer,
-    output_types: &[yaml::Type],
+    output_types: &[parse::Type],
 ) -> Result<Outputs, Diagnostic<()>> {
     let mut outputs = Vec::new();
 
@@ -166,7 +166,7 @@ fn allocate_output_tensors(
     Ok(Outputs { tensors: outputs })
 }
 
-fn shape(ty: &yaml::Type) -> Result<Tensor, Diagnostic<()>> {
+fn shape(ty: &parse::Type) -> Result<Tensor, Diagnostic<()>> {
     let element_type = match ty.name.as_str() {
         "u8" | "U8" => Type::u8,
         "i8" | "I8" => Type::i8,
@@ -200,7 +200,8 @@ mod tests {
     use legion::{World, IntoQuery};
     use crate::{
         BuildContext,
-        passes::{self, Schedule},
+        phases::{self, Phase},
+        lowering,
     };
     use super::*;
 
@@ -208,14 +209,14 @@ mod tests {
         DocumentV1 {
             image: "image".parse().unwrap(),
             pipeline: map! {
-                rand: yaml::Stage::Capability {
+                rand: parse::Stage::Capability {
                     capability: "RAND".to_string(),
                     outputs: vec![
                         ty!(f32[128]),
                     ],
                     args: map! {},
                 },
-                transform: yaml::Stage::ProcBlock {
+                transform: parse::Stage::ProcBlock {
                     proc_block: "proc-block".parse().unwrap(),
                     inputs: vec![
                         "rand".parse().unwrap(),
@@ -226,7 +227,7 @@ mod tests {
                     ],
                     args: map! {},
                 },
-                output: yaml::Stage::Out {
+                output: parse::Stage::Out {
                     out: "SERIAL".to_string(),
                     inputs: vec![
                         "transform.1".parse().unwrap(),
@@ -243,13 +244,13 @@ mod tests {
     fn construct_pipeline() {
         let mut world = World::default();
         let mut res =
-            passes::initialize_resources(BuildContext::from_doc(doc().into()));
+            phases::initialize_resources(BuildContext::from_doc(doc().into()));
+        crate::parse::phase().run(&mut world, &mut res);
 
-        Schedule::new()
-            .and_then(passes::parse::run_system())
-            .and_then(passes::register_names::run_system())
-            .and_then(passes::update_nametable::run_system())
-            .and_then(passes::register_stages::run_system())
+        Phase::new()
+            .and_then(lowering::register_names::run_system())
+            .and_then(lowering::update_nametable::run_system())
+            .and_then(lowering::register_stages::run_system())
             .and_then(run_system())
             .run(&mut world, &mut res);
 

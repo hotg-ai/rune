@@ -10,7 +10,7 @@ use std::{
 };
 use hotg_rune_core::Shape;
 use legion::Entity;
-use crate::yaml::{Path, ResourceType, Value};
+use crate::parse::{Path, ResourceType, Value};
 
 /// An output.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
