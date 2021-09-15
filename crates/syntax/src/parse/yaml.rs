@@ -93,7 +93,7 @@ mod document_serde {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DocumentV1 {
-    pub image: Path,
+    pub image: Image,
     pub pipeline: IndexMap<String, Stage>,
     #[serde(default)]
     pub resources: IndexMap<String, ResourceDeclaration>,
@@ -834,7 +834,7 @@ pipeline:
     - label
         "#;
         let should_be = Document::V1(DocumentV1 {
-            image: Path::new("runicos/base", None, None),
+            image: "runicos/base".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability {
                     capability: String::from("SOUND"),
@@ -925,5 +925,17 @@ pipeline:
             let got: Value = serde_yaml::from_str(src).unwrap();
             assert_eq!(got, should_be);
         }
+    }
+}
+
+/// The image a Rune is based on.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Image(pub Path);
+
+impl FromStr for Image {
+    type Err = PathParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Path::from_str(s).map(Image)
     }
 }

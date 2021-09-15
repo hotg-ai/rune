@@ -1,10 +1,13 @@
 //! The lowering phase.
 
+mod components;
 mod register_names;
 mod register_resources;
 mod register_stages;
 mod register_tensors;
 mod update_nametable;
+
+pub use components::*;
 
 use crate::phases::Phase;
 

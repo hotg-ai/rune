@@ -5,7 +5,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     BuildContext, Diagnostics,
-    hir::{Name, Resource, ResourceData, ResourceSource},
+    lowering::{Name, Resource, ResourceData, ResourceSource},
 };
 
 #[legion::system]

@@ -137,10 +137,6 @@ impl Deref for ResourceData {
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-/// The image a Rune is based on.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Image(pub Path);
-
 /// An identifier used to refer to an item in a Runefile.
 #[derive(
     Debug,

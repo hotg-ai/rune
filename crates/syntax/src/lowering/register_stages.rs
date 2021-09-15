@@ -2,7 +2,9 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
-    hir::{Model, ModelFile, NameTable, ProcBlock, Resource, Sink, Source},
+    lowering::{
+        Model, ModelFile, NameTable, ProcBlock, Resource, Sink, Source,
+    },
     parse::{self, DocumentV1, ResourceName, ResourceOrString, ResourceType},
 };
 
@@ -125,7 +127,7 @@ mod tests {
 
     use crate::{
         BuildContext,
-        hir::{Name, SinkKind, SourceKind},
+        lowering::{Name, SinkKind, SourceKind},
         phases::{self, Phase},
         lowering,
         parse::{ResourceDeclaration, ResourceType, Stage, Value},

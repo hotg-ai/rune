@@ -3,7 +3,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::systems::CommandBuffer;
 use crate::{
     Diagnostics,
-    hir::{NameTable, Resource, ResourceSource},
+    lowering::{NameTable, Resource, ResourceSource},
     parse::DocumentV1,
 };
 
@@ -66,7 +66,7 @@ mod tests {
     use legion::{IntoQuery, World};
     use crate::{
         BuildContext,
-        hir::Name,
+        lowering::Name,
         phases::{self, Phase},
         lowering,
         parse::{ResourceDeclaration, ResourceType},

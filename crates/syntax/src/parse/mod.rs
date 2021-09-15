@@ -1,4 +1,7 @@
 //! The parsing phase.
+//!
+//! This is a simple phase which just calls [`Document::parse()`] and stores
+//! the resulting [`DocumentV1`] in the global [`legion::Resources`].
 
 mod yaml;
 
@@ -6,7 +9,7 @@ pub use self::yaml::*;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::systems::CommandBuffer;
-use crate::{BuildContext, Diagnostics, hir::Image, phases::Phase};
+use crate::{BuildContext, Diagnostics, phases::Phase};
 
 pub fn phase() -> Phase { Phase::new().and_then(run_system()) }
 
@@ -21,9 +24,7 @@ fn run(
     match Document::parse(src) {
         Ok(d) => {
             cmd.exec_mut(move |_, res| {
-                let v1 = d.clone().to_v1();
-                res.insert(Image(v1.image.clone()));
-                res.insert(v1);
+                res.insert(d.clone().to_v1());
             });
         },
         Err(e) => {

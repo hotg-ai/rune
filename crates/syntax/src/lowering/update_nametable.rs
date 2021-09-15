@@ -4,7 +4,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{Entity, Query, world::SubWorld};
 use crate::{
     Diagnostics,
-    hir::{Name, NameTable},
+    lowering::{Name, NameTable},
 };
 
 /// Update the [`NameTable`] resource so we can track all the named items in a

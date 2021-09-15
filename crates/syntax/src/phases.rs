@@ -1,7 +1,7 @@
 use legion::{Resources, World};
 use crate::{
     BuildContext, Diagnostics, codegen,
-    hir::NameTable,
+    lowering::NameTable,
     hooks::{Continuation, Ctx, Hooks},
     lowering, parse, type_check,
 };

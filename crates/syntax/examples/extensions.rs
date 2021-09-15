@@ -14,7 +14,7 @@
 use codespan_reporting::diagnostic::Diagnostic;
 use hotg_rune_syntax::{
     BuildContext, Diagnostics,
-    hir::{Model, Name, Resource, ResourceData},
+    lowering::{Model, Name, Resource, ResourceData},
     hooks::{
         AfterLoweringContext, AfterTypeCheckingContext, Continuation, Hooks,
     },

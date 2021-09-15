@@ -1,7 +1,7 @@
 use legion::systems::CommandBuffer;
 
 use crate::{
-    hir::{Name, PipelineNode},
+    lowering::{Name, PipelineNode},
     parse::DocumentV1,
 };
 

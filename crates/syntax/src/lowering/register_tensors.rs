@@ -5,7 +5,7 @@ use legion::{Entity, systems::CommandBuffer};
 
 use crate::{
     Diagnostics,
-    hir::{Inputs, NameTable, Outputs, Tensor},
+    lowering::{Inputs, NameTable, Outputs, Tensor},
     parse::{self, DocumentV1},
 };
 

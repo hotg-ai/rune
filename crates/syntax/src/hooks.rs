@@ -1,54 +1,68 @@
-//! Allow users to hook into the build process.
+//! Callbacks that allow users to hook into the build process.
 
 use atomic_refcell::{AtomicRef, AtomicRefMut};
 use legion::{Resources, World};
 
-use crate::{
-    Diagnostics,
-    hir::{Image, NameTable},
-    parse::DocumentV1,
-};
+use crate::{Diagnostics, lowering::NameTable, parse::DocumentV1};
 
 /// Callbacks that are fired at different points in the compilation process.
+///
+/// Each hook is optional, with the default implementation returning
+/// [`Continuation::Halt`] when [`Diagnostics::has_errors()`] indicates there
+/// were errors.
 pub trait Hooks {
     /// Callback fired before the Runefile is parsed, giving the [`Hooks`] a
-    /// chance to do setup.
+    /// chance to do setup (e.g. by registering global [`Resources`] used in
+    /// later steps).
     fn before_parse(&mut self, _ctx: &mut dyn Context) -> Continuation {
         Continuation::Continue
     }
 
     /// Callback fired after parsing the Runefile.
-    fn after_parse(
-        &mut self,
-        _ctx: &mut dyn AfterParseContext,
-    ) -> Continuation {
-        Continuation::Continue
+    fn after_parse(&mut self, ctx: &mut dyn AfterParseContext) -> Continuation {
+        if ctx.diagnostics().has_errors() {
+            Continuation::Halt
+        } else {
+            Continuation::Continue
+        }
     }
 
     /// Callback fired after lowering a [`crate::parse::Document`] to
-    /// [`crate::hir`] types but before any type checking is applied.
+    /// [`crate::lowering`] types but before any type checking is applied.
     fn after_lowering(
         &mut self,
-        _ctx: &mut dyn AfterLoweringContext,
+        ctx: &mut dyn AfterLoweringContext,
     ) -> Continuation {
-        Continuation::Continue
+        if ctx.diagnostics().has_errors() {
+            Continuation::Halt
+        } else {
+            Continuation::Continue
+        }
     }
 
     /// Callback fired after type checking and before codegen.
     fn after_type_checking(
         &mut self,
-        _ctx: &mut dyn AfterTypeCheckingContext,
+        ctx: &mut dyn AfterTypeCheckingContext,
     ) -> Continuation {
-        Continuation::Continue
+        if ctx.diagnostics().has_errors() {
+            Continuation::Halt
+        } else {
+            Continuation::Continue
+        }
     }
 
     /// Callback fired after generating the Rust project but immediately before
     /// it is compiled to WebAssembly.
     fn after_codegen(
         &mut self,
-        _ctx: &mut dyn AfterCodegenContext,
+        ctx: &mut dyn AfterCodegenContext,
     ) -> Continuation {
-        Continuation::Continue
+        if ctx.diagnostics().has_errors() {
+            Continuation::Halt
+        } else {
+            Continuation::Continue
+        }
     }
 }
 
@@ -79,8 +93,6 @@ pub trait AfterParseContext: Context {
     fn document_mut(&self) -> AtomicRefMut<'_, DocumentV1> {
         self.resources().get_mut().unwrap()
     }
-
-    fn image(&self) -> AtomicRef<'_, Image> { self.resources().get().unwrap() }
 
     fn diagnostics(&self) -> AtomicRef<'_, Diagnostics> {
         self.resources().get().unwrap()
