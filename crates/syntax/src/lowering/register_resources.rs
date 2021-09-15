@@ -63,11 +63,11 @@ fn path_and_inline_defined_diagnostic(
 
 #[cfg(test)]
 mod tests {
-    use legion::{IntoQuery, World};
+    use legion::{IntoQuery, Resources, World};
     use crate::{
         BuildContext,
         lowering::Name,
-        phases::{self, Phase},
+        phases::Phase,
         lowering,
         parse::{ResourceDeclaration, ResourceType},
     };
@@ -104,8 +104,9 @@ mod tests {
     #[test]
     fn all_resources_are_registered() {
         let mut world = World::default();
-        let mut res =
-            phases::initialize_resources(BuildContext::from_doc(doc().into()));
+        let mut res = Resources::default();
+        res.insert(BuildContext::from_doc(doc().into()));
+        res.insert(NameTable::default());
         let should_be = vec![
             (
                 Name::from("inline_string"),

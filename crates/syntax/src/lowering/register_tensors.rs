@@ -197,12 +197,8 @@ fn unknown_element_type_diagnostic(name: &str) -> Diagnostic<()> {
 mod tests {
     use std::str::FromStr;
 
-    use legion::{World, IntoQuery};
-    use crate::{
-        BuildContext,
-        phases::{self, Phase},
-        lowering,
-    };
+    use legion::{IntoQuery, Resources, World};
+    use crate::{BuildContext, phases::Phase, lowering};
     use super::*;
 
     fn doc() -> DocumentV1 {
@@ -243,8 +239,9 @@ mod tests {
     #[test]
     fn construct_pipeline() {
         let mut world = World::default();
-        let mut res =
-            phases::initialize_resources(BuildContext::from_doc(doc().into()));
+        let mut res = Resources::default();
+        res.insert(BuildContext::from_doc(doc().into()));
+        res.insert(NameTable::default());
         crate::parse::phase().run(&mut world, &mut res);
 
         Phase::new()

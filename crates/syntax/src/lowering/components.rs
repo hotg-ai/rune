@@ -183,10 +183,22 @@ where
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct NameTable(HashMap<Name, Entity>);
 
+impl NameTable {
+    pub(crate) fn clear(&mut self) { self.0.clear(); }
+
+    pub(crate) fn insert(&mut self, name: Name, ent: Entity) {
+        self.0.insert(name, ent);
+    }
+}
+
 impl Deref for NameTable {
     type Target = HashMap<Name, Entity>;
 
     fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl From<HashMap<Name, Entity>> for NameTable {
+    fn from(m: HashMap<Name, Entity>) -> Self { NameTable(m) }
 }
 
 /// A tag component indicating this [`Entity`] is part of the Rune's pipeline.
@@ -234,11 +246,4 @@ impl Deref for ModelData {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target { &self.0 }
-}
-impl NameTable {
-    pub(crate) fn clear(&mut self) { self.0.clear(); }
-
-    pub(crate) fn insert(&mut self, name: Name, ent: Entity) {
-        self.0.insert(name, ent);
-    }
 }

@@ -1,7 +1,6 @@
 use legion::{Resources, World};
 use crate::{
-    BuildContext, Diagnostics, codegen,
-    lowering::NameTable,
+    BuildContext, codegen,
     hooks::{Continuation, Ctx, Hooks},
     lowering, parse, type_check,
 };
@@ -21,7 +20,9 @@ pub fn build_with_hooks(
     hooks: &mut dyn Hooks,
 ) -> (World, Resources) {
     let mut world = World::default();
-    let mut res = initialize_resources(ctx);
+    let mut res = Resources::default();
+
+    res.insert(ctx);
 
     if hooks.before_parse(&mut c(&mut world, &mut res))
         != Continuation::Continue
@@ -69,6 +70,15 @@ pub struct Phase(legion::systems::Builder);
 impl Phase {
     pub(crate) fn new() -> Self { Phase(legion::Schedule::builder()) }
 
+    pub(crate) fn with_setup(
+        mut setup: impl FnMut(&mut Resources) + 'static,
+    ) -> Self {
+        let mut phase = Phase::new();
+        phase.0.add_thread_local_fn(move |_, res| setup(res));
+
+        phase
+    }
+
     pub(crate) fn and_then(
         mut self,
         runnable: impl legion::systems::ParallelRunnable + 'static,
@@ -81,16 +91,6 @@ impl Phase {
     pub fn run(&mut self, world: &mut World, resources: &mut Resources) {
         self.0.build().execute(world, resources);
     }
-}
-
-pub(crate) fn initialize_resources(ctx: BuildContext) -> Resources {
-    let mut resources = Resources::default();
-
-    resources.insert(ctx);
-    resources.insert(Diagnostics::new());
-    resources.insert(NameTable::default());
-
-    resources
 }
 
 fn c<'world, 'res>(

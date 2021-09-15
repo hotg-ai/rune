@@ -11,7 +11,12 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::systems::CommandBuffer;
 use crate::{BuildContext, Diagnostics, phases::Phase};
 
-pub fn phase() -> Phase { Phase::new().and_then(run_system()) }
+pub fn phase() -> Phase {
+    Phase::with_setup(|res| {
+        res.insert(Diagnostics::new());
+    })
+    .and_then(run_system())
+}
 
 #[legion::system]
 fn run(

@@ -123,12 +123,12 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 
 #[cfg(test)]
 mod tests {
-    use legion::{World, IntoQuery};
+    use legion::{IntoQuery, Resources, World};
 
     use crate::{
         BuildContext,
         lowering::{Name, SinkKind, SourceKind},
-        phases::{self, Phase},
+        phases::Phase,
         lowering,
         parse::{ResourceDeclaration, ResourceType, Stage, Value},
     };
@@ -202,8 +202,9 @@ mod tests {
     #[test]
     fn register_all_stages() {
         let mut world = World::default();
-        let mut res =
-            phases::initialize_resources(BuildContext::from_doc(doc().into()));
+        let mut res = Resources::default();
+        res.insert(BuildContext::from_doc(doc().into()));
+        res.insert(NameTable::default());
         crate::parse::phase().run(&mut world, &mut res);
 
         Phase::new()
