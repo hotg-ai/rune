@@ -7,7 +7,7 @@ use once_cell::sync::Lazy;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
     image::ImageSource, multi::SourceBackedCapability, new_capability_switcher,
-    resources, runecoral_inference, sound::AudioClip,
+    resources, sound::AudioClip,
 };
 use hotg_runicos_base_runtime::{BaseImage, CapabilityFactory, Random};
 
@@ -48,12 +48,6 @@ pub struct Run {
         help = "Seed the runtime's Random Number Generator"
     )]
     random: Option<u64>,
-    #[structopt(
-        long,
-        env,
-        help = "The librunecoral.so library to use for hardware acceleration"
-    )]
-    librunecoral: Option<PathBuf>,
     #[structopt(
         long,
         help = "Use the wasm3 WebAssembly engine instead of Wasmer"
@@ -120,12 +114,6 @@ impl Run {
         resources::load_from_custom_sections(&mut img, rune);
         resources::load_from_files(&mut img, &self.file_resources);
         resources::load_from_strings(&mut img, &self.string_resources);
-
-        runecoral_inference::override_model_handler(
-            &mut img,
-            self.librunecoral.as_deref(),
-        )
-        .context("Unable to register the librunecoral inference backend")?;
 
         Ok(img)
     }

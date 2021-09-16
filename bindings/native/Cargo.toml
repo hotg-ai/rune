@@ -30,4 +30,3 @@ build-info-build = "0.0.24"
 c-headers = ["safer-ffi/headers"]
 wasmer-runtime = ["hotg-rune-wasmer-runtime", "hotg-runicos-base-runtime/wasmer-runtime"]
 wasm3-runtime = ["hotg-rune-wasm3-runtime", "hotg-runicos-base-runtime/wasm3-runtime"]
-tflite = ["hotg-runicos-base-runtime/tflite"]

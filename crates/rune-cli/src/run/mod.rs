@@ -3,7 +3,6 @@ pub mod command;
 pub mod image;
 pub mod multi;
 pub mod raw;
-mod runecoral_inference;
 pub mod sound;
 mod resources;
 
