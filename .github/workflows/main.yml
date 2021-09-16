@@ -100,7 +100,7 @@ jobs:
           cargo doc --workspace --verbose --locked
         if: ${{ steps.first_try.outcome == 'failure' }}
       - name: Automatically redirect to rune_runtime docs
-        run: echo '<meta http-equiv="refresh" content="0; url=rune_runtime/index.html" />' > target/doc/index.html
+        run: echo '<meta http-equiv="refresh" content="0; url=hotg_rune_core/index.html" />' > target/doc/index.html
       - name: Upload API Docs
         uses: JamesIves/github-pages-deploy-action@4.1.1
         if: github.ref == 'refs/heads/master'
