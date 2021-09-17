@@ -41,17 +41,14 @@ jobs:
           # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
           curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
         if: runner.os == 'macOS'
-
       - uses: maxim-lobanov/setup-xcode@v1
         if: runner.os == 'macOS'
         with:
           xcode-version: latest-stable
-
       - uses: actions/setup-python@v2
         if: runner.os == 'macOS'
         with:
-          python-version: '3.x' # Version range or exact version of a Python version to use, using SemVer's version range syntax
-
+          python-version: '3.x'
       - name: Install Build Dependencies
         run: |
           pip install numpy

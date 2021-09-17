@@ -72,6 +72,24 @@ jobs:
           rustup target add wasm32-unknown-unknown
           rustc --version --verbose
           rustup show
+      - name: Login to GitHub Container Registry
+        if: ${{ runner.os == 'Linux' }}
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: maxim-lobanov/setup-xcode@v1
+        if: runner.os == 'macOS'
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-python@v2
+        if: runner.os == 'macOS'
+        with:
+          python-version: '3.x'
+      - name: Install Build Dependencies
+        run: |
+          pip install numpy
       - name: Build
         run: cargo xtask dist
         env:
