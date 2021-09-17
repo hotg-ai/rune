@@ -1,6 +1,6 @@
 FROM rust:1.53 as build
 
-RUN apt-get update -y && apt-get -y install libclang-dev clang curl build-essential git 
+RUN apt-get update -y && apt-get -y install libclang-dev clang curl build-essential git
 
 WORKDIR /app
 # Putting the toolchain file in / means we always use the right rustc version
@@ -9,6 +9,7 @@ COPY . /app/
 
 RUN rustup show && \
     cargo fetch && \
+    cargo install --debug bindgen && \
     # Install Rune
     cargo install --root / --path /app/crates/rune-cli --locked --verbose && \
     rune version --verbose && \
