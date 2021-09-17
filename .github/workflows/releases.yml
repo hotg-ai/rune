@@ -202,30 +202,26 @@ jobs:
           # Linux
           - os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
-            features: wasmer-runtime,tflite
+            features: wasmer-runtime,wasm3-runtime
           # Android
           - os: ubuntu-18.04
             target: aarch64-linux-android
-            features: wasmer-runtime
+            features: wasmer-runtime,wasm3-runtime
           # 64-bit Raspberry Pi 4
           - os: ubuntu-18.04
             target: aarch64-unknown-linux-gnu
-            features: wasmer-runtime
+            features: wasmer-runtime,wasm3-runtime
           # MacOS
-          # FIXME: The tflite crate doesn't compile under cross so we are doing
-          # a native build in a separate rune_native_mac job
-          # - os: macos-latest
-          #   target: x86_64-apple-darwin
-          #   features: wasmer-runtime
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            features: wasmer-runtime,wasm3-runtime
           # iOS
-          # FIXME: Enable when wasmer is supported on iOS
-          # https://github.com/wasmerio/wasmer/issues/1832)
-          # - os: macos-latest
-          #   target: x86_64-apple-ios
-          #   features: ""
-          # - os: macos-latest
-          #   target: aarch64-apple-ios
-          #   features: ""
+          - os: macos-latest
+            target: x86_64-apple-ios
+            features: wasm3-runtime
+          - os: macos-latest
+            target: aarch64-apple-ios
+            features: wasm3-runtime
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -286,83 +282,6 @@ jobs:
           name: rune_native.${{ matrix.target }}
           path: rune_native.${{ matrix.target }}.zip
 
-  # Ideally we'd just add this to the rune_native job and update our build
-  # matrix, but tflite won't compile using "cross".
-  rune_native_mac:
-    name: Build librune_native for MacOS
-    runs-on: macos-latest
-    needs:
-      - check_date
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "11.0"
-          directory: ${{ runner.temp }}/llvm
-      # It looks like KyleMayes/install-llvm-action doesn't fully set up LLVM
-      # https://github.com/KyleMayes/install-llvm-action/issues/15
-      - name: MacOS - Prepare LLVM
-        run: |
-          LLVM_PATH=${{ env.LLVM_PATH }}
-          LLVM_VERSION=11.0
-          ## already done inside install-llvm-action
-          # echo "PATH="$LLVM_PATH:$PATH"
-          # echo "LD_LIBRARY_PATH=$LLVM_PATH/lib/:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-          # echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib/:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
-          echo "CPATH=$LLVM_PATH/lib/clang/$LLVM_VERSION/include/" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$LLVM_PATH/lib" >> $GITHUB_ENV
-          echo "CPPFLAGS=-I$LLVM_PATH/include" >> $GITHUB_ENV
-          echo "CC=$LLVM_PATH/bin/clang" >> $GITHUB_ENV
-          echo "CXX=$LLVM_PATH/bin/clang++" >> $GITHUB_ENV
-      - name: Update Rustup
-        run: |
-          # We need to update rustup because the mac version is out of date and
-          # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
-      - name: Setup Rust
-        run: rustup show
-      - name: Set target
-        run: echo "target=$(rustc --version --verbose | grep host | cut -d' ' -f 2)" >> $GITHUB_ENV
-      - name: Compile
-        run: |
-          cargo build --package=hotg-rune-native \
-                      --features=wasmer-runtime,tflite \
-                      --verbose --locked --release
-      - name: Generate the header file
-        run: |
-          cargo test --package=hotg-rune-native \
-                     --features=wasmer-runtime,tflite \
-                     --features=c-headers \
-                     --verbose --locked --release \
-                     -- \
-                     generate_headers
-      - name: Format the header file
-        run: clang-format -i target/rune.h
-      - name: Generate archive
-        run: |
-          TARGET_DIR=target/release
-          rm $TARGET_DIR/*.d
-          zip -j -9 rune_native.$target.zip \
-            target/rune.h \
-            $TARGET_DIR/*rune_native* \
-            bindings/native/README.md \
-            LICENSE_*.md \
-            CHANGELOG.md
-      - name: Upload archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: rune_native.${{ env.target }}
-          path: rune_native.${{ env.target }}.zip
-
   create-release:
     name: Create Nightly Release
     runs-on: ubuntu-18.04
@@ -371,7 +290,6 @@ jobs:
       - build
       - python
       - rune_native
-      - rune_native_mac
     if: ${{ needs.check_date.outputs.should_run != 'false' }}
     steps:
       - name: Tagged Release Variables
