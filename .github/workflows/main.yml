@@ -28,12 +28,30 @@ jobs:
             target
             python/target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Login to GitHub Container Registry
+        if: ${{ runner.os == 'Linux' }}
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
           # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
           curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
         if: runner.os == 'macOS'
+      - uses: maxim-lobanov/setup-xcode@v1
+        if: runner.os == 'macOS'
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-python@v2
+        if: runner.os == 'macOS'
+        with:
+          python-version: '3.x'
+      - name: Install Build Dependencies
+        run: |
+          pip install numpy
       - name: Setup Rust
         run: rustup show
       - name: Type Check
@@ -60,6 +78,11 @@ jobs:
         with:
           command: xtask
           args: check-manifests
+      - name: Use GNU Tar from Msys
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          rm C:\msys64\usr\bin\bash.exe
 
   api-docs:
     name: Generate API Docs
@@ -73,6 +96,12 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
@@ -121,6 +150,12 @@ jobs:
             target
             bindings/web/node_modules
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         run: rustup show
       - name: Install Dependencies

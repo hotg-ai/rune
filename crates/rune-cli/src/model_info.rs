@@ -1,13 +1,8 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::{io::Write, path::PathBuf};
 use strum::VariantNames;
 use anyhow::{Error, Context};
-use tflite::{
-    FlatBufferModel, Interpreter, InterpreterBuilder,
-    ops::builtin::BuiltinOpResolver,
+use hotg_runecoral::{
+    mimetype, AccelerationBackend, InferenceContext, TensorDescriptor,
 };
 
 use crate::Format;
@@ -32,17 +27,36 @@ pub struct ModelInfo {
 
 impl ModelInfo {
     pub fn execute(self) -> Result<(), Error> {
-        let interpreter =
-            load_model(&self.file).context("Unable to load the model")?;
+        let raw = std::fs::read(&self.file).with_context(|| {
+            format!("Unable to read \"{}\"", &self.file.display())
+        })?;
 
-        let info = parse_info(&interpreter);
+        let ctx = InferenceContext::create_context(
+            mimetype(),
+            &raw,
+            AccelerationBackend::NONE,
+        )
+        .context("Unable to an inference context")?;
 
         match self.format {
-            Format::Text => print_info(&info),
+            Format::Text => print_info(&ctx),
             Format::Json => {
                 let mut stdout = std::io::stdout();
-                serde_json::to_writer_pretty(stdout.lock(), &info)
-                    .context("Unable to print to stdout")?;
+                serde_json::to_writer_pretty(
+                    stdout.lock(),
+                    &ModelDescription {
+                        inputs: ctx
+                            .inputs()
+                            .map(|x| TensorInfo::from(&x))
+                            .collect(),
+                        outputs: ctx
+                            .outputs()
+                            .map(|x| TensorInfo::from(&x))
+                            .collect(),
+                        ops: ctx.opcount() as usize,
+                    },
+                )
+                .context("Unable to print to stdout")?;
                 writeln!(stdout)?;
             },
         }
@@ -51,16 +65,16 @@ impl ModelInfo {
     }
 }
 
-fn print_info(info: &ModelDescription) {
-    println!("Ops: {}", info.ops);
+fn print_info(ctx: &InferenceContext) {
+    println!("Ops: {}", ctx.opcount());
 
     println!("Inputs:");
-    for input in &info.inputs {
+    for input in ctx.inputs() {
         println!("\t{}", input);
     }
 
     println!("Outputs:");
-    for output in &info.outputs {
+    for output in ctx.outputs() {
         println!("\t{}", output);
     }
 }
@@ -79,80 +93,12 @@ struct TensorInfo {
     dims: Vec<usize>,
 }
 
-impl Display for TensorInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}[", self.name, self.element_kind)?;
-
-        for (i, dim) in self.dims.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-
-            write!(f, "{}", dim)?;
-        }
-        write!(f, "]")?;
-
-        Ok(())
-    }
-}
-
-impl From<tflite::context::TensorInfo> for TensorInfo {
-    fn from(t: tflite::context::TensorInfo) -> Self {
-        let tflite::context::TensorInfo {
-            name,
-            element_kind,
-            dims,
-        } = t;
-
+impl From<&TensorDescriptor<'_>> for TensorInfo {
+    fn from(t: &TensorDescriptor<'_>) -> TensorInfo {
         TensorInfo {
-            name,
-            dims,
-            element_kind: format!("{:?}", element_kind)
-                .trim_start_matches("kTfLite")
-                .to_string(),
+            name: t.name.to_str().unwrap().to_string(),
+            element_kind: t.element_type.to_string(),
+            dims: t.shape.iter().map(|&x| x as usize).collect(),
         }
     }
-}
-
-fn parse_info(
-    interpreter: &Interpreter<'static, BuiltinOpResolver>,
-) -> ModelDescription {
-    let inputs = interpreter
-        .inputs()
-        .iter()
-        .map(|ix| interpreter.tensor_info(*ix).unwrap())
-        .map(TensorInfo::from)
-        .collect();
-    let outputs = interpreter
-        .outputs()
-        .iter()
-        .map(|ix| interpreter.tensor_info(*ix).unwrap())
-        .map(TensorInfo::from)
-        .collect();
-
-    ModelDescription {
-        inputs,
-        outputs,
-        ops: interpreter.nodes_size(),
-    }
-}
-
-fn load_model(
-    filename: &Path,
-) -> Result<Interpreter<'static, BuiltinOpResolver>, Error> {
-    let raw = std::fs::read(filename).with_context(|| {
-        format!("Unable to read \"{}\"", filename.display())
-    })?;
-
-    let flat_buffer = FlatBufferModel::build_from_buffer(raw)
-        .context("Unable to load the buffer as a TensorFlow Lite model")?;
-
-    let resolver = BuiltinOpResolver::default();
-
-    let interpreter = InterpreterBuilder::new(flat_buffer, resolver)
-        .context("Unable to create a model interpreter builder")?
-        .build()
-        .context("Unable to initialize the model interpreter")?;
-
-    Ok(interpreter)
 }

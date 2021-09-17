@@ -24,8 +24,8 @@ hotg-rune-runtime = { path = "../runtime", version = "^0.7.1-dev"}
 hotg-rune-syntax = { path = "../syntax", version = "^0.7.1-dev"}
 hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.7.1-dev"}
 hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.7.1-dev"}
-hotg-runecoral = "0.1.1"
-hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.7.1-dev", features = ["tflite", "wasm3-runtime"] }
+hotg-runecoral = "0.3.0"
+hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.7.1-dev", features = ["wasm3-runtime"] }
 hound = "3.4.0"
 image = "0.23.14"
 indexmap = "1.6.2"
@@ -37,7 +37,6 @@ serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"
 structopt = "0.3.21"
 strum = { version = "0.21.0", features = ["derive"] }
-tflite = "0.9.5"
 wasmparser = "0.80"
 
 [dev-dependencies]

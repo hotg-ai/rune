@@ -51,8 +51,7 @@ impl BaseImage {
                 Ok(Box::new(Random::from_os()) as Box<dyn Capability>)
             });
 
-        #[cfg(feature = "tflite")]
-        image.register_model(TFLITE_MIMETYPE, tf::initialize_model);
+        image.register_model(TFLITE_MIMETYPE, runecoral::new_model);
 
         image
     }
@@ -230,51 +229,114 @@ where
     }
 }
 
-#[cfg(feature = "tflite")]
-mod tf {
+mod runecoral {
     use super::*;
-    use anyhow::Context;
-    use log::Level;
+    use anyhow::{Context, Error};
     use hotg_rune_core::reflect::Type;
-    use tflite::{
-        FlatBufferModel, Interpreter, InterpreterBuilder,
-        context::{ElementKind, TensorInfo},
-        ops::builtin::BuiltinOpResolver,
+    use std::{borrow::Cow, cell::Cell, convert::TryInto, ffi::CStr, sync::Mutex};
+    use hotg_runecoral::{
+        ElementType, InferenceContext, Tensor, TensorDescriptor, TensorMut,
+        AccelerationBackend,
     };
 
-    pub(crate) fn initialize_model(
-        raw: &[u8],
+    pub(crate) fn new_model(
+        model_bytes: &[u8],
         inputs: Option<&[Shape<'_>]>,
         outputs: Option<&[Shape<'_>]>,
-    ) -> Result<Box<dyn super::Model>, Error> {
-        let model = TensorFlowLiteModel::load(raw)?;
+    ) -> Result<Box<dyn Model>, Error> {
+        let inputs = inputs.context("The input shapes must be provided")?;
+        let outputs = outputs.context("The output shapes must be provided")?;
 
-        if let Some(shapes) = inputs {
-            ensure_shapes_equal(shapes, model.input_shapes())
-                .context("Invalid inputs")?;
-        }
-        if let Some(shapes) = outputs {
-            ensure_shapes_equal(shapes, model.output_shapes())
-                .context("Invalid outputs")?;
-        }
+        let input_descriptors = inputs
+            .iter()
+            .map(|s| descriptor(s))
+            .collect::<Result<Vec<_>, Error>>()
+            .context("Invalid input")?;
+        let output_descriptors = outputs
+            .iter()
+            .map(|s| descriptor(s))
+            .collect::<Result<Vec<_>, Error>>()
+            .context("Invalid output")?;
 
-        Ok(Box::new(model))
+        let ctx = InferenceContext::create_context(
+            TFLITE_MIMETYPE,
+            model_bytes,
+            AccelerationBackend::NONE,
+        )
+        .context("Unable to create the inference context")?;
+
+        ensure_shapes_equal(&input_descriptors, &ctx.inputs().collect())?;
+        ensure_shapes_equal(&output_descriptors, &ctx.outputs().collect())?;
+
+        Ok(Box::new(RuneCoralModel {
+            ctx: Mutex::new(ctx),
+            inputs: inputs.iter().map(|s| s.to_owned()).collect(),
+            input_descriptors,
+            outputs: outputs.iter().map(|s| s.to_owned()).collect(),
+            output_descriptors,
+        }))
+    }
+
+    fn descriptor(s: &Shape) -> Result<TensorDescriptor<'static>, Error> {
+        let dimensions: Vec<i32> = s
+            .dimensions()
+            .iter()
+            .copied()
+            .map(|d| d.try_into().unwrap())
+            .collect();
+
+        Ok(TensorDescriptor {
+            name: CStr::from_bytes_with_nul(b"\0").unwrap(),
+            element_type: element_type(s.element_type())?,
+            shape: Cow::Owned(dimensions),
+        })
+    }
+
+    struct RuneCoralModel {
+        ctx: Mutex<InferenceContext>,
+        inputs: Vec<Shape<'static>>,
+        input_descriptors: Vec<TensorDescriptor<'static>>,
+        outputs: Vec<Shape<'static>>,
+        output_descriptors: Vec<TensorDescriptor<'static>>,
+    }
+
+    fn element_type(rune_type: &Type) -> Result<ElementType, Error> {
+        Ok(match *rune_type {
+            Type::i8 => ElementType::Int8,
+            Type::u8 => ElementType::UInt8,
+            Type::i16 => ElementType::Int16,
+            Type::i32 => ElementType::Int32,
+            Type::i64 => ElementType::Int64,
+            Type::f32 => ElementType::Float32,
+            Type::f64 => ElementType::Float64,
+            Type::str => ElementType::String,
+            _ => {
+                anyhow::bail!(
+                    "librunecoral doesn't support {:?} tensors",
+                    rune_type
+                )
+            },
+        })
     }
 
     fn ensure_shapes_equal(
-        from_rune: &[Shape],
-        from_model: &[Shape],
+        from_rune: &Vec<TensorDescriptor<'_>>,
+        from_model: &Vec<TensorDescriptor<'_>>,
     ) -> Result<(), Error> {
-        if from_rune == from_model {
+        if from_rune.len() == from_model.len()
+            && from_rune.iter().zip(from_model.iter()).all(|(x, y)| {
+                x.element_type == y.element_type && x.shape == y.shape
+            })
+        {
             return Ok(());
         }
 
-        fn pretty_shapes(shapes: &[Shape<'_>]) -> String {
+        fn pretty_shapes(descriptors: &[TensorDescriptor<'_>]) -> String {
             format!(
                 "[{}]",
-                shapes
+                descriptors
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(|d| format!("{}", d))
                     .collect::<Vec<_>>()
                     .join(", ")
             )
@@ -287,154 +349,49 @@ mod tf {
         );
     }
 
-    struct TensorFlowLiteModel {
-        interpreter: Interpreter<'static, BuiltinOpResolver>,
-        inputs: Vec<Shape<'static>>,
-        outputs: Vec<Shape<'static>>,
-    }
-
-    impl TensorFlowLiteModel {
-        fn load(model_bytes: &[u8]) -> Result<Self, Error> {
-            let model =
-                FlatBufferModel::build_from_buffer(model_bytes.to_vec())
-                    .context("Unable to build the model")?;
-
-            let resolver = BuiltinOpResolver::default();
-
-            let builder = InterpreterBuilder::new(model, resolver)
-                .context("Unable to create a model interpreter builder")?;
-            let mut interpreter = builder
-                .build()
-                .context("Unable to initialize the model interpreter")?;
-
-            log_interpreter(&interpreter);
-
-            interpreter
-                .allocate_tensors()
-                .context("Unable to allocate tensors")?;
-
-            let inputs = tensor_shapes(&interpreter, interpreter.inputs())
-                .context("Invalid input types")?;
-            let outputs = tensor_shapes(&interpreter, interpreter.outputs())
-                .context("Invalid output types")?;
-
-            Ok(TensorFlowLiteModel {
-                interpreter,
-                inputs,
-                outputs,
-            })
-        }
-    }
-
-    fn tensor_shapes(
-        interpreter: &Interpreter<BuiltinOpResolver>,
-        tensor_indices: &[i32],
-    ) -> Result<Vec<Shape<'static>>, Error> {
-        let mut tensors = Vec::new();
-
-        for (i, tensor_index) in tensor_indices.iter().copied().enumerate() {
-            let tensor_info =
-                interpreter.tensor_info(tensor_index).with_context(|| {
-                    format!("Unable to find tensor #{}", tensor_index)
-                })?;
-            let shape = tensor_shape(&tensor_info)
-                .with_context(|| format!("Tensor {} is invalid", i))?
-                .to_owned();
-
-            tensors.push(shape);
-        }
-
-        Ok(tensors)
-    }
-
-    fn tensor_shape(tensor: &TensorInfo) -> Result<Shape<'_>, Error> {
-        let element_type = match tensor.element_kind {
-            ElementKind::kTfLiteFloat32 => Type::f32,
-            ElementKind::kTfLiteInt32 => Type::i32,
-            ElementKind::kTfLiteUInt8 => Type::u8,
-            ElementKind::kTfLiteInt64 => Type::i64,
-            ElementKind::kTfLiteString => Type::String,
-            ElementKind::kTfLiteInt16 => Type::i16,
-            ElementKind::kTfLiteInt8 => Type::i8,
-            other => {
-                anyhow::bail!("Unsupported element type: {:?}", other);
-            },
-        };
-
-        Ok(Shape::new(element_type, tensor.dims.as_slice()))
-    }
-
-    fn log_interpreter(interpreter: &Interpreter<BuiltinOpResolver>) {
-        if !log::log_enabled!(Level::Debug) {
-            return;
-        }
-        let inputs: Vec<_> = interpreter
-            .inputs()
-            .iter()
-            .filter_map(|ix| interpreter.tensor_info(*ix))
-            .collect();
-
-        let outputs: Vec<_> = interpreter
-            .outputs()
-            .iter()
-            .filter_map(|ix| interpreter.tensor_info(*ix))
-            .collect();
-
-        log::debug!(
-            "Loaded model with inputs {:?} and outputs {:?}",
-            inputs,
-            outputs
-        );
-    }
-
-    impl super::Model for TensorFlowLiteModel {
+    impl super::Model for RuneCoralModel {
         unsafe fn infer(
             &mut self,
             inputs: &[&[Cell<u8>]],
             outputs: &[&[Cell<u8>]],
         ) -> Result<(), Error> {
-            let interpreter = &mut self.interpreter;
+            let mut ctx = self.ctx.lock().expect("Lock was poisoned");
 
-            anyhow::ensure!(
-                interpreter.inputs().len() == inputs.len(),
-                "The model supports {} inputs but {} were provided",
-                interpreter.inputs().len(),
-                inputs.len(),
-            );
-            anyhow::ensure!(
-                interpreter.outputs().len() == outputs.len(),
-                "The model supports {} inputs but {} were provided",
-                interpreter.outputs().len(),
-                outputs.len(),
-            );
+            let inputs: Vec<Tensor<'_>> = self
+                .input_descriptors
+                .iter()
+                .zip(inputs)
+                .map(|(desc, data)| Tensor {
+                    element_type: desc.element_type,
+                    shape: Cow::Borrowed(&desc.shape),
+                    // Safety:
+                    buffer: unsafe {
+                        std::slice::from_raw_parts(
+                            data.as_ptr() as *const u8,
+                            data.len(),
+                        )
+                    },
+                })
+                .collect();
 
-            let input_indices: Vec<_> = interpreter.inputs().to_vec();
+            let mut outputs: Vec<TensorMut<'_>> = self
+                .output_descriptors
+                .iter()
+                .zip(outputs)
+                .map(|(desc, data)| TensorMut {
+                    element_type: desc.element_type,
+                    shape: Cow::Borrowed(&desc.shape),
+                    buffer: unsafe {
+                        std::slice::from_raw_parts_mut(
+                            data.as_ptr() as *const Cell<u8> as *mut u8,
+                            data.len(),
+                        )
+                    },
+                })
+                .collect();
 
-            for (&ix, &input) in input_indices.iter().zip(inputs) {
-                let buffer = interpreter
-                    .tensor_buffer_mut(ix)
-                    .context("Unable to get the input buffer")?;
-
-                // FIXME: Figure out how to tell TensorFlow Lite to use the
-                // input buffers directly instead of copying.
-                for (src, dest) in input.iter().zip(buffer) {
-                    *dest = src.get();
-                }
-            }
-
-            interpreter.invoke().context("Calling the model failed")?;
-
-            for (&ix, output) in interpreter.outputs().iter().zip(outputs) {
-                let buffer = interpreter
-                    .tensor_buffer(ix)
-                    .context("Unable to get the output buffer")?;
-
-                // FIXME: Figure out how to tell TensorFlow Lite to use the
-                // output buffers directly instead of copying.
-                for (src, dest) in buffer.iter().zip(*output) {
-                    dest.set(*src);
-                }
-            }
+            ctx.infer(&inputs, &mut outputs)
+                .context("Inference failed")?;
 
             Ok(())
         }
