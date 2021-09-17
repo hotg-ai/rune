@@ -67,11 +67,11 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Setup Rust
-        run: |
-          rustup default nightly-2021-05-09
-          rustup target add wasm32-unknown-unknown
-          rustc --version --verbose
-          rustup show
+        run: rustup show
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: bindgen
+          version: latest
       - name: Login to GitHub Container Registry
         if: ${{ runner.os == 'Linux' }}
         uses: docker/login-action@v1
@@ -245,6 +245,10 @@ jobs:
         if: runner.os == 'macOS'
       - name: Setup Rust
         run: rustup show
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: bindgen
+          version: latest
       - name: Install Cross
         uses: actions-rs/install@v0.1
         with:
