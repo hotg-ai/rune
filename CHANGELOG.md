@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+### Fixed
+
+- The `rune inspect` command panicked if it couldn't find metadata that only
+  exists when installing from source or GitHub Releases
+  ([#307](https://github.com/hotg-ai/rune/issues/307))
 
 ## [0.7.0] - 2021-09-07
 
