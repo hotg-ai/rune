@@ -50,20 +50,21 @@ impl Inspect {
 
 fn print_meta(meta: &Metadata) {
     if let Some(build_info) = &meta.rune_cli_build_info {
-        let git = build_info
-            .version_control
-            .as_ref()
-            .expect("The project uses version control")
-            .git()
-            .expect("The project uses git");
+        let git = build_info.version_control.as_ref().and_then(|v| v.git());
 
-        println!(
-            "Compiled by: {} v{} ({} {})",
-            build_info.crate_info.name,
-            build_info.crate_info.version,
-            git.commit_short_id,
-            git.commit_timestamp.date().naive_utc(),
+        print!(
+            "Compiled by: {} v{}",
+            build_info.crate_info.name, build_info.crate_info.version,
         );
+
+        match git {
+            Some(git) => println!(
+                " ({} {})",
+                git.commit_short_id,
+                git.commit_timestamp.date().naive_utc(),
+            ),
+            None => println!(),
+        }
     }
 
     if let Some(SimplifiedRune { capabilities }) = &meta.simplified_rune {
