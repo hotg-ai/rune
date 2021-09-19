@@ -111,7 +111,7 @@ impl Run {
 
         self.register_capabilities(&mut img)?;
 
-        resources::load_from_custom_sections(&mut img, rune);
+        resources::load_from_custom_sections(&mut img, rune)?;
         resources::load_from_files(&mut img, &self.file_resources);
         resources::load_from_strings(&mut img, &self.string_resources);
 

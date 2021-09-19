@@ -10,7 +10,7 @@ use hotg_rune_syntax::{
 };
 use serde::{Serialize, Serializer};
 use strum::VariantNames;
-use wasmparser::{Parser, Payload};
+use wasmparser::{BinaryReaderError, Parser, Payload};
 use crate::Format;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
@@ -33,7 +33,8 @@ impl Inspect {
         let wasm = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
-        let meta = Metadata::from_wasm_binary(&wasm);
+        let meta = Metadata::from_wasm_binary(&wasm)
+            .context("Unable to parse metadata from the WebAssembly module")?;
 
         match self.format {
             Format::Json => {
@@ -110,12 +111,14 @@ pub(crate) struct Metadata {
 }
 
 impl Metadata {
-    pub(crate) fn from_wasm_binary(wasm: &[u8]) -> Self {
-        Metadata::from_custom_sections(wasm_custom_sections(wasm))
+    pub(crate) fn from_wasm_binary(
+        wasm: &[u8],
+    ) -> Result<Self, BinaryReaderError> {
+        wasm_custom_sections(wasm).map(Metadata::from_custom_sections)
     }
 
     fn from_custom_sections<'a>(
-        sections: impl Iterator<Item = CustomSection<'a>>,
+        sections: impl IntoIterator<Item = CustomSection<'a>>,
     ) -> Self {
         let mut meta = Metadata::default();
 
@@ -243,16 +246,16 @@ fn serialize_source_kind<S: Serializer>(
 
 pub(crate) fn wasm_custom_sections(
     wasm: &[u8],
-) -> impl Iterator<Item = CustomSection<'_>> + '_ {
-    Parser::default()
-        .parse_all(wasm)
-        .filter_map(Result::ok)
-        .filter_map(|payload| match payload {
-            Payload::CustomSection { name, data, .. } => {
-                Some(CustomSection { name, data })
-            },
-            _ => None,
-        })
+) -> Result<Vec<CustomSection<'_>>, BinaryReaderError> {
+    let mut sections = Vec::new();
+
+    for payload in Parser::default().parse_all(wasm) {
+        if let Payload::CustomSection { name, data, .. } = payload? {
+            sections.push(CustomSection { name, data });
+        }
+    }
+
+    Ok(sections)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

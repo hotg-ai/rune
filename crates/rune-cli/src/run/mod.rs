@@ -3,8 +3,8 @@ pub mod command;
 pub mod image;
 pub mod multi;
 pub mod raw;
-pub mod sound;
 mod resources;
+pub mod sound;
 
 use hotg_rune_runtime::ParameterError;
 

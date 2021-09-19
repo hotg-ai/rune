@@ -41,6 +41,9 @@ impl Graph {
         if bytes.starts_with(WASM_MAGIC_BYTES) {
             // It's a compiled Rune
             Metadata::from_wasm_binary(&bytes)
+                .context(
+                    "Unable to extract metadata from the WebAssembly module",
+                )?
                 .take_rune()
                 .context("Unable to load the Rune metadata from the input")
         } else {
