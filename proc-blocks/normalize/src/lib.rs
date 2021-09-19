@@ -7,7 +7,7 @@ use core::{
     fmt::Debug,
     ops::{Div, Sub},
 };
-use hotg_rune_proc_blocks::{Transform, HasOutputs, Tensor};
+use hotg_rune_proc_blocks::{Transform, Tensor};
 
 pub fn normalize<T>(input: &mut [T])
 where
@@ -59,8 +59,6 @@ where
         input
     }
 }
-
-impl HasOutputs for Normalize {}
 
 fn min_max<'a, I, T>(items: I) -> Option<(T, T)>
 where

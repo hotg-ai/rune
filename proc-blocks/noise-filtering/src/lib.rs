@@ -11,7 +11,7 @@ mod noise_reduction;
 pub use noise_reduction::NoiseReduction;
 pub use gain_control::GainControl;
 
-use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_core::Tensor;
 use hotg_rune_proc_blocks::{ProcBlock, Transform};
 
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
@@ -62,8 +62,4 @@ impl Transform<Tensor<u32>> for NoiseFiltering {
                 as i8
         })
     }
-}
-
-impl HasOutputs for NoiseFiltering {
-    fn set_output_dimensions(&mut self, _dimensions: &[usize]) {}
 }

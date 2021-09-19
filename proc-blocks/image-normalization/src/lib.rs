@@ -1,7 +1,7 @@
 #![no_std]
 
 use num_traits::{Bounded, ToPrimitive};
-use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_core::{Tensor};
 use hotg_rune_proc_blocks::{ProcBlock, Transform};
 
 /// A normalization routine which takes some tensor of integers and fits their
@@ -37,19 +37,6 @@ where
     debug_assert!(min <= value && value <= max);
 
     Some((value - min) / (max - min))
-}
-
-impl HasOutputs for ImageNormalization {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match *dimensions {
-            [_, _, _, 3] => {},
-            [_, _, _, channels] => panic!(
-                "The number of channels should be either 1 or 3, found {}",
-                channels
-            ),
-            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
-        }
-    }
 }
 
 #[cfg(test)]

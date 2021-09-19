@@ -14,7 +14,7 @@ extern crate pretty_assertions;
 pub type Fft = ShortTimeFourierTransform;
 
 use alloc::{sync::Arc, vec::Vec};
-use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_core::Tensor;
 use hotg_rune_proc_blocks::{ProcBlock, Transform};
 use sonogram::SpecOptionsBuilder;
 use nalgebra::DMatrix;
@@ -120,8 +120,6 @@ impl Transform<Tensor<i16>> for ShortTimeFourierTransform {
         Tensor::new_row_major(Arc::new(stft), alloc::vec![1, stft.len()])
     }
 }
-
-impl HasOutputs for ShortTimeFourierTransform {}
 
 #[cfg(test)]
 mod tests {

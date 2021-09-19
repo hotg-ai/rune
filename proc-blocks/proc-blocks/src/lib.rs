@@ -4,7 +4,7 @@ extern crate alloc;
 
 mod descriptor;
 
-pub use hotg_rune_core::{HasOutputs, Tensor};
+pub use hotg_rune_core::Tensor;
 pub use hotg_rune_proc_block_macros::ProcBlock;
 pub use descriptor::*;
 

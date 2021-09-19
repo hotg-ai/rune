@@ -5,7 +5,7 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_core::Tensor;
 use hotg_rune_proc_blocks::{ProcBlock, Transform};
 
 /// A proc block which, when given a list of confidences, will return the
@@ -51,17 +51,6 @@ impl<T: PartialOrd + Copy> Transform<Tensor<T>> for MostConfidentIndices {
     }
 }
 
-impl HasOutputs for MostConfidentIndices {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match *dimensions {
-            [count] => {
-                self.count = count;
-            },
-            _ => panic!("This proc block only supports 1D outputs (requested output: {:?})", dimensions),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,8 +59,10 @@ mod tests {
     #[should_panic]
     fn only_works_with_1d() {
         let mut proc_block = MostConfidentIndices::default();
+        let input: Tensor<u32> =
+            Tensor::new_row_major(alloc::vec![0; 6].into(), alloc::vec![1, 2, 3]);
 
-        proc_block.set_output_dimensions(&[1, 2, 3]);
+        let _ = proc_block.transform(input);
     }
 
     #[test]
