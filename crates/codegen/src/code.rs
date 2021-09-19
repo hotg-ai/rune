@@ -224,11 +224,6 @@ fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
         .copied()
         .map(|(id, node)| initialize_node(rune, id, node, image_crate));
 
-    let set_output_dimensions = sorted_pipeline
-        .iter()
-        .copied()
-        .map(|(id, node)| set_output_dimensions(rune, id, node));
-
     let transform = sorted_pipeline
         .iter()
         .copied()
@@ -242,8 +237,6 @@ fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
 
             #( #initialized_node )*
 
-            #( #set_output_dimensions )*
-
             let pipeline = move || {
                 let _guard = #image_crate::PipelineGuard::default();
 
@@ -256,32 +249,6 @@ fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
 
             1
         }
-    }
-}
-
-fn set_output_dimensions(
-    rune: &Rune,
-    node_id: HirId,
-    node: &Node,
-) -> Option<TokenStream> {
-    let output_slot_id = match *node.output_slots {
-        [] => return None,
-        [output] => output,
-        // TODO: Create a mechanism for notifying a pipeline stage about
-        // multiple outputs. A proper solution will probably require a
-        // more sophisticated "reflection" system.
-        [..] => return None,
-    };
-
-    let name = Ident::new(&rune.names[node_id], Span::call_site());
-    let slot = &rune.slots[&output_slot_id];
-
-    if let Type::Buffer { dimensions, .. } = &rune.types[&slot.element_type] {
-        Some(quote! {
-            #name.set_output_dimensions(&[ #(#dimensions),* ]);
-        })
-    } else {
-        None
     }
 }
 
@@ -818,8 +785,6 @@ mod tests {
                 let _setup = runicos_base_wasm::SetupGuard::default();
                 let mut audio = runicos_base_wasm::Sound::default();
                 audio.set_parameter("hz", 16000i32);
-
-                audio.set_output_dimensions(&[18000usize]);
 
                 let pipeline = move || {
                     let _guard = runicos_base_wasm::PipelineGuard::default();
