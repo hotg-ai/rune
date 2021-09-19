@@ -4,15 +4,22 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
+use anyhow::{Context, Error};
 use hotg_runicos_base_runtime::BaseImage;
 use crate::{
     inspect::{CustomSection, wasm_custom_sections},
     run::command::{FileResource, StringResource},
 };
 
-pub(crate) fn load_from_custom_sections(img: &mut BaseImage, wasm: &[u8]) {
-    let resources = wasm_custom_sections(wasm)
+pub(crate) fn load_from_custom_sections(
+    img: &mut BaseImage,
+    wasm: &[u8],
+) -> Result<(), Error> {
+    let custom_sections = wasm_custom_sections(wasm)
+        .context("Unable to read the WebAssembly custom sections")?;
+
+    let resources = custom_sections
+        .into_iter()
         .filter(|s| s.name == hotg_rune_codegen::RESOURCE_CUSTOM_SECTION)
         .flat_map(|CustomSection { mut data, .. }| {
             // Note: sometimes the compiler will concatenate all
@@ -38,6 +45,8 @@ pub(crate) fn load_from_custom_sections(img: &mut BaseImage, wasm: &[u8]) {
                 as Box<dyn Read + Send + Sync + 'static>)
         });
     }
+
+    Ok(())
 }
 
 pub(crate) fn load_from_files(img: &mut BaseImage, files: &[FileResource]) {
