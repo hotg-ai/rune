@@ -46,6 +46,30 @@ impl<'a> Shape<'a> {
 
         Shape::new(element_type.clone(), dimensions.clone().into_owned())
     }
+
+    /// Get a "simplified" version of this [`Shape`] which ignores dimensions
+    /// with a single length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use hotg_rune_core::Shape;
+    /// let complex: Shape = "f32[1, 1, 3, 256, 256, 1]".parse().unwrap();
+    /// assert_eq!(complex.simplified_dimensions(), &[3, 256, 256]);
+    /// ```
+    pub fn simplified_dimensions(&self) -> &[usize] {
+        let mut dimensions = self.dimensions.as_ref();
+
+        while dimensions.len() > 1 {
+            dimensions = match dimensions {
+                [1, rest @ ..] => rest,
+                [rest @ .., 1] => rest,
+                _ => break,
+            };
+        }
+
+        dimensions
+    }
 }
 
 impl<'a> Display for Shape<'a> {
