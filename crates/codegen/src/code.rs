@@ -252,6 +252,7 @@ fn manifest_function(rune: &Rune, image_crate: &TokenStream) -> impl ToTokens {
     }
 }
 
+
 fn evaluate_node(rune: &Rune, id: HirId, node: &Node) -> TokenStream {
     match node.stage {
         Stage::Source(_) => evaluate_source_node(rune, id, &node.output_slots),
@@ -559,12 +560,29 @@ fn sink_type_name(kind: &SinkKind, image_crate: &TokenStream) -> TokenStream {
 }
 
 fn initialize_source(
+    rune: &Rune,
     name: Ident,
+    node: &Node,
     kind: &SourceKind,
     parameters: &HashMap<String, Value>,
     image_crate: &TokenStream,
 ) -> TokenStream {
     let type_name = source_type_name(kind, image_crate);
+
+    let output_slot_id = match *node.output_slots {
+        [output] => output,
+        // TODO: Create a mechanism for notifying a pipeline stage about
+        // multiple outputs. A proper solution will probably require a
+        // more sophisticated "reflection" system.
+        _ => panic!("Capabilities should have 1 output, but {} has {}", name, node.output_slots.len()),
+    };
+
+    let slot = &rune.slots[&output_slot_id];
+    let dimensions = match  &rune.types[&slot.element_type]  {
+        Type::Buffer { dimensions, ..} => quote!(&[ #(#dimensions),* ]),
+        _ => panic!(),
+    };
+
     let setters = parameters.iter().map(|(key, value)| {
         let arg = quote_value(value);
         quote! { #name.set_parameter(#key, #arg); }
@@ -785,6 +803,8 @@ mod tests {
                 let _setup = runicos_base_wasm::SetupGuard::default();
                 let mut audio = runicos_base_wasm::Sound::default();
                 audio.set_parameter("hz", 16000i32);
+
+                audio.set_output_dimensions(&[18000usize]);
 
                 let pipeline = move || {
                     let _guard = runicos_base_wasm::PipelineGuard::default();

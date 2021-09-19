@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+### Removed
+
+- The `hotg_rune_core::HasOutputs` trait has been removed. Processing blocks
+  should prefer to make assertions as needed.
+
 ### Fixed
 
 - The `rune inspect` command panicked if it couldn't find metadata that only

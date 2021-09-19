@@ -1,4 +1,4 @@
-use hotg_rune_core::{Tensor, Source, Value, HasOutputs};
+use hotg_rune_core::{Tensor, Source, Value};
 use crate::intrinsics;
 use core::marker::PhantomData;
 use alloc::vec::Vec;
@@ -15,18 +15,18 @@ pub type Raw<T> = GenericCapability<T, { hotg_rune_core::capabilities::RAW }>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericCapability<T, const KIND: u32> {
     index: u32,
-    output_dimensions: Option<Vec<usize>>,
+    output_dimensions: &'static [usize],
     _type: PhantomData<fn() -> T>,
 }
 
 impl<T, const KIND: u32> GenericCapability<T, KIND> {
-    pub fn new() -> Self {
+    pub fn new(output_dimensions: &'static [usize]) -> Self {
         unsafe {
             let index = intrinsics::request_capability(KIND);
 
             GenericCapability {
                 index,
-                output_dimensions: None,
+                output_dimensions,
                 _type: PhantomData,
             }
         }
@@ -41,12 +41,7 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
     type Output = Tensor<T>;
 
     fn generate(&mut self) -> Self::Output {
-        let output_dimensions = self
-            .output_dimensions
-            .as_ref()
-            .expect("Please specify the capability's output dimensions");
-
-        let mut buffer = Tensor::zeroed(output_dimensions.to_vec());
+        let mut buffer = Tensor::zeroed(self.output_dimensions.to_vec());
 
         let elements = buffer.make_elements_mut();
         let byte_length = (elements.len() * core::mem::size_of::<T>()) as u32;
@@ -86,11 +81,5 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
         }
 
         self
-    }
-}
-
-impl<T, const KIND: u32> HasOutputs for GenericCapability<T, KIND> {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        self.output_dimensions = Some(dimensions.to_vec());
     }
 }
