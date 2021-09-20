@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- The `#[transform]` attribute used with the
+  `#[derive(ProcBlock)]` custom derive now accepts multiple inputs and outputs
+  so you can write `#[transform(inputs = ([f32; _], [u8; 1]), outputs = str)]`
+
+### Changed
+
+- **(Breaking Change)** The `#[transform]` attribute now expects `inputs =` and
+  `outputs =` instead of `input =` and `output =`
+
 ### Fixed
 
 - The `rune inspect` command panicked if it couldn't find metadata that only
