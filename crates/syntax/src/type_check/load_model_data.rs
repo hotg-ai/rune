@@ -1,5 +1,5 @@
 use codespan::Span;
-use legion::{Entity, systems::CommandBuffer, world::SubWorld};
+use legion::{Entity, systems::CommandBuffer};
 
 use crate::{
     BuildContext, Diagnostics,
@@ -10,7 +10,6 @@ use crate::{
 #[legion::system(for_each)]
 pub(crate) fn run(
     cmd: &mut CommandBuffer,
-    world: &SubWorld,
     #[resource] diags: &mut Diagnostics,
     #[resource] build_ctx: &BuildContext,
     &entity: &Entity,
@@ -30,6 +29,6 @@ pub(crate) fn run(
                 Err(diag) => diags.push(diag),
             }
         },
-        ModelFile::Resource(resource) => {},
+        ModelFile::Resource(_) => {},
     }
 }

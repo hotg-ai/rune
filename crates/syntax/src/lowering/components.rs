@@ -7,7 +7,6 @@ use std::{
     hash::Hash,
     ops::Deref,
     path::PathBuf,
-    sync::Arc,
 };
 use hotg_rune_core::Shape;
 use legion::Entity;

@@ -1,10 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
-use legion::{
-    World,
-    serialize::{Canon, DeserializeNewWorld},
-};
-use serde::{Deserialize, Serialize, de::DeserializeSeed};
+use serde::Serialize;
 
+pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
+pub const VERSION_CUSTOM_SECTION: &str = ".rune_version";
+pub const RESOURCE_CUSTOM_SECTION: &str = ".rune_resource";
+
+/// A file that will be written to the Rune's build directory.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct File {
     pub path: PathBuf,
@@ -20,43 +21,26 @@ impl File {
     }
 }
 
+/// A WebAssembly custom section to be embedded in the Rune.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CustomSection {
     pub name: String,
     pub value: Vec<u8>,
 }
 
-#[derive(Debug)]
-pub struct Rune(pub World);
+impl CustomSection {
+    pub fn from_json(
+        name: impl Into<String>,
+        value: &impl Serialize,
+    ) -> Result<Self, serde_json::Error> {
+        let value = serde_json::to_vec(value)?;
+        let name = name.into();
 
-impl Serialize for Rune {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let registry = crate::serialize::registry();
-        let canon = Canon::default();
-
-        self.0
-            .as_serializable(legion::any(), &registry, &canon)
-            .serialize(serializer)
+        Ok(CustomSection { name, value })
     }
 }
 
-impl<'de> Deserialize<'de> for Rune {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let registry = crate::serialize::registry();
-        let canon = Canon::default();
-
-        let world = DeserializeNewWorld {
-            world_deserializer: &registry,
-            entity_serializer: &canon,
-        }
-        .deserialize(deserializer)?;
-
-        Ok(Rune(world))
-    }
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuneVersion {
+    pub version: String,
 }

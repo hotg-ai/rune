@@ -15,12 +15,13 @@ macro_rules! parse_and_analyse {
             use super::*;
 
             const PATH: &str = concat!(
-                "../../../examples/",
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../examples/",
                 stringify!($example),
-                "/Runefile.yml"
             );
             const SRC: &str = include_str!(concat!(
-                "../../../examples/",
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../examples/",
                 stringify!($example),
                 "/Runefile.yml"
             ));
