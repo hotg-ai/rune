@@ -1,18 +1,18 @@
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, Group};
 use hotg_rune_core::reflect::Type;
 use quote::quote;
 use syn::{
     Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,
     TypeArray, TypePath, TypeReference,
-    parse::{Parse, ParseStream},
+    parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     spanned::Spanned,
 };
 
 use crate::{
     descriptor::{
-        ProcBlockDescriptor, TransformDescriptor, Dimension, Dimensions,
-        TensorDescriptor,
+        Dimension, Dimensions, ProcBlockDescriptor, TensorDescriptor,
+        TensorDescriptors, TransformDescriptor,
     },
     types::{
         Assertions, CustomSection, DeriveOutput, ProcBlockImpl, Setter,
@@ -69,14 +69,18 @@ fn analyse_struct_attributes(
     let mut assertions = Vec::new();
 
     for transform in &transforms {
-        let TransformDescriptor { input, output } = transform;
-        let input = to_rust_tensor(exports, &input.element_type);
-        let output = to_rust_tensor(exports, &output.element_type);
+        let TransformDescriptor { inputs, outputs } = transform;
+        let inputs: Vec<_> = inputs
+            .iter()
+            .map(|t| to_rust_tensor(exports, &t.element_type))
+            .collect();
+        let outputs: Vec<_> = outputs
+            .iter()
+            .map(|t| to_rust_tensor(exports, &t.element_type))
+            .collect();
 
-        if let Some((input, output)) = input.zip(output) {
-            let assert = TransformAssertion { input, output };
-            assertions.push(assert);
-        }
+        let assert = TransformAssertion { inputs, outputs };
+        assertions.push(assert);
     }
 
     Ok((
@@ -90,23 +94,23 @@ fn analyse_struct_attributes(
     ))
 }
 
-fn to_rust_tensor(exports: &Path, ty: &Type) -> Option<syn::Type> {
+fn to_rust_tensor(exports: &Path, ty: &Type) -> syn::Type {
     // Note: the rust type name for a string isn't defined unambiguously (you
     // could use str, &str, &'static str, String, etc.) so we handle it
     // specially.
     let tokens = match ty {
         Type::String => quote!(#exports::Tensor<&'static str>),
         everything_else => {
-            let rust_type =
-                Ident::new(everything_else.rust_name()?, Span::call_site());
+            let rust_name = everything_else
+                .rust_name()
+                .expect("Unable to determine the Rust name for this type");
+            let rust_type = Ident::new(rust_name, Span::call_site());
             quote!(#exports::Tensor<#rust_type>)
         },
     };
 
-    Some(
-        syn::parse2(tokens)
-            .expect("We should always be able to parse a tensor"),
-    )
+    syn::parse2(tokens)
+        .expect("We should always be able to parse a tensor type")
 }
 
 fn transforms(
@@ -117,8 +121,11 @@ fn transforms(
     for attr in attrs {
         if let Some(name) = attr.path.get_ident() {
             if name == "transform" {
-                let transform: TransformDescriptor =
+                let parenthesized_key_values: Group =
                     syn::parse2(attr.tokens.clone())?;
+
+                let transform = parse_transform_descriptor
+                    .parse2(parenthesized_key_values.stream())?;
                 transforms.push(transform);
             }
         }
@@ -127,67 +134,89 @@ fn transforms(
     Ok(transforms)
 }
 
-impl Parse for TransformDescriptor<'static> {
-    fn parse(tokens: ParseStream) -> Result<Self, Error> {
+/// Parse the `inputs = ..., outputs = ...` from
+/// `#[transform(inputs =..., outputs = ...)]`.
+fn parse_transform_descriptor(
+    tokens: ParseStream,
+) -> Result<TransformDescriptor<'static>, Error> {
+    let ident: Ident = tokens.parse()?;
+    if ident != "inputs" {
+        return Err(Error::new(ident.span(), "Expected \"inputs\""));
+    }
+    let _: Token![=] = tokens.parse()?;
+    let inputs = parse_tensor_descriptors(&tokens)?;
+    let _: Token![,] = tokens.parse()?;
+
+    let ident: Ident = tokens.parse()?;
+    if ident != "outputs" {
+        return Err(Error::new(ident.span(), "Expected \"outputs\""));
+    }
+    let _: Token![=] = tokens.parse()?;
+    let outputs = parse_tensor_descriptors(&tokens)?;
+
+    Ok(TransformDescriptor { inputs, outputs })
+}
+
+/// Parse either a single tensor descriptor (`[f32; 1]`) or multiple tensor
+/// descriptors inside parens (`([f32; 1], [u8; 1024])`).
+fn parse_tensor_descriptors(
+    tokens: ParseStream,
+) -> Result<TensorDescriptors<'static>, Error> {
+    if tokens.peek(syn::token::Paren) {
+        // We've got multiple comma-separated tensor descriptors in a tuple.
         let inner;
         let _ = syn::parenthesized!(inner in tokens);
-        let tokens = inner;
+        let comma_separated_tensors: Punctuated<
+            TensorDescriptor<'static>,
+            Token![,],
+        > = Punctuated::parse_separated_nonempty_with(
+            &inner,
+            parse_tensor_descriptor,
+        )?;
 
-        let ident: Ident = tokens.parse()?;
-        if ident != "input" {
-            return Err(Error::new(ident.span(), "Expected \"input\""));
-        }
-        let _: Token![=] = tokens.parse()?;
-        let input = tokens.parse()?;
-        let _: Token![,] = tokens.parse()?;
-
-        let ident: Ident = tokens.parse()?;
-        if ident != "output" {
-            return Err(Error::new(ident.span(), "Expected \"output\""));
-        }
-        let _: Token![=] = tokens.parse()?;
-        let output = tokens.parse()?;
-
-        Ok(TransformDescriptor { input, output })
+        Ok(comma_separated_tensors.into_iter().collect())
+    } else {
+        // They've specified just one input
+        parse_tensor_descriptor(tokens).map(Into::into)
     }
 }
 
-impl Parse for TensorDescriptor<'static> {
-    fn parse(input: ParseStream) -> Result<Self, Error> {
-        if input.peek(syn::token::Bracket) {
-            let TypeArray { elem, len, .. } = input.parse()?;
+fn parse_tensor_descriptor(
+    input: ParseStream,
+) -> Result<TensorDescriptor<'static>, Error> {
+    if input.peek(syn::token::Bracket) {
+        let TypeArray { elem, len, .. } = input.parse()?;
 
-            let element_type = known_type_from_syn_type(&elem)?;
-            let dimensions = match &len {
-                syn::Expr::Lit(ExprLit {
-                    lit: Lit::Int(int), ..
-                }) => {
-                    let rank: usize = int.base10_parse()?;
-                    Dimensions::from(vec![Dimension::Any; rank])
-                },
-                syn::Expr::Verbatim(v) => {
-                    let _: Token![_] = syn::parse2(v.clone())?;
-                    Dimensions::Arbitrary
-                },
-                _ => {
-                    return Err(Error::new(
-                        len.span(),
-                        "Expected a constant length",
-                    ))
-                },
-            };
+        let element_type = known_type_from_syn_type(&elem)?;
+        let dimensions = match &len {
+            syn::Expr::Lit(ExprLit {
+                lit: Lit::Int(int), ..
+            }) => {
+                let rank: usize = int.base10_parse()?;
+                Dimensions::from(vec![Dimension::Any; rank])
+            },
+            syn::Expr::Verbatim(v) => {
+                let _: Token![_] = syn::parse2(v.clone())?;
+                Dimensions::Arbitrary
+            },
+            _ => {
+                return Err(Error::new(
+                    len.span(),
+                    "Expected a constant length",
+                ))
+            },
+        };
 
-            Ok(TensorDescriptor {
-                element_type,
-                dimensions,
-            })
-        } else {
-            let element = input.parse()?;
-            Ok(TensorDescriptor {
-                element_type: known_type_from_syn_type(&element)?,
-                dimensions: vec![Dimension::Value(1)].into(),
-            })
-        }
+        Ok(TensorDescriptor {
+            element_type,
+            dimensions,
+        })
+    } else {
+        let element = input.parse()?;
+        Ok(TensorDescriptor {
+            element_type: known_type_from_syn_type(&element)?,
+            dimensions: vec![Dimension::Value(1)].into(),
+        })
     }
 }
 
@@ -408,32 +437,36 @@ mod tests {
             ///
             /// Detailed description.
             #[derive(ProcBlock)]
-            #[transform(input = f32, output = [u8; 3])]
-            #[transform(input = f32, output = [u8; 2])]
+            #[transform(inputs = f32, outputs = [u8; 3])]
+            #[transform(inputs = f32, outputs = [u8; 2])]
             struct Proc {}
         };
         let input: DeriveInput = syn::parse2(tokens).unwrap();
         let expected_description = "One-line summary.\n\nDetailed description.";
         let expected_transforms = &[
             TransformDescriptor {
-                input: TensorDescriptor {
+                inputs: TensorDescriptor {
                     element_type: Type::f32,
                     dimensions: vec![Dimension::Value(1)].into(),
-                },
-                output: TensorDescriptor {
+                }
+                .into(),
+                outputs: TensorDescriptor {
                     element_type: Type::u8,
                     dimensions: vec![Dimension::Any; 3].into(),
-                },
+                }
+                .into(),
             },
             TransformDescriptor {
-                input: TensorDescriptor {
+                inputs: TensorDescriptor {
                     element_type: Type::f32,
                     dimensions: vec![Dimension::Value(1)].into(),
-                },
-                output: TensorDescriptor {
+                }
+                .into(),
+                outputs: TensorDescriptor {
                     element_type: Type::u8,
                     dimensions: vec![Dimension::Any; 2].into(),
-                },
+                }
+                .into(),
             },
         ];
         let exports: Path =
@@ -443,24 +476,24 @@ mod tests {
             exports: exports.clone(),
             assertions: vec![
                 TransformAssertion {
-                    input: syn::parse_str(
+                    inputs: vec![syn::parse_str(
                         "hotg_rune_proc_blocks::internal::Tensor<f32>",
                     )
-                    .unwrap(),
-                    output: syn::parse_str(
+                    .unwrap()],
+                    outputs: vec![syn::parse_str(
                         "hotg_rune_proc_blocks::internal::Tensor<u8>",
                     )
-                    .unwrap(),
+                    .unwrap()],
                 },
                 TransformAssertion {
-                    input: syn::parse_str(
+                    inputs: vec![syn::parse_str(
                         "hotg_rune_proc_blocks::internal::Tensor<f32>",
                     )
-                    .unwrap(),
-                    output: syn::parse_str(
+                    .unwrap()],
+                    outputs: vec![syn::parse_str(
                         "hotg_rune_proc_blocks::internal::Tensor<u8>",
                     )
-                    .unwrap(),
+                    .unwrap()],
                 },
             ],
         };
@@ -514,7 +547,7 @@ mod tests {
 
         for (input, should_be) in inputs {
             let should_be: syn::Type = syn::parse2(should_be).unwrap();
-            let got = to_rust_tensor(&exports, &input).unwrap();
+            let got = to_rust_tensor(&exports, &input);
             assert_eq!(got, should_be);
         }
     }
@@ -522,6 +555,8 @@ mod tests {
 
 #[cfg(test)]
 mod type_tests {
+    use std::borrow::Cow;
+
     use super::*;
 
     macro_rules! parse_tensor_type {
@@ -533,7 +568,7 @@ mod type_tests {
             fn $name() {
                 let tokens = quote!($($ty)*);
 
-                let got: TensorDescriptor<'static> = match syn::parse2(tokens.clone()) {
+                let got: TensorDescriptor<'static> = match parse_tensor_descriptor.parse2(tokens.clone()) {
                     Ok(d) => d,
                     Err(e) => panic!("Unable to parse \"{}\": {}", tokens.to_string(), e),
                 };
@@ -562,4 +597,71 @@ mod type_tests {
        element_type: Type::String,
        dimensions: vec![Dimension::Value(1)].into(),
     });
+
+    macro_rules! parse_transform_attribute {
+        ($name:ident, #[transform( $($attr:tt)* )] => $should_be:expr $(,)?) => {
+            #[test]
+            fn $name() {
+                let tokens = quote!($($attr)*);
+
+                let got: TransformDescriptor<'static> = match parse_transform_descriptor.parse2(tokens.clone()) {
+                    Ok(d) => d,
+                    Err(e) => panic!("Unable to parse \"{}\": {}", tokens.to_string(), e),
+                };
+
+                assert_eq!(got, $should_be);
+            }
+        };
+    }
+
+    parse_transform_attribute!(transform_single_to_single,
+        #[transform(inputs = [f32; 1], outputs = [f32; 1])] =>
+        TransformDescriptor {
+            inputs: TensorDescriptors(Cow::Borrowed(&[
+                TensorDescriptor {
+                    element_type: Type::f32,
+                    dimensions: Dimensions::Finite(Cow::Borrowed(&[
+                        Dimension::Any,
+                    ])),
+                },
+            ])),
+            outputs: TensorDescriptors(Cow::Borrowed(&[
+                TensorDescriptor {
+                    element_type: Type::f32,
+                    dimensions: Dimensions::Finite(Cow::Borrowed(&[
+                        Dimension::Any,
+                    ])),
+                },
+            ])),
+        },
+    );
+
+    parse_transform_attribute!(transform_attribute_with_multiple_inputs,
+        #[transform(inputs = ([f32; 1], [u8; 2]), outputs = [f32; 1])] =>
+        TransformDescriptor {
+            inputs: TensorDescriptors(Cow::Borrowed(&[
+                TensorDescriptor {
+                    element_type: Type::f32,
+                    dimensions: Dimensions::Finite(Cow::Borrowed(&[
+                        Dimension::Any,
+                    ])),
+                },
+                TensorDescriptor {
+                    element_type: Type::u8,
+                    dimensions: Dimensions::Finite(Cow::Borrowed(&[
+                        Dimension::Any,
+                        Dimension::Any,
+                    ])),
+                },
+            ])),
+            outputs: TensorDescriptors(Cow::Borrowed(&[
+                TensorDescriptor {
+                    element_type: Type::f32,
+                    dimensions: Dimensions::Finite(Cow::Borrowed(&[
+                        Dimension::Any,
+                    ])),
+                },
+            ])),
+        },
+    );
 }

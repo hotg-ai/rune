@@ -61,6 +61,6 @@ pub(crate) struct TransformAssertions {
 /// An assertion that our type implements `Transform<$input, Output=$output>`.
 #[derive(Debug, PartialEq)]
 pub(crate) struct TransformAssertion {
-    pub input: Type,
-    pub output: Type,
+    pub inputs: Vec<Type>,
+    pub outputs: Vec<Type>,
 }

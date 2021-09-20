@@ -11,8 +11,8 @@ use hotg_rune_core::{Tensor, reflect::Type};
 ///
 /// Can it handle multiple lines of input?
 #[derive(hotg_rune_proc_block_macros::ProcBlock, Default, PartialEq)]
-#[transform(input = [f32; 3], output = u8)]
-#[transform(input = [u8; _], output = [f32; 1])]
+#[transform(inputs = [f32; 3], outputs = u8)]
+#[transform(inputs = [u8; _], outputs = [f32; 1])]
 struct Foo {
     /// Some parameter.
     a: u32,
@@ -41,24 +41,28 @@ fn generate_expected_descriptor() {
                 .into(),
         available_transforms: vec![
             TransformDescriptor {
-                input: TensorDescriptor {
+                inputs: TensorDescriptor {
                     element_type: Type::f32,
                     dimensions: vec![Dimension::Any; 3].into(),
-                },
-                output: TensorDescriptor {
+                }
+                .into(),
+                outputs: TensorDescriptor {
                     element_type: Type::u8,
                     dimensions: vec![Dimension::Value(1)].into(),
-                },
+                }
+                .into(),
             },
             TransformDescriptor {
-                input: TensorDescriptor {
+                inputs: TensorDescriptor {
                     element_type: Type::u8,
                     dimensions: Dimensions::Arbitrary,
-                },
-                output: TensorDescriptor {
+                }
+                .into(),
+                outputs: TensorDescriptor {
                     element_type: Type::f32,
                     dimensions: vec![Dimension::Any].into(),
-                },
+                }
+                .into(),
             },
         ]
         .into(),

@@ -11,7 +11,9 @@ use core::{
 use crate::reflect::Type;
 
 /// A tensor's shape.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct Shape<'a> {
     element_type: Type,
     dimensions: Cow<'a, [usize]>,
