@@ -1,3 +1,4 @@
+use core::{iter::FromIterator, ops::Deref};
 use alloc::borrow::Cow;
 
 /// A description of everything a particular proc block is capable of.
@@ -20,8 +21,31 @@ impl<'a> ProcBlockDescriptor<'a> {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TransformDescriptor<'a> {
-    pub input: TensorDescriptor<'a>,
-    pub output: TensorDescriptor<'a>,
+    pub inputs: TensorDescriptors<'a>,
+    pub outputs: TensorDescriptors<'a>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TensorDescriptors<'a>(pub Cow<'a, [TensorDescriptor<'a>]>);
+
+impl<'a> FromIterator<TensorDescriptor<'a>> for TensorDescriptors<'a> {
+    fn from_iter<T: IntoIterator<Item = TensorDescriptor<'a>>>(
+        iter: T,
+    ) -> Self {
+        TensorDescriptors(iter.into_iter().collect())
+    }
+}
+
+impl<'a> From<TensorDescriptor<'a>> for TensorDescriptors<'a> {
+    fn from(t: TensorDescriptor<'a>) -> Self {
+        TensorDescriptors(Cow::Owned(alloc::vec![t]))
+    }
+}
+
+impl<'a> Deref for TensorDescriptors<'a> {
+    type Target = Cow<'a, [TensorDescriptor<'a>]>;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

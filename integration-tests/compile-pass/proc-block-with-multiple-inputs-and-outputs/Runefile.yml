@@ -1,0 +1,35 @@
+image: runicos/base
+version: 1
+
+pipeline:
+  rand:
+    capability: RAND
+    outputs:
+      - type: F32
+        dimensions: [1, 1]
+  mod360:
+    proc-block: "hotg-ai/rune#proc-blocks/modulo"
+    inputs:
+      - rand
+    outputs:
+      - type: F32
+        dimensions: [1, 1]
+    args:
+      modulus: 360.0
+
+  identity:
+    proc-block: "./identity"
+    inputs:
+      - mod360
+      - rand
+    outputs:
+      - type: F32
+        dimensions: [1, 1]
+      - type: F32
+        dimensions: [1, 1]
+
+  debug_output:
+    out: serial
+    inputs:
+      - identity.0 # mod360
+      - identity.1 # The sine output

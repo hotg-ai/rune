@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{LitByteStr, Path};
+use syn::{LitByteStr, Path, Type};
 use hotg_rune_core::reflect::Type as ReflectType;
 use crate::{
     descriptor::{
@@ -158,11 +158,11 @@ impl ToTokens for TransformAssertions {
         }
 
         let assertions = assertions.iter()
-            .map(|TransformAssertion { input, output }| {
-                let input = input.to_token_stream();
-                let output = output.to_token_stream();
+            .map(|TransformAssertion { inputs, outputs }| {
+                let inputs = transform_assertion_type(inputs);
+                let outputs = transform_assertion_type(outputs);
                 quote! {
-                    assert_implements_transform::<#proc_block_type, #input, #output>();
+                    assert_implements_transform::<#proc_block_type, #inputs, #outputs>();
                 }
             });
 
@@ -179,6 +179,13 @@ impl ToTokens for TransformAssertions {
             };
         };
         tokens.extend(t);
+    }
+}
+
+fn transform_assertion_type(types: &[Type]) -> TokenStream {
+    match types {
+        [ty] => ty.to_token_stream(),
+        _ => quote!((#(#types),*)),
     }
 }
 
@@ -201,9 +208,9 @@ impl ToTokens for ProcBlockImpl {
     }
 }
 
-fn descriptor_to_tokens(
-    exports: &Path,
-    d: &ProcBlockDescriptor<'_>,
+fn descriptor_to_tokens<'a, 'b: 'a>(
+    exports: &'a Path,
+    d: &'a ProcBlockDescriptor<'b>,
 ) -> TokenStream {
     let ProcBlockDescriptor {
         type_name,
@@ -213,7 +220,7 @@ fn descriptor_to_tokens(
 
     let available_transforms = available_transforms
         .iter()
-        .map(|transform| TransformProxy { exports, transform });
+        .map(|transform| transform_to_tokens(exports, transform));
 
     quote! {
         #exports::ProcBlockDescriptor {
@@ -226,132 +233,87 @@ fn descriptor_to_tokens(
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct TransformProxy<'a> {
-    exports: &'a Path,
-    transform: &'a TransformDescriptor<'a>,
-}
+fn transform_to_tokens(
+    exports: &Path,
+    transform: &TransformDescriptor<'_>,
+) -> TokenStream {
+    let TransformDescriptor { inputs, outputs } = transform;
 
-impl<'a> ToTokens for TransformProxy<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let TransformProxy {
-            exports,
-            transform: TransformDescriptor { input, output },
-        } = *self;
+    let inputs = tensor_descriptors_to_tokens(exports, inputs);
+    let outputs = tensor_descriptors_to_tokens(exports, outputs);
 
-        let input = TensorProxy {
-            exports,
-            tensor: input,
-        };
-        let output = TensorProxy {
-            exports,
-            tensor: output,
-        };
-
-        let t = quote! {
-            #exports::TransformDescriptor {
-                input: #input,
-                output: #output,
-            }
-        };
-        tokens.extend(t);
+    quote! {
+        #exports::TransformDescriptor {
+            inputs: #exports::TensorDescriptors(#exports::Cow::Borrowed(#inputs)),
+            outputs: #exports::TensorDescriptors(#exports::Cow::Borrowed(#outputs)),
+        }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct TensorProxy<'a> {
-    exports: &'a Path,
-    tensor: &'a TensorDescriptor<'a>,
-}
+fn tensor_descriptors_to_tokens(
+    exports: &Path,
+    tensors: &[TensorDescriptor<'_>],
+) -> TokenStream {
+    let descriptors = tensors.iter().map(
+        |TensorDescriptor {
+             element_type,
+             dimensions,
+         }| {
+            let element_type = reflect_type_to_tokens(exports, element_type);
+            let dimensions = dimensions_to_tokens(exports, dimensions);
 
-impl<'a> ToTokens for TensorProxy<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let TensorProxy {
-            exports,
-            tensor:
-                TensorDescriptor {
-                    element_type,
-                    dimensions,
-                },
-        } = *self;
-
-        let element_type = TypeProxy {
-            exports,
-            ty: element_type,
-        };
-        let dimensions = DimensionsProxy {
-            exports,
-            dimensions,
-        };
-
-        let t = quote! {
-            #exports::TensorDescriptor {
-                element_type: #element_type,
-                dimensions: #dimensions,
+            quote! {
+                #exports::TensorDescriptor {
+                    element_type: #element_type,
+                    dimensions: #dimensions,
+                }
             }
-        };
-        tokens.extend(t);
+        },
+    );
+
+    quote! {
+        &[
+            #( #descriptors ),*
+        ]
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct TypeProxy<'a> {
-    exports: &'a Path,
-    ty: &'a ReflectType,
-}
-
-impl<'a> ToTokens for TypeProxy<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let TypeProxy { exports, ty } = *self;
-
-        let t = match *ty {
-            ReflectType::Integer { signed, bit_width } => {
-                quote!(#exports::Type::Integer {
-                    signed: #signed,
-                    bit_width: #bit_width,
-                })
-            },
-            ReflectType::Float { bit_width } => quote!(#exports::Type::Float {
+fn reflect_type_to_tokens(exports: &Path, ty: &ReflectType) -> TokenStream {
+    match *ty {
+        ReflectType::Integer { signed, bit_width } => {
+            quote!(#exports::Type::Integer {
+                signed: #signed,
                 bit_width: #bit_width,
-            }),
-            ReflectType::String => quote!(#exports::Type::String),
-            ReflectType::Opaque { ref type_name } => {
-                quote!(#exports::Type::Opaque {
-                    type_name: $exports::Cow::Borrowed(#type_name),
-                })
-            },
-        };
-        tokens.extend(t);
+            })
+        },
+        ReflectType::Float { bit_width } => quote!(#exports::Type::Float {
+            bit_width: #bit_width,
+        }),
+        ReflectType::String => quote!(#exports::Type::String),
+        ReflectType::Opaque { ref type_name } => {
+            quote!(#exports::Type::Opaque {
+                type_name: $exports::Cow::Borrowed(#type_name),
+            })
+        },
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct DimensionsProxy<'a> {
-    exports: &'a Path,
-    dimensions: &'a Dimensions<'a>,
-}
+fn dimensions_to_tokens(
+    exports: &Path,
+    dimensions: &Dimensions<'_>,
+) -> TokenStream {
+    match dimensions {
+        Dimensions::Arbitrary => quote!(#exports::Dimensions::Arbitrary),
+        Dimensions::Finite(fixed) => {
+            let dimensions = fixed
+                .iter()
+                .copied()
+                .map(|dimension| DimensionProxy { exports, dimension });
 
-impl<'a> ToTokens for DimensionsProxy<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let DimensionsProxy {
-            exports,
-            dimensions,
-        } = self;
-
-        let t = match dimensions {
-            Dimensions::Arbitrary => quote!(#exports::Dimensions::Arbitrary),
-            Dimensions::Finite(fixed) => {
-                let dimensions = fixed
-                    .iter()
-                    .copied()
-                    .map(|dimension| DimensionProxy { exports, dimension });
-
-                quote!(#exports::Dimensions::Finite(#exports::Cow::Borrowed(&[
-                    #(#dimensions),*
-                ])))
-            },
-        };
-        tokens.extend(t);
+            quote!(#exports::Dimensions::Finite(#exports::Cow::Borrowed(&[
+                #(#dimensions),*
+            ])))
+        },
     }
 }
 
@@ -504,9 +466,12 @@ mod tests {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: syn::parse_str("exports").unwrap(),
             assertions: vec![TransformAssertion {
-                input: syn::parse_str("exports::Tensor<&'static str>").unwrap(),
-                output: syn::parse_str("exports::Tensor<&'static str>")
-                    .unwrap(),
+                inputs: vec![
+                    syn::parse_str("exports::Tensor<&'static str>").unwrap()
+                ],
+                outputs: vec![
+                    syn::parse_str("exports::Tensor<&'static str>").unwrap()
+                ],
             }],
         };
         let should_be = quote! {
@@ -533,8 +498,8 @@ mod tests {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: syn::parse_str("exports").unwrap(),
             assertions: vec![TransformAssertion {
-                input: syn::parse_str("exports::Tensor<f32>").unwrap(),
-                output: syn::parse_str("exports::Tensor<u8>").unwrap(),
+                inputs: vec![syn::parse_str("exports::Tensor<f32>").unwrap()],
+                outputs: vec![syn::parse_str("exports::Tensor<u8>").unwrap()],
             }],
         };
         let should_be = quote! {
@@ -584,39 +549,42 @@ mod tests {
     #[test]
     fn transform() {
         let exports = syn::parse_str("exports").unwrap();
-        let transform = TransformProxy {
-            exports: &exports,
-            transform: &TransformDescriptor {
-                input: TensorDescriptor {
-                    element_type: ReflectType::f32,
-                    dimensions: Dimensions::Arbitrary,
-                },
-                output: TensorDescriptor {
-                    element_type: ReflectType::u8,
-                    dimensions: Dimensions::Finite(
-                        vec![Dimension::Value(1980)].into(),
-                    ),
-                },
-            },
+        let transform = TransformDescriptor {
+            inputs: TensorDescriptor {
+                element_type: ReflectType::f32,
+                dimensions: Dimensions::Arbitrary,
+            }
+            .into(),
+            outputs: TensorDescriptor {
+                element_type: ReflectType::u8,
+                dimensions: Dimensions::Finite(
+                    vec![Dimension::Value(1980)].into(),
+                ),
+            }
+            .into(),
         };
         let should_be = quote! {
             exports::TransformDescriptor {
-                input: exports::TensorDescriptor {
-                    element_type: exports::Type::Float { bit_width: 32usize },
-                    dimensions: exports::Dimensions::Arbitrary,
-                },
-                output: exports::TensorDescriptor {
-                    element_type: exports::Type::Integer { signed: false, bit_width: 8usize },
-                    dimensions: exports::Dimensions::Finite(
-                        exports::Cow::Borrowed(&[
-                            exports::Dimension::Value(1980usize),
-                        ]),
-                    ),
-                },
+                inputs: exports::TensorDescriptors(exports::Cow::Borrowed(&[
+                    exports::TensorDescriptor {
+                        element_type: exports::Type::Float { bit_width: 32usize },
+                        dimensions: exports::Dimensions::Arbitrary,
+                    },
+                ])),
+                outputs: exports::TensorDescriptors(exports::Cow::Borrowed(&[
+                    exports::TensorDescriptor {
+                        element_type: exports::Type::Integer { signed: false, bit_width: 8usize },
+                        dimensions: exports::Dimensions::Finite(
+                            exports::Cow::Borrowed(&[
+                                exports::Dimension::Value(1980usize),
+                            ]),
+                        ),
+                    },
+                ])),
             }
         };
 
-        let got = transform.to_token_stream();
+        let got = transform_to_tokens(&exports, &transform);
 
         assert_eq_tok!(got, should_be);
     }

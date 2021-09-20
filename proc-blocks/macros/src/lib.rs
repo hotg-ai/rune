@@ -29,7 +29,7 @@ use syn::DeriveInput;
 /// use hotg_rune_core::Tensor;
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
-/// #[transform(input = f32, output = f32)]
+/// #[transform(inputs = f32, outputs = f32)]
 /// struct Foo { }
 ///
 /// impl Transform<Tensor<f32>> for Foo {
@@ -46,7 +46,7 @@ use syn::DeriveInput;
 /// use hotg_rune_core::Tensor;
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]  // Error: the trait bound `Foo: hotg_rune_proc_blocks::Transform<Tensor<f32>>` is not satisfied
-/// #[transform(input = f32, output = f32)]
+/// #[transform(inputs = f32, outputs = f32)]
 /// struct Foo { }
 ///
 /// // impl Transform<Tensor<f32>> for Foo {
@@ -63,8 +63,8 @@ use syn::DeriveInput;
 /// use hotg_rune_core::Tensor;
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
-/// #[transform(input = [f32; _], output = [u8; 1920])]
-/// #[transform(input = str, output = [i16; 2])]
+/// #[transform(inputs = [f32; _], outputs = [u8; 1920])]
+/// #[transform(inputs = str, outputs = [i16; 2])]
 /// struct Foo { }
 ///
 /// impl Transform<Tensor<f32>> for Foo {
