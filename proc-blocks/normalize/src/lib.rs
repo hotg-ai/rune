@@ -29,9 +29,9 @@ where
     Debug, Default, Clone, Copy, PartialEq, hotg_rune_proc_blocks::ProcBlock,
 )]
 #[non_exhaustive]
-#[transform(input = [f32; 1], output = [f32; 1])]
-#[transform(input = [f32; 2], output = [f32; 2])]
-#[transform(input = [f32; 3], output = [f32; 3])]
+#[transform(inputs = [f32; 1], outputs = [f32; 1])]
+#[transform(inputs = [f32; 2], outputs = [f32; 2])]
+#[transform(inputs = [f32; 3], outputs = [f32; 3])]
 pub struct Normalize {
     unused: &'static str,
 }

@@ -12,7 +12,7 @@ use hotg_rune_proc_blocks::{ProcBlock, Transform};
 // TODO: Add Generics
 
 #[derive(Debug, Clone, PartialEq, ProcBlock)]
-#[transform(input = [i16; _], output = [f32; _])]
+#[transform(inputs = [i16; _], outputs = [f32; _])]
 pub struct AudioFloatConversion {
     i16_max_as_float: f32,
 }

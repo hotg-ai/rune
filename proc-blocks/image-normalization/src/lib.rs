@@ -8,12 +8,12 @@ use hotg_rune_proc_blocks::{ProcBlock, Transform};
 /// values to the range `[0, 1]` as `f32`'s.
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 #[non_exhaustive]
-#[transform(input = [u8; _], output = [f32; _])]
-#[transform(input = [i8; _], output = [f32; _])]
-#[transform(input = [u16; _], output = [f32; _])]
-#[transform(input = [i16; _], output = [f32; _])]
-#[transform(input = [u32; _], output = [f32; _])]
-#[transform(input = [i32; _], output = [f32; _])]
+#[transform(inputs = [u8; _], outputs = [f32; _])]
+#[transform(inputs = [i8; _], outputs = [f32; _])]
+#[transform(inputs = [u16; _], outputs = [f32; _])]
+#[transform(inputs = [i16; _], outputs = [f32; _])]
+#[transform(inputs = [u32; _], outputs = [f32; _])]
+#[transform(inputs = [i32; _], outputs = [f32; _])]
 pub struct ImageNormalization {}
 
 impl<T> Transform<Tensor<T>> for ImageNormalization
