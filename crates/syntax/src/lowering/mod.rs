@@ -15,9 +15,9 @@ pub fn phase() -> Phase {
     Phase::with_setup(|res| {
         res.insert(NameTable::default());
     })
-    .and_then(register_names::run_system())
-    .and_then(update_nametable::run_system())
-    .and_then(register_resources::run_system())
-    .and_then(register_stages::run_system())
-    .and_then(register_tensors::run_system())
+    .and_then(register_names::run_system)
+    .and_then(update_nametable::run_system)
+    .and_then(register_resources::run_system)
+    .and_then(register_stages::run_system)
+    .and_then(register_tensors::run_system)
 }

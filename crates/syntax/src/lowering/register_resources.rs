@@ -137,9 +137,9 @@ mod tests {
         crate::parse::phase().run(&mut world, &mut res);
 
         Phase::new()
-            .and_then(lowering::register_names::run_system())
-            .and_then(lowering::update_nametable::run_system())
-            .and_then(run_system())
+            .and_then(lowering::register_names::run_system)
+            .and_then(lowering::update_nametable::run_system)
+            .and_then(run_system)
             .run(&mut world, &mut res);
 
         let resources: Vec<_> = <(&Name, &Resource)>::query()

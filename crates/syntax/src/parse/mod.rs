@@ -15,7 +15,7 @@ pub fn phase() -> Phase {
     Phase::with_setup(|res| {
         res.insert(Diagnostics::new());
     })
-    .and_then(run_system())
+    .and_then(run_system)
 }
 
 #[legion::system]

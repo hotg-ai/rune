@@ -15,10 +15,10 @@ use crate::phases::Phase;
 
 pub fn phase() -> Phase {
     Phase::new()
-        .and_then(generate_cargo_config::run_system())
-        .and_then(generate_cargo_toml::run_system())
-        .and_then(generate_model_files::run_system())
-        .and_then(generate_manifest_function::run_system())
-        .and_then(generate_lib_rs::run_system())
-        .and_then(compile_generated_project::run_system())
+        .and_then(generate_cargo_config::run_system)
+        .and_then(generate_cargo_toml::run_system)
+        .and_then(generate_model_files::run_system)
+        .and_then(generate_manifest_function::run_system)
+        .and_then(generate_lib_rs::run_system)
+        .and_then(compile_generated_project::run_system)
 }

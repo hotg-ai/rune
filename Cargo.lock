@@ -1191,6 +1191,7 @@ dependencies = [
  "hotg-rune-core",
  "indexmap",
  "legion",
+ "log",
  "once_cell",
  "pretty_assertions",
  "regex",

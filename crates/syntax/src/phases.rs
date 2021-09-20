@@ -1,4 +1,4 @@
-use legion::{Resources, World};
+use legion::{Resources, World, systems::Runnable};
 use crate::{
     BuildContext, codegen,
     hooks::{Continuation, Ctx, Hooks},
@@ -79,17 +79,83 @@ impl Phase {
         phase
     }
 
-    pub(crate) fn and_then(
-        mut self,
-        runnable: impl legion::systems::ParallelRunnable + 'static,
-    ) -> Self {
-        self.0.add_system(runnable).flush();
+    pub(crate) fn and_then<F, R>(mut self, run_system: F) -> Self
+    where
+        R: legion::systems::ParallelRunnable + 'static,
+        F: FnOnce() -> R,
+    {
+        self.0
+            .add_system(TracingRunnable {
+                runnable: run_system(),
+                name: std::any::type_name::<F>(),
+            })
+            .flush();
+
         self
     }
 
     /// Execute the phase, updating the [`World`].
     pub fn run(&mut self, world: &mut World, resources: &mut Resources) {
         self.0.build().execute(world, resources);
+    }
+}
+
+/// A wrapper around some [`Runnable`] which logs whenever it starts.
+struct TracingRunnable<R> {
+    runnable: R,
+    name: &'static str,
+}
+
+impl<R: Runnable> Runnable for TracingRunnable<R> {
+    fn name(&self) -> Option<&legion::systems::SystemId> {
+        self.runnable.name()
+    }
+
+    fn reads(
+        &self,
+    ) -> (
+        &[legion::systems::ResourceTypeId],
+        &[legion::storage::ComponentTypeId],
+    ) {
+        self.runnable.reads()
+    }
+
+    fn writes(
+        &self,
+    ) -> (
+        &[legion::systems::ResourceTypeId],
+        &[legion::storage::ComponentTypeId],
+    ) {
+        self.runnable.writes()
+    }
+
+    fn prepare(&mut self, world: &World) { self.runnable.prepare(world); }
+
+    fn accesses_archetypes(&self) -> &legion::world::ArchetypeAccess {
+        self.runnable.accesses_archetypes()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        world: &World,
+        resources: &legion::systems::UnsafeResources,
+    ) {
+        let pretty_name = self
+            .name
+            .trim_start_matches(env!("CARGO_CRATE_NAME"))
+            .trim_end_matches("_system")
+            .trim_end_matches("::run")
+            .trim_matches(':');
+        log::debug!("Starting the \"{}\" pass", pretty_name);
+
+        self.runnable.run_unsafe(world, resources);
+    }
+
+    fn command_buffer_mut(
+        &mut self,
+        world: legion::world::WorldId,
+    ) -> Option<&mut legion::systems::CommandBuffer> {
+        self.runnable.command_buffer_mut(world)
     }
 }
 
