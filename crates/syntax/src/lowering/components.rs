@@ -7,6 +7,7 @@ use std::{
     hash::Hash,
     ops::Deref,
     path::PathBuf,
+    sync::Arc,
 };
 use hotg_rune_core::Shape;
 use legion::Entity;
@@ -236,10 +237,10 @@ pub struct Inputs {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ModelData(Vec<u8>);
+pub struct ModelData(Arc<[u8]>);
 
-impl From<Vec<u8>> for ModelData {
-    fn from(data: Vec<u8>) -> Self { ModelData(data) }
+impl<A: Into<Arc<[u8]>>> From<A> for ModelData {
+    fn from(data: A) -> Self { ModelData(data.into()) }
 }
 
 impl Deref for ModelData {

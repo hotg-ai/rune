@@ -14,10 +14,11 @@
 use codespan_reporting::diagnostic::Diagnostic;
 use hotg_rune_syntax::{
     BuildContext, Diagnostics,
-    lowering::{Model, Name, Resource, ResourceData},
     hooks::{
-        AfterLoweringContext, AfterTypeCheckingContext, Continuation, Hooks,
+        AfterCodegenContext, AfterLoweringContext, AfterTypeCheckingContext,
+        Continuation, Hooks,
     },
+    lowering::{Model, Name, Resource, ResourceData},
 };
 use legion::{Entity, IntoQuery, component, systems::CommandBuffer};
 
@@ -59,6 +60,25 @@ impl Hooks for CustomHooks {
     ) -> Continuation {
         dotenv(ctx);
         Continuation::Continue
+    }
+
+    fn after_codegen(
+        &mut self,
+        ctx: &mut dyn AfterCodegenContext,
+    ) -> Continuation {
+        for file in
+            <&hotg_rune_syntax::codegen::File>::query().iter(ctx.world())
+        {
+            if let Ok(string) = core::str::from_utf8(&file.data) {
+                println!("------ {} ------", file.path.display());
+                println!();
+                for line in string.lines() {
+                    println!("\t{}", line);
+                }
+            }
+        }
+
+        Continuation::Halt
     }
 }
 

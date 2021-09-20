@@ -1186,6 +1186,7 @@ name = "hotg-rune-syntax"
 version = "0.7.1-dev"
 dependencies = [
  "atomic_refcell",
+ "cargo_toml",
  "codespan",
  "codespan-reporting",
  "hotg-rune-core",
@@ -1197,6 +1198,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_yaml",
+ "toml",
 ]
 
 [[package]]

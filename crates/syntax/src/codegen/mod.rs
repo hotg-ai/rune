@@ -3,6 +3,7 @@
 //! This takes the parsed and analysed Rune and generates all the necessary
 //! files to make a Rust project.
 
+mod components;
 mod compile_generated_project;
 mod generate_cargo_config;
 mod generate_cargo_toml;
@@ -10,6 +11,8 @@ mod generate_custom_sections;
 mod generate_lib_rs;
 mod generate_manifest_function;
 mod generate_model_files;
+
+pub use components::*;
 
 use crate::phases::Phase;
 

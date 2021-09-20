@@ -15,6 +15,7 @@ readme = "README.md"
 
 [dependencies]
 atomic_refcell = "0.1.7"
+cargo_toml = "0.10.0"
 codespan = { version = "0.11.0", features = ["serialization"] }
 codespan-reporting = "0.11.0"
 hotg-rune-core = { path = "../rune-core", version = "0.7.1-dev" }
@@ -25,6 +26,7 @@ once_cell = "1.7.2"
 regex = "1.5.4"
 serde = { version = "1.0.124", features = ["derive"] }
 serde_yaml = "0.8.17"
+toml = "0.5.8"
 
 [dev-dependencies]
 pretty_assertions = "0.7.0"
