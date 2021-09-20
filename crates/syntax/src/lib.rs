@@ -36,6 +36,7 @@ pub mod lowering;
 pub mod parse;
 mod phases;
 pub mod type_check;
+pub mod serialize;
 
 pub use crate::{
     phases::{build, build_with_hooks, Phase},

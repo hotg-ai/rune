@@ -7,9 +7,10 @@ mod yaml;
 
 pub use self::yaml::*;
 
+use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::systems::CommandBuffer;
-use crate::{BuildContext, Diagnostics, phases::Phase};
+use legion::{Registry, systems::CommandBuffer};
+use crate::{BuildContext, Diagnostics, phases::Phase, serialize::RegistryExt};
 
 pub fn phase() -> Phase {
     Phase::with_setup(|res| {
@@ -45,4 +46,11 @@ fn parse_failed_diagnostic(e: serde_yaml::Error) -> Diagnostic<()> {
         diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
     }
     diag
+}
+
+pub(crate) fn register_components(registry: &mut Registry<String>) {
+    registry
+        .register_with_type_name::<Document>()
+        .register_with_type_name::<DocumentV1>()
+        .register_with_type_name::<Span>();
 }

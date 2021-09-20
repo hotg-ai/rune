@@ -125,19 +125,6 @@ pub enum ResourceSource {
     FromDisk(PathBuf),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResourceData(Vec<u8>);
-
-impl<T: Into<Vec<u8>>> From<T> for ResourceData {
-    fn from(data: T) -> Self { ResourceData(data.into()) }
-}
-
-impl Deref for ResourceData {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target { &self.0 }
-}
-
 /// An identifier used to refer to an item in a Runefile.
 #[derive(
     Debug,
@@ -181,7 +168,9 @@ where
 }
 
 /// A lookup table mapping [`Name`] components back to their [`Entity`].
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(
+    Debug, Default, PartialEq, Clone, serde::Serialize, serde::Deserialize,
+)]
 pub struct NameTable(HashMap<Name, Entity>);
 
 impl NameTable {
@@ -225,26 +214,17 @@ impl From<Shape<'static>> for Tensor {
 }
 
 /// The list of [`Tensor`]s that may be the output from a [`PipelineNode`].
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 pub struct Outputs {
     pub tensors: Vec<Entity>,
 }
 
 /// The list of [`Tensor`]s that may be the inputs to a [`PipelineNode`].
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 pub struct Inputs {
     pub tensors: Vec<Entity>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ModelData(Arc<[u8]>);
-
-impl<A: Into<Arc<[u8]>>> From<A> for ModelData {
-    fn from(data: A) -> Self { ModelData(data.into()) }
-}
-
-impl Deref for ModelData {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target { &self.0 }
 }

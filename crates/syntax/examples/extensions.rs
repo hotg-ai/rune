@@ -18,7 +18,8 @@ use hotg_rune_syntax::{
         AfterCodegenContext, AfterLoweringContext, AfterTypeCheckingContext,
         Continuation, Hooks,
     },
-    lowering::{Model, Name, Resource, ResourceData},
+    lowering::{Model, Name, Resource},
+    type_check::ResourceData,
 };
 use legion::{Entity, IntoQuery, component, systems::CommandBuffer};
 
@@ -69,13 +70,19 @@ impl Hooks for CustomHooks {
         for file in
             <&hotg_rune_syntax::codegen::File>::query().iter(ctx.world())
         {
-            if let Ok(string) = core::str::from_utf8(&file.data) {
-                println!("------ {} ------", file.path.display());
-                println!();
-                for line in string.lines() {
-                    println!("\t{}", line);
-                }
+            println!("------ {} ------", file.path.display());
+            println!();
+
+            match core::str::from_utf8(&file.data) {
+                Ok(string) => {
+                    for line in string.lines() {
+                        println!("\t{}", line);
+                    }
+                },
+                Err(_) => println!("\t(binary)"),
             }
+
+            println!();
         }
 
         Continuation::Halt
@@ -112,7 +119,7 @@ fn dotenv(ctx: &mut dyn AfterTypeCheckingContext) {
                 "Overriding the \"{}\" resource and setting it to \"{}\"",
                 name, value
             );
-            cmd.add_component(ent, ResourceData::from(value));
+            cmd.add_component(ent, ResourceData::from(value.into_bytes()));
         }
     }
 

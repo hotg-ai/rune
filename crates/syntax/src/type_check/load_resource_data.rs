@@ -1,54 +1,66 @@
 use std::path::Path;
-
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
+use legion::{Entity, systems::CommandBuffer};
 use crate::{
     BuildContext, Diagnostics,
-    lowering::{Name, Resource, ResourceData, ResourceSource},
+    lowering::{Name, Resource, ResourceSource},
+    type_check::ResourceData,
 };
 
-#[legion::system]
+#[legion::system(for_each)]
 pub(crate) fn run(
     cmd: &mut CommandBuffer,
-    world: &SubWorld,
-    query: &mut Query<(Entity, &Resource, &Name, &Span)>,
     #[resource] diags: &mut Diagnostics,
-    #[resource] build_ctx: &mut BuildContext,
+    #[resource] build_ctx: &BuildContext,
+    &entity: &Entity,
+    name: &Name,
+    resource: &Resource,
+    &span: &Span,
 ) {
     let current_dir = &build_ctx.current_directory;
 
-    query.for_each(world, |(&e, r, n, &s)| match &r.default_value {
+    match &resource.default_value {
         Some(ResourceSource::FromDisk(path)) => {
-            match load(current_dir, path, n, s) {
-                Ok(data) => cmd.add_component(e, data),
+            match load(current_dir, path, name, span) {
+                Ok(data) => cmd.add_component(entity, ResourceData::from(data)),
                 Err(diag) => diags.push(diag),
             }
         },
         Some(ResourceSource::Inline(data)) => {
-            cmd.add_component(e, ResourceData::from(data.as_bytes().to_vec()));
+            cmd.add_component(entity, ResourceData::from(data.as_bytes()));
         },
         None => {},
-    });
+    }
 }
 
-fn load(
+pub(crate) fn load(
     current_dir: &Path,
     filename: &Path,
     name: &Name,
     span: Span,
-) -> Result<ResourceData, Diagnostic<()>> {
+) -> Result<Vec<u8>, Diagnostic<()>> {
     let full_path = current_dir.join(filename);
-    let data = std::fs::read(&full_path).map_err(|e| {
-        Diagnostic::error()
-            .with_message(format!(
-                "Unable to read \"{}\" for \"{}\": {}",
-                full_path.display(),
-                name,
-                e
-            ))
-            .with_labels(vec![Label::primary((), span)])
-    })?;
+    let data = std::fs::read(&full_path)
+        .map_err(|e| read_failed_diagnostic(&full_path, name, e, span))?;
 
-    Ok(data.into())
+    Ok(data)
+}
+
+fn read_failed_diagnostic(
+    full_path: &Path,
+    name: &Name,
+    e: std::io::Error,
+    span: Span,
+) -> Diagnostic<()> {
+    let msg = format!(
+        "Unable to read \"{}\" for \"{}\": {}",
+        full_path.display(),
+        name,
+        e
+    );
+
+    Diagnostic::error()
+        .with_message(msg)
+        .with_labels(vec![Label::primary((), span)])
 }
