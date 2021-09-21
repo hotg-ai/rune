@@ -25,6 +25,7 @@
 #[macro_use]
 extern crate pretty_assertions;
 
+#[cfg(test)]
 #[macro_use]
 mod macros;
 
@@ -35,8 +36,8 @@ pub mod hooks;
 pub mod lowering;
 pub mod parse;
 mod phases;
-pub mod type_check;
 pub mod serialize;
+pub mod type_check;
 
 pub use crate::{
     phases::{build, build_with_hooks, Phase},

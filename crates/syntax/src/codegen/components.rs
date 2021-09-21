@@ -29,17 +29,33 @@ pub struct CustomSection {
 }
 
 impl CustomSection {
+    pub fn new(name: impl Into<String>, value: impl Into<Arc<[u8]>>) -> Self {
+        let section_name = name.into();
+        let value = value.into();
+
+        debug_assert!(
+            section_name.starts_with("."),
+            "Link section names should start with a \".\", found \"{}\"",
+            section_name
+        );
+
+        CustomSection {
+            section_name,
+            value,
+        }
+    }
+
     pub fn from_json(
         name: impl Into<String>,
         value: &impl Serialize,
     ) -> Result<Self, serde_json::Error> {
         let value = serde_json::to_vec(value)?;
         let name = name.into();
+        Ok(CustomSection::new(name, value))
+    }
 
-        Ok(CustomSection {
-            section_name: name,
-            value: value.into(),
-        })
+    pub(crate) fn identifier(&self) -> &str {
+        self.section_name.trim_start_matches('.')
     }
 }
 
@@ -49,18 +65,26 @@ pub struct RuneVersion {
 }
 
 impl RuneVersion {
-    pub(crate) fn as_custom_section(&self) -> Result<CustomSection, serde_json::Error> {
+    pub fn new(version: impl Into<String>) -> Self {
+        RuneVersion {
+            version: version.into(),
+        }
+    }
+
+    pub(crate) fn as_custom_section(
+        &self,
+    ) -> Result<CustomSection, serde_json::Error> {
         CustomSection::from_json(VERSION_CUSTOM_SECTION, self)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct RuneGraph {
-
-}
+pub struct RuneGraph {}
 
 impl RuneGraph {
-    pub(crate) fn as_custom_section(&self) -> Result<CustomSection, serde_json::Error> {
+    pub(crate) fn as_custom_section(
+        &self,
+    ) -> Result<CustomSection, serde_json::Error> {
         CustomSection::from_json(GRAPH_CUSTOM_SECTION, self)
     }
 }

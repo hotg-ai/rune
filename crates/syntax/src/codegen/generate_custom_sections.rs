@@ -30,11 +30,13 @@ pub(crate) fn run(
     });
 
     let graph = rune_graph();
-    let graph_section = graph.as_custom_section();
+    let graph_section = graph
+        .as_custom_section()
+        .expect("We should always be able to serialize to JSON");
     cmd.push((graph, graph_section));
 }
 
-fn rune_graph() -> RuneGraph { todo!() }
+fn rune_graph() -> RuneGraph { RuneGraph {} }
 
 fn inline_resource(name: &Name, data: &ResourceData) -> CustomSection {
     let name_len = u32::try_from(name.len()).unwrap();

@@ -9,7 +9,6 @@ mod generate_cargo_config;
 mod generate_cargo_toml;
 mod generate_custom_sections;
 mod generate_lib_rs;
-mod generate_manifest_function;
 mod generate_model_files;
 
 pub use components::*;
@@ -22,7 +21,7 @@ pub fn phase() -> Phase {
         .and_then(generate_cargo_config::run_system)
         .and_then(generate_cargo_toml::run_system)
         .and_then(generate_model_files::run_system)
-        .and_then(generate_manifest_function::run_system)
+        .and_then(generate_custom_sections::run_system)
         .and_then(generate_lib_rs::run_system)
         .and_then(compile_generated_project::run_system)
 }
@@ -30,5 +29,7 @@ pub fn phase() -> Phase {
 pub(crate) fn register_components(registry: &mut Registry<String>) {
     registry
         .register_with_type_name::<CustomSection>()
+        .register_with_type_name::<RuneGraph>()
+        .register_with_type_name::<RuneVersion>()
         .register_with_type_name::<File>();
 }

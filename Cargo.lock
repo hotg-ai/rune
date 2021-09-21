@@ -1195,6 +1195,8 @@ dependencies = [
  "log",
  "once_cell",
  "pretty_assertions",
+ "proc-macro2",
+ "quote",
  "regex",
  "serde",
  "serde_json",

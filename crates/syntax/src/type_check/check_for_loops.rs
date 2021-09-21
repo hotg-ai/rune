@@ -22,10 +22,9 @@ pub(crate) fn run(
         outputs.insert(ent, out.tensors.as_slice());
     });
 
-    dbg!(&outputs);
-
     if let Some(cycle) = next_cycle(&outputs) {
-        let cycle: Vec< _> = cycle.iter()
+        let cycle: Vec<_> = cycle
+            .iter()
             .filter_map(|&ent| names.get(world, ent).ok())
             .collect();
 
@@ -34,36 +33,33 @@ pub(crate) fn run(
     }
 }
 
-fn cycle_detected_diagnostic(cycle: &[(&Name, &Span)]) -> codespan_reporting::diagnostic::Diagnostic<()> {
-            let ((name, span), middle) = match cycle {
-            [first, middle @ ..] => (*first, middle),
-            _ => unreachable!("A cycle must have at least 2 items"),
-        };
+fn cycle_detected_diagnostic(
+    cycle: &[(&Name, &Span)],
+) -> codespan_reporting::diagnostic::Diagnostic<()> {
+    let ((name, span), middle) = match cycle {
+        [first, middle @ ..] => (*first, middle),
+        _ => unreachable!("A cycle must have at least 2 items"),
+    };
 
-        let mut diag = Diagnostic::error().with_message(format!(
-            "Cycle detected when checking \"{}\"",
-            name
-        ));
+    let mut diag = Diagnostic::error()
+        .with_message(format!("Cycle detected when checking \"{}\"", name));
 
-        diag = diag.with_labels(vec![Label::primary((), *span)]);
+    diag = diag.with_labels(vec![Label::primary((), *span)]);
 
-        let mut notes = Vec::new();
+    let mut notes = Vec::new();
 
-        for (name, _) in middle {
-            let msg = format!(
-                "... which passes data to \"{}\"...",
-                name
-            );
-            notes.push(msg);
-        }
+    for (name, _) in middle {
+        let msg = format!("... which passes data to \"{}\"...", name);
+        notes.push(msg);
+    }
 
-        let closing_message = format!(
-            "... which passes data to \"{}\", completing the cycle.",
-            name
-        );
-        notes.push(closing_message);
+    let closing_message = format!(
+        "... which passes data to \"{}\", completing the cycle.",
+        name
+    );
+    notes.push(closing_message);
 
-        diag.with_notes(notes)
+    diag.with_notes(notes)
 }
 
 fn next_cycle(outputs: &HashMap<Entity, &[Entity]>) -> Option<Vec<Entity>> {

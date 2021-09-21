@@ -1,4 +1,3 @@
-#[cfg(test)]
 macro_rules! map {
     // map-like
     ($($k:ident : $v:expr),* $(,)?) => {
@@ -14,7 +13,6 @@ macro_rules! map {
     };
 }
 
-#[cfg(test)]
 macro_rules! ty {
         ($type:ident [$($dim:expr),*]) => {
             crate::parse::Type {
