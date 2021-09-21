@@ -18,8 +18,7 @@ use hotg_rune_syntax::{
         AfterCodegenContext, AfterLoweringContext, AfterTypeCheckingContext,
         Continuation, Hooks,
     },
-    lowering::{Model, Name, Resource},
-    type_check::ResourceData,
+    lowering::{Model, Name, Resource, ResourceData},
 };
 use legion::{Entity, IntoQuery, component, systems::CommandBuffer};
 

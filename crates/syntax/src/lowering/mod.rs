@@ -1,6 +1,8 @@
 //! The lowering phase.
 
 mod components;
+mod load_model_data;
+mod load_resource_data;
 mod register_names;
 mod register_resources;
 mod register_stages;
@@ -21,6 +23,8 @@ pub fn phase() -> Phase {
     .and_then(register_resources::run_system)
     .and_then(register_stages::run_system)
     .and_then(register_tensors::run_system)
+    .and_then(load_resource_data::run_system)
+    .and_then(load_model_data::run_system)
 }
 
 pub(crate) fn register_components(registry: &mut Registry<String>) {
@@ -39,5 +43,7 @@ pub(crate) fn register_components(registry: &mut Registry<String>) {
         .register_with_type_name::<SinkKind>()
         .register_with_type_name::<Source>()
         .register_with_type_name::<SourceKind>()
-        .register_with_type_name::<Tensor>();
+        .register_with_type_name::<Tensor>()
+        .register_with_type_name::<ResourceData>()
+        .register_with_type_name::<ModelData>();
 }

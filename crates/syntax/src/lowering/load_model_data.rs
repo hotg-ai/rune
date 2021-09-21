@@ -3,8 +3,7 @@ use legion::{Entity, systems::CommandBuffer};
 
 use crate::{
     BuildContext, Diagnostics,
-    lowering::{Model, ModelFile, Name},
-    type_check::ModelData,
+    lowering::{Model, ModelData, ModelFile, Name},
 };
 
 #[legion::system(for_each)]

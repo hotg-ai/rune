@@ -18,17 +18,42 @@ pub(crate) fn run(
     #[resource] doc: &DocumentV1,
     #[resource] diags: &mut Diagnostics,
 ) {
-    let output_tensors_by_node = register_outputs(cmd, names, doc, diags);
-    register_inputs(doc, names, output_tensors_by_node, cmd, diags);
+    let node_outputs = register_node_outputs(cmd, names, doc, diags);
+    let node_inputs =
+        register_node_inputs(doc, names, &node_outputs, cmd, diags);
+
+    for (&node, outputs) in &node_outputs {
+        for &tensor in &outputs.tensors {
+            let inputs = Inputs {
+                tensors: vec![node],
+            };
+
+            let outputs: Vec<_> = node_inputs
+                .iter()
+                .filter_map(|(&ent, inputs)| {
+                    if inputs.tensors.contains(&tensor) {
+                        Some(ent)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            cmd.add_component(tensor, inputs);
+            cmd.add_component(tensor, Outputs { tensors: outputs });
+        }
+    }
 }
 
-fn register_inputs(
+fn register_node_inputs(
     doc: &DocumentV1,
     names: &NameTable,
-    output_tensors_by_node: HashMap<Entity, Outputs>,
+    output_tensors_by_node: &HashMap<Entity, Outputs>,
     cmd: &mut CommandBuffer,
     diags: &mut Diagnostics,
-) {
+) -> HashMap<Entity, Inputs> {
+    let mut outputs = HashMap::new();
+
     for (name, stage) in &doc.pipeline {
         let ent = match names.get(name) {
             Some(&e) => e,
@@ -39,13 +64,18 @@ fn register_inputs(
             name,
             stage.inputs(),
             names,
-            &output_tensors_by_node,
+            output_tensors_by_node,
         ) {
             Ok(inputs) if inputs.tensors.is_empty() => {},
-            Ok(inputs) => cmd.add_component(ent, inputs),
+            Ok(inputs) => {
+                cmd.add_component(ent, inputs.clone());
+                outputs.insert(ent, inputs);
+            },
             Err(diag) => diags.push(diag),
         }
     }
+
+    outputs
 }
 
 fn register_stage_inputs(
@@ -124,7 +154,7 @@ fn unknown_input_name_diagnostic(
     ))
 }
 
-fn register_outputs(
+fn register_node_outputs(
     cmd: &mut CommandBuffer,
     names: &NameTable,
     doc: &DocumentV1,
@@ -151,7 +181,7 @@ fn register_outputs(
     node_to_output_tensors
 }
 
-/// Allocate new entities for each output.
+/// Allocate a new [`Tensor`] entity for each output that a node may have.
 fn allocate_output_tensors(
     cmd: &mut CommandBuffer,
     output_types: &[parse::Type],
@@ -198,7 +228,11 @@ mod tests {
     use std::str::FromStr;
 
     use legion::{IntoQuery, Resources, World};
-    use crate::{BuildContext, phases::Phase, lowering};
+    use crate::{
+        BuildContext,
+        lowering::{self, PipelineNode},
+        phases::Phase,
+    };
     use super::*;
 
     fn doc() -> DocumentV1 {
@@ -260,8 +294,10 @@ mod tests {
             (("transform", 0), ("output", 1), "u8[1]"),
             (("transform", 1), ("output", 0), "u8[2]"),
         ];
-        let mut inputs = <&Inputs>::query();
-        let mut outputs = <&Outputs>::query();
+        let mut inputs =
+            <&Inputs>::query().filter(legion::component::<PipelineNode>());
+        let mut outputs =
+            <&Outputs>::query().filter(legion::component::<PipelineNode>());
         let mut tensors = <&Tensor>::query();
 
         for ((prev_name, prev_ix), (next_name, next_ix), ty) in connections {

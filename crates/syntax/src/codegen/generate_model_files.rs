@@ -1,6 +1,9 @@
 use std::{path::Path, sync::Arc};
 use legion::systems::CommandBuffer;
-use crate::{codegen::File, lowering::Name, type_check::ModelData};
+use crate::{
+    codegen::File,
+    lowering::{ModelData, Name},
+};
 
 /// Create a [`File`] for each model with associated [`ModelData`] and put it in
 /// the `models/` directory.

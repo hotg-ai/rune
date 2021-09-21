@@ -4,8 +4,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{Entity, systems::CommandBuffer};
 use crate::{
     BuildContext, Diagnostics,
-    lowering::{Name, Resource, ResourceSource},
-    type_check::ResourceData,
+    lowering::{Name, Resource, ResourceData, ResourceSource},
 };
 
 #[legion::system(for_each)]
