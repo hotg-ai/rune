@@ -7,7 +7,7 @@ use std::{
     hash::Hash,
     ops::Deref,
     path::PathBuf,
-sync::Arc,
+    sync::Arc,
 };
 use hotg_rune_core::Shape;
 use legion::Entity;
@@ -234,6 +234,10 @@ pub struct ResourceData(pub Arc<[u8]>);
 
 impl<T: Into<Arc<[u8]>>> From<T> for ResourceData {
     fn from(data: T) -> Self { ResourceData(data.into()) }
+}
+
+impl AsRef<[u8]> for ResourceData {
+    fn as_ref(&self) -> &[u8] { &*self }
 }
 
 impl Deref for ResourceData {

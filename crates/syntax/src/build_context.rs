@@ -14,6 +14,8 @@ pub struct BuildContext {
     /// Generate an optimized build.
     pub optimized: bool,
     pub verbosity: Verbosity,
+    /// The version of Rune being used.
+    pub rune_version: Option<String>,
 }
 
 impl BuildContext {
@@ -46,6 +48,7 @@ impl BuildContext {
             current_directory,
             optimized: true,
             verbosity: Verbosity::Normal,
+            rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         })
     }
 
@@ -58,6 +61,7 @@ impl BuildContext {
             current_directory: PathBuf::from("."),
             optimized: false,
             verbosity: Verbosity::Normal,
+            rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         }
     }
 }

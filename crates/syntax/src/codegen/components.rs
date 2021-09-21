@@ -24,8 +24,8 @@ impl File {
 /// A WebAssembly custom section to be embedded in the Rune.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CustomSection {
-    pub name: String,
-    pub value: Vec<u8>,
+    pub section_name: String,
+    pub value: Arc<[u8]>,
 }
 
 impl CustomSection {
@@ -36,11 +36,31 @@ impl CustomSection {
         let value = serde_json::to_vec(value)?;
         let name = name.into();
 
-        Ok(CustomSection { name, value })
+        Ok(CustomSection {
+            section_name: name,
+            value: value.into(),
+        })
     }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RuneVersion {
     pub version: String,
+}
+
+impl RuneVersion {
+    pub(crate) fn as_custom_section(&self) -> Result<CustomSection, serde_json::Error> {
+        CustomSection::from_json(VERSION_CUSTOM_SECTION, self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuneGraph {
+
+}
+
+impl RuneGraph {
+    pub(crate) fn as_custom_section(&self) -> Result<CustomSection, serde_json::Error> {
+        CustomSection::from_json(GRAPH_CUSTOM_SECTION, self)
+    }
 }

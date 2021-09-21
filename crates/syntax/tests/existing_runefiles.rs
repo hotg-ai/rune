@@ -57,6 +57,7 @@ macro_rules! parse_and_analyse {
                     current_directory: PATH.into(),
                     optimized: false,
                     verbosity: Verbosity::Normal,
+                    rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                 };
                 let mut hooks = AbortAfterTypecheck::default();
 

@@ -16,6 +16,8 @@ use crate::{
 
 const REPO: &'static str = "https://github.com/hotg-ai/rune";
 
+/// Generate a `Cargo.toml` file which includes all the relevant dependencies
+/// for this crate.
 #[legion::system]
 pub(crate) fn run(
     world: &SubWorld,
