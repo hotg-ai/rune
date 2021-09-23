@@ -1189,6 +1189,7 @@ dependencies = [
  "cargo_toml",
  "codespan",
  "codespan-reporting",
+ "heck",
  "hotg-rune-core",
  "indexmap",
  "legion",

@@ -110,6 +110,15 @@ pub struct ProcBlock {
     pub parameters: HashMap<String, Value>,
 }
 
+impl ProcBlock {
+    pub(crate) fn name(&self) -> &str {
+        let full_name = self.path.sub_path.as_ref().unwrap_or(&self.path.base);
+        let start_of_name = full_name.rfind('/').map(|ix| ix + 1).unwrap_or(0);
+
+        &full_name[start_of_name..]
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Resource {
     /// Where to read the [`Resource`]'s default value from.

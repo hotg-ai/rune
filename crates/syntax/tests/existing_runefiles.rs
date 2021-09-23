@@ -5,7 +5,9 @@ use codespan_reporting::{
 use hotg_rune_syntax::{
     Diagnostics,
     parse::Document,
-    hooks::{Hooks, AfterTypeCheckingContext, Continuation},
+    hooks::{
+        Hooks, AfterTypeCheckingContext, AfterCodegenContext, Continuation,
+    },
     BuildContext, Verbosity,
 };
 
@@ -29,21 +31,76 @@ macro_rules! parse_and_analyse {
             #[test]
             fn parse() { let _ = Document::parse(SRC).unwrap(); }
 
-            #[derive(Default)]
-            struct AbortAfterTypecheck {
-                diags: Diagnostics,
+            #[derive(Debug, Copy, Clone, PartialEq)]
+            enum Phase {
+                TypeCheck,
+                Codegen,
             }
 
-            impl Hooks for AbortAfterTypecheck {
+            struct AbortAfterPhase {
+                diags: Diagnostics,
+                phase: Phase,
+            }
+
+            impl AbortAfterPhase {
+                fn new(phase: Phase) -> Self {
+                    AbortAfterPhase {
+                        phase,
+                        diags: Diagnostics::new(),
+                    }
+                }
+
+                fn maybe_abort(
+                    &mut self,
+                    phase: Phase,
+                    diags: &Diagnostics,
+                ) -> Continuation {
+                    if phase == self.phase {
+                        for diag in diags.iter() {
+                            self.diags.push(diag.clone());
+                        }
+                        Continuation::Halt
+                    } else {
+                        Continuation::Continue
+                    }
+                }
+            }
+
+            impl Hooks for AbortAfterPhase {
                 fn after_type_checking(
                     &mut self,
                     ctx: &mut dyn AfterTypeCheckingContext,
                 ) -> Continuation {
-                    for diag in ctx.diagnostics().iter() {
-                        self.diags.push(diag.clone());
-                    }
+                    self.maybe_abort(Phase::TypeCheck, &ctx.diagnostics())
+                }
 
-                    Continuation::Halt
+                fn after_codegen(
+                    &mut self,
+                    ctx: &mut dyn AfterCodegenContext,
+                ) -> Continuation {
+                    self.maybe_abort(Phase::Codegen, &ctx.diagnostics())
+                }
+            }
+
+            fn handle_diagnostics(
+                file: &SimpleFile<&'static str, &'static str>,
+                diags: &Diagnostics,
+            ) {
+                let mut writer = Buffer::no_color();
+                let config = Config::default();
+
+                for diag in diags {
+                    codespan_reporting::term::emit(
+                        &mut writer,
+                        &config,
+                        file,
+                        diag,
+                    )
+                    .unwrap();
+                }
+
+                if diags.has_errors() {
+                    panic!("{}", String::from_utf8_lossy(writer.as_slice()));
                 }
             }
 
@@ -59,26 +116,30 @@ macro_rules! parse_and_analyse {
                     verbosity: Verbosity::Normal,
                     rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                 };
-                let mut hooks = AbortAfterTypecheck::default();
+                let mut hooks = AbortAfterPhase::new(Phase::TypeCheck);
 
                 hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);
 
-                let mut writer = Buffer::no_color();
-                let config = Config::default();
+                handle_diagnostics(&file, &hooks.diags);
+            }
 
-                for diag in &hooks.diags {
-                    codespan_reporting::term::emit(
-                        &mut writer,
-                        &config,
-                        &file,
-                        diag,
-                    )
-                    .unwrap();
-                }
+            #[test]
+            fn codegen() {
+                let file = SimpleFile::new("Runefile", SRC);
+                let ctx = BuildContext {
+                    name: stringify!($example).to_string(),
+                    runefile: SRC.to_string(),
+                    working_directory: PATH.into(),
+                    current_directory: PATH.into(),
+                    optimized: false,
+                    verbosity: Verbosity::Normal,
+                    rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                };
+                let mut hooks = AbortAfterPhase::new(Phase::Codegen);
 
-                if hooks.diags.has_errors() {
-                    panic!("{}", String::from_utf8_lossy(writer.as_slice()));
-                }
+                hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);
+
+                handle_diagnostics(&file, &hooks.diags);
             }
         }
     };
