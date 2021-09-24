@@ -3,7 +3,10 @@
 use atomic_refcell::{AtomicRef, AtomicRefMut};
 use legion::{Resources, World};
 
-use crate::{Diagnostics, lowering::NameTable, parse::DocumentV1};
+use crate::{
+    Diagnostics, compile::CompilationResult, lowering::NameTable,
+    parse::DocumentV1,
+};
 
 /// Callbacks that are fired at different points in the compilation process.
 ///
@@ -64,6 +67,17 @@ pub trait Hooks {
             Continuation::Continue
         }
     }
+
+    fn after_compile(
+        &mut self,
+        ctx: &mut dyn AfterCompileContext,
+    ) -> Continuation {
+        if ctx.diagnostics().has_errors() {
+            Continuation::Halt
+        } else {
+            Continuation::Continue
+        }
+    }
 }
 
 /// How to proceed after calling a [`Hooks`] method.
@@ -116,6 +130,13 @@ pub trait AfterTypeCheckingContext: AfterLoweringContext {}
 /// Context passed to the [`Hooks::after_codegen()`] method.
 pub trait AfterCodegenContext: AfterTypeCheckingContext {}
 
+/// Context passed to the [`Hooks::after_compile()`] method.
+pub trait AfterCompileContext: AfterCodegenContext {
+    fn compilation_result(&self) -> AtomicRef<'_, CompilationResult> {
+        self.resources().get().unwrap()
+    }
+}
+
 pub(crate) struct Ctx<'world, 'res> {
     pub(crate) world: &'world mut World,
     pub(crate) res: &'res mut Resources,
@@ -142,3 +163,5 @@ impl<'world, 'res> AfterLoweringContext for Ctx<'world, 'res> {}
 impl<'world, 'res> AfterTypeCheckingContext for Ctx<'world, 'res> {}
 
 impl<'world, 'res> AfterCodegenContext for Ctx<'world, 'res> {}
+
+impl<'world, 'res> AfterCompileContext for Ctx<'world, 'res> {}

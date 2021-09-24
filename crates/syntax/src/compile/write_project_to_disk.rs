@@ -15,7 +15,11 @@ pub(crate) fn run(File { path, data }: &File, #[resource] ctx: &BuildContext) {
         }
     }
 
-    log::debug!("Writing {} bytes to \"{}\"", data.len(), full_path.display());
+    log::debug!(
+        "Writing {} bytes to \"{}\"",
+        data.len(),
+        full_path.display()
+    );
 
     if let Err(e) = std::fs::write(&full_path, data) {
         log::error!("Unable to write to \"{}\": {}", full_path.display(), e);

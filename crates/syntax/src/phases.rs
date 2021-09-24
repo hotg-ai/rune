@@ -67,6 +67,12 @@ pub fn build_with_hooks(
 
     compile::phase().run(&mut world, &mut res);
 
+    if hooks.after_compile(&mut c(&mut world, &mut res))
+        != Continuation::Continue
+    {
+        return (world, res);
+    }
+
     (world, res)
 }
 

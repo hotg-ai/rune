@@ -1,18 +1,11 @@
-use std::{collections::HashMap, path::Path};
-
+use std::path::Path;
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
     Manifest, Package, PatchSet, Product, Profiles, Publish, Resolver,
     TargetDepsSet, Workspace,
 };
 use legion::{Query, systems::CommandBuffer, world::SubWorld};
-
-use crate::{
-    BuildContext,
-    codegen::File,
-    lowering::{Name, ProcBlock},
-    parse,
-};
+use crate::{BuildContext, codegen::File, lowering::ProcBlock, parse};
 
 const REPO: &'static str = "https://github.com/hotg-ai/rune";
 
@@ -23,7 +16,7 @@ pub(crate) fn run(
     world: &SubWorld,
     cmd: &mut CommandBuffer,
     #[resource] ctx: &BuildContext,
-    query: &mut Query<(&Name, &ProcBlock)>,
+    query: &mut Query<&ProcBlock>,
 ) {
     let proc_blocks = query.iter(world);
     let manifest =
@@ -42,7 +35,7 @@ fn generate_manifest<'rune, I>(
     current_dir: &Path,
 ) -> Manifest
 where
-    I: IntoIterator<Item = (&'rune Name, &'rune ProcBlock)> + 'rune,
+    I: IntoIterator<Item = &'rune ProcBlock> + 'rune,
 {
     let product = Product {
         path: Some("lib.rs".to_string()),
@@ -78,7 +71,7 @@ fn package(name: &str) -> Package {
 
 fn dependencies<'rune, I>(proc_blocks: I, current_dir: &Path) -> DepsSet
 where
-    I: IntoIterator<Item = (&'rune Name, &'rune ProcBlock)> + 'rune,
+    I: IntoIterator<Item = &'rune ProcBlock> + 'rune,
 {
     let mut deps = DepsSet::new();
 
@@ -115,13 +108,9 @@ where
         );
     }
 
-    let proc_blocks: HashMap<_, _> = proc_blocks
-        .into_iter()
-        .map(|(name, pb)| (name.as_str(), &pb.path))
-        .collect();
-
-    for (name, path) in proc_blocks {
-        let dep = proc_block_dependency(path, current_dir);
+    for proc_block in proc_blocks {
+        let dep = proc_block_dependency(&proc_block.path, current_dir);
+        let name = proc_block.name();
         deps.insert(name.to_string(), Dependency::Detailed(dep));
     }
 

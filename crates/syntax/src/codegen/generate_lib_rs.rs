@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use hotg_rune_core::{Shape, reflect::Type};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{ToTokens, quote};
@@ -191,7 +192,12 @@ fn execute_pipeline(
     order
         .iter()
         .map(|entity| {
-            execute_pipeline_node(entity, &pipeline_nodes, &tensor_names)
+            execute_pipeline_node(
+                entity,
+                &pipeline_nodes,
+                &tensor_names,
+                tensors,
+            )
         })
         .collect()
 }
@@ -203,6 +209,7 @@ fn execute_pipeline_node(
         (&Name, Option<&Inputs>, Option<&Outputs>),
     >,
     tensor_names: &HashMap<Entity, Ident>,
+    tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
 ) -> TokenStream {
     let (name, inputs, outputs) = pipeline_nodes
         .get(node)
@@ -210,11 +217,15 @@ fn execute_pipeline_node(
         .expect("This pipeline node always be present");
 
     match (inputs, outputs) {
-        (Some(inputs), Some(outputs)) => {
-            execute_model_or_proc_block(name, inputs, outputs, tensor_names)
-        },
+        (Some(inputs), Some(outputs)) => execute_model_or_proc_block(
+            name,
+            inputs,
+            outputs,
+            tensor_names,
+            tensors,
+        ),
         (None, Some(outputs)) => {
-            execute_capability(name, outputs, tensor_names)
+            execute_capability(name, outputs, tensor_names, tensors)
         },
         (Some(inputs), None) => execute_output(name, inputs, tensor_names),
         (None, None) => {
@@ -244,14 +255,56 @@ fn execute_model_or_proc_block(
     inputs: &Inputs,
     outputs: &Outputs,
     tensor_names: &HashMap<Entity, Ident>,
+    tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
 ) -> TokenStream {
     let name = Ident::new(name, Span::call_site());
     let inputs = tensor_name_or_tuple(&inputs.tensors, tensor_names);
+    let output_types = tensor_types(&outputs.tensors, tensors);
     let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
 
     quote! {
-        let #outputs = #name.process(#inputs);
+        let #outputs: #output_types = #name.transform(#inputs);
     }
+}
+
+fn tensor_types<'world>(
+    tensors: &[Entity],
+    all_tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
+) -> TokenStream {
+    let mut types = Vec::new();
+
+    for ent in tensors {
+        let (_, Tensor(shape), _, _) = all_tensors
+            .iter()
+            .copied()
+            .find(|(e, _, _, _)| ent == *e)
+            .unwrap();
+
+        types.push(shape_to_tensor_type(shape));
+    }
+
+    match types.as_slice() {
+        [single] => single.clone(),
+        many => quote!((#(#many),*)),
+    }
+}
+
+fn shape_to_tensor_type(shape: &Shape) -> TokenStream {
+    let element_type = match shape.element_type() {
+        &Type::u8 => quote!(u8),
+        &Type::i8 => quote!(i8),
+        &Type::u16 => quote!(u16),
+        &Type::i16 => quote!(i16),
+        &Type::u32 => quote!(u32),
+        &Type::i32 => quote!(i32),
+        &Type::f32 => quote!(f32),
+        &Type::u64 => quote!(u64),
+        &Type::i64 => quote!(i64),
+        &Type::f64 => quote!(f64),
+        &Type::str => quote!(&str),
+        other => unreachable!("Unable to get the Rust name for {:?}", other),
+    };
+    quote!(Tensor<#element_type>)
 }
 
 fn tensor_name_or_tuple(
@@ -271,11 +324,13 @@ fn execute_capability(
     name: &Name,
     outputs: &Outputs,
     tensor_names: &HashMap<Entity, Ident>,
+    tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
 ) -> TokenStream {
     let name = Ident::new(name, Span::call_site());
+    let output_types = tensor_types(&outputs.tensors, tensors);
     let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
 
-    quote! { let #outputs = #name.generate(); }
+    quote! { let #outputs: #output_types = #name.generate(); }
 }
 
 #[derive(Debug, Default)]
@@ -479,8 +534,23 @@ where
         .map(|&ent| {
             get_tensor(ent).expect("All tensors should have been allocated")
         })
-        .map(|t| t.0.to_string());
+        .map(|t| shape_to_tokens(&t.0));
     quote! { &[#(#inputs),*] }
+}
+
+fn shape_to_tokens(shape: &Shape<'_>) -> TokenStream {
+    let rust_name = shape.element_type().rust_name().unwrap();
+    let rust_name = Ident::new(rust_name, Span::call_site());
+    let element_type = quote!(hotg_rune_core::reflect::Type::#rust_name);
+
+    let dimensions = shape.dimensions();
+
+    quote! {
+        hotg_rune_core::Shape::new(
+            #element_type,
+            [ #(#dimensions),* ].as_ref(),
+        )
+    }
 }
 
 fn initialize_proc_blocks(proc_blocks: &[(&Name, &ProcBlock)]) -> TokenStream {
@@ -561,6 +631,9 @@ fn value_to_tokens(value: &Value) -> TokenStream {
     match value {
         Value::Int(i) => i.into_token_stream(),
         Value::Float(f) => f.into_token_stream(),
+        Value::String(ResourceOrString::String(s)) if s.starts_with("@") => {
+            s[1..].parse().unwrap()
+        },
         Value::String(ResourceOrString::String(s)) => s.into_token_stream(),
         Value::String(ResourceOrString::Resource(r)) => {
             let resource_name = Ident::new(r, Span::call_site());
@@ -568,7 +641,7 @@ fn value_to_tokens(value: &Value) -> TokenStream {
         },
         Value::List(list) => {
             let tokens = list.iter().map(value_to_tokens);
-            quote! { &[ #(#tokens),* ] }
+            quote! { [ #(#tokens),* ].as_ref() }
         },
     }
 }
@@ -759,7 +832,7 @@ where
             let path = format!("models/{}", name);
 
             quote! {
-                pub(crate) static ref #name: &[u8] = include_str!(#path);
+                pub(crate) static ref #name: &'static [u8] = include_bytes!(#path);
             }
         },
         ModelFile::Resource(resource) => {
@@ -767,7 +840,7 @@ where
             let resource_name = Ident::new(resource_name, Span::call_site());
 
             quote! {
-                pub(crate) static ref #name: &[u8] = crate::resources::#resource_name.as_ref();
+                pub(crate) static ref #name: &'static [u8] = crate::resources::#resource_name.as_ref();
             }
         },
     }
@@ -907,7 +980,8 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         let mut cmd = CommandBuffer::new(&world);
-        let first_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
+        let first_output_tensor = Tensor("f32[1]".parse().unwrap());
+        let first_output = cmd.push((first_output_tensor.clone(),));
         let name = Name::from("first");
         let outputs = Outputs {
             tensors: vec![first_output],
@@ -917,11 +991,12 @@ mod tests {
             vec![(first_output, Ident::new("first_0", Span::call_site()))]
                 .into_iter()
                 .collect();
+        let tensors = &[(&first_output, &first_output_tensor, None, None)];
 
-        let got = execute_capability(&name, &outputs, &tensor_names);
+        let got = execute_capability(&name, &outputs, &tensor_names, tensors);
 
         let should_be = quote! {
-            let first_0 = first.generate();
+            let first_0: Tensor<f32> = first.generate();
         };
         assert_quote_eq!(got, should_be);
     }
@@ -931,8 +1006,10 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         let mut cmd = CommandBuffer::new(&world);
-        let model_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
-        let model_input = cmd.push((Tensor("u8[1, 1, 1]".parse().unwrap()),));
+        let model_output_tensor = Tensor("f32[1]".parse().unwrap());
+        let model_output = cmd.push((model_output_tensor.clone(),));
+        let model_input_tensor = Tensor("u8[1, 1, 1]".parse().unwrap());
+        let model_input = cmd.push((model_input_tensor.clone(),));
         let name = Name::from("model");
         cmd.flush(&mut world, &mut resources);
         let inputs = Inputs {
@@ -947,16 +1024,21 @@ mod tests {
         ]
         .into_iter()
         .collect();
+        let tensors = &[
+            (&model_output, &model_output_tensor, None, None),
+            (&model_input, &model_input_tensor, None, None),
+        ];
 
         let got = execute_model_or_proc_block(
             &name,
             &inputs,
             &outputs,
             &tensor_names,
+            tensors,
         );
 
         let should_be = quote! {
-            let model_output = model.process(model_input);
+            let model_output: Tensor<f32> = model.transform(model_input);
         };
         assert_quote_eq!(got, should_be);
     }
@@ -994,5 +1076,23 @@ mod tests {
             serial.consume((first_input, second_input));
         };
         assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn tensor_shapes_as_rust_types() {
+        let inputs = vec![
+            ("f32[1]", quote!(Tensor<f32>)),
+            ("u8[1, 2, 3, 4]", quote!(Tensor<u8>)),
+            ("str[42]", quote!(Tensor<&str>)),
+        ];
+
+        for (shape, should_be) in inputs {
+            let shape: Shape<'_> = shape.parse().unwrap();
+            let got = shape_to_tensor_type(&shape);
+            assert_eq!(
+                got.to_string().replace(" ", ""),
+                should_be.to_string().replace(" ", "")
+            );
+        }
     }
 }

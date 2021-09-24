@@ -104,10 +104,8 @@ macro_rules! parse_and_analyse {
                 }
             }
 
-            #[test]
-            fn analyse() {
-                let file = SimpleFile::new("Runefile", SRC);
-                let ctx = BuildContext {
+            fn build_context() -> BuildContext {
+                BuildContext {
                     name: stringify!($example).to_string(),
                     runefile: SRC.to_string(),
                     working_directory: PATH.into(),
@@ -115,7 +113,13 @@ macro_rules! parse_and_analyse {
                     optimized: false,
                     verbosity: Verbosity::Normal,
                     rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
-                };
+                }
+            }
+
+            #[test]
+            fn analyse() {
+                let file = SimpleFile::new("Runefile", SRC);
+                let ctx = build_context();
                 let mut hooks = AbortAfterPhase::new(Phase::TypeCheck);
 
                 hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);
@@ -126,15 +130,7 @@ macro_rules! parse_and_analyse {
             #[test]
             fn codegen() {
                 let file = SimpleFile::new("Runefile", SRC);
-                let ctx = BuildContext {
-                    name: stringify!($example).to_string(),
-                    runefile: SRC.to_string(),
-                    working_directory: PATH.into(),
-                    current_directory: PATH.into(),
-                    optimized: false,
-                    verbosity: Verbosity::Normal,
-                    rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
-                };
+                let ctx = build_context();
                 let mut hooks = AbortAfterPhase::new(Phase::Codegen);
 
                 hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);

@@ -1,28 +1,48 @@
 use std::{
     path::Path,
     process::{Command, Output, Stdio},
+    sync::Mutex,
+};
+use legion::systems::CommandBuffer;
+use crate::{
+    BuildContext, Verbosity,
+    compile::{CompilationResult, CompileError, CompiledBinary},
 };
 
-use crate::{BuildContext, Verbosity};
-
 #[legion::system]
-pub(crate) fn run(#[resource] ctx: &BuildContext) {
+pub(crate) fn run(cmd: &mut CommandBuffer, #[resource] ctx: &BuildContext) {
     let BuildContext {
         working_directory,
         optimized,
         verbosity,
+        name,
         ..
     } = ctx;
 
     rustfmt(working_directory);
-    build(working_directory, *optimized, *verbosity);
+
+    let result = build(name, working_directory, *optimized, *verbosity);
+
+    // Note: the exec_mut() method takes a Fn() closure and not a FnOnce(), so
+    // we need to use a Mutex<Option<_>> to move the result.
+    let result = Mutex::new(Some(result));
+    cmd.exec_mut(move |_, res| {
+        let result = result.lock().unwrap().take().unwrap();
+        res.insert(CompilationResult(result));
+    })
 }
 
-fn build(working_directory: &Path, optimized: bool, verbosity: Verbosity) {
+fn build(
+    name: &str,
+    working_directory: &Path,
+    optimized: bool,
+    verbosity: Verbosity,
+) -> Result<CompiledBinary, CompileError> {
     let mut cmd = Command::new("cargo");
     cmd.arg("build")
         .arg("--manifest-path")
-        .arg(working_directory.join("Cargo.toml"));
+        .arg(working_directory.join("Cargo.toml"))
+        .arg("--target=wasm32-unknown-unknown");
 
     if optimized {
         cmd.arg("--release");
@@ -34,19 +54,26 @@ fn build(working_directory: &Path, optimized: bool, verbosity: Verbosity) {
 
     cmd.current_dir(working_directory);
 
-    match cmd.status() {
-        Ok(status) if status.success() => log::debug!("Compiled successfully"),
-        Ok(status) => {
-            log::error!(
-                "Compilation failed with exit code {}",
-                status.code().unwrap_or(1)
-            );
-        },
-        Err(e) => {
-            log::error!("Unable to compile the project: {}", e);
-            log::error!("Is cargo installed?");
-        },
+    let status = cmd.status().map_err(CompileError::DidntStart)?;
+
+    if !status.success() {
+        return Err(CompileError::BuildFailed(status));
     }
+
+    log::debug!("Compiled successfully");
+
+    let config = if optimized { "release" } else { "debug" };
+
+    let wasm = working_directory
+        .join("target")
+        .join("wasm32-unknown-unknown")
+        .join(config)
+        .join(name.replace("-", "_"))
+        .with_extension("wasm");
+
+    std::fs::read(&wasm)
+        .map(CompiledBinary::from)
+        .map_err(|error| CompileError::UnableToReadBinary { path: wasm, error })
 }
 
 fn rustfmt(working_directory: &Path) {

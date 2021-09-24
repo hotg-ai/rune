@@ -19,13 +19,14 @@ fn generate_config(optimized: bool) -> File {
         None
     };
 
-    let net = Net {
-        git_fetch_with_cli: true,
-    };
-
     let config = Config {
         target,
-        net: Some(net),
+        net: Net {
+            git_fetch_with_cli: true,
+        },
+        build: Build {
+            target: "wasm32-unknown-unknown",
+        },
     };
 
     let config = toml::to_vec(&config)
@@ -37,7 +38,16 @@ fn generate_config(optimized: bool) -> File {
 #[derive(Debug, serde::Serialize)]
 struct Config {
     target: Option<Targets>,
-    net: Option<Net>,
+    net: Net,
+    build: Build,
+}
+
+/// The [`[build]`](https://doc.rust-lang.org/cargo/reference/config.html#build)
+/// table.
+#[derive(Debug, serde::Serialize)]
+struct Build {
+    /// The default target triple.
+    target: &'static str,
 }
 
 /// The `[target]` table.
@@ -72,6 +82,9 @@ mod tests {
 
             [net]
             git-fetch-with-cli = true
+
+            [build]
+            target = "wasm32-unknown-unknown"
         };
 
         let got = generate_config(true);
@@ -84,6 +97,9 @@ mod tests {
         let should_be = toml::toml! {
             [net]
             git-fetch-with-cli = true
+
+            [build]
+            target = "wasm32-unknown-unknown"
         };
 
         let got = generate_config(false);
