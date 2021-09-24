@@ -9,8 +9,10 @@ use crate::{
         ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
     },
     lowering::{
-        Inputs, Model, Name, Outputs, ProcBlock, Resource, Sink, Source, Tensor,
+        Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource, Sink,
+        Source, Tensor,
     },
+    parse::{ResourceName, ResourceOrString},
 };
 
 use super::CapabilitySummary;
@@ -36,7 +38,21 @@ pub(crate) fn run(
             .collect(),
         models: models
             .iter(world)
-            .map(|(n, m, i, o)| model_summary(n, m, i, o, &canon))
+            .map(|(n, m, i, o)| {
+                model_summary(
+                    n,
+                    m,
+                    i,
+                    o,
+                    |ent| {
+                        resources
+                            .get(world, ent)
+                            .map(|(name, _)| ResourceName(name.to_string()))
+                            .unwrap()
+                    },
+                    &canon,
+                )
+            })
             .collect(),
         proc_blocks: proc_blocks
             .iter(world)
@@ -92,10 +108,20 @@ fn model_summary(
     model: &Model,
     inputs: &Inputs,
     outputs: &Outputs,
+    mut resources: impl FnMut(Entity) -> ResourceName,
     get_tensor: &Canon,
 ) -> (Name, ModelSummary) {
+    let file = match &model.model_file {
+        ModelFile::FromDisk(path) => {
+            ResourceOrString::String(path.display().to_string())
+        },
+        ModelFile::Resource(entity) => {
+            ResourceOrString::Resource(resources(*entity))
+        },
+    };
+
     let summary = ModelSummary {
-        model: model.model_file.clone(),
+        file,
         inputs: tensor_shapes(&inputs.tensors, get_tensor),
         outputs: tensor_shapes(&outputs.tensors, get_tensor),
     };
