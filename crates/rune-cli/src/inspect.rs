@@ -4,7 +4,7 @@ use std::{
 };
 use anyhow::{Context, Error};
 use build_info::BuildInfo;
-use hotg_rune_syntax::{
+use hotg_rune_compiler::{
     hir::{HirId, Rune, SourceKind},
     yaml::{Type, Value},
 };
@@ -181,8 +181,8 @@ impl SimplifiedRune {
                 .collect();
 
             match &node.stage {
-                hotg_rune_syntax::hir::Stage::Source(
-                    hotg_rune_syntax::hir::Source { kind, parameters },
+                hotg_rune_compiler::hir::Stage::Source(
+                    hotg_rune_compiler::hir::Source { kind, parameters },
                 ) => {
                     let kind = kind.clone();
                     let parameters = parameters.clone();
@@ -195,9 +195,9 @@ impl SimplifiedRune {
                         },
                     );
                 },
-                hotg_rune_syntax::hir::Stage::Sink(_) => {},
-                hotg_rune_syntax::hir::Stage::Model(_) => {},
-                hotg_rune_syntax::hir::Stage::ProcBlock(_) => {},
+                hotg_rune_compiler::hir::Stage::Sink(_) => {},
+                hotg_rune_compiler::hir::Stage::Model(_) => {},
+                hotg_rune_compiler::hir::Stage::ProcBlock(_) => {},
             }
         }
 
@@ -207,18 +207,18 @@ impl SimplifiedRune {
 
 fn resolve_type(rune: &Rune, type_id: HirId) -> Type {
     let (primitive, dims) = match &rune.types[&type_id] {
-        hotg_rune_syntax::hir::Type::Primitive(p) => (p, vec![1]),
-        hotg_rune_syntax::hir::Type::Buffer {
+        hotg_rune_compiler::hir::Type::Primitive(p) => (p, vec![1]),
+        hotg_rune_compiler::hir::Type::Buffer {
             underlying_type,
             dimensions,
         } => match &rune.types[underlying_type] {
-            hotg_rune_syntax::hir::Type::Primitive(p) => {
+            hotg_rune_compiler::hir::Type::Primitive(p) => {
                 (p, dimensions.clone())
             },
             _ => unreachable!(),
         },
-        hotg_rune_syntax::hir::Type::Unknown
-        | hotg_rune_syntax::hir::Type::Any => {
+        hotg_rune_compiler::hir::Type::Unknown
+        | hotg_rune_compiler::hir::Type::Any => {
             unreachable!("All types should have been resolved")
         },
     };

@@ -1,5 +1,5 @@
 [package]
-name = "hotg-rune-syntax"
+name = "hotg-rune-compiler"
 version = "0.7.1-dev"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"

@@ -12,7 +12,7 @@
 //!    step 1.
 
 use codespan_reporting::diagnostic::{Diagnostic, Severity};
-use hotg_rune_syntax::{
+use hotg_rune_compiler::{
     BuildContext, Diagnostics, FeatureFlags,
     hooks::{
         AfterCodegenContext, AfterLoweringContext, AfterTypeCheckingContext,
@@ -36,7 +36,7 @@ fn main() {
 
     let mut hooks = CustomHooks::default();
 
-    let (_world, res) = hotg_rune_syntax::build_with_hooks(
+    let (_world, res) = hotg_rune_compiler::build_with_hooks(
         build_ctx,
         FeatureFlags::development(),
         &mut hooks,
@@ -82,7 +82,7 @@ impl Hooks for CustomHooks {
         ctx: &mut dyn AfterCodegenContext,
     ) -> Continuation {
         for file in
-            <&hotg_rune_syntax::codegen::File>::query().iter(ctx.world())
+            <&hotg_rune_compiler::codegen::File>::query().iter(ctx.world())
         {
             let mut msg = String::new();
 

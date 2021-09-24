@@ -1059,10 +1059,9 @@ dependencies = [
  "criterion",
  "dirs",
  "env_logger 0.9.0",
- "hotg-rune-codegen",
+ "hotg-rune-compiler",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-syntax",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "hotg-runecoral",
@@ -1087,22 +1086,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotg-rune-codegen"
+name = "hotg-rune-compiler"
 version = "0.7.1-dev"
 dependencies = [
- "anyhow",
- "build-info",
+ "atomic_refcell",
  "cargo_toml",
+ "codespan",
+ "codespan-reporting",
+ "env_logger 0.9.0",
  "heck",
  "hotg-rune-core",
- "hotg-rune-syntax",
+ "indexmap",
+ "legion",
  "log",
+ "once_cell",
  "pretty_assertions",
  "proc-macro2",
  "quote",
+ "regex",
  "serde",
  "serde_json",
- "tempfile",
+ "serde_yaml",
  "toml",
 ]
 
@@ -1179,31 +1183,6 @@ dependencies = [
  "log",
  "rand 0.8.4",
  "thiserror",
-]
-
-[[package]]
-name = "hotg-rune-syntax"
-version = "0.7.1-dev"
-dependencies = [
- "atomic_refcell",
- "cargo_toml",
- "codespan",
- "codespan-reporting",
- "env_logger 0.9.0",
- "heck",
- "hotg-rune-core",
- "indexmap",
- "legion",
- "log",
- "once_cell",
- "pretty_assertions",
- "proc-macro2",
- "quote",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "toml",
 ]
 
 [[package]]
@@ -3444,10 +3423,8 @@ version = "0.2.1-dev"
 dependencies = [
  "anyhow",
  "cargo_toml",
- "codespan-reporting",
  "env_logger 0.9.0",
  "globset",
- "hotg-rune-syntax",
  "log",
  "serde",
  "serde_json",

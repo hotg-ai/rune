@@ -6,7 +6,7 @@ use codespan_reporting::{
 use hotg_rune_codegen::{
     Compilation, DefaultEnvironment, GitSpecifier, RuneProject, Verbosity,
 };
-use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
+use hotg_rune_compiler::{hir::Rune, yaml::Document, Diagnostics};
 use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
 
@@ -201,7 +201,7 @@ pub(crate) fn analyze(
 
     let parsed =
         Document::parse(&src).context("Unable to parse the Runefile")?;
-    let rune = hotg_rune_syntax::analyse(parsed, &mut diags);
+    let rune = hotg_rune_compiler::analyse(parsed, &mut diags);
 
     let mut writer = StandardStream::stderr(color);
     let config = Config::default();

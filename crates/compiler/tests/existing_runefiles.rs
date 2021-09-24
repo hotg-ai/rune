@@ -2,7 +2,7 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
-use hotg_rune_syntax::{
+use hotg_rune_compiler::{
     Diagnostics,
     parse::Document,
     hooks::{
@@ -122,7 +122,7 @@ macro_rules! parse_and_analyse {
                 let ctx = build_context();
                 let mut hooks = AbortAfterPhase::new(Phase::TypeCheck);
 
-                hotg_rune_syntax::build_with_hooks(
+                hotg_rune_compiler::build_with_hooks(
                     ctx,
                     FeatureFlags::development(),
                     &mut hooks,
@@ -137,7 +137,7 @@ macro_rules! parse_and_analyse {
                 let ctx = build_context();
                 let mut hooks = AbortAfterPhase::new(Phase::Codegen);
 
-                hotg_rune_syntax::build_with_hooks(
+                hotg_rune_compiler::build_with_hooks(
                     ctx,
                     FeatureFlags::development(),
                     &mut hooks,

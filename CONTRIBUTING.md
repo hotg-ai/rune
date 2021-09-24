@@ -69,7 +69,7 @@ The environments are:
   It typically involves the following crates:
   - `hotg_rune_core`
   - `hotg_rune_cli`
-  - `hotg_rune_syntax`
+  - `hotg_rune_compiler`
   - `hotg_rune_codegen`
 - **WebAssembly:** the Rune itself is compiled to a WebAssembly module and runs
   inside a WebAssembly virtual machine. In general, this is a very constrained
