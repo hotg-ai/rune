@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use legion::{Entity, systems::CommandBuffer, world::SubWorld, IntoQuery};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
@@ -7,8 +7,8 @@ use heck::{CamelCase, SnakeCase};
 use crate::{
     codegen::{CustomSection, File},
     lowering::{
-        Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource,
-        ResourceData, Sink, SinkKind, Source, SourceKind, Tensor,
+        Inputs, Model, ModelFile, Name, Outputs, PipelineNode, ProcBlock,
+        Resource, ResourceData, Sink, SinkKind, Source, SourceKind, Tensor,
     },
     parse::{ResourceOrString, ResourceType, Value},
 };
@@ -20,6 +20,7 @@ use crate::{
 #[read_component(Name)]
 #[read_component(Outputs)]
 #[read_component(ProcBlock)]
+#[read_component(PipelineNode)]
 #[read_component(Resource)]
 #[read_component(ResourceData)]
 #[read_component(Sink)]
@@ -29,13 +30,20 @@ pub(crate) fn run(cmd: &mut CommandBuffer, world: &SubWorld) {
     let mut sections = <&CustomSection>::query();
     let mut models = <(&Name, &Model, &Inputs, &Outputs)>::query();
     let mut names = <&Name>::query();
-    let mut tensors = <&Tensor>::query();
+    let mut tensors =
+        <(Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)>::query();
+    let mut tensor_by_ent = <&Tensor>::query();
     let mut resources = <(&Name, &Resource, Option<&ResourceData>)>::query();
     let mut capabilities = <(&Name, &Source)>::query();
     let mut proc_blocks = <(&Name, &ProcBlock)>::query();
     let mut outputs = <(&Name, &Sink)>::query();
-    let mut pipeline_nodes =
-        <(Entity, &Name, Option<&Inputs>, Option<&Outputs>)>::query();
+    let mut pipeline_nodes = <(
+        Entity,
+        &Name,
+        Option<&Inputs>,
+        Option<&Outputs>,
+        &PipelineNode,
+    )>::query();
 
     let models: Vec<_> = models.iter(world).collect();
     let sections: Vec<_> = sections.iter(world).collect();
@@ -44,6 +52,7 @@ pub(crate) fn run(cmd: &mut CommandBuffer, world: &SubWorld) {
     let proc_blocks: Vec<_> = proc_blocks.iter(world).collect();
     let outputs: Vec<_> = outputs.iter(world).collect();
     let pipeline_nodes: Vec<_> = pipeline_nodes.iter(world).collect();
+    let tensors: Vec<_> = tensors.iter(world).collect();
 
     let lib_rs = generate_lib_rs(
         &sections,
@@ -53,8 +62,9 @@ pub(crate) fn run(cmd: &mut CommandBuffer, world: &SubWorld) {
         &proc_blocks,
         &outputs,
         &pipeline_nodes,
+        &tensors,
         |ent| names.get(world, ent).ok(),
-        |ent| tensors.get(world, ent).ok(),
+        |ent| tensor_by_ent.get(world, ent).ok(),
     );
     let file = File::new("lib.rs", lib_rs.to_string().into_bytes());
 
@@ -73,7 +83,14 @@ fn generate_lib_rs<'world>(
     capabilities: &[(&Name, &Source)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
-    pipeline_nodes: &[(&Entity, &Name, Option<&Inputs>, Option<&Outputs>)],
+    pipeline_nodes: &[(
+        &Entity,
+        &Name,
+        Option<&Inputs>,
+        Option<&Outputs>,
+        &PipelineNode,
+    )],
+    tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
     mut get_name: impl FnMut(Entity) -> Option<&'world Name>,
     mut get_tensor: impl FnMut(Entity) -> Option<&'world Tensor>,
 ) -> TokenStream {
@@ -90,6 +107,7 @@ fn generate_lib_rs<'world>(
         proc_blocks,
         outputs,
         pipeline_nodes,
+        tensors,
         &mut get_name,
         &mut get_tensor,
     );
@@ -113,7 +131,14 @@ fn generate_manifest_function<'world, F, T>(
     capabilities: &[(&Name, &Source)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
-    pipeline_nodes: &[(&Entity, &Name, Option<&Inputs>, Option<&Outputs>)],
+    pipeline_nodes: &[(
+        &Entity,
+        &Name,
+        Option<&Inputs>,
+        Option<&Outputs>,
+        &PipelineNode,
+    )],
+    tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
     get_name: &mut F,
     get_tensor: &mut T,
 ) -> TokenStream
@@ -128,7 +153,7 @@ where
         .map(|(n, m, i, o)| initialize_model(n, m, i, o, get_name, get_tensor))
         .collect();
     let outputs = initialize_outputs(outputs);
-    let pipeline = execute_pipeline(pipeline_nodes);
+    let pipeline = execute_pipeline(pipeline_nodes, tensors);
 
     quote! {
         #[no_mangle]
@@ -153,9 +178,233 @@ where
 }
 
 fn execute_pipeline(
-    pipeline_nodes: &[(&Entity, &Name, Option<&Inputs>, Option<&Outputs>)],
+    pipeline_nodes: &[(
+        &Entity,
+        &Name,
+        Option<&Inputs>,
+        Option<&Outputs>,
+        &PipelineNode,
+    )],
+    tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
 ) -> TokenStream {
-    todo!()
+    let ExecutionOrder {
+        order,
+        tensor_names,
+        pipeline_nodes,
+        ..
+    } = ExecutionOrder::calculate(pipeline_nodes, tensors);
+
+    order
+        .iter()
+        .map(|entity| {
+            execute_pipeline_node(entity, &pipeline_nodes, &tensor_names)
+        })
+        .collect()
+}
+
+fn execute_pipeline_node(
+    node: &Entity,
+    pipeline_nodes: &HashMap<
+        Entity,
+        (&Name, Option<&Inputs>, Option<&Outputs>),
+    >,
+    tensor_names: &HashMap<Entity, Ident>,
+) -> TokenStream {
+    let (name, inputs, outputs) = pipeline_nodes
+        .get(node)
+        .copied()
+        .expect("This pipeline node always be present");
+
+    match (inputs, outputs) {
+        (Some(inputs), Some(outputs)) => {
+            execute_model_or_proc_block(name, inputs, outputs, tensor_names)
+        },
+        (None, Some(outputs)) => {
+            execute_capability(name, outputs, tensor_names)
+        },
+        (Some(inputs), None) => execute_output(name, inputs, tensor_names),
+        (None, None) => {
+            unreachable!(
+                "The \"{}\" pipeline node should have inputs and/or outputs",
+                name
+            )
+        },
+    }
+}
+
+fn execute_output(
+    name: &Name,
+    inputs: &Inputs,
+    tensor_names: &HashMap<Entity, Ident>,
+) -> TokenStream {
+    let name = Ident::new(name, Span::call_site());
+    let inputs = tensor_name_or_tuple(&inputs.tensors, tensor_names);
+
+    quote! {
+        #name.consume(#inputs);
+    }
+}
+
+fn execute_model_or_proc_block(
+    name: &Name,
+    inputs: &Inputs,
+    outputs: &Outputs,
+    tensor_names: &HashMap<Entity, Ident>,
+) -> TokenStream {
+    let name = Ident::new(name, Span::call_site());
+    let inputs = tensor_name_or_tuple(&inputs.tensors, tensor_names);
+    let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
+
+    quote! {
+        let #outputs = #name.process(#inputs);
+    }
+}
+
+fn tensor_name_or_tuple(
+    tensors: &[Entity],
+    tensor_names: &HashMap<Entity, Ident>,
+) -> TokenStream {
+    let names: Vec<_> = tensors.iter().map(|t| &tensor_names[t]).collect();
+
+    match names.as_slice() {
+        [] => unreachable!("Expected 1 or more tensors"),
+        [tensor] => tensor.into_token_stream(),
+        names => quote!((#(#names),*)),
+    }
+}
+
+fn execute_capability(
+    name: &Name,
+    outputs: &Outputs,
+    tensor_names: &HashMap<Entity, Ident>,
+) -> TokenStream {
+    let name = Ident::new(name, Span::call_site());
+    let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
+
+    quote! { let #outputs = #name.generate(); }
+}
+
+#[derive(Debug, Default)]
+struct ExecutionOrder<'world> {
+    order: Vec<Entity>,
+    tensor_names: HashMap<Entity, Ident>,
+    // internal bookkeeping
+    visited_nodes: HashSet<Entity>,
+    pipeline_nodes: HashMap<
+        Entity,
+        (
+            &'world Name,
+            Option<&'world Inputs>,
+            Option<&'world Outputs>,
+        ),
+    >,
+    tensors: &'world [(
+        &'world Entity,
+        &'world Tensor,
+        Option<&'world Inputs>,
+        Option<&'world Outputs>,
+    )],
+    tensor_inputs: HashMap<Entity, &'world [Entity]>,
+}
+
+impl<'world> ExecutionOrder<'world> {
+    /// Given a set of pipeline nodes, determine the order they should be
+    /// executed in and variable names for the various tensors involved.
+    ///
+    /// # Notes
+    ///
+    /// This assumes the pipeline nodes define a directed acyclic graph, and may
+    /// not return if it contains cycles.
+    ///
+    /// This does [a topological sort][topo] using a modified depth-first
+    /// search.
+    ///
+    /// [topo]: https://www.geeksforgeeks.org/topological-sorting/
+    fn calculate(
+        pipeline_nodes: &'world [(
+            &'world Entity,
+            &'world Name,
+            Option<&'world Inputs>,
+            Option<&'world Outputs>,
+            &'world PipelineNode,
+        )],
+        tensors: &'world [(
+            &'world Entity,
+            &'world Tensor,
+            Option<&'world Inputs>,
+            Option<&'world Outputs>,
+        )],
+    ) -> Self {
+        let mut order = ExecutionOrder {
+            order: Vec::new(),
+            tensor_names: HashMap::new(),
+            visited_nodes: HashSet::new(),
+            pipeline_nodes: pipeline_nodes
+                .iter()
+                .copied()
+                .map(|(ent, name, inputs, outputs, _)| {
+                    (*ent, (name, inputs, outputs))
+                })
+                .collect(),
+            tensors,
+            tensor_inputs: tensors
+                .iter()
+                .copied()
+                .map(|(ent, _, inputs, _)| {
+                    (
+                        *ent,
+                        inputs
+                            .map(|i| i.tensors.as_slice())
+                            .unwrap_or_default(),
+                    )
+                })
+                .collect(),
+        };
+
+        for (entity, ..) in pipeline_nodes.iter().copied() {
+            order.visit(*entity);
+        }
+
+        order
+    }
+
+    fn visit(&mut self, entity: Entity) {
+        if self.visited_nodes.contains(&entity) {
+            return;
+        }
+
+        self.visited_nodes.insert(entity);
+
+        let (name, inputs, outputs) = self.pipeline_nodes[&entity];
+
+        // We need to make sure all the inputs have been initialized first
+        if let Some(inputs) = inputs {
+            for input in &inputs.tensors {
+                let previous_nodes =
+                    self.tensor_inputs.get(input).copied().expect(
+                        "All tensors must have a node that created them",
+                    );
+                for &previous_node in previous_nodes {
+                    self.visit(previous_node);
+                }
+            }
+        }
+
+        // the pipeline node is executed
+        self.order.push(entity);
+
+        // and now it's been executed, we can mark each of its outputs as
+        // available.
+        if let Some(outputs) = outputs {
+            for (i, tensor) in outputs.tensors.iter().enumerate() {
+                let tensor_name = format!("{}_{}", name, i);
+                self.tensor_names.insert(
+                    *tensor,
+                    Ident::new(&tensor_name, Span::call_site()),
+                );
+            }
+        }
+    }
 }
 
 fn initialize_outputs(outputs: &[(&Name, &Sink)]) -> TokenStream {
@@ -536,6 +785,8 @@ mod tests {
         io::{Write, Read},
         process::{Command, Stdio},
     };
+    use legion::{Resources, World};
+
     use super::*;
 
     fn rustfmt(tokens: TokenStream) -> String {
@@ -588,5 +839,69 @@ mod tests {
         let got = generate_custom_section(42, &section);
 
         assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn simple_linear_execution_order() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut cmd = CommandBuffer::new(&world);
+        // manually add the first node
+        let first_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
+        let first = cmd.push((
+            Name::from("first"),
+            Outputs {
+                tensors: vec![first_output],
+            },
+        ));
+        // add the second node
+        let second_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
+        let second = cmd.push((
+            Name::from("second"),
+            Inputs {
+                tensors: vec![first_output],
+            },
+            Outputs {
+                tensors: vec![second_output],
+            },
+        ));
+        // Add the third node
+        let third = cmd.push((
+            Name::from("third"),
+            Inputs {
+                tensors: vec![second_output],
+            },
+        ));
+        cmd.flush(&mut world, &mut resources);
+
+        let pipeline_nodes: Vec<_> = <(
+            Entity,
+            &Name,
+            Option<&Inputs>,
+            Option<&Outputs>,
+            &PipelineNode,
+        )>::query()
+        .iter(&world)
+        .collect();
+        let tensors: Vec<_> =
+            <(Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)>::query()
+                .iter(&world)
+                .collect();
+
+        let ExecutionOrder {
+            order,
+            tensor_names,
+            ..
+        } = ExecutionOrder::calculate(&pipeline_nodes, &tensors);
+
+        let order_should_be = vec![first, second, third];
+        assert_eq!(order, order_should_be);
+        let tensor_names_should_be: HashMap<_, _> = vec![
+            (first_output, Ident::new("first_0", Span::call_site())),
+            (second_output, Ident::new("second_0", Span::call_site())),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(tensor_names, tensor_names_should_be);
     }
 }
