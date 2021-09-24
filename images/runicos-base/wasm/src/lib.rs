@@ -21,7 +21,7 @@ pub use crate::{
     logging::Logger,
     model::Model,
     serial::Serial,
-    resources::Resource,
+    resources::{Resource, ResourceError},
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
