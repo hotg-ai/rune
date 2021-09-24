@@ -152,7 +152,7 @@ where
 
     quote! {
         #[no_mangle]
-        pub extern "C" fn manifest() -> i32 {
+        pub extern "C" fn _manifest() -> i32 {
             #capabilities
             #proc_blocks
             #models
@@ -580,7 +580,7 @@ fn initialize_proc_block(name: &Name, proc_block: &ProcBlock) -> TokenStream {
     let name = Ident::new(name, Span::call_site());
     let setters = proc_block.parameters.iter().map(|(key, value)| {
         let value = value_to_tokens(value);
-        let setter = format!("set_{}", key);
+        let setter = format!("set_{}", key).replace("-", "_");
         let setter = Ident::new(&setter, Span::call_site());
         quote! {
             #name.#setter(#value);
@@ -628,6 +628,7 @@ fn initialize_capability(name: &Name, source: &Source) -> TokenStream {
 
     let name = Ident::new(name, Span::call_site());
     let setters = source.parameters.iter().map(|(key, value)| {
+        let key = key.replace("-", "_");
         let value = value_to_tokens(value);
         quote! {
             #name.set_parameter(#key, #value);
@@ -1053,7 +1054,7 @@ mod tests {
         );
 
         let should_be = quote! {
-            let model_output: Tensor<f32> = model.transform(model_input);
+            let model_output: Tensor<f32> = model.transform(model_input.clone());
         };
         assert_quote_eq!(got, should_be);
     }
@@ -1088,7 +1089,7 @@ mod tests {
         let got = execute_output(&name, &inputs, &tensor_names);
 
         let should_be = quote! {
-            serial.consume((first_input, second_input));
+            serial.consume((first_input.clone(), second_input.clone()));
         };
         assert_quote_eq!(got, should_be);
     }

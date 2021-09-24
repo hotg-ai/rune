@@ -23,7 +23,7 @@ pub(crate) fn run(
     let mut manifest =
         generate_manifest(proc_blocks, &ctx.name, &ctx.current_directory);
 
-    if let Some(hotg_repo_dir) = features.hotg_repo_dir.as_deref() {
+    if let Some(hotg_repo_dir) = features.rune_repo_dir.as_deref() {
         patch_hotg_dependencies(hotg_repo_dir, &mut manifest);
     }
 

@@ -3,6 +3,8 @@ use std::{
     process::Command,
 };
 
+use crate::codegen::RuneVersion;
+
 /// Inputs used during the compilation process.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BuildContext {
@@ -18,7 +20,7 @@ pub struct BuildContext {
     pub optimized: bool,
     pub verbosity: Verbosity,
     /// The version of Rune being used.
-    pub rune_version: Option<String>,
+    pub rune_version: Option<RuneVersion>,
 }
 
 impl BuildContext {
@@ -51,7 +53,9 @@ impl BuildContext {
             current_directory,
             optimized: true,
             verbosity: Verbosity::Normal,
-            rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            rune_version: Some(RuneVersion {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            }),
         })
     }
 
@@ -64,7 +68,9 @@ impl BuildContext {
             current_directory: PathBuf::from("."),
             optimized: false,
             verbosity: Verbosity::Normal,
-            rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            rune_version: Some(RuneVersion {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            }),
         }
     }
 }
@@ -105,7 +111,7 @@ impl Verbosity {
 /// Feature flags and other knobs that can be used during development.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeatureFlags {
-    pub(crate) hotg_repo_dir: Option<PathBuf>,
+    pub(crate) rune_repo_dir: Option<PathBuf>,
 }
 
 impl FeatureFlags {
@@ -116,22 +122,24 @@ impl FeatureFlags {
             .filter(|repo_root| repo_root.join(".git").exists())
             .map(PathBuf::from);
 
-        FeatureFlags { hotg_repo_dir }
+        FeatureFlags {
+            rune_repo_dir: hotg_repo_dir,
+        }
     }
 
     pub const fn production() -> Self {
         FeatureFlags {
-            hotg_repo_dir: None,
+            rune_repo_dir: None,
         }
     }
 
-    /// If specified, HOTG dependencies (e.g `hotg-rune-core`) will be patched
+    /// If specified, Rune crates (e.g `hotg-rune-core`) will be patched
     /// to use crates from this directory instead of crates.io or GitHub.
-    pub fn set_hotg_repo_dir(
+    pub fn set_rune_repo_dir(
         &mut self,
         hotg_repo_dir: impl Into<Option<PathBuf>>,
     ) -> &mut Self {
-        self.hotg_repo_dir = hotg_repo_dir.into();
+        self.rune_repo_dir = hotg_repo_dir.into();
         self
     }
 }

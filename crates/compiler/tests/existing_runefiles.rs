@@ -8,6 +8,7 @@ use hotg_rune_compiler::{
     hooks::{
         Hooks, AfterTypeCheckingContext, AfterCodegenContext, Continuation,
     },
+    codegen::RuneVersion,
     BuildContext, Verbosity, FeatureFlags,
 };
 
@@ -112,7 +113,9 @@ macro_rules! parse_and_analyse {
                     current_directory: PATH.into(),
                     optimized: false,
                     verbosity: Verbosity::Normal,
-                    rune_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                    rune_version: Some(RuneVersion {
+                        version: env!("CARGO_PKG_VERSION").to_string(),
+                    }),
                 }
             }
 

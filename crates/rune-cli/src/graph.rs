@@ -2,9 +2,6 @@
 
 use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::{Context, Error};
-use hotg_rune_compiler::hir::{
-    HirId, Model, ModelFile, NameTable, Node, Rune, Slot, Type,
-};
 use codespan_reporting::term::termcolor::ColorChoice;
 use indexmap::IndexMap;
 

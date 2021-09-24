@@ -1,6 +1,7 @@
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
+    ops::Deref,
     path::PathBuf,
     process::ExitStatus,
     sync::Arc,
@@ -11,6 +12,16 @@ pub struct CompiledBinary(pub Arc<[u8]>);
 
 impl From<Vec<u8>> for CompiledBinary {
     fn from(bytes: Vec<u8>) -> Self { CompiledBinary(bytes.into()) }
+}
+
+impl AsRef<[u8]> for CompiledBinary {
+    fn as_ref(&self) -> &[u8] { &self.0 }
+}
+
+impl Deref for CompiledBinary {
+    type Target = Arc<[u8]>;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
 }
 
 /// The result from compiling... Essentially a newtype'd `Result`.

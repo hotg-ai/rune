@@ -77,12 +77,16 @@ fn build(
 }
 
 fn rustfmt(working_directory: &Path) {
-    let output = Command::new("cargo")
-        .arg("fmt")
+    let mut cmd = Command::new("cargo");
+    cmd.arg("fmt")
         .arg("--manifest-path")
         .arg(working_directory.join("Cargo.toml"))
-        .stderr(Stdio::piped())
-        .output();
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    log::debug!("Executing {:?}", cmd);
+
+    let output = cmd.output();
 
     match output {
         Ok(Output { status, .. }) if status.success() => {

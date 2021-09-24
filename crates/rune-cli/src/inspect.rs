@@ -1,14 +1,6 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    path::PathBuf,
-};
+use std::{path::PathBuf};
 use anyhow::{Context, Error};
-use build_info::BuildInfo;
-use hotg_rune_compiler::{
-    hir::{HirId, Rune, SourceKind},
-    yaml::{Type, Value},
-};
-use serde::{Serialize, Serializer};
+use hotg_rune_compiler::codegen::{RuneGraph, RuneVersion};
 use strum::VariantNames;
 use wasmparser::{BinaryReaderError, Parser, Payload};
 use crate::Format;
@@ -50,64 +42,19 @@ impl Inspect {
 }
 
 fn print_meta(meta: &Metadata) {
-    if let Some(build_info) = &meta.rune_cli_build_info {
-        let git = build_info.version_control.as_ref().and_then(|v| v.git());
-
-        print!(
-            "Compiled by: {} v{}",
-            build_info.crate_info.name, build_info.crate_info.version,
-        );
-
-        match git {
-            Some(git) => println!(
-                " ({} {})",
-                git.commit_short_id,
-                git.commit_timestamp.date().naive_utc(),
-            ),
-            None => println!(),
-        }
+    if let Some(version) = &meta.version {
+        print!("Compiled by: Rune {}", version);
     }
 
-    if let Some(SimplifiedRune { capabilities }) = &meta.simplified_rune {
-        if !capabilities.is_empty() {
-            print_capabilities(&capabilities);
-        }
-    }
-}
-
-fn print_capabilities(capabilities: &BTreeMap<String, SimplifiedCapability>) {
-    println!("Capabilities:");
-
-    for (name, value) in capabilities {
-        let SimplifiedCapability {
-            capability_type,
-            outputs,
-            parameters,
-        } = value;
-        println!("  {} ({})", name, capability_type);
-
-        if !outputs.is_empty() {
-            println!("    Outputs:");
-            for output in outputs {
-                println!("    - {}{:?}", output.name, output.dimensions);
-            }
-        }
-
-        if !parameters.is_empty() {
-            println!("    Parameters:");
-            for (key, value) in parameters {
-                println!("    - {}: {:?}", key, value);
-            }
-        }
+    if let Some(simplified_rune) = &meta.simplified_rune {
+        todo!();
     }
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize)]
 pub(crate) struct Metadata {
-    rune_cli_build_info: Option<BuildInfo>,
-    #[serde(skip)]
-    rune: Option<Rune>,
-    simplified_rune: Option<SimplifiedRune>,
+    version: Option<RuneVersion>,
+    simplified_rune: Option<RuneGraph>,
 }
 
 impl Metadata {
@@ -124,12 +71,10 @@ impl Metadata {
 
         for section in sections {
             match section.name {
-                hotg_rune_codegen::GRAPH_CUSTOM_SECTION => {
+                hotg_rune_compiler::codegen::GRAPH_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(rune) => {
-                            meta.simplified_rune =
-                                Some(SimplifiedRune::from_rune(&rune));
-                            meta.rune = Some(rune);
+                            meta.simplified_rune = Some(rune);
                         },
                         Err(e) => {
                             log::warn!(
@@ -139,10 +84,10 @@ impl Metadata {
                         },
                     }
                 },
-                hotg_rune_codegen::VERSION_CUSTOM_SECTION => {
+                hotg_rune_compiler::codegen::VERSION_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(v) => {
-                            meta.rune_cli_build_info = Some(v);
+                            meta.version = Some(v);
                         },
                         Err(e) => {
                             log::warn!(
@@ -158,90 +103,6 @@ impl Metadata {
 
         meta
     }
-
-    pub(crate) fn take_rune(&mut self) -> Option<Rune> { self.rune.take() }
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-struct SimplifiedRune {
-    capabilities: BTreeMap<String, SimplifiedCapability>,
-}
-
-impl SimplifiedRune {
-    fn from_rune(rune: &Rune) -> Self {
-        let mut capabilities = BTreeMap::new();
-
-        for (&id, node) in &rune.stages {
-            let name = rune.names[id].to_string();
-            let outputs = node
-                .output_slots
-                .iter()
-                .map(|slot| rune.slots[slot].element_type)
-                .map(|type_id| resolve_type(&rune, type_id))
-                .collect();
-
-            match &node.stage {
-                hotg_rune_compiler::hir::Stage::Source(
-                    hotg_rune_compiler::hir::Source { kind, parameters },
-                ) => {
-                    let kind = kind.clone();
-                    let parameters = parameters.clone();
-                    capabilities.insert(
-                        name,
-                        SimplifiedCapability {
-                            capability_type: kind,
-                            parameters,
-                            outputs,
-                        },
-                    );
-                },
-                hotg_rune_compiler::hir::Stage::Sink(_) => {},
-                hotg_rune_compiler::hir::Stage::Model(_) => {},
-                hotg_rune_compiler::hir::Stage::ProcBlock(_) => {},
-            }
-        }
-
-        SimplifiedRune { capabilities }
-    }
-}
-
-fn resolve_type(rune: &Rune, type_id: HirId) -> Type {
-    let (primitive, dims) = match &rune.types[&type_id] {
-        hotg_rune_compiler::hir::Type::Primitive(p) => (p, vec![1]),
-        hotg_rune_compiler::hir::Type::Buffer {
-            underlying_type,
-            dimensions,
-        } => match &rune.types[underlying_type] {
-            hotg_rune_compiler::hir::Type::Primitive(p) => {
-                (p, dimensions.clone())
-            },
-            _ => unreachable!(),
-        },
-        hotg_rune_compiler::hir::Type::Unknown
-        | hotg_rune_compiler::hir::Type::Any => {
-            unreachable!("All types should have been resolved")
-        },
-    };
-
-    Type {
-        name: primitive.rust_name().to_string(),
-        dimensions: dims,
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-struct SimplifiedCapability {
-    #[serde(serialize_with = "serialize_source_kind")]
-    capability_type: SourceKind,
-    outputs: Vec<Type>,
-    parameters: HashMap<String, Value>,
-}
-
-fn serialize_source_kind<S: Serializer>(
-    kind: &SourceKind,
-    ser: S,
-) -> Result<S::Ok, S::Error> {
-    kind.to_string().serialize(ser)
 }
 
 pub(crate) fn wasm_custom_sections(

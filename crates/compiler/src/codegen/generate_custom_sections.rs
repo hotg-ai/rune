@@ -2,7 +2,7 @@ use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use std::convert::TryFrom;
 use crate::{
     BuildContext,
-    codegen::{CustomSection, RESOURCE_CUSTOM_SECTION, RuneGraph, RuneVersion},
+    codegen::{CustomSection, RESOURCE_CUSTOM_SECTION, RuneGraph},
     lowering::{Name, ResourceData},
 };
 
@@ -22,7 +22,7 @@ pub(crate) fn run(
     resources: &mut Query<(Entity, &Name, &ResourceData)>,
 ) {
     if let Some(components) = version_section(ctx) {
-        cmd.push(components);
+        cmd.push((components,));
     }
 
     resources.for_each(world, |(&entity, name, data)| {
@@ -58,20 +58,12 @@ fn inline_resource(name: &Name, data: &ResourceData) -> CustomSection {
     }
 }
 
-fn version_section(ctx: &BuildContext) -> Option<(RuneVersion, CustomSection)> {
-    match ctx.rune_version.as_ref() {
-        Some(version) => {
-            let version_section = RuneVersion {
-                version: version.clone(),
-            };
-            let custom_section = version_section
-                .as_custom_section()
-                .expect("We should always be able to serialize to JSON");
-
-            Some((version_section, custom_section))
-        },
-        None => None,
-    }
+fn version_section(ctx: &BuildContext) -> Option<CustomSection> {
+    ctx.rune_version.as_ref().map(|version| {
+        version
+            .as_custom_section()
+            .expect("We should always be able to serialize to JSON")
+    })
 }
 
 #[cfg(test)]

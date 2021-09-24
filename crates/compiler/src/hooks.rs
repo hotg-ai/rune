@@ -140,8 +140,8 @@ pub trait AfterCodegenContext: AfterTypeCheckingContext {}
 
 /// Context passed to the [`Hooks::after_compile()`] method.
 pub trait AfterCompileContext: AfterCodegenContext {
-    fn compilation_result(&self) -> AtomicRef<'_, CompilationResult> {
-        self.resources().get().unwrap()
+    fn take_compilation_result(&mut self) -> CompilationResult {
+        self.resources_mut().remove().unwrap()
     }
 }
 

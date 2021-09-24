@@ -52,7 +52,9 @@ impl Resource {
             );
 
             if id >= 0 {
-                Ok(Resource { id: id.try_into().unwrap() })
+                Ok(Resource {
+                    id: id.try_into().unwrap(),
+                })
             } else {
                 Err(ResourceError::OpenFailed)
             }

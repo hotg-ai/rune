@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    fmt::{self, Display, Formatter},
+    path::PathBuf,
+    sync::Arc,
+};
 use serde::Serialize;
 
 pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
@@ -75,6 +79,14 @@ impl RuneVersion {
         &self,
     ) -> Result<CustomSection, serde_json::Error> {
         CustomSection::from_json(VERSION_CUSTOM_SECTION, self)
+    }
+}
+
+impl Display for RuneVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("v")?;
+        f.write_str(&self.version)?;
+        Ok(())
     }
 }
 
