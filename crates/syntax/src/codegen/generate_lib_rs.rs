@@ -243,7 +243,7 @@ fn execute_output(
     tensor_names: &HashMap<Entity, Ident>,
 ) -> TokenStream {
     let name = Ident::new(name, Span::call_site());
-    let inputs = tensor_name_or_tuple(&inputs.tensors, tensor_names);
+    let inputs = input_bindings(&inputs.tensors, tensor_names);
 
     quote! {
         #name.consume(#inputs);
@@ -258,12 +258,25 @@ fn execute_model_or_proc_block(
     tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
 ) -> TokenStream {
     let name = Ident::new(name, Span::call_site());
-    let inputs = tensor_name_or_tuple(&inputs.tensors, tensor_names);
+    let inputs = input_bindings(&inputs.tensors, tensor_names);
     let output_types = tensor_types(&outputs.tensors, tensors);
     let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
 
     quote! {
         let #outputs: #output_types = #name.transform(#inputs);
+    }
+}
+
+fn input_bindings(
+    tensors: &[Entity],
+    tensor_names: &HashMap<Entity, Ident>,
+) -> TokenStream {
+    let names: Vec<_> = tensors.iter().map(|t| &tensor_names[t]).collect();
+
+    match names.as_slice() {
+        [] => unreachable!("Expected 1 or more tensors"),
+        [tensor] => quote!(#tensor.clone()),
+        names => quote!((#( #names.clone() ),*)),
     }
 }
 
@@ -759,7 +772,7 @@ fn resource_initializer(
     // First we try to read the resource using the runtime, returning a
     // Result<Vec<u8>, _>
     let maybe_bytes = quote! {
-        hotg_runicos_base_wasm::Resource::read_to_end(name)
+        hotg_runicos_base_wasm::Resource::read_to_end(#name)
     };
 
     // We then take the Result and unwrap it, either falling back to a default
@@ -767,7 +780,7 @@ fn resource_initializer(
     let bytes = match data {
         Some(default_value) => {
             let default_value = Literal::byte_string(default_value);
-            quote!(#maybe_bytes.unwrap_or(#default_value))
+            quote!(#maybe_bytes.unwrap_or_else(|_| #default_value.as_ref().into()))
         },
         None => {
             let error_message =
@@ -785,8 +798,10 @@ fn resource_initializer(
                 format!("The \"{}\" resource isn't valid UTF-8", name);
 
             quote! {
-                pub(crate) static ref #ident: alloc::string::String =
-                    core::str::from_utf8(#bytes).expect(#error_message).into();
+                pub(crate) static ref #ident: alloc::string::String = {
+                    let bytes = #bytes;
+                    core::str::from_utf8(&bytes).expect(#error_message).into()
+                };
             }
         },
         ResourceType::Binary => {

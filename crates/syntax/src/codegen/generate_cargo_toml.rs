@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeMap, path::Path};
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
     Manifest, Package, PatchSet, Product, Profiles, Publish, Resolver,
