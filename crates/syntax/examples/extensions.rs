@@ -13,7 +13,7 @@
 
 use codespan_reporting::diagnostic::{Diagnostic, Severity};
 use hotg_rune_syntax::{
-    BuildContext, Diagnostics,
+    BuildContext, Diagnostics, FeatureFlags,
     hooks::{
         AfterCodegenContext, AfterLoweringContext, AfterTypeCheckingContext,
         Continuation, Hooks,
@@ -36,8 +36,11 @@ fn main() {
 
     let mut hooks = CustomHooks::default();
 
-    let (_world, res) =
-        hotg_rune_syntax::build_with_hooks(build_ctx, &mut hooks);
+    let (_world, res) = hotg_rune_syntax::build_with_hooks(
+        build_ctx,
+        FeatureFlags::development(),
+        &mut hooks,
+    );
 
     // Print out all diagnostics. Normally you'd use the codespan_reporting
     // crate, but println!() is good enough for now.

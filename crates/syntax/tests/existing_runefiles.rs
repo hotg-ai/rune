@@ -8,7 +8,7 @@ use hotg_rune_syntax::{
     hooks::{
         Hooks, AfterTypeCheckingContext, AfterCodegenContext, Continuation,
     },
-    BuildContext, Verbosity,
+    BuildContext, Verbosity, FeatureFlags,
 };
 
 macro_rules! parse_and_analyse {
@@ -122,7 +122,11 @@ macro_rules! parse_and_analyse {
                 let ctx = build_context();
                 let mut hooks = AbortAfterPhase::new(Phase::TypeCheck);
 
-                hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);
+                hotg_rune_syntax::build_with_hooks(
+                    ctx,
+                    FeatureFlags::development(),
+                    &mut hooks,
+                );
 
                 handle_diagnostics(&file, &hooks.diags);
             }
@@ -133,7 +137,11 @@ macro_rules! parse_and_analyse {
                 let ctx = build_context();
                 let mut hooks = AbortAfterPhase::new(Phase::Codegen);
 
-                hotg_rune_syntax::build_with_hooks(ctx, &mut hooks);
+                hotg_rune_syntax::build_with_hooks(
+                    ctx,
+                    FeatureFlags::development(),
+                    &mut hooks,
+                );
 
                 handle_diagnostics(&file, &hooks.diags);
             }

@@ -1,11 +1,14 @@
-use std::path::Path;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
     Manifest, Package, PatchSet, Product, Profiles, Publish, Resolver,
     TargetDepsSet, Workspace,
 };
 use legion::{Query, systems::CommandBuffer, world::SubWorld};
-use crate::{BuildContext, codegen::File, lowering::ProcBlock, parse};
+use crate::{BuildContext, FeatureFlags, codegen::File, lowering::ProcBlock, parse};
 
 const REPO: &'static str = "https://github.com/hotg-ai/rune";
 
@@ -16,11 +19,16 @@ pub(crate) fn run(
     world: &SubWorld,
     cmd: &mut CommandBuffer,
     #[resource] ctx: &BuildContext,
+    #[resource] features: &FeatureFlags,
     query: &mut Query<&ProcBlock>,
 ) {
     let proc_blocks = query.iter(world);
-    let manifest =
+    let mut manifest =
         generate_manifest(proc_blocks, &ctx.name, &ctx.current_directory);
+
+    if let Some(hotg_repo_dir) = features.hotg_repo_dir.as_deref() {
+        patch_hotg_dependencies(hotg_repo_dir, &mut manifest);
+    }
 
     let manifest = toml::to_string_pretty(&manifest)
         .expect("Serializing to a string should never fail");
@@ -230,6 +238,70 @@ fn empty_dependency_detail() -> DependencyDetail {
         default_features: None,
         package: None,
     }
+}
+
+fn path_dependency(path: impl AsRef<Path>) -> Dependency {
+    Dependency::Detailed(DependencyDetail {
+        path: Some(path.as_ref().to_string_lossy().into()),
+        ..empty_dependency_detail()
+    })
+}
+
+fn patch_hotg_dependencies(hotg_repo_dir: &Path, manifest: &mut Manifest) {
+    let known_paths = &[
+        ("hotg-rune-core", "crates/rune-core"),
+        ("hotg-rune-proc-blocks", "proc-blocks/proc-blocks"),
+        ("hotg-runicos-base-wasm", "images/runicos-base/wasm"),
+    ];
+    let mut overrides = BTreeMap::new();
+
+    let proc_blocks_dir = hotg_repo_dir.join("proc-blocks");
+
+    for (name, dep) in &manifest.dependencies {
+        let uses_hotg_github =
+            dep.git().map(|repo| repo == REPO).unwrap_or(false);
+
+        if !name.starts_with("hotg-") && !uses_hotg_github {
+            continue;
+        }
+
+        // We're pretty sure this is a hotg crate, now we need to figure out
+        // which local crate to redirect to. First we'll check a list of known
+        // crates, otherwise we'll assume it is a proc block.
+
+        let path = known_paths
+            .iter()
+            .find_map(|(n, p)| {
+                if name == *n {
+                    Some(hotg_repo_dir.join(p))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| proc_blocks_dir.join(name));
+
+        overrides.insert(name.clone(), path_dependency(path));
+    }
+
+    overrides.insert(
+        "hotg-rune-core".to_string(),
+        path_dependency(hotg_repo_dir.join("crates").join("rune-core")),
+    );
+    overrides.insert(
+        "hotg-rune-proc-blocks".to_string(),
+        path_dependency(hotg_repo_dir.join("proc-blocks").join("proc-blocks")),
+    );
+
+    manifest
+        .patch
+        .entry("crates-io".to_string())
+        .or_default()
+        .extend(overrides.clone());
+    manifest
+        .patch
+        .entry("https://github.com/hotg-ai/rune".to_string())
+        .or_default()
+        .extend(overrides.clone());
 }
 
 #[cfg(test)]

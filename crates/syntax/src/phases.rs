@@ -1,6 +1,6 @@
 use legion::{Resources, World, systems::Runnable};
 use crate::{
-    BuildContext, codegen, compile,
+    BuildContext, FeatureFlags, codegen, compile,
     hooks::{Continuation, Ctx, Hooks},
     lowering, parse, type_check,
 };
@@ -10,19 +10,21 @@ pub fn build(ctx: BuildContext) -> (World, Resources) {
     struct NopHooks;
     impl Hooks for NopHooks {}
 
-    build_with_hooks(ctx, &mut NopHooks)
+    build_with_hooks(ctx, FeatureFlags::production(), &mut NopHooks)
 }
 
 /// Execute the `rune build` process, passing in custom [`Hooks`] which will
 /// be fired after each phase.
 pub fn build_with_hooks(
     ctx: BuildContext,
+    features: FeatureFlags,
     hooks: &mut dyn Hooks,
 ) -> (World, Resources) {
     let mut world = World::default();
     let mut res = Resources::default();
 
     res.insert(ctx);
+    res.insert(features);
 
     if hooks.before_parse(&mut c(&mut world, &mut res))
         != Continuation::Continue

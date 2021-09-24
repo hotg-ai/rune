@@ -1,4 +1,7 @@
-use std::{path::PathBuf, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 /// Inputs used during the compilation process.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -97,4 +100,42 @@ impl Verbosity {
             Verbosity::Normal => {},
         }
     }
+}
+
+/// Feature flags and other knobs that can be used during development.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FeatureFlags {
+    pub(crate) hotg_repo_dir: Option<PathBuf>,
+}
+
+impl FeatureFlags {
+    pub fn development() -> Self {
+        let hotg_repo_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .filter(|repo_root| repo_root.join(".git").exists())
+            .map(PathBuf::from);
+
+        FeatureFlags { hotg_repo_dir }
+    }
+
+    pub const fn production() -> Self {
+        FeatureFlags {
+            hotg_repo_dir: None,
+        }
+    }
+
+    /// If specified, HOTG dependencies (e.g `hotg-rune-core`) will be patched
+    /// to use crates from this directory instead of crates.io or GitHub.
+    pub fn set_hotg_repo_dir(
+        &mut self,
+        hotg_repo_dir: impl Into<Option<PathBuf>>,
+    ) -> &mut Self {
+        self.hotg_repo_dir = hotg_repo_dir.into();
+        self
+    }
+}
+
+impl Default for FeatureFlags {
+    fn default() -> Self { FeatureFlags::production() }
 }

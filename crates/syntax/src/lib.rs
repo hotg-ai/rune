@@ -43,5 +43,5 @@ pub mod type_check;
 pub use crate::{
     phases::{build, build_with_hooks, Phase},
     diagnostics::Diagnostics,
-    build_context::{BuildContext, Verbosity},
+    build_context::{BuildContext, Verbosity, FeatureFlags},
 };

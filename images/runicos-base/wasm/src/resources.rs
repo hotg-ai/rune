@@ -1,6 +1,10 @@
 use alloc::vec::Vec;
 use crate::intrinsics;
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    convert::TryInto,
+    fmt::{self, Formatter, Display},
+};
 
 pub struct Resource {
     id: u32,
@@ -48,7 +52,7 @@ impl Resource {
             );
 
             if id >= 0 {
-                Ok(Resource { id })
+                Ok(Resource { id: id.try_into().unwrap() })
             } else {
                 Err(ResourceError::OpenFailed)
             }

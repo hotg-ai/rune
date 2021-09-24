@@ -4,8 +4,8 @@ use atomic_refcell::{AtomicRef, AtomicRefMut};
 use legion::{Resources, World};
 
 use crate::{
-    Diagnostics, compile::CompilationResult, lowering::NameTable,
-    parse::DocumentV1,
+    BuildContext, Diagnostics, FeatureFlags, compile::CompilationResult,
+    lowering::NameTable, parse::DocumentV1,
 };
 
 /// Callbacks that are fired at different points in the compilation process.
@@ -96,6 +96,14 @@ pub trait Context {
     fn world(&self) -> &World;
     fn world_mut(&mut self) -> &mut World;
     fn world_and_resources(&mut self) -> (&mut World, &mut Resources);
+
+    fn build_context(&self) -> AtomicRef<'_, BuildContext> {
+        self.resources().get().unwrap()
+    }
+
+    fn feature_flags(&self) -> AtomicRef<'_, FeatureFlags> {
+        self.resources().get().unwrap()
+    }
 }
 
 /// Context passed to the [`Hooks::after_parse()`] method.
