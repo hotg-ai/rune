@@ -19,7 +19,7 @@ mod value;
 
 pub use crate::{
     buf_writer::BufWriter,
-    pipelines::{Sink, Source, HasOutputs},
+    pipelines::{Sink, HasOutputs},
     tensor::{Tensor, TensorView, TensorViewMut},
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},

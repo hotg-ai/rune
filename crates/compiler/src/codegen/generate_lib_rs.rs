@@ -8,7 +8,7 @@ use crate::{
     codegen::{CustomSection, File},
     lowering::{
         Inputs, Model, ModelFile, Name, Outputs, PipelineNode, ProcBlock,
-        Resource, ResourceData, Sink, SinkKind, Source, SourceKind, Tensor,
+        Resource, ResourceData, Sink, SinkKind, Source, Tensor,
     },
     parse::{ResourceOrString, ResourceType, Value},
 };
@@ -29,7 +29,7 @@ pub(crate) fn run(
     tensors: &mut Query<(Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)>,
     tensor_by_ent: &mut Query<&Tensor>,
     resources: &mut Query<(&Name, &Resource, Option<&ResourceData>)>,
-    capabilities: &mut Query<(&Name, &Source)>,
+    capabilities: &mut Query<(&Name, &Source, &Outputs)>,
     proc_blocks: &mut Query<(&Name, &ProcBlock)>,
     outputs: &mut Query<(&Name, &Sink)>,
     pipeline_nodes: &mut Query<(
@@ -75,7 +75,7 @@ fn generate_lib_rs<'world>(
         &'world Outputs,
     )],
     resources: &[(&Name, &Resource, Option<&ResourceData>)],
-    capabilities: &[(&Name, &Source)],
+    capabilities: &[(&Name, &Source, &Outputs)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
     pipeline_nodes: &[(
@@ -123,7 +123,7 @@ fn generate_lib_rs<'world>(
 /// `PIPELINE` static variable.
 fn generate_manifest_function<'world, F, T>(
     models: &[(&Name, &Model, &Inputs, &Outputs)],
-    capabilities: &[(&Name, &Source)],
+    capabilities: &[(&Name, &Source, &Outputs)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
     pipeline_nodes: &[(
@@ -141,7 +141,7 @@ where
     F: FnMut(Entity) -> Option<&'world Name>,
     T: FnMut(Entity) -> Option<&'world Tensor>,
 {
-    let capabilities = initialize_capabilities(capabilities);
+    let capabilities = initialize_capabilities(capabilities, get_tensor);
     let proc_blocks = initialize_proc_blocks(proc_blocks);
     let models: TokenStream = models
         .iter()
@@ -603,28 +603,47 @@ fn proc_block_type(proc_block: &ProcBlock) -> TokenStream {
     quote!(#module_name::#type_name)
 }
 
-fn initialize_capabilities(capabilities: &[(&Name, &Source)]) -> TokenStream {
+fn initialize_capabilities<'world, T>(
+    capabilities: &[(&Name, &Source, &Outputs)],
+    get_tensor: &mut T,
+) -> TokenStream
+where
+    T: FnMut(Entity) -> Option<&'world Tensor>,
+{
     capabilities
         .iter()
         .copied()
-        .map(|(name, source)| initialize_capability(name, source))
+        .map(|(name, source, outputs)| {
+            initialize_capability(name, source, outputs, get_tensor)
+        })
         .collect()
 }
 
-fn initialize_capability(name: &Name, source: &Source) -> TokenStream {
-    let capability_type = match &source.kind {
-        SourceKind::Random => Ident::new("Random", Span::call_site()),
-        SourceKind::Accelerometer => {
-            Ident::new("Accelerometer", Span::call_site())
+fn initialize_capability<'world, T>(
+    name: &Name,
+    source: &Source,
+    outputs: &Outputs,
+    get_tensor: &mut T,
+) -> TokenStream
+where
+    T: FnMut(Entity) -> Option<&'world Tensor>,
+{
+    let capability_type = match source.kind.as_capability_name() {
+        Some(name) => {
+            let name = Ident::new(name, Span::call_site());
+            quote!(hotg_rune_core::capabilities::#name)
         },
-        SourceKind::Sound => Ident::new("Sound", Span::call_site()),
-        SourceKind::Image => Ident::new("Image", Span::call_site()),
-        SourceKind::Raw => Ident::new("Raw", Span::call_site()),
-        SourceKind::Other(other) => unimplemented!(
+        None => unimplemented!(
             "Unable to generate code for the \"{}\" capability type",
-            other
+            source.kind
         ),
     };
+
+    let output_tensor = match outputs.tensors.as_slice() {
+        [tensor] => get_tensor(*tensor).unwrap(),
+        _ => unreachable!("Capabilities should only have one output"),
+    };
+    let shape = shape_to_tokens(&output_tensor.0);
 
     let name = Ident::new(name, Span::call_site());
     let setters = source.parameters.iter().map(|(key, value)| {
@@ -636,7 +655,7 @@ fn initialize_capability(name: &Name, source: &Source) -> TokenStream {
     });
 
     quote! {
-        let mut #name = hotg_runicos_base_wasm::#capability_type::default();
+        let mut #name = hotg_runicos_base_wasm::Capability::new(#capability_type, #shape);
         #( #setters )*
     }
 }
@@ -825,6 +844,7 @@ where
         models.map(|(name, model)| model_initializer(name, model, get_name));
 
     quote! {
+        /// Lazily loaded accessors for all models used by this Rune.
         mod models {
             lazy_static::lazy_static! {
                 #(#initializers)*

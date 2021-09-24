@@ -81,6 +81,26 @@ pub enum SourceKind {
     Other(String),
 }
 
+impl SourceKind {
+    pub const fn as_capability_index(&self) -> Option<u32> {
+        match self {
+            SourceKind::Random => Some(hotg_rune_core::capabilities::RAND),
+            SourceKind::Accelerometer => {
+                Some(hotg_rune_core::capabilities::ACCEL)
+            },
+            SourceKind::Sound => Some(hotg_rune_core::capabilities::SOUND),
+            SourceKind::Image => Some(hotg_rune_core::capabilities::IMAGE),
+            SourceKind::Raw => Some(hotg_rune_core::capabilities::RAW),
+            _ => None,
+        }
+    }
+
+    pub fn as_capability_name(&self) -> Option<&'static str> {
+        self.as_capability_index()
+            .and_then(hotg_rune_core::capabilities::name)
+    }
+}
+
 impl<'a> From<&'a str> for SourceKind {
     fn from(s: &'a str) -> SourceKind {
         match s {

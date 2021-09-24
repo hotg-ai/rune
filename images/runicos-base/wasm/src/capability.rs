@@ -1,50 +1,29 @@
-use hotg_rune_core::{Tensor, Source, Value, HasOutputs};
+use hotg_rune_core::{Tensor, Value, Shape};
 use crate::intrinsics;
 use core::marker::PhantomData;
-use alloc::vec::Vec;
 
-pub type Random<T> =
-    GenericCapability<T, { hotg_rune_core::capabilities::RAND }>;
-pub type Accelerometer =
-    GenericCapability<f32, { hotg_rune_core::capabilities::ACCEL }>;
-pub type Image = GenericCapability<u8, { hotg_rune_core::capabilities::IMAGE }>;
-pub type Sound =
-    GenericCapability<i16, { hotg_rune_core::capabilities::SOUND }>;
-pub type Raw<T> = GenericCapability<T, { hotg_rune_core::capabilities::RAW }>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct GenericCapability<T, const KIND: u32> {
-    index: u32,
-    output_dimensions: Option<Vec<usize>>,
+#[derive(Debug, PartialEq)]
+pub struct Capability<T> {
+    id: u32,
+    shape: Shape<'static>,
     _type: PhantomData<fn() -> T>,
 }
 
-impl<T, const KIND: u32> GenericCapability<T, KIND> {
-    pub fn new() -> Self {
+impl<T: Clone + Default> Capability<T> {
+    pub fn new(kind: u32, shape: Shape<'static>) -> Self {
         unsafe {
-            let index = intrinsics::request_capability(KIND);
+            let id = intrinsics::request_capability(kind);
 
-            GenericCapability {
-                index,
-                output_dimensions: None,
+            Capability {
+                id,
+                shape,
                 _type: PhantomData,
             }
         }
     }
-}
 
-impl<T, const KIND: u32> Default for GenericCapability<T, KIND> {
-    fn default() -> Self { GenericCapability::new() }
-}
-
-impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
-    type Output = Tensor<T>;
-
-    fn generate(&mut self) -> Self::Output {
-        let output_dimensions = self
-            .output_dimensions
-            .as_ref()
-            .expect("Please specify the capability's output dimensions");
+    pub fn generate(&mut self) -> Tensor<T> {
+        let output_dimensions = self.shape.dimensions();
 
         let mut buffer = Tensor::zeroed(output_dimensions.to_vec());
 
@@ -55,7 +34,7 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
             let response_size = intrinsics::request_provider_response(
                 elements.as_mut_ptr() as _,
                 byte_length,
-                self.index,
+                self.id,
             );
 
             debug_assert_eq!(response_size, byte_length);
@@ -64,7 +43,7 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
         buffer
     }
 
-    fn set_parameter(
+    pub fn set_parameter(
         &mut self,
         key: &str,
         value: impl Into<Value>,
@@ -76,7 +55,7 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
             let bytes_written = value.to_le_bytes(&mut buffer);
 
             intrinsics::request_capability_set_param(
-                self.index,
+                self.id,
                 key.as_ptr(),
                 key.len() as u32,
                 buffer.as_ptr(),
@@ -86,11 +65,5 @@ impl<T: Default + Copy, const KIND: u32> Source for GenericCapability<T, KIND> {
         }
 
         self
-    }
-}
-
-impl<T, const KIND: u32> HasOutputs for GenericCapability<T, KIND> {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        self.output_dimensions = Some(dimensions.to_vec());
     }
 }

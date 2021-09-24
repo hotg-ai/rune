@@ -222,6 +222,7 @@ impl Hooks {
         }
 
         if diags.has_errors() {
+            self.error = Some(Error::msg("There were 1 or more errors"));
             Continuation::Halt
         } else {
             Continuation::Continue
