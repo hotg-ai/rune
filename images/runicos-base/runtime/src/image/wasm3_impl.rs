@@ -803,9 +803,7 @@ fn rune_resource_open(
     let factory = env
         .factories
         .get(name)
-        .with_context(|| {
-            format!("Unable to find the \"{}\" resource", name)
-        })
+        .with_context(|| format!("Unable to find the \"{}\" resource", name))
         .map_err(runtime_error)?;
 
     let instance = factory

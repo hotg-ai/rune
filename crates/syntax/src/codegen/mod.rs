@@ -10,6 +10,7 @@ mod generate_cargo_toml;
 mod generate_custom_sections;
 mod generate_lib_rs;
 mod generate_model_files;
+mod generate_rust_toolchain_toml;
 
 pub use components::*;
 use legion::Registry;
@@ -18,6 +19,7 @@ use crate::{phases::Phase, serialize::RegistryExt};
 
 pub fn phase() -> Phase {
     Phase::new()
+        .and_then(generate_rust_toolchain_toml::run_system)
         .and_then(generate_cargo_config::run_system)
         .and_then(generate_cargo_toml::run_system)
         .and_then(generate_model_files::run_system)

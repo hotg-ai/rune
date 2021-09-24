@@ -5,8 +5,8 @@ extern crate pretty_assertions;
 mod code;
 mod config;
 mod environment;
-mod manifest;
 mod files;
+mod manifest;
 mod project;
 
 pub use crate::{
