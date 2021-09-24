@@ -11,7 +11,7 @@
 //! 3. Print out some any diagnostics at the end so we can see the effects from
 //!    step 1.
 
-use codespan_reporting::diagnostic::Diagnostic;
+use codespan_reporting::diagnostic::{Diagnostic, Severity};
 use hotg_rune_syntax::{
     BuildContext, Diagnostics,
     hooks::{
@@ -21,11 +21,18 @@ use hotg_rune_syntax::{
     lowering::{Model, Name, Resource, ResourceData},
 };
 use legion::{Entity, IntoQuery, component, systems::CommandBuffer};
+use std::{fmt::Write as _, path::Path};
+use env_logger::Env;
 
 fn main() {
+    env_logger::init_from_env(Env::new().default_filter_or("debug"));
+
     let directory = std::env::args().nth(1).expect("Usage: ./extensions <dir>");
-    let build_ctx = BuildContext::for_directory(directory)
+    let mut build_ctx = BuildContext::for_directory(directory)
         .expect("Couldn't read the Runefile");
+
+    build_ctx.working_directory =
+        project_root().join("target").join("extensions-working-dir");
 
     let mut hooks = CustomHooks::default();
 
@@ -36,9 +43,14 @@ fn main() {
     // crate, but println!() is good enough for now.
     let diags = res.get::<Diagnostics>().unwrap();
 
-    println!("Printing {} diagnostics...", diags.len());
+    log::info!("Printing {} diagnostics...", diags.len());
     for diag in diags.iter() {
-        println!("  {:?}: {}", diag.severity, diag.message);
+        let level = match diag.severity {
+            Severity::Bug | Severity::Error => log::Level::Error,
+            Severity::Warning => log::Level::Warn,
+            _ => log::Level::Info,
+        };
+        log::log!(level, "{:?}: {}", diag.severity, diag.message);
     }
 }
 
@@ -69,22 +81,20 @@ impl Hooks for CustomHooks {
         for file in
             <&hotg_rune_syntax::codegen::File>::query().iter(ctx.world())
         {
-            println!("------ {} ------", file.path.display());
-            println!();
+            let mut msg = String::new();
 
             match core::str::from_utf8(&file.data) {
                 Ok(string) => {
                     for line in string.lines() {
-                        println!("\t{}", line);
+                        writeln!(msg, "\t{}", line).unwrap();
                     }
                 },
-                Err(_) => println!("\t(binary)"),
+                Err(_) => writeln!(msg, "\t(binary)").unwrap(),
             }
-
-            println!();
+            log::info!("Reading: {}\n{}", file.path.display(), msg);
         }
 
-        Continuation::Halt
+        Continuation::Continue
     }
 }
 
@@ -123,4 +133,14 @@ fn dotenv(ctx: &mut dyn AfterTypeCheckingContext) {
     }
 
     cmd.flush(world, res);
+}
+
+fn project_root() -> &'static Path {
+    for ancestor in Path::new(env!("CARGO_MANIFEST_DIR")).ancestors() {
+        if ancestor.join(".git").exists() {
+            return ancestor;
+        }
+    }
+
+    panic!("Unable to determine the project's root directory");
 }

@@ -1,6 +1,6 @@
 use legion::{Resources, World, systems::Runnable};
 use crate::{
-    BuildContext, codegen,
+    BuildContext, codegen, compile,
     hooks::{Continuation, Ctx, Hooks},
     lowering, parse, type_check,
 };
@@ -30,6 +30,7 @@ pub fn build_with_hooks(
         return (world, res);
     }
 
+    log::debug!("Beginning the \"parse\" phase");
     parse::phase().run(&mut world, &mut res);
 
     if hooks.after_parse(&mut c(&mut world, &mut res)) != Continuation::Continue
@@ -37,6 +38,7 @@ pub fn build_with_hooks(
         return (world, res);
     }
 
+    log::debug!("Beginning the \"lowering\" phase");
     lowering::phase().run(&mut world, &mut res);
 
     if hooks.after_lowering(&mut c(&mut world, &mut res))
@@ -45,6 +47,7 @@ pub fn build_with_hooks(
         return (world, res);
     }
 
+    log::debug!("Beginning the \"type_check\" phase");
     type_check::phase().run(&mut world, &mut res);
 
     if hooks.after_type_checking(&mut c(&mut world, &mut res))
@@ -53,6 +56,7 @@ pub fn build_with_hooks(
         return (world, res);
     }
 
+    log::debug!("Beginning the \"codegen\" phase");
     codegen::phase().run(&mut world, &mut res);
 
     if hooks.after_codegen(&mut c(&mut world, &mut res))
@@ -60,6 +64,8 @@ pub fn build_with_hooks(
     {
         return (world, res);
     }
+
+    compile::phase().run(&mut world, &mut res);
 
     (world, res)
 }

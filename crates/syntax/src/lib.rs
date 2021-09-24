@@ -31,6 +31,7 @@ mod macros;
 
 mod build_context;
 pub mod codegen;
+pub mod compile;
 mod diagnostics;
 pub mod hooks;
 pub mod lowering;

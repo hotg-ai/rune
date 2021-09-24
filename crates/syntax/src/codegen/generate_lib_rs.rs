@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
-
-use legion::{Entity, systems::CommandBuffer, world::SubWorld, IntoQuery};
+use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{ToTokens, quote};
 use heck::{CamelCase, SnakeCase};
@@ -13,38 +12,33 @@ use crate::{
     parse::{ResourceOrString, ResourceType, Value},
 };
 
+/// Generate the entire `lib.rs` file.
+///
+/// FIXME: This should be split up into different phases for generating each
+/// part in the `lib.rs` file. Some low hanging fruit are things like the
+/// resources and models modules or the initializers for each pipeline node
+/// because they can be done using a `#[legion::system(for_each)]`.
 #[legion::system]
-#[read_component(CustomSection)]
-#[read_component(Inputs)]
-#[read_component(Model)]
-#[read_component(Name)]
-#[read_component(Outputs)]
-#[read_component(ProcBlock)]
-#[read_component(PipelineNode)]
-#[read_component(Resource)]
-#[read_component(ResourceData)]
-#[read_component(Sink)]
-#[read_component(Source)]
-#[read_component(Tensor)]
-pub(crate) fn run(cmd: &mut CommandBuffer, world: &SubWorld) {
-    let mut sections = <&CustomSection>::query();
-    let mut models = <(&Name, &Model, &Inputs, &Outputs)>::query();
-    let mut names = <&Name>::query();
-    let mut tensors =
-        <(Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)>::query();
-    let mut tensor_by_ent = <&Tensor>::query();
-    let mut resources = <(&Name, &Resource, Option<&ResourceData>)>::query();
-    let mut capabilities = <(&Name, &Source)>::query();
-    let mut proc_blocks = <(&Name, &ProcBlock)>::query();
-    let mut outputs = <(&Name, &Sink)>::query();
-    let mut pipeline_nodes = <(
+pub(crate) fn run(
+    cmd: &mut CommandBuffer,
+    world: &SubWorld,
+    sections: &mut Query<&CustomSection>,
+    models: &mut Query<(&Name, &Model, &Inputs, &Outputs)>,
+    names: &mut Query<&Name>,
+    tensors: &mut Query<(Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)>,
+    tensor_by_ent: &mut Query<&Tensor>,
+    resources: &mut Query<(&Name, &Resource, Option<&ResourceData>)>,
+    capabilities: &mut Query<(&Name, &Source)>,
+    proc_blocks: &mut Query<(&Name, &ProcBlock)>,
+    outputs: &mut Query<(&Name, &Sink)>,
+    pipeline_nodes: &mut Query<(
         Entity,
         &Name,
         Option<&Inputs>,
         Option<&Outputs>,
         &PipelineNode,
-    )>::query();
-
+    )>,
+) {
     let models: Vec<_> = models.iter(world).collect();
     let sections: Vec<_> = sections.iter(world).collect();
     let resources: Vec<_> = resources.iter(world).collect();
@@ -785,7 +779,7 @@ mod tests {
         io::{Write, Read},
         process::{Command, Stdio},
     };
-    use legion::{Resources, World};
+    use legion::{Resources, World, IntoQuery};
 
     use super::*;
 
@@ -972,18 +966,27 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         let mut cmd = CommandBuffer::new(&world);
-        let first_input_tensor = cmd.push((Tensor("u8[1, 1, 1]".parse().unwrap()),));
-        let second_input_tensor = cmd.push((Tensor("f32[128]".parse().unwrap()),));
+        let first_input_tensor =
+            cmd.push((Tensor("u8[1, 1, 1]".parse().unwrap()),));
+        let second_input_tensor =
+            cmd.push((Tensor("f32[128]".parse().unwrap()),));
         let name = Name::from("serial");
         cmd.flush(&mut world, &mut resources);
         let inputs = Inputs {
             tensors: vec![first_input_tensor, second_input_tensor],
         };
-        let tensor_names: HashMap<_, _> =
-            vec![(first_input_tensor, Ident::new("first_input", Span::call_site())),
-            (second_input_tensor, Ident::new("second_input", Span::call_site()))]
-                .into_iter()
-                .collect();
+        let tensor_names: HashMap<_, _> = vec![
+            (
+                first_input_tensor,
+                Ident::new("first_input", Span::call_site()),
+            ),
+            (
+                second_input_tensor,
+                Ident::new("second_input", Span::call_site()),
+            ),
+        ]
+        .into_iter()
+        .collect();
 
         let got = execute_output(&name, &inputs, &tensor_names);
 
