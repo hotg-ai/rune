@@ -853,6 +853,7 @@ mod tests {
             Outputs {
                 tensors: vec![first_output],
             },
+            PipelineNode,
         ));
         // add the second node
         let second_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
@@ -864,6 +865,7 @@ mod tests {
             Outputs {
                 tensors: vec![second_output],
             },
+            PipelineNode,
         ));
         // Add the third node
         let third = cmd.push((
@@ -871,6 +873,7 @@ mod tests {
             Inputs {
                 tensors: vec![second_output],
             },
+            PipelineNode,
         ));
         cmd.flush(&mut world, &mut resources);
 
@@ -903,5 +906,90 @@ mod tests {
         .into_iter()
         .collect();
         assert_eq!(tensor_names, tensor_names_should_be);
+    }
+
+    #[test]
+    fn execute_a_capability() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut cmd = CommandBuffer::new(&world);
+        let first_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
+        let name = Name::from("first");
+        let outputs = Outputs {
+            tensors: vec![first_output],
+        };
+        cmd.flush(&mut world, &mut resources);
+        let tensor_names: HashMap<_, _> =
+            vec![(first_output, Ident::new("first_0", Span::call_site()))]
+                .into_iter()
+                .collect();
+
+        let got = execute_capability(&name, &outputs, &tensor_names);
+
+        let should_be = quote! {
+            let first_0 = first.generate();
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn execute_model() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut cmd = CommandBuffer::new(&world);
+        let model_output = cmd.push((Tensor("f32[1]".parse().unwrap()),));
+        let model_input = cmd.push((Tensor("u8[1, 1, 1]".parse().unwrap()),));
+        let name = Name::from("model");
+        cmd.flush(&mut world, &mut resources);
+        let inputs = Inputs {
+            tensors: vec![model_input],
+        };
+        let outputs = Outputs {
+            tensors: vec![model_output],
+        };
+        let tensor_names: HashMap<_, _> = vec![
+            (model_output, Ident::new("model_output", Span::call_site())),
+            (model_input, Ident::new("model_input", Span::call_site())),
+        ]
+        .into_iter()
+        .collect();
+
+        let got = execute_model_or_proc_block(
+            &name,
+            &inputs,
+            &outputs,
+            &tensor_names,
+        );
+
+        let should_be = quote! {
+            let model_output = model.process(model_input);
+        };
+        assert_quote_eq!(got, should_be);
+    }
+
+    #[test]
+    fn consume_multiple_outputs() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut cmd = CommandBuffer::new(&world);
+        let first_input_tensor = cmd.push((Tensor("u8[1, 1, 1]".parse().unwrap()),));
+        let second_input_tensor = cmd.push((Tensor("f32[128]".parse().unwrap()),));
+        let name = Name::from("serial");
+        cmd.flush(&mut world, &mut resources);
+        let inputs = Inputs {
+            tensors: vec![first_input_tensor, second_input_tensor],
+        };
+        let tensor_names: HashMap<_, _> =
+            vec![(first_input_tensor, Ident::new("first_input", Span::call_site())),
+            (second_input_tensor, Ident::new("second_input", Span::call_site()))]
+                .into_iter()
+                .collect();
+
+        let got = execute_output(&name, &inputs, &tensor_names);
+
+        let should_be = quote! {
+            serial.consume((first_input, second_input));
+        };
+        assert_quote_eq!(got, should_be);
     }
 }
