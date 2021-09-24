@@ -46,7 +46,7 @@ fn print_meta(meta: &Metadata) {
         print!("Compiled by: Rune {}", version);
     }
 
-    if let Some(simplified_rune) = &meta.simplified_rune {
+    if let Some(simplified_rune) = &meta.rune {
         todo!();
     }
 }
@@ -54,7 +54,7 @@ fn print_meta(meta: &Metadata) {
 #[derive(Debug, Default, Clone, serde::Serialize)]
 pub(crate) struct Metadata {
     version: Option<RuneVersion>,
-    simplified_rune: Option<RuneGraph>,
+    rune: Option<RuneGraph>,
 }
 
 impl Metadata {
@@ -74,7 +74,7 @@ impl Metadata {
                 hotg_rune_compiler::codegen::GRAPH_CUSTOM_SECTION => {
                     match serde_json::from_slice(section.data) {
                         Ok(rune) => {
-                            meta.simplified_rune = Some(rune);
+                            meta.rune = Some(rune);
                         },
                         Err(e) => {
                             log::warn!(

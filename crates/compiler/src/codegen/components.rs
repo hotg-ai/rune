@@ -1,9 +1,17 @@
 use std::{
+    collections::HashMap,
     fmt::{self, Display, Formatter},
-    path::PathBuf,
+    ops::Deref,
+    path::{PathBuf},
     sync::Arc,
 };
+use hotg_rune_core::Shape;
 use serde::Serialize;
+
+use crate::{
+    lowering::{ModelFile, Name, Resource, SinkKind, SourceKind},
+    parse::{Path, Value},
+};
 
 pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
 pub const VERSION_CUSTOM_SECTION: &str = ".rune_version";
@@ -90,8 +98,77 @@ impl Display for RuneVersion {
     }
 }
 
+/// A summary of the Rune pipeline that will be embedded in the Rune.
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+#[serde(default)]
+pub struct RuneGraph {
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub capabilities: HashMap<Name, CapabilitySummary>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub models: HashMap<Name, ModelSummary>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub proc_blocks: HashMap<Name, ProcBlockSummary>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub outputs: HashMap<Name, OutputSummary>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub resources: HashMap<Name, Resource>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub tensors: HashMap<TensorId, Shape<'static>>,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct RuneGraph {}
+pub struct CapabilitySummary {
+    pub kind: SourceKind,
+    pub args: HashMap<String, Value>,
+    pub outputs: Vec<TensorId>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ModelSummary {
+    pub model: ModelFile,
+    pub inputs: Vec<TensorId>,
+    pub outputs: Vec<TensorId>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ProcBlockSummary {
+    pub path: Path,
+    pub args: HashMap<String, Value>,
+    pub inputs: Vec<TensorId>,
+    pub outputs: Vec<TensorId>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct OutputSummary {
+    pub kind: SinkKind,
+    pub inputs: Vec<TensorId>,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct TensorId(pub String);
+
+impl From<String> for TensorId {
+    fn from(s: String) -> Self { TensorId(s) }
+}
+
+impl Deref for TensorId {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
 
 impl RuneGraph {
     pub(crate) fn as_custom_section(
