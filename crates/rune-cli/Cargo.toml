@@ -18,10 +18,9 @@ chrono = { version = "0.4.19", features = ["std"] }
 codespan-reporting = "0.11.0"
 dirs = "3.0"
 env_logger = "0.9"
-hotg-rune-codegen = { path = "../codegen", version = "^0.7.1-dev"}
 hotg-rune-core = { path = "../rune-core", version = "^0.7.1-dev"}
 hotg-rune-runtime = { path = "../runtime", version = "^0.7.1-dev"}
-hotg-rune-syntax = { path = "../syntax", version = "^0.7.1-dev"}
+hotg-rune-compiler = { path = "../compiler", version = "^0.7.1-dev"}
 hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.7.1-dev"}
 hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.7.1-dev"}
 hotg-runecoral = "0.3.1"

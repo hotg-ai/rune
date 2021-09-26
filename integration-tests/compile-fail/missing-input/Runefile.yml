@@ -1,0 +1,10 @@
+version: 1
+image: runicos/base
+pipeline:
+  some_model:
+    model: ../../../examples/sine/sinemodel.tflite
+    inputs:
+      - asdf
+    outputs:
+      - type: f32
+        dimensions: [1]

@@ -12,7 +12,7 @@ use hotg_rune_core::capabilities;
 
 use hotg_rune_codegen::{Compilation, DefaultEnvironment, RuneProject, Verbosity};
 
-use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
+use hotg_rune_compiler::{hir::Rune, yaml::Document, Diagnostics};
 
 pub fn project_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -34,7 +34,7 @@ fn parse_runefile(runefile: &Path) -> Rune {
     let src = std::fs::read_to_string(runefile).unwrap();
     let mut diags = Diagnostics::new();
     let parsed = Document::parse(&src).unwrap();
-    let rune = hotg_rune_syntax::analyse_yaml_runefile(&parsed, &mut diags);
+    let rune = hotg_rune_compiler::analyse_yaml_runefile(&parsed, &mut diags);
     assert!(!diags.has_errors());
     rune
 }

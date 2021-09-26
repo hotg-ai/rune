@@ -3,10 +3,15 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
-use hotg_rune_codegen::{
-    Compilation, DefaultEnvironment, GitSpecifier, RuneProject, Verbosity,
+use hotg_rune_compiler::{
+    BuildContext, Diagnostics, FeatureFlags, Verbosity,
+    codegen::RuneVersion,
+    compile::{CompilationResult, CompiledBinary},
+    hooks::{
+        AfterCodegenContext, AfterLoweringContext, AfterParseContext,
+        AfterTypeCheckingContext, Continuation,
+    },
 };
-use hotg_rune_syntax::{hir::Rune, yaml::Document, Diagnostics};
 use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
 
@@ -37,67 +42,78 @@ pub struct Build {
     /// Compile the Rune without optimisations.
     #[structopt(long)]
     debug: bool,
+
+    /// Unlock unstable features.
+    #[structopt(long)]
+    unstable: bool,
+    /// (unstable) A path to the Rune repository. Primarily used to patch
+    /// dependencies when hacking on Rune locally.
+    #[structopt(long, requires = "unstable", parse(from_os_str))]
+    rune_repo_dir: Option<PathBuf>,
 }
 
 impl Build {
     pub fn execute(self, color: ColorChoice) -> Result<(), Error> {
+        let ctx = self.build_context()?;
+        let features = self.feature_flags();
+
+        log::debug!(
+            "Compiling {} in \"{}\"",
+            ctx.name,
+            ctx.working_directory.display()
+        );
+
+        let dest = self.output.unwrap_or_else(|| {
+            ctx.current_directory.join(&ctx.name).with_extension("rune")
+        });
+
+        let mut hooks = Hooks::new(dest, color, self.runefile.clone());
+        hotg_rune_compiler::build_with_hooks(ctx, features, &mut hooks);
+
+        match hooks.error {
+            None => Ok(()),
+            Some(e) => Err(e),
+        }
+    }
+
+    fn build_context(&self) -> Result<BuildContext, Error> {
         let verbosity =
             Verbosity::from_quiet_and_verbose(self.quiet, self.verbose)
                 .context(
                     "The --verbose and --quiet flags can't be used together",
                 )?;
 
-        let rune = analyze(&self.runefile, color)?;
-
         let current_directory = self.current_directory()?;
         let name = self.name()?;
 
         let working_directory = self
             .cache_dir
+            .clone()
             .unwrap_or_else(|| Path::new(&*DEFAULT_CACHE_DIR).join(&name));
-        let dest = self.output.unwrap_or_else(|| {
-            current_directory.join(&name).with_extension("rune")
-        });
-
-        log::debug!(
-            "Compiling {} in \"{}\"",
-            name,
-            working_directory.display()
-        );
-
-        let compilation = Compilation {
-            name,
-            rune,
-            current_directory,
-            working_directory,
-            verbosity,
-            rune_project: locate_rune_dependencies(),
-            optimized: !self.debug,
-        };
-
-        let mut env = DefaultEnvironment::for_compilation(&compilation)
-            .with_build_info(crate::version::version().clone());
-        let blob = hotg_rune_codegen::generate_with_env(compilation, &mut env)
-            .context("Rune compilation failed")?;
-
-        log::debug!("Generated {} bytes", blob.len());
-
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent).with_context(|| {
-                format!(
-                    "Unable to create the \"{}\" directory",
-                    parent.display()
-                )
+        let runefile =
+            std::fs::read_to_string(&self.runefile).with_context(|| {
+                format!("Unable to read \"{}\"", self.runefile.display())
             })?;
+
+        Ok(BuildContext {
+            name,
+            current_directory,
+            runefile,
+            verbosity,
+            working_directory,
+            optimized: !self.debug,
+            rune_version: Some(RuneVersion::new(env!("CARGO_PKG_VERSION"))),
+        })
+    }
+
+    fn feature_flags(&self) -> FeatureFlags {
+        let mut features = FeatureFlags::default();
+
+        if self.unstable {
+            features.set_rune_repo_dir(self.rune_repo_dir.clone());
         }
 
-        std::fs::write(&dest, &blob).with_context(|| {
-            format!("Unable to write to \"{}\"", dest.display())
-        })?;
-
-        log::info!("The Rune was written to \"{}\"", dest.display());
-
-        Ok(())
+        features
     }
 
     fn current_directory(&self) -> Result<PathBuf, Error> {
@@ -130,53 +146,6 @@ impl Build {
     }
 }
 
-fn locate_rune_dependencies() -> RuneProject {
-    // We need to figure out where to pull dependencies from when building the
-    // Rune.
-
-    if let Some(root_dir) = rune_repo_root() {
-        // We are inside the Rune repository. Let's use "path" dependencies
-        // so you can iterate without needing to nake a new release every
-        // time.
-        RuneProject::Disk(root_dir)
-    } else if let Some(git) = crate::version::version()
-        .version_control
-        .as_ref()
-        .and_then(|v| v.git())
-    {
-        // We were installed using git (e.g. "cargo install --git ...") so
-        // let's use that git commit.
-        RuneProject::Git {
-            repo: RuneProject::GITHUB_REPO.into(),
-            specifier: GitSpecifier::Commit(git.commit_id.clone()),
-        }
-    } else {
-        // Otherwise, fall back to the latest nightly.
-        //
-        // Note: This is the path we'll take when installed via crates.io
-        // because crates.io doesn't bundle any git information.
-        RuneProject::Git {
-            repo: RuneProject::GITHUB_REPO.into(),
-            specifier: GitSpecifier::Tag(String::from("nightly")),
-        }
-    }
-}
-
-fn rune_repo_root() -> Option<PathBuf> {
-    let current_dir = std::env::current_dir().unwrap();
-
-    for parent in current_dir.ancestors() {
-        if parent.join(".git").exists()
-            && parent.join("images").exists()
-            && parent.join("proc-blocks").exists()
-        {
-            return Some(parent.to_path_buf());
-        }
-    }
-
-    None
-}
-
 static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
     let cache_dir = dirs::cache_dir()
         .or_else(|| dirs::home_dir())
@@ -185,35 +154,121 @@ static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
     cache_dir.join("runes").to_string_lossy().into_owned()
 });
 
-pub(crate) fn analyze(
-    runefile: &Path,
+#[derive(Debug)]
+struct Hooks {
+    dest: PathBuf,
+    runefile_path: PathBuf,
     color: ColorChoice,
-) -> Result<Rune, Error> {
-    let src = std::fs::read_to_string(runefile).with_context(|| {
-        format!("Unable to read \"{}\"", runefile.display())
-    })?;
+    error: Option<Error>,
+}
 
-    let file = SimpleFile::new(runefile.display().to_string(), &src);
-
-    log::debug!("Parsing \"{}\"", runefile.display());
-
-    let mut diags = Diagnostics::new();
-
-    let parsed =
-        Document::parse(&src).context("Unable to parse the Runefile")?;
-    let rune = hotg_rune_syntax::analyse(&parsed, &mut diags);
-
-    let mut writer = StandardStream::stderr(color);
-    let config = Config::default();
-
-    for diag in &diags {
-        codespan_reporting::term::emit(&mut writer, &config, &file, diag)
-            .context("Unable to print the diagnostic")?;
+impl Hooks {
+    fn new(dest: PathBuf, color: ColorChoice, runefile_path: PathBuf) -> Self {
+        Hooks {
+            dest,
+            color,
+            runefile_path,
+            error: None,
+        }
     }
 
-    if diags.has_errors() {
-        anyhow::bail!("Aborting compilation due to errors.");
+    fn save_binary(&self, binary: &CompiledBinary) -> Result<(), Error> {
+        if let Some(parent) = self.dest.parent() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "Unable to create the \"{}\" directory",
+                    parent.display()
+                )
+            })?;
+        }
+
+        std::fs::write(&self.dest, &binary).with_context(|| {
+            format!("Unable to write to \"{}\"", self.dest.display())
+        })?;
+
+        log::info!("The Rune was written to \"{}\"", self.dest.display());
+
+        Ok(())
     }
 
-    Ok(rune)
+    fn check_diagnostics(
+        &mut self,
+        diags: &Diagnostics,
+        ctx: &BuildContext,
+    ) -> Continuation {
+        let mut writer = StandardStream::stderr(self.color);
+        let config = Config::default();
+
+        let file = SimpleFile::new(
+            self.runefile_path.display().to_string(),
+            &ctx.runefile,
+        );
+
+        for diag in diags {
+            match codespan_reporting::term::emit(
+                &mut writer,
+                &config,
+                &file,
+                diag,
+            )
+            .context("Unable to print the diagnostic")
+            {
+                Ok(_) => {},
+                Err(e) => {
+                    self.error = Some(e);
+                    return Continuation::Halt;
+                },
+            }
+        }
+
+        if diags.has_errors() {
+            self.error = Some(Error::msg("There were 1 or more errors"));
+            Continuation::Halt
+        } else {
+            Continuation::Continue
+        }
+    }
+}
+
+impl hotg_rune_compiler::hooks::Hooks for Hooks {
+    fn after_type_checking(
+        &mut self,
+        ctx: &mut dyn AfterTypeCheckingContext,
+    ) -> Continuation {
+        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+    }
+
+    fn after_parse(&mut self, ctx: &mut dyn AfterParseContext) -> Continuation {
+        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+    }
+
+    fn after_lowering(
+        &mut self,
+        ctx: &mut dyn AfterLoweringContext,
+    ) -> Continuation {
+        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+    }
+
+    fn after_codegen(
+        &mut self,
+        ctx: &mut dyn AfterCodegenContext,
+    ) -> Continuation {
+        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+    }
+
+    fn after_compile(
+        &mut self,
+        ctx: &mut dyn hotg_rune_compiler::hooks::AfterCompileContext,
+    ) -> Continuation {
+        let CompilationResult(result) = ctx.take_compilation_result();
+
+        if let Err(err) = result
+            .map_err(Error::from)
+            .and_then(|c| self.save_binary(&c))
+        {
+            self.error = Some(err);
+        }
+
+        Continuation::Continue
+    }
 }

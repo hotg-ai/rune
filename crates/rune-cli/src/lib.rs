@@ -9,8 +9,12 @@ use codespan_reporting::term::termcolor;
 use env_logger::WriteStyle;
 
 pub use crate::{
-    graph::Graph, model_info::ModelInfo, inspect::Inspect, run::Run,
-    build::Build, version::Version,
+    graph::Graph,
+    inspect::Inspect,
+    model_info::ModelInfo,
+    run::Run,
+    build::Build,
+    version::Version,
 };
 
 #[derive(

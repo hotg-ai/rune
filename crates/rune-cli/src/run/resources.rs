@@ -20,7 +20,9 @@ pub(crate) fn load_from_custom_sections(
 
     let resources = custom_sections
         .into_iter()
-        .filter(|s| s.name == hotg_rune_codegen::RESOURCE_CUSTOM_SECTION)
+        .filter(|s| {
+            s.name == hotg_rune_compiler::codegen::RESOURCE_CUSTOM_SECTION
+        })
         .flat_map(|CustomSection { mut data, .. }| {
             // Note: sometimes the compiler will concatenate all
             // ".rune_resource" sections into one blob.

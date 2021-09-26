@@ -41,6 +41,9 @@ fn person_detection() {
         .arg(&runefile)
         .arg("--output")
         .arg(&rune)
+        .arg("--unstable")
+        .arg("--rune-repo-dir")
+        .arg(project_root())
         .unwrap();
 
     let image = person_detection_dir.join("image_grayscale.png");
@@ -73,6 +76,9 @@ fn build_all_examples() {
             .arg(path)
             .arg("--cache-dir")
             .arg(&cache_dir)
+            .arg("--unstable")
+            .arg("--rune-repo-dir")
+            .arg(project_root())
             .assert()
             .success();
     }

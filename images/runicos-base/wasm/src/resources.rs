@@ -1,17 +1,21 @@
 use alloc::vec::Vec;
 use crate::intrinsics;
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    convert::TryInto,
+    fmt::{self, Formatter, Display},
+};
 
 pub struct Resource {
     id: u32,
 }
 
 impl Resource {
-    pub fn read_to_end(name: &str) -> Vec<u8> {
+    pub fn read_to_end(name: &str) -> Result<Vec<u8>, ResourceError> {
         const BLOCK_SIZE: usize = 1024;
 
         let mut dest: Vec<u8> = Vec::new();
-        let mut resource = Resource::open(name);
+        let mut resource = Resource::open(name)?;
 
         loop {
             dest.reserve(BLOCK_SIZE);
@@ -27,7 +31,7 @@ impl Resource {
                     capacity - previous_length,
                 );
 
-                let bytes_read = resource.read(uninitialized_bytes);
+                let bytes_read = resource.read(uninitialized_bytes)?;
                 dest.set_len(previous_length + bytes_read);
 
                 if bytes_read == 0 {
@@ -37,31 +41,65 @@ impl Resource {
             }
         }
 
-        dest
+        Ok(dest)
     }
 
-    pub fn open(name: &str) -> Self {
+    pub fn open(name: &str) -> Result<Self, ResourceError> {
         unsafe {
             let id = intrinsics::rune_resource_open(
                 name.as_ptr(),
                 name.len() as u32,
             );
 
-            Resource { id }
+            if id >= 0 {
+                Ok(Resource {
+                    id: id.try_into().unwrap(),
+                })
+            } else {
+                Err(ResourceError::OpenFailed)
+            }
         }
     }
 
-    pub fn read(&mut self, buffer: &mut [MaybeUninit<u8>]) -> usize {
+    pub fn read(
+        &mut self,
+        buffer: &mut [MaybeUninit<u8>],
+    ) -> Result<usize, ResourceError> {
         unsafe {
-            intrinsics::rune_resource_read(
+            let bytes_read = intrinsics::rune_resource_read(
                 self.id,
                 buffer.as_mut_ptr().cast(),
                 buffer.len() as u32,
-            ) as usize
+            );
+
+            if bytes_read >= 0 {
+                Ok(bytes_read as usize)
+            } else {
+                Err(ResourceError::ReadFailed)
+            }
         }
     }
 }
 
 impl Drop for Resource {
     fn drop(&mut self) {}
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ResourceError {
+    OpenFailed,
+    ReadFailed,
+}
+
+impl Display for ResourceError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ResourceError::OpenFailed => {
+                f.write_str("Unable to open the resource")
+            },
+            ResourceError::ReadFailed => {
+                f.write_str("Unable to read from the resource")
+            },
+        }
+    }
 }

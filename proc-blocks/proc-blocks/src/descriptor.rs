@@ -25,7 +25,9 @@ pub struct TransformDescriptor<'a> {
     pub outputs: TensorDescriptors<'a>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
 pub struct TensorDescriptors<'a>(pub Cow<'a, [TensorDescriptor<'a>]>);
 
 impl<'a> FromIterator<TensorDescriptor<'a>> for TensorDescriptors<'a> {

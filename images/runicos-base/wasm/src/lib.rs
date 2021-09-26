@@ -16,12 +16,12 @@ pub mod serial;
 mod stats_allocator;
 
 pub use crate::{
-    capability::{GenericCapability, Accelerometer, Random, Sound, Raw, Image},
+    capability::Capability,
     guards::{SetupGuard, PipelineGuard},
     logging::Logger,
     model::Model,
     serial::Serial,
-    resources::Resource,
+    resources::{Resource, ResourceError},
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};

@@ -3,7 +3,14 @@ use log::LevelFilter;
 use structopt::{clap::AppSettings, StructOpt};
 use strum::VariantNames;
 use hotg_rune_cli::{
-    Build, ColorChoice, Format, Graph, Inspect, ModelInfo, Run, Version,
+    Graph,
+    Inspect,
+    Build,
+    ColorChoice,
+    Format,
+    ModelInfo,
+    Run,
+    Version,
 };
 
 fn main() -> Result<(), Error> {
@@ -27,7 +34,7 @@ fn main() -> Result<(), Error> {
     match cmd {
         Some(Cmd::Build(build)) => build.execute(colour.into()),
         Some(Cmd::Run(run)) => run.execute(),
-        Some(Cmd::Graph(graph)) => graph.execute(colour.into()),
+        Some(Cmd::Graph(graph)) => graph.execute(),
         Some(Cmd::Version(version)) => version.execute(),
         Some(Cmd::ModelInfo(m)) => m.execute(),
         Some(Cmd::Inspect(i)) => i.execute(),
