@@ -4,24 +4,21 @@ use legion::{
     systems::CommandBuffer,
     world::SubWorld,
 };
-use crate::{
-    codegen::{
+use crate::{BuildContext, codegen::{
         ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
-    },
-    lowering::{
+    }, lowering::{
         Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource, Sink,
         Source, Tensor,
-    },
-    parse::{ResourceName, ResourceOrString},
-};
+    }, parse::{ResourceName, ResourceOrString}};
 
-use super::CapabilitySummary;
+use super::{CapabilitySummary, RuneSummary};
 
 /// Generate an abbreviated [`RuneGraph`].
 #[legion::system]
 pub(crate) fn run(
     cmd: &mut CommandBuffer,
     world: &SubWorld,
+    #[resource] ctx: &BuildContext,
     capabilities: &mut Query<(&Name, &Source, &Outputs)>,
     tensors: &mut Query<(Entity, &Tensor)>,
     models: &mut Query<(&Name, &Model, &Inputs, &Outputs)>,
@@ -32,6 +29,7 @@ pub(crate) fn run(
     let canon = Canon::default();
 
     let graph = RuneGraph {
+        rune: rune_summary(ctx),
         capabilities: capabilities
             .iter(world)
             .map(|(n, s, o)| capability_summary(n, s, o, &canon))
@@ -78,6 +76,12 @@ pub(crate) fn run(
         .as_custom_section()
         .expect("We should always be able to serialize to JSON");
     cmd.push((graph, graph_section));
+}
+
+fn rune_summary(ctx: &BuildContext) -> RuneSummary {
+    RuneSummary {
+        name: ctx.name.clone(),
+    }
 }
 
 fn tensor_shapes(tensors: &[Entity], get_tensor: &Canon) -> Vec<TensorId> {

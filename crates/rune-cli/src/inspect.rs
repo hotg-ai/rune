@@ -50,17 +50,18 @@ impl Inspect {
 }
 
 fn print_meta(meta: &Metadata) {
-    if let Some(version) = &meta.version {
-        println!("Compiled by: Rune {}", version);
-    }
-
     if let Some(rune) = &meta.rune {
         print_rune(rune);
+    }
+
+    if let Some(version) = &meta.version {
+        println!("Compiled by: Rune {}", version);
     }
 }
 
 fn print_rune(rune: &RuneGraph) {
     let RuneGraph {
+        rune,
         capabilities,
         models,
         proc_blocks,
@@ -68,6 +69,8 @@ fn print_rune(rune: &RuneGraph) {
         resources,
         tensors,
     } = rune;
+
+    println!("Name: {}", rune.name);
 
     print_capabilities(capabilities, tensors);
     print_models(models, tensors);
@@ -192,8 +195,8 @@ fn print_args(args: &HashMap<String, Value>) {
 
 #[derive(Debug, Default, Clone, serde::Serialize)]
 pub(crate) struct Metadata {
-    version: Option<RuneVersion>,
-    rune: Option<RuneGraph>,
+    pub(crate) version: Option<RuneVersion>,
+    pub(crate) rune: Option<RuneGraph>,
 }
 
 impl Metadata {

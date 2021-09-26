@@ -99,24 +99,27 @@ impl Display for RuneVersion {
 }
 
 /// A summary of the Rune pipeline that will be embedded in the Rune.
-#[derive(
-    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
-#[serde(default)]
 pub struct RuneGraph {
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub rune: RuneSummary,
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub capabilities: HashMap<Name, CapabilitySummary>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub models: HashMap<Name, ModelSummary>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub proc_blocks: HashMap<Name, ProcBlockSummary>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub outputs: HashMap<Name, OutputSummary>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub resources: HashMap<Name, Resource>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub tensors: HashMap<TensorId, Shape<'static>>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuneSummary {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
