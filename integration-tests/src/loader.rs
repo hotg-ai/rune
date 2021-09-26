@@ -10,7 +10,7 @@ use anyhow::{Context, Error};
 use crate::{
     Outcome, TestContext,
     assertions::{
-        Assertion, ExitSuccessfully, ExitUnsuccessfully, MatchStderr,
+        Assertion, ExitSuccessfully, ExitUnsuccessfully, MatchStdioStream,
     },
 };
 
@@ -62,7 +62,7 @@ impl Display for FullName {
 #[derive(Debug)]
 pub struct Test {
     pub directory: PathBuf,
-    pub expected_output: Vec<MatchStderr>,
+    pub expected_output: Vec<MatchStdioStream>,
     pub name: FullName,
 }
 
@@ -196,14 +196,14 @@ impl Display for ExitCondition {
     }
 }
 
-fn load_stderr_files(directory: &Path) -> Result<Vec<MatchStderr>, Error> {
+fn load_stderr_files(directory: &Path) -> Result<Vec<MatchStdioStream>, Error> {
     let mut stderr = Vec::new();
 
     for entry in directory.read_dir()? {
         let entry = entry?;
         let path = entry.path();
 
-        if let Some(assertion) = MatchStderr::for_file(&path)
+        if let Some(assertion) = MatchStdioStream::for_file(&path)
             .with_context(|| format!("Unable to load \"{}\"", path.display()))?
         {
             stderr.push(assertion);

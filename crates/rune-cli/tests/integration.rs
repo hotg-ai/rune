@@ -51,7 +51,7 @@ fn person_detection() {
     cmd.assert()
         .success()
         .code(0)
-        .stderr(predicates::str::contains("\"person_prob\""));
+        .stdout(predicates::str::contains("\"person_prob\""));
 }
 
 #[test]

@@ -118,7 +118,11 @@ impl TestContext {
         })
     }
 
-    pub fn rune_cmd(&self) -> Command { Command::new(&self.rune_binary) }
+    pub fn rune_cmd(&self) -> Command {
+        let mut cmd = Command::new(&self.rune_binary);
+        cmd.env("RUST_LOG", "debug");
+        cmd
+    }
 
     fn cache_dir(&self, name: &FullName) -> PathBuf {
         let FullName {
