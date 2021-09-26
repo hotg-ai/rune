@@ -4,7 +4,7 @@ use codespan_reporting::{
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use hotg_rune_compiler::{
-    BuildContext, Diagnostics, FeatureFlags, Verbosity,
+    BuildContext, Diagnostics, Verbosity,
     codegen::RuneVersion,
     compile::{CompilationResult, CompiledBinary},
     hooks::{
@@ -14,6 +14,8 @@ use hotg_rune_compiler::{
 };
 use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
+
+use crate::Unstable;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Build {
@@ -42,20 +44,16 @@ pub struct Build {
     /// Compile the Rune without optimisations.
     #[structopt(long)]
     debug: bool,
-
-    /// Unlock unstable features.
-    #[structopt(long)]
-    unstable: bool,
-    /// (unstable) A path to the Rune repository. Primarily used to patch
-    /// dependencies when hacking on Rune locally.
-    #[structopt(long, requires = "unstable", parse(from_os_str))]
-    rune_repo_dir: Option<PathBuf>,
 }
 
 impl Build {
-    pub fn execute(self, color: ColorChoice) -> Result<(), Error> {
+    pub fn execute(
+        self,
+        color: ColorChoice,
+        unstable: Unstable,
+    ) -> Result<(), Error> {
         let ctx = self.build_context()?;
-        let features = self.feature_flags();
+        let features = unstable.feature_flags();
 
         log::debug!(
             "Compiling {} in \"{}\"",
@@ -104,16 +102,6 @@ impl Build {
             optimized: !self.debug,
             rune_version: Some(RuneVersion::new(env!("CARGO_PKG_VERSION"))),
         })
-    }
-
-    fn feature_flags(&self) -> FeatureFlags {
-        let mut features = FeatureFlags::default();
-
-        if self.unstable {
-            features.set_rune_repo_dir(self.rune_repo_dir.clone());
-        }
-
-        features
     }
 
     fn current_directory(&self) -> Result<PathBuf, Error> {

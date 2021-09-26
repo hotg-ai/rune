@@ -3,19 +3,17 @@ mod graph;
 mod inspect;
 mod model_info;
 pub mod run;
+mod unstable;
 mod version;
+
+pub use crate::{
+    graph::Graph, inspect::Inspect, model_info::ModelInfo, run::Run,
+    build::Build, version::Version, unstable::Unstable,
+};
+
 
 use codespan_reporting::term::termcolor;
 use env_logger::WriteStyle;
-
-pub use crate::{
-    graph::Graph,
-    inspect::Inspect,
-    model_info::ModelInfo,
-    run::Run,
-    build::Build,
-    version::Version,
-};
 
 #[derive(
     Debug, Copy, Clone, PartialEq, strum::EnumVariantNames, strum::EnumString,
