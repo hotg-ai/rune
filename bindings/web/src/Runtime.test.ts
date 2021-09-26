@@ -57,7 +57,7 @@ function buildExample(name: string): ArrayBuffer {
     const exampleDir = path.join(repoRoot, "examples", name);
     const runefile = path.join(exampleDir, "Runefile.yml");
 
-    child_process.execSync(`cargo rune build ${runefile} --quiet`, {
+    child_process.execSync(`cargo rune build ${runefile} --quiet --unstable --rune-repo-root ${repoRoot}`, {
         cwd: repoRoot,
         env: {
             RUST_LOG: "warning",
