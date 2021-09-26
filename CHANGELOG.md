@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `#[transform]` attribute used with the
   `#[derive(ProcBlock)]` custom derive now accepts multiple inputs and outputs
   so you can write `#[transform(inputs = ([f32; _], [u8; 1]), outputs = str)]`
+- The `rune` CLI now uses [the `human_panic` crate][human_panic] to generate
+  crash reports that can be included when reporting a bug
 
 ### Changed
 
@@ -196,3 +198,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [tinyml]: https://github.com/hotg-ai/rune/releases/tag/TinyMLSummity-RC1
 [build-info]: https://docs.rs/build-info-common/0.0.23/build_info_common/struct.BuildInfo.html
 [rune-rs]: https://rune-rs.github.io/
+[human_panic]: https://crates.io/crates/human-panic
