@@ -3,13 +3,7 @@ use log::LevelFilter;
 use structopt::{clap::AppSettings, StructOpt};
 use strum::VariantNames;
 use hotg_rune_cli::{
-    Graph,
-    Inspect,
-    Build,
-    ColorChoice,
-    Format,
-    ModelInfo,
-    Run,
+    Build, ColorChoice, Format, Graph, Inspect, ModelInfo, Run, Unstable,
     Version,
 };
 
@@ -20,6 +14,7 @@ fn main() -> Result<(), Error> {
         colour,
         cmd,
         version,
+        unstable,
     } = Args::from_args();
 
     env_logger::builder()
@@ -32,7 +27,7 @@ fn main() -> Result<(), Error> {
         .init();
 
     match cmd {
-        Some(Cmd::Build(build)) => build.execute(colour.into()),
+        Some(Cmd::Build(build)) => build.execute(colour.into(), unstable),
         Some(Cmd::Run(run)) => run.execute(),
         Some(Cmd::Graph(graph)) => graph.execute(),
         Some(Cmd::Version(version)) => version.execute(),
@@ -56,6 +51,8 @@ fn main() -> Result<(), Error> {
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct Args {
+    #[structopt(flatten)]
+    unstable: Unstable,
     #[structopt(
         long,
         default_value = "auto",

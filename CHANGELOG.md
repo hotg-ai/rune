@@ -16,16 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so you can write `#[transform(inputs = ([f32; _], [u8; 1]), outputs = str)]`
 - The `rune` CLI now uses [the `human_panic` crate][human_panic] to generate
   crash reports that can be included when reporting a bug
+  ([#322](https://github.com/hotg-ai/rune/issues/322))
 - Data written to the `SERIAL` output will be printed to `STDOUT` as lines of
-  JSON
+  JSON ([#316](https://github.com/hotg-ai/rune/issues/316)
 
 ### Changed
 
 - **(Breaking Change)** The `#[transform]` attribute now expects `inputs =` and
   `outputs =` instead of `input =` and `output =`
+  ([#311](https://github.com/hotg-ai/rune/issues/311))
+- **(Breaking Change)** Merged the `hotg-rune-syntax` and `hotg-rune-codegen`
+  crates into a new `hotg-rune-compiler` crate
+- We now use `librunecoral` instead of `tflite` for TensorFlow Lite inference
+  ([#301](https://github.com/hotg-ai/rune/pull/301))
 - The `rune` CLI no longer logs by default. You will need to set the `RUST_LOG`
   environment variable to an appropriate value if you want to see log output
   (see [the `env_logger` crate][env_logger]'s docs for more)
+  ([#316](https://github.com/hotg-ai/rune/issues/316)
 
 ### Fixed
 
@@ -36,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of `rune run` and `rune inspect`) would enter an infinite loop when passed a
   file that doesn't contain WebAssembly
   ([#318](https://github.com/hotg-ai/rune/pull/318))
+- The `rune build` command will now error with something like *Unable to find
+  "asdf" to use as an input for "some_model"* when an input isn't declared
+  ([#319](https://github.com/hotg-ai/rune/issues/319))
 
 ## [0.7.0] - 2021-09-07
 

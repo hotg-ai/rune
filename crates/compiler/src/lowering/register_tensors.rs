@@ -149,8 +149,8 @@ fn unknown_input_name_diagnostic(
     input: &parse::Input,
 ) -> Diagnostic<()> {
     Diagnostic::error().with_message(format!(
-        "The \"{}\" in {}'s \"{}\" input was not defined",
-        input.name, parent_name, input,
+        "Unable to find \"{}\" to use as an input for \"{}\"",
+        input, parent_name,
     ))
 }
 
