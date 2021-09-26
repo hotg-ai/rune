@@ -16,11 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so you can write `#[transform(inputs = ([f32; _], [u8; 1]), outputs = str)]`
 - The `rune` CLI now uses [the `human_panic` crate][human_panic] to generate
   crash reports that can be included when reporting a bug
+- Data written to the `SERIAL` output will be printed to `STDOUT` as lines of
+  JSON
 
 ### Changed
 
 - **(Breaking Change)** The `#[transform]` attribute now expects `inputs =` and
   `outputs =` instead of `input =` and `output =`
+- The `rune` CLI no longer logs by default. You will need to set the `RUST_LOG`
+  environment variable to an appropriate value if you want to see log output
+  (see [the `env_logger` crate][env_logger]'s docs for more)
 
 ### Fixed
 
@@ -199,3 +204,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [build-info]: https://docs.rs/build-info-common/0.0.23/build_info_common/struct.BuildInfo.html
 [rune-rs]: https://rune-rs.github.io/
 [human_panic]: https://crates.io/crates/human-panic
+[env_logger]: https://docs.rs/env_logger/

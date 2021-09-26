@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     fmt::{self, Debug, Display, Formatter},
     path::Path,
     process::Output,
@@ -10,43 +9,57 @@ pub trait Assertion: Debug {
     fn check_for_errors(&self, output: &Output) -> Result<(), Error>;
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct MatchStderr {
-    expected: String,
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum StdioStream {
+    Stdout,
+    Stderr,
 }
 
-impl MatchStderr {
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchStdioStream {
+    expected: String,
+    stream: StdioStream,
+}
+
+impl MatchStdioStream {
     pub fn for_file(filename: impl AsRef<Path>) -> Result<Option<Self>, Error> {
         let filename = filename.as_ref();
 
-        if filename.extension() != Some(OsStr::new("stderr")) {
-            return Ok(None);
-        }
+        let stream = match filename.extension().and_then(|s| s.to_str()) {
+            Some("stderr") => StdioStream::Stderr,
+            Some("stdout") => StdioStream::Stdout,
+            _ => return Ok(None),
+        };
 
         let expected =
             std::fs::read_to_string(filename).with_context(|| {
                 format!("Unable to read \"{}\"", filename.display())
             })?;
 
-        Ok(Some(MatchStderr::new(expected.trim())))
+        Ok(Some(MatchStdioStream::new(expected.trim(), stream)))
     }
 
-    pub fn new(expected: impl Into<String>) -> Self {
-        MatchStderr {
+    pub fn new(expected: impl Into<String>, stream: StdioStream) -> Self {
+        MatchStdioStream {
             expected: expected.into(),
+            stream,
         }
     }
 }
 
-impl Assertion for MatchStderr {
+impl Assertion for MatchStdioStream {
     fn check_for_errors(&self, output: &Output) -> Result<(), Error> {
-        let stderr = std::str::from_utf8(&output.stderr)
-            .context("Unable to parse stderr as UTF-8")?;
+        let raw = match self.stream {
+            StdioStream::Stdout => &output.stdout,
+            StdioStream::Stderr => &output.stderr,
+        };
+        let output = std::str::from_utf8(raw)
+            .context("Unable to parse output as UTF-8")?;
 
-        if !stderr.contains(&self.expected) {
+        if !output.contains(&self.expected) {
             return Err(Error::from(MismatchedStderr {
                 expected: self.expected.clone(),
-                actual: stderr.to_string(),
+                actual: output.to_string(),
             }));
         }
 

@@ -1,3 +1,4 @@
+use log::LevelFilter;
 use regex::Regex;
 use anyhow::{Context, Error};
 use hotg_rune_integration_tests::{Callbacks, FullName, TestContext};
@@ -9,25 +10,15 @@ use std::{
 };
 use env_logger::Env;
 
-pub const DEFAULT_RUST_LOG: &str = concat!(
-    "info,",
-    "hotg_rune_cli=debug,",
-    "hotg_rune_codegen=debug,",
-    "hotg_rune_core=debug,",
-    "hotg_rune_runtime=debug,",
-    "hotg_rune_syntax=debug,",
-    "hotg_rune_wasmer_runtime=debug,",
-    "hotg_rune_wasm3_runtime=debug,",
-    "hotg_runicos_base_runtime=debug,",
-    "regalloc=warn,",
-);
-
 fn main() -> Result<(), Error> {
-    let env = Env::new().default_filter_or(DEFAULT_RUST_LOG);
+    let env = Env::new().default_filter_or("info");
     env_logger::builder()
         .parse_env(env)
         .format_timestamp_millis()
         .format_indent(Some(2))
+        // Some modules are known to generate loads of logs that aren't relevant
+        .filter_module("cranelift_codegen", LevelFilter::Warn)
+        .filter_module("regalloc", LevelFilter::Warn)
         .init();
     let Args {
         test_directory,

@@ -1,8 +1,9 @@
+use hotg_rune_runtime::Output;
 use regex::Regex;
 use std::{path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use log;
-use hotg_rune_core::capabilities;
+use hotg_rune_core::{Shape, capabilities};
 use once_cell::sync::Lazy;
 use crate::run::{
     Accelerometer, Image, Raw, Sound, accelerometer::Samples,
@@ -110,12 +111,17 @@ impl Run {
         let mut img = BaseImage::with_defaults();
 
         self.register_capabilities(&mut img)?;
+        self.register_outputs(&mut img);
 
         resources::load_from_custom_sections(&mut img, rune)?;
         resources::load_from_files(&mut img, &self.file_resources);
         resources::load_from_strings(&mut img, &self.string_resources);
 
         Ok(img)
+    }
+
+    fn register_outputs(&self, img: &mut BaseImage) {
+        img.register_output(hotg_rune_core::outputs::SERIAL, serial_output);
     }
 
     /// Load the source files for each kind of capability and create a
@@ -227,5 +233,23 @@ impl FromStr for StringResource {
             name: name.to_string(),
             value: value.to_string(),
         })
+    }
+}
+
+fn serial_output(_: Option<&[Shape<'_>]>) -> Result<Box<dyn Output>, Error> {
+    Ok(Box::new(Serial::default()))
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Serial;
+
+impl Output for Serial {
+    fn consume(&mut self, buffer: &[u8]) -> Result<(), Error> {
+        let json = std::str::from_utf8(buffer)
+            .context("Unable to parse the input as UTF-8")?;
+
+        println!("{}", json);
+
+        Ok(())
     }
 }
