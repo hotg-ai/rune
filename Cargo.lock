@@ -1032,6 +1032,7 @@ dependencies = [
  "hotg-runecoral",
  "hotg-runicos-base-runtime",
  "hound",
+ "human-panic",
  "image",
  "indexmap",
  "log",
@@ -1232,6 +1233,21 @@ name = "hound"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a164bb2ceaeff4f42542bdb847c41517c78a60f5649671b2a07312b6e117549"
+
+[[package]]
+name = "human-panic"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39f357a500abcbd7c5f967c1d45c8838585b36743823b9d43488f24850534e36"
+dependencies = [
+ "backtrace",
+ "os_type",
+ "serde",
+ "serde_derive",
+ "termcolor",
+ "toml",
+ "uuid",
+]
 
 [[package]]
 name = "humantime"
@@ -1838,6 +1854,15 @@ name = "oorandom"
 version = "11.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
+
+[[package]]
+name = "os_type"
+version = "2.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96eaebe22d9f12429b1af6a0b5dd411ccfc5cb5968710abbb8c512046be9df90"
+dependencies = [
+ "regex",
+]
 
 [[package]]
 name = "output_vt100"
@@ -2904,6 +2929,15 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "uuid"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+dependencies = [
+ "getrandom",
 ]
 
 [[package]]

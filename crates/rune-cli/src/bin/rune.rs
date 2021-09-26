@@ -8,6 +8,8 @@ use hotg_rune_cli::{
 };
 
 fn main() -> Result<(), Error> {
+    human_panic::setup_panic!();
+
     let Args {
         colour,
         cmd,
