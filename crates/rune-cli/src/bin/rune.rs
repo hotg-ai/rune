@@ -1,10 +1,9 @@
 use anyhow::Error;
+use log::LevelFilter;
 use structopt::{clap::AppSettings, StructOpt};
-use env_logger::Env;
 use strum::VariantNames;
 use hotg_rune_cli::{
-    Build, ColorChoice, DEFAULT_RUST_LOG, Format, Graph, Inspect, ModelInfo,
-    Run, Version,
+    Build, ColorChoice, Format, Graph, Inspect, ModelInfo, Run, Version,
 };
 
 fn main() -> Result<(), Error> {
@@ -16,12 +15,13 @@ fn main() -> Result<(), Error> {
         version,
     } = Args::from_args();
 
-    let env = Env::new().default_filter_or(DEFAULT_RUST_LOG);
     env_logger::builder()
-        .parse_env(env)
         .format_timestamp_millis()
         .format_indent(Some(2))
         .write_style(colour.into())
+        // Some modules are known to generate loads of logs that aren't relevant
+        .filter_module("cranelift_codegen", LevelFilter::Warn)
+        .filter_module("regalloc", LevelFilter::Warn)
         .init();
 
     match cmd {
