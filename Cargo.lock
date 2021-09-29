@@ -3126,6 +3126,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a4e5d10bf1ffe7753275d4bbae3dc135dd2d2decd90e615accf9fef8bc52bab"
 dependencies = [
+ "bindgen",
  "cc",
  "cty",
  "shlex 0.1.1",
