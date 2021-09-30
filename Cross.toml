@@ -5,13 +5,13 @@ passthrough = [
 ]
 
 [target.aarch64-unknown-linux-gnu]
-image = "docker.pkg.github.com/hotg-ai/librunecoral/runecoral-cross-linux-aarch64"
+image = "tinyverseml/runecoral-cross-linux-aarch64"
 
 [target.x86_64-unknown-linux-gnu]
-image = "docker.pkg.github.com/hotg-ai/librunecoral/runecoral-cross-linux-x86_64"
+image = "tinyverseml/runecoral-cross-linux-x86_64"
 
 [target.aarch64-linux-android]
-image = "docker.pkg.github.com/hotg-ai/librunecoral/runecoral-cross-android-aarch64"
+image = "tinyverseml/runecoral-cross-android-aarch64"
 
 [target.x86_64-linux-android]
-image = "docker.pkg.github.com/hotg-ai/librunecoral/runecoral-cross-android-x86_64"
+image = "tinyverseml/runecoral-cross-android-x86_64"
