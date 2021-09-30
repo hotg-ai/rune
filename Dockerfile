@@ -1,4 +1,4 @@
-FROM docker.pkg.github.com/hotg-ai/librunecoral/runecoral-cross-linux-x86_64  as build
+FROM tinyverseml/runecoral-cross-linux-x86_64 as build
 
 WORKDIR /app
 # Putting the toolchain file in / means we always use the right rustc version
