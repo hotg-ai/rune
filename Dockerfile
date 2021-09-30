@@ -28,7 +28,7 @@ COPY rust-toolchain.toml /rust-toolchain.toml
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN apt-get update -y && \
-    apt-get install -y curl build-essential && \
+    apt-get install -y curl build-essential git && \
     rm -rf /var/lib/apt/lists/* && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh && \
     sh rustup-init.sh --default-toolchain none -y && \
