@@ -1,5 +1,9 @@
 #![no_std]
 
+#[cfg(test)]
+#[macro_use]
+extern crate alloc;
+
 use num_traits::{Bounded, ToPrimitive};
 use hotg_rune_proc_blocks::{ProcBlock, Transform, Tensor};
 
@@ -58,9 +62,12 @@ mod tests {
 
     #[test]
     fn normalizing_with_default_distribution_is_noop() {
-        let input: Tensor<u8> = Tensor::from([0, 127, 255]);
+        let dims = vec![1, 1, 1, 3];
+        let input: Tensor<u8> =
+            Tensor::new_row_major(vec![0, 127, 255].into(), dims.clone());
         let mut norm = ImageNormalization::default();
-        let should_be: Tensor<f32> = Tensor::from([0.0, 127.0 / 255.0, 1.0]);
+        let should_be: Tensor<f32> =
+            Tensor::new_row_major(vec![0.0, 127.0 / 255.0, 1.0].into(), dims);
 
         let got = norm.transform(input);
 
