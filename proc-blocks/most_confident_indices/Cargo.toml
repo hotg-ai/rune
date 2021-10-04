@@ -1,5 +1,4 @@
 [package]
-resolver = "2"
 name = "most_confident_indices"
 version = "0.7.1-dev"
 edition = "2018"
@@ -8,5 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-core = {git = "https://github.com/hotg-ai/rune", rev = '5e72105f781c41459259134ce93510ce71107f25' }
-hotg-rune-proc-blocks = {git = "https://github.com/hotg-ai/rune", rev = '5e72105f781c41459259134ce93510ce71107f25' }
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.7.1-dev"}
+
+[dev-dependencies]
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.1-dev"}
