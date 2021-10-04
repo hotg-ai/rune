@@ -11,10 +11,10 @@ use hotg_rune_proc_blocks::{Tensor, Transform, ProcBlock};
 /// associated labels.
 ///
 /// # Examples
+///
 /// ```rust
 /// # use label::Label;
-/// # use hotg_rune_core::Tensor;
-/// # use hotg_rune_proc_blocks::Transform;
+/// # use hotg_rune_proc_blocks::{Transform, Tensor};
 /// let mut proc_block = Label::default();
 /// proc_block.set_labels(["zero", "one", "two", "three"]);
 /// let input = Tensor::new_vector(vec![3, 1, 2]);

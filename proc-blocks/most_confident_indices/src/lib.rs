@@ -19,6 +19,21 @@ pub struct MostConfidentIndices {
 
 impl MostConfidentIndices {
     pub fn new(count: usize) -> Self { MostConfidentIndices { count } }
+
+    fn check_input_dimensions(&self, dimensions: &[usize]) {
+        match simplify_dimensions(dimensions) {
+            [count] => assert!(
+                self.count <= *count,
+                "Unable to take the top {} values from a {}-item input",
+                self.count,
+                *count
+            ),
+            other => panic!(
+                "This proc-block only works with 1D inputs, but found {:?}",
+                other
+            ),
+        }
+    }
 }
 
 impl Default for MostConfidentIndices {
@@ -30,12 +45,7 @@ impl<T: PartialOrd + Copy> Transform<Tensor<T>> for MostConfidentIndices {
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
         let elements = input.elements();
-        assert!(
-            self.count <= elements.len(),
-            "Unable to take the top {} values from a {}-item input",
-            self.count,
-            elements.len()
-        );
+        self.check_input_dimensions(input.dimensions());
 
         let mut indices_and_confidence: Vec<_> =
             elements.iter().copied().enumerate().collect();
@@ -50,6 +60,22 @@ impl<T: PartialOrd + Copy> Transform<Tensor<T>> for MostConfidentIndices {
     }
 }
 
+fn simplify_dimensions(mut dimensions: &[usize]) -> &[usize] {
+    while let Some(rest) = dimensions.strip_prefix(&[1]) {
+        dimensions = rest;
+    }
+    while let Some(rest) = dimensions.strip_suffix(&[1]) {
+        dimensions = rest;
+    }
+
+    if dimensions.is_empty() {
+        // The input dimensions were just a series of 1's (e.g. [1, 1, ... , 1])
+        &[1]
+    } else {
+        dimensions
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,6 +85,14 @@ mod tests {
     fn only_works_with_1d() {
         let mut proc_block = MostConfidentIndices::default();
         let input: Tensor<i32> = Tensor::zeroed(alloc::vec![1, 2, 3]);
+
+        let _ = proc_block.transform(input);
+    }
+
+    #[test]
+    fn tensors_equivalent_to_1d_are_okay_too() {
+        let mut proc_block = MostConfidentIndices::default();
+        let input: Tensor<i32> = Tensor::zeroed(alloc::vec![1, 5, 1, 1, 1]);
 
         let _ = proc_block.transform(input);
     }
