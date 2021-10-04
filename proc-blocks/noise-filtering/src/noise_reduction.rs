@@ -5,7 +5,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use hotg_rune_core::{HasOutputs, Tensor};
+use hotg_rune_proc_blocks::Tensor;
 
 const NOISE_REDUCTION_BITS: usize = 14;
 
@@ -62,7 +62,13 @@ impl NoiseReduction {
         // make sure we have the right estimate buffer size and panic if we
         // don't. This works because the input and output have the same
         // dimensions.
-        self.set_output_dimensions(input.dimensions());
+        match input.dimensions() {
+            [1, len, ] => self.estimate.resize(*len, 0),
+            other => panic!(
+                "This transform only supports outputs of the form [1, _], not {:?}",
+                other
+            ),
+        }
 
         let signal = input.make_elements_mut();
 
@@ -118,18 +124,6 @@ fn scale(number: f32) -> u16 {
 fn unscale(number: u16) -> f32 {
     let scale_factor: f32 = (1 << NOISE_REDUCTION_BITS) as f32;
     number as f32 / scale_factor
-}
-
-impl HasOutputs for NoiseReduction {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match *dimensions {
-            [1, len, ] => self.estimate.resize(len, 0),
-            _ => panic!(
-                "This transform only supports outputs of the form [1, _], not {:?}",
-                dimensions
-            ),
-        }
-    }
 }
 
 #[cfg(test)]

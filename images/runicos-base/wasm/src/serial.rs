@@ -1,4 +1,4 @@
-use hotg_rune_core::{Sink, outputs, Tensor};
+use hotg_rune_core::{outputs, Tensor};
 use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::{fmt::Debug, cell::RefCell};
@@ -58,20 +58,18 @@ impl Serial {
             }
         }
     }
+
+    pub fn consume<T>(&mut self, input: T)
+    where
+        T: IntoSerialMessage,
+    {
+        let msg = input.into_serial_message(self.id);
+        self.consume_serializable(&msg);
+    }
 }
 
 impl Default for Serial {
     fn default() -> Self { Serial::new() }
-}
-
-impl<T> Sink<T> for Serial
-where
-    T: IntoSerialMessage,
-{
-    fn consume(&mut self, input: T) {
-        let msg = input.into_serial_message(self.id);
-        self.consume_serializable(&msg);
-    }
 }
 
 /// An intermediate trait which lets you convert from some input into a

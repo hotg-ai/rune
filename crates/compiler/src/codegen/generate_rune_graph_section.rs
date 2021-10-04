@@ -4,12 +4,17 @@ use legion::{
     systems::CommandBuffer,
     world::SubWorld,
 };
-use crate::{BuildContext, codegen::{
+use crate::{
+    BuildContext,
+    codegen::{
         ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
-    }, lowering::{
+    },
+    lowering::{
         Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource, Sink,
         Source, Tensor,
-    }, parse::{ResourceName, ResourceOrString}};
+    },
+    parse::{ResourceName, ResourceOrString},
+};
 
 use super::{CapabilitySummary, RuneSummary};
 

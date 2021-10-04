@@ -1,8 +1,7 @@
 #![no_std]
 
 use num_traits::{Bounded, ToPrimitive};
-use hotg_rune_core::{HasOutputs, Tensor};
-use hotg_rune_proc_blocks::{ProcBlock, Transform};
+use hotg_rune_proc_blocks::{ProcBlock, Transform, Tensor};
 
 /// A normalization routine which takes some tensor of integers and fits their
 /// values to the range `[0, 1]` as `f32`'s.
@@ -16,6 +15,19 @@ use hotg_rune_proc_blocks::{ProcBlock, Transform};
 #[transform(inputs = [i32; _], outputs = [f32; _])]
 pub struct ImageNormalization {}
 
+impl ImageNormalization {
+    fn check_input_dimensions(&self, dimensions: &[usize]) {
+        match *dimensions {
+            [_, _, _, 3] => {},
+            [_, _, _, channels] => panic!(
+                "The number of channels should be either 1 or 3, found {}",
+                channels
+            ),
+            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
+        }
+    }
+}
+
 impl<T> Transform<Tensor<T>> for ImageNormalization
 where
     T: Bounded + ToPrimitive + Copy,
@@ -23,6 +35,7 @@ where
     type Output = Tensor<f32>;
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
+        self.check_input_dimensions(input.dimensions());
         input.map(|_, &value| normalize(value).expect("Cast should never fail"))
     }
 }
@@ -37,19 +50,6 @@ where
     debug_assert!(min <= value && value <= max);
 
     Some((value - min) / (max - min))
-}
-
-impl HasOutputs for ImageNormalization {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match *dimensions {
-            [_, _, _, 3] => {},
-            [_, _, _, channels] => panic!(
-                "The number of channels should be either 1 or 3, found {}",
-                channels
-            ),
-            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
-        }
-    }
 }
 
 #[cfg(test)]
