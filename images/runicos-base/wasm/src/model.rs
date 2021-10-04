@@ -1,4 +1,4 @@
-use hotg_rune_core::{Shape, TensorList, TensorListMut, HasOutputs};
+use hotg_rune_core::{Shape, TensorList, TensorListMut};
 use alloc::{
     vec::Vec,
     string::{String, ToString},
@@ -83,5 +83,3 @@ where
         outputs
     }
 }
-
-impl<Input, Output> HasOutputs for Model<Input, Output> {}

@@ -11,7 +11,6 @@ pub use crate::{
     build::Build, version::Version, unstable::Unstable,
 };
 
-
 use codespan_reporting::term::termcolor;
 use env_logger::WriteStyle;
 

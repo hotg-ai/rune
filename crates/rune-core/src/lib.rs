@@ -8,7 +8,6 @@ extern crate alloc;
 
 mod buf_writer;
 mod logging;
-mod pipelines;
 mod pixel_format;
 pub mod reflect;
 mod resources;
@@ -19,7 +18,6 @@ mod value;
 
 pub use crate::{
     buf_writer::BufWriter,
-    pipelines::{Sink, HasOutputs},
     tensor::{Tensor, TensorView, TensorViewMut},
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},

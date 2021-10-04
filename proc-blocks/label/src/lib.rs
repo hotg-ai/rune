@@ -5,16 +5,16 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use hotg_rune_proc_blocks::{HasOutputs, Tensor, Transform, ProcBlock};
+use hotg_rune_proc_blocks::{Tensor, Transform, ProcBlock};
 
 /// A proc block which, when given a set of indices, will return their
 /// associated labels.
 ///
 /// # Examples
+///
 /// ```rust
 /// # use label::Label;
-/// # use hotg_rune_core::Tensor;
-/// # use hotg_rune_proc_blocks::Transform;
+/// # use hotg_rune_proc_blocks::{Transform, Tensor};
 /// let mut proc_block = Label::default();
 /// proc_block.set_labels(["zero", "one", "two", "three"]);
 /// let input = Tensor::new_vector(vec![3, 1, 2]);
@@ -56,20 +56,6 @@ where
     }
 }
 
-impl HasOutputs for Label {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match dimensions {
-            [rest @ .., _] if rest.iter().all(|d| *d == 1) => {},
-            _ => {
-                panic!(
-                    "This proc block only supports 1D outputs (requested output: {:?})",
-                    dimensions
-                );
-            },
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,8 +64,9 @@ mod tests {
     #[should_panic]
     fn only_works_with_1d_inputs() {
         let mut proc_block = Label::default();
+        let input: Tensor<i32> = Tensor::zeroed(alloc::vec![1, 2, 3]);
 
-        proc_block.set_output_dimensions(&[1, 2, 3]);
+        let _ = proc_block.transform(input);
     }
 
     #[test]

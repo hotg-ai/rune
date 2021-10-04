@@ -1,8 +1,11 @@
 #![no_std]
 
+#[cfg(test)]
+#[macro_use]
+extern crate alloc;
+
 use num_traits::{Bounded, ToPrimitive};
-use hotg_rune_core::{HasOutputs, Tensor};
-use hotg_rune_proc_blocks::{ProcBlock, Transform};
+use hotg_rune_proc_blocks::{ProcBlock, Transform, Tensor};
 
 /// A normalization routine which takes some tensor of integers and fits their
 /// values to the range `[0, 1]` as `f32`'s.
@@ -16,6 +19,19 @@ use hotg_rune_proc_blocks::{ProcBlock, Transform};
 #[transform(inputs = [i32; _], outputs = [f32; _])]
 pub struct ImageNormalization {}
 
+impl ImageNormalization {
+    fn check_input_dimensions(&self, dimensions: &[usize]) {
+        match *dimensions {
+            [_, _, _, 3] => {},
+            [_, _, _, channels] => panic!(
+                "The number of channels should be either 1 or 3, found {}",
+                channels
+            ),
+            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
+        }
+    }
+}
+
 impl<T> Transform<Tensor<T>> for ImageNormalization
 where
     T: Bounded + ToPrimitive + Copy,
@@ -23,6 +39,7 @@ where
     type Output = Tensor<f32>;
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
+        self.check_input_dimensions(input.dimensions());
         input.map(|_, &value| normalize(value).expect("Cast should never fail"))
     }
 }
@@ -39,28 +56,18 @@ where
     Some((value - min) / (max - min))
 }
 
-impl HasOutputs for ImageNormalization {
-    fn set_output_dimensions(&mut self, dimensions: &[usize]) {
-        match *dimensions {
-            [_, _, _, 3] => {},
-            [_, _, _, channels] => panic!(
-                "The number of channels should be either 1 or 3, found {}",
-                channels
-            ),
-            _ => panic!("The image normalization proc block only supports outputs of the form [frames, rows, columns, channels], found {:?}", dimensions),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn normalizing_with_default_distribution_is_noop() {
-        let input: Tensor<u8> = Tensor::from([0, 127, 255]);
+        let dims = vec![1, 1, 1, 3];
+        let input: Tensor<u8> =
+            Tensor::new_row_major(vec![0, 127, 255].into(), dims.clone());
         let mut norm = ImageNormalization::default();
-        let should_be: Tensor<f32> = Tensor::from([0.0, 127.0 / 255.0, 1.0]);
+        let should_be: Tensor<f32> =
+            Tensor::new_row_major(vec![0.0, 127.0 / 255.0, 1.0].into(), dims);
 
         let got = norm.transform(input);
 
