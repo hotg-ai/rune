@@ -89,9 +89,9 @@ dependencies = [
 
 [[package]]
 name = "atomic_refcell"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "681b971236e0f76b20fcafca0236b8718c9186ee778d67cd78bd5f28fd85427f"
+checksum = "73b5e5f48b927f04e952dedc932f31995a65a0bf65ec971c74436e51bf6e970d"
 
 [[package]]
 name = "atty"
@@ -358,9 +358,9 @@ dependencies = [
 
 [[package]]
 name = "cargo_toml"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "067a0b9ae9282dd1f63b6c1e76a065d741fc1733e566dc50b5b5d8a84d7e3c4a"
+checksum = "c6d613611c914a7db07f28526941ce1e956d2f977b0c5e2014fbfa42230d420f"
 dependencies = [
  "serde",
  "serde_derive",
@@ -1213,9 +1213,9 @@ dependencies = [
 
 [[package]]
 name = "hotg-runecoral"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4b1e5082ce059c607822c3439a9eb68def2810f8d8a846085f4032042d7cb63"
+checksum = "16699b5fe5175c89df93f0e76710b91656bf5e37c857435217542504dfcacf4f"
 dependencies = [
  "bindgen",
  "bitflags",
