@@ -1,5 +1,4 @@
 #![no_std]
-use hotg_rune_core::HasOutputs;
 use hotg_rune_proc_blocks::{Transform, ProcBlock};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, ProcBlock)]
@@ -11,5 +10,3 @@ impl<T> Transform<T> for Identity {
 
     fn transform(&mut self, input: T) -> Self::Output { input }
 }
-
-impl HasOutputs for Identity {}
