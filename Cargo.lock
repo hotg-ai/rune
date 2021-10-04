@@ -1706,7 +1706,6 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 name = "most_confident_indices"
 version = "0.7.1-dev"
 dependencies = [
- "hotg-rune-core",
  "hotg-rune-proc-blocks",
 ]
 

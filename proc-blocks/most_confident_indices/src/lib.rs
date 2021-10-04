@@ -5,8 +5,7 @@ extern crate alloc;
 use core::{convert::TryInto, fmt::Debug};
 
 use alloc::vec::Vec;
-use hotg_rune_core::{HasOutputs, Tensor};
-use hotg_rune_proc_blocks::{ProcBlock, Transform};
+use hotg_rune_proc_blocks::{ProcBlock, Transform, HasOutputs, Tensor};
 
 /// A proc block which, when given a list of confidences, will return the
 /// indices of the top N most confident values.
@@ -19,15 +18,11 @@ pub struct MostConfidentIndices {
 }
 
 impl MostConfidentIndices {
-    pub fn new(count: usize) -> Self {
-        MostConfidentIndices { count }
-    }
+    pub fn new(count: usize) -> Self { MostConfidentIndices { count } }
 }
 
 impl Default for MostConfidentIndices {
-    fn default() -> Self {
-        MostConfidentIndices::new(1)
-    }
+    fn default() -> Self { MostConfidentIndices::new(1) }
 }
 
 impl<T: PartialOrd + Copy> Transform<Tensor<T>> for MostConfidentIndices {
@@ -42,7 +37,8 @@ impl<T: PartialOrd + Copy> Transform<Tensor<T>> for MostConfidentIndices {
             elements.len()
         );
 
-        let mut indices_and_confidence: Vec<_> = elements.iter().copied().enumerate().collect();
+        let mut indices_and_confidence: Vec<_> =
+            elements.iter().copied().enumerate().collect();
 
         indices_and_confidence.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
@@ -93,7 +89,8 @@ mod tests {
     #[test]
     fn get_top_3_values() {
         let mut proc_block = MostConfidentIndices::new(3);
-        let input = Tensor::new_vector(alloc::vec![0.0, 0.5, 10.0, 3.5, -200.0]);
+        let input =
+            Tensor::new_vector(alloc::vec![0.0, 0.5, 10.0, 3.5, -200.0]);
         let should_be = Tensor::new_vector(alloc::vec![2, 3, 1]);
 
         let got = proc_block.transform(input);

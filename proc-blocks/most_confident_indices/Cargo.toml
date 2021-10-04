@@ -8,4 +8,3 @@ publish = false
 
 [dependencies]
 hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.7.1-dev"}
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.7.1-dev"}
