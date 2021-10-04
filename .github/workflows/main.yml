@@ -28,13 +28,6 @@ jobs:
             target
             python/target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Login to GitHub Container Registry
-        if: ${{ runner.os == 'Linux' }}
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
@@ -96,12 +89,6 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
@@ -150,12 +137,6 @@ jobs:
             target
             bindings/web/node_modules
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Rust
         run: rustup show
       - name: Install Dependencies

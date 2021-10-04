@@ -23,7 +23,7 @@ hotg-rune-runtime = { path = "../runtime", version = "^0.7.1-dev"}
 hotg-rune-compiler = { path = "../compiler", version = "^0.7.1-dev"}
 hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.7.1-dev"}
 hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.7.1-dev"}
-hotg-runecoral = "0.3.1"
+hotg-runecoral = "0.3.4"
 hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.7.1-dev", features = ["wasm3-runtime"] }
 hound = "3.4.0"
 human-panic = "1.0.3"

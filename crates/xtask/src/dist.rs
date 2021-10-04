@@ -377,7 +377,7 @@ fn compile_example_runes(ctx: &Context) -> Result<(), Error> {
         let example = destination_dir.join(&name);
 
         log::info!("Compiling the \"{}\" rune", name.to_string_lossy());
-        compile_example_rune(cargo, &name, &runefile, &example)?;
+        compile_example_rune(cargo, &name, &runefile, &example, project_root)?;
 
         log::info!("Copying example artifacts across");
         copy.copy(dir.path(), example)
@@ -392,6 +392,7 @@ fn compile_example_rune(
     name: &OsStr,
     runefile: &Path,
     example: &Path,
+    project_root: &Path,
 ) -> Result<(), Error> {
     let generated_code = example.join("rust");
     let rune = example.join(&name).with_extension("rune");
@@ -399,14 +400,17 @@ fn compile_example_rune(
     let mut cmd = Command::new(cargo);
     cmd.arg("run")
         .arg("--release")
-        .arg("--package=hotg-rune-cli")
+        .arg("--bin=rune")
         .arg("--")
         .arg("build")
         .arg(&runefile)
         .arg("--cache-dir")
         .arg(&generated_code)
         .arg("--output")
-        .arg(rune);
+        .arg(rune)
+        .arg("--unstable")
+        .arg("--rune-repo-dir")
+        .arg(project_root);
     log::debug!("Executing {:?}", cmd);
 
     let status = cmd.status().context("Unable to run `rune build`")?;

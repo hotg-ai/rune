@@ -20,7 +20,7 @@ use crate::Unstable;
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
 pub struct Build {
     /// The Runefile to compile.
-    #[structopt(parse(from_os_str), default_value = "Runefile")]
+    #[structopt(parse(from_os_str), default_value = "Runefile.yml")]
     runefile: PathBuf,
     /// Where to write the generated Rune.
     #[structopt(short, long, parse(from_os_str))]

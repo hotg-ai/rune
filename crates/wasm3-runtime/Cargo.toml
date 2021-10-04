@@ -18,7 +18,7 @@ anyhow = "1.0"
 log = "0.4.14"
 hotg-rune-runtime = { path = "../runtime", version = "^0.7.1-dev"}
 hotg-rune-core = { path = "../rune-core", version = "^0.7.1-dev"}
-wasm3 = "0.3.0"
+wasm3 = { version = "0.3.1",  features = ["build-bindgen"]}
 
 [dev-dependencies]
 tempfile = "3.2.0"
