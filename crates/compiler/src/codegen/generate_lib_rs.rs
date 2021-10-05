@@ -1133,7 +1133,7 @@ mod tests {
         let inputs = vec![
             ("f32[1]", quote!(Tensor<f32>)),
             ("u8[1, 2, 3, 4]", quote!(Tensor<u8>)),
-            ("str[42]", quote!(Tensor<&str>)),
+            ("utf8[42]", quote!(Tensor<alloc::borrow::Cow<'static, str>>)),
         ];
 
         for (shape, should_be) in inputs {

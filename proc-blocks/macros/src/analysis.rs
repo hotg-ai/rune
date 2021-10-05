@@ -107,7 +107,7 @@ fn to_rust_tensor(exports: &Path, ty: &ElementType) -> syn::Type {
         ElementType::U64 => quote!(u64),
         ElementType::F64 => quote!(f64),
         ElementType::I64 => quote!(i64),
-        ElementType::String => quote!(alloc::borrow::Cow<'static, str>),
+        ElementType::String => quote!(#exports::Cow<'static, str>),
     };
 
     syn::parse2(quote!(#exports::Tensor<#element_type>))
@@ -542,7 +542,10 @@ mod tests {
     fn transform_assertion_automatically_wraps_in_tensor() {
         let inputs = vec![
             (ElementType::U8, quote!(exports::Tensor<u8>)),
-            (ElementType::String, quote!(exports::Tensor<&'static str>)),
+            (
+                ElementType::String,
+                quote!(exports::Tensor<exports::Cow<'static, str>>),
+            ),
         ];
         let exports: Path = syn::parse_str("exports").unwrap();
 
@@ -594,7 +597,7 @@ mod type_tests {
        element_type: ElementType::U8,
        dimensions: Dimensions::Arbitrary,
     });
-    parse_tensor_type!(parse_str_type, str => TensorDescriptor {
+    parse_tensor_type!(parse_str_type, utf8 => TensorDescriptor {
        element_type: ElementType::String,
        dimensions: vec![Dimension::Value(1)].into(),
     });

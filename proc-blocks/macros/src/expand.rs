@@ -464,12 +464,14 @@ mod tests {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: syn::parse_str("exports").unwrap(),
             assertions: vec![TransformAssertion {
-                inputs: vec![
-                    syn::parse_str("exports::Tensor<&'static str>").unwrap()
-                ],
-                outputs: vec![
-                    syn::parse_str("exports::Tensor<&'static str>").unwrap()
-                ],
+                inputs: vec![syn::parse_str(
+                    "exports::Tensor<Cow<'static, str>>",
+                )
+                .unwrap()],
+                outputs: vec![syn::parse_str(
+                    "exports::Tensor<Cow<'static, str>>",
+                )
+                .unwrap()],
             }],
         };
         let should_be = quote! {
@@ -480,7 +482,7 @@ mod tests {
                 { }
 
                 fn transform_assertions() {
-                    assert_implements_transform::<Proc, exports::Tensor<&'static str>, exports::Tensor<&'static str>>();
+                    assert_implements_transform::<Proc, exports::Tensor<Cow<'static, str>>, exports::Tensor<Cow<'static, str>>>();
                 }
             };
         };
@@ -565,13 +567,13 @@ mod tests {
             exports::TransformDescriptor {
                 inputs: exports::TensorDescriptors(exports::Cow::Borrowed(&[
                     exports::TensorDescriptor {
-                        element_type: exports::Type::Float { bit_width: 32usize },
+                        element_type: exports::ElementType::F32,
                         dimensions: exports::Dimensions::Arbitrary,
                     },
                 ])),
                 outputs: exports::TensorDescriptors(exports::Cow::Borrowed(&[
                     exports::TensorDescriptor {
-                        element_type: exports::Type::Integer { signed: false, bit_width: 8usize },
+                        element_type: exports::ElementType::U8,
                         dimensions: exports::Dimensions::Finite(
                             exports::Cow::Borrowed(&[
                                 exports::Dimension::Value(1980usize),
