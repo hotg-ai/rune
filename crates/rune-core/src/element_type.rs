@@ -187,6 +187,10 @@ impl AsElementType for i64 {
     const TYPE: ElementType = ElementType::I64;
 }
 
+impl AsElementType for alloc::borrow::Cow<'static, str> {
+    const TYPE: ElementType = ElementType::String;
+}
+
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct UnknownElementType;
 
