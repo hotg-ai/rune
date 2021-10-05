@@ -8,20 +8,20 @@ use core::{
     num::ParseIntError,
     str::FromStr,
 };
-use crate::reflect::Type;
+use crate::element_type::ElementType;
 
 /// A tensor's shape.
 #[derive(
     Debug, Clone, PartialEq, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub struct Shape<'a> {
-    element_type: Type,
+    element_type: ElementType,
     dimensions: Cow<'a, [usize]>,
 }
 
 impl<'a> Shape<'a> {
     pub fn new(
-        element_type: Type,
+        element_type: ElementType,
         dimensions: impl Into<Cow<'a, [usize]>>,
     ) -> Self {
         Shape {
@@ -30,14 +30,15 @@ impl<'a> Shape<'a> {
         }
     }
 
-    pub fn element_type(&self) -> &Type { &self.element_type }
+    pub fn element_type(&self) -> ElementType { self.element_type }
 
     pub fn dimensions(&self) -> &[usize] { &self.dimensions }
 
-    /// The number of bytes this tensor would take up.
-    pub fn size(&self) -> usize {
-        self.dimensions.iter().product::<usize>()
-            * self.element_type.size_of().unwrap()
+    /// The number of bytes this tensor would take up, if it has a fized size.
+    pub fn size(&self) -> Option<usize> {
+        let element_size = self.element_type.size_of()?;
+
+        Some(self.dimensions.iter().product::<usize>() * element_size)
     }
 
     pub fn to_owned(&self) -> Shape<'static> {
@@ -56,8 +57,7 @@ impl<'a> Display for Shape<'a> {
             element_type,
             dimensions,
         } = self;
-        let element_type_name = element_type.rust_name().ok_or(fmt::Error)?;
-        write!(f, "{}[", element_type_name)?;
+        write!(f, "{}[", element_type)?;
 
         for (i, dim) in dimensions.iter().enumerate() {
             if i > 0 {
@@ -78,7 +78,7 @@ impl FromStr for Shape<'static> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let opening_bracket = s.find('[').ok_or(FormatError::Malformed)?;
         let element_type = s[..opening_bracket].trim();
-        let ty = Type::from_rust_name(element_type).ok_or_else(|| {
+        let ty = element_type.parse().map_err(|_| {
             FormatError::UnknownElementType {
                 found: element_type.to_string(),
             }
@@ -152,14 +152,14 @@ mod tests {
     const SHAPES: &[(Shape, &str)] = &[
         (
             Shape {
-                element_type: Type::f32,
+                element_type: ElementType::F32,
                 dimensions: Cow::Borrowed(&[1, 2, 3]),
             },
             "f32[1, 2, 3]",
         ),
         (
             Shape {
-                element_type: Type::u8,
+                element_type: ElementType::U8,
                 dimensions: Cow::Borrowed(&[42]),
             },
             "u8[42]",

@@ -7,7 +7,7 @@
 //!
 //! I apologise in advance for all the generic gymnastics.
 
-use crate::{Shape, Tensor, reflect::ReflectionType};
+use crate::{Shape, Tensor, element_type::AsElementType};
 
 /// A helper trait which lets us get the shape from a tuple of different
 /// tensors.
@@ -55,7 +55,7 @@ pub trait TensorListMut {
 
 impl<'a, T> TensorList<'a> for &'a Tensor<T>
 where
-    T: ReflectionType,
+    T: AsElementType,
 {
     type ConstElementPtrBuffer = [*const u8; 1];
     type ShapeBuffer = [Shape<'a>; 1];
@@ -69,7 +69,7 @@ where
 
 impl<T> TensorListMut for Tensor<T>
 where
-    T: ReflectionType + Default + Clone,
+    T: AsElementType + Default + Clone,
 {
     type MutElementPtrBuffer = [*mut u8; 1];
 
@@ -78,7 +78,7 @@ where
             [s] => {
                 assert_eq!(
                     s.element_type(),
-                    &T::TYPE,
+                    T::TYPE,
                     "Incorrect element type"
                 );
                 Tensor::zeroed(s.dimensions().to_vec())
@@ -105,8 +105,8 @@ macro_rules! reflection_type_list {
         #[allow(non_snake_case)]
         impl<'a, $first, $($dim),*> TensorList<'a> for &'a (Tensor<$first>, $(Tensor<$dim>),*)
         where
-            $first: ReflectionType,
-            $($dim: ReflectionType),*
+            $first: AsElementType,
+            $($dim: AsElementType),*
         {
             type ShapeBuffer = [Shape<'a>; count!($first, $($dim),*)];
             type ConstElementPtrBuffer  = [*const u8; count!($first, $($dim),*)];
@@ -134,18 +134,18 @@ macro_rules! reflection_type_list {
         #[allow(non_snake_case)]
         impl<$first, $($dim),*> TensorListMut for (Tensor<$first>, $(Tensor<$dim>),*)
         where
-            $first: ReflectionType + Default + Clone,
-            $( $dim: ReflectionType + Default + Clone ),*
+            $first: AsElementType + Default + Clone,
+            $( $dim: AsElementType + Default + Clone ),*
         {
             type MutElementPtrBuffer  = [*mut u8; count!($first, $($dim),*)];
 
             fn new_tensors(shape: &[Shape<'_>]) -> Self {
                 match shape {
                     [$first, $($dim),*] => {
-                        assert_eq!($first.element_type(), &<$first>::TYPE, "Incorrect element type");
+                        assert_eq!($first.element_type(), <$first>::TYPE, "Incorrect element type");
                         let $first = Tensor::zeroed($first.dimensions().to_vec());
                         $(
-                            assert_eq!($dim.element_type(), &<$dim>::TYPE, "Incorrect element type");
+                            assert_eq!($dim.element_type(), <$dim>::TYPE, "Incorrect element type");
                             let $dim = Tensor::zeroed($dim.dimensions().to_vec());
                         )*
 
@@ -178,7 +178,7 @@ reflection_type_list!(A, B, C, D, E, F, G, H, I, J, K, L);
 
 #[cfg(test)]
 mod tests {
-    use crate::reflect::Type;
+    use crate::element_type::ElementType;
 
     use super::*;
     use std::prelude::v1::*;
@@ -200,9 +200,9 @@ mod tests {
     #[test]
     fn create_empty_tensors_from_shapes_list() {
         let shapes = [
-            Shape::new(Type::f32, [1_usize].as_ref()),
-            Shape::new(Type::u8, [3_usize, 256, 256].as_ref()),
-            Shape::new(Type::i16, [1920_usize].as_ref()),
+            Shape::new(ElementType::F32, [1_usize].as_ref()),
+            Shape::new(ElementType::U8, [3_usize, 256, 256].as_ref()),
+            Shape::new(ElementType::I16, [1920_usize].as_ref()),
         ];
 
         let (a, b, c) =
@@ -213,9 +213,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Expected a shape with 3 elements, found [Shape { element_type: Float { bit_width: 32 }, dimensions: [1] }]"]
+    #[should_panic = "Expected a shape with 3 elements, found [Shape { element_type: F32, dimensions: [1] }]"]
     fn incorrect_shape_list_length() {
-        let shapes = [Shape::new(Type::f32, [1_usize].as_ref())];
+        let shapes = [Shape::new(ElementType::F32, [1_usize].as_ref())];
 
         let _ = <(Tensor<f32>, Tensor<u8>, Tensor<i16>)>::new_tensors(&shapes);
     }
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     #[should_panic = "Incorrect element type"]
     fn incorrect_type_in_shape_list() {
-        let shapes = [Shape::new(Type::f32, [1_usize].as_ref())];
+        let shapes = [Shape::new(ElementType::F32, [1_usize].as_ref())];
 
         let _ = <Tensor<i16>>::new_tensors(&shapes);
     }

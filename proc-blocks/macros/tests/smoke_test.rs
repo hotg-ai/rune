@@ -5,7 +5,7 @@ use hotg_rune_proc_blocks::{
     Dimension, Dimensions, ProcBlock, ProcBlockDescriptor, TensorDescriptor,
     Transform, TransformDescriptor,
 };
-use hotg_rune_core::{Tensor, reflect::Type};
+use hotg_rune_core::{Tensor, element_type::ElementType};
 
 /// A dummy proc block.
 ///
@@ -42,24 +42,24 @@ fn generate_expected_descriptor() {
         available_transforms: vec![
             TransformDescriptor {
                 inputs: TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: vec![Dimension::Any; 3].into(),
                 }
                 .into(),
                 outputs: TensorDescriptor {
-                    element_type: Type::u8,
+                    element_type: ElementType::U8,
                     dimensions: vec![Dimension::Value(1)].into(),
                 }
                 .into(),
             },
             TransformDescriptor {
                 inputs: TensorDescriptor {
-                    element_type: Type::u8,
+                    element_type: ElementType::U8,
                     dimensions: Dimensions::Arbitrary,
                 }
                 .into(),
                 outputs: TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: vec![Dimension::Any].into(),
                 }
                 .into(),

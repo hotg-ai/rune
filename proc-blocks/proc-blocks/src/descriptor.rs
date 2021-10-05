@@ -52,7 +52,7 @@ impl<'a> Deref for TensorDescriptors<'a> {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TensorDescriptor<'a> {
-    pub element_type: hotg_rune_core::reflect::Type,
+    pub element_type: hotg_rune_core::element_type::ElementType,
     pub dimensions: Dimensions<'a>,
 }
 

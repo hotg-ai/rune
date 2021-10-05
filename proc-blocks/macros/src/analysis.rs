@@ -1,5 +1,6 @@
-use proc_macro2::{Ident, Span, Group};
-use hotg_rune_core::reflect::Type;
+use std::str::FromStr;
+use proc_macro2::{Ident, Group};
+use hotg_rune_core::element_type::ElementType;
 use quote::quote;
 use syn::{
     Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,
@@ -94,23 +95,23 @@ fn analyse_struct_attributes(
     ))
 }
 
-fn to_rust_tensor(exports: &Path, ty: &Type) -> syn::Type {
-    // Note: the rust type name for a string isn't defined unambiguously (you
-    // could use str, &str, &'static str, String, etc.) so we handle it
-    // specially.
-    let tokens = match ty {
-        Type::String => quote!(#exports::Tensor<&'static str>),
-        everything_else => {
-            let rust_name = everything_else
-                .rust_name()
-                .expect("Unable to determine the Rust name for this type");
-            let rust_type = Ident::new(rust_name, Span::call_site());
-            quote!(#exports::Tensor<#rust_type>)
-        },
+fn to_rust_tensor(exports: &Path, ty: &ElementType) -> syn::Type {
+    let element_type = match ty {
+        ElementType::U8 => quote!(u8),
+        ElementType::I8 => quote!(i8),
+        ElementType::U16 => quote!(u16),
+        ElementType::I16 => quote!(i16),
+        ElementType::U32 => quote!(u32),
+        ElementType::F32 => quote!(f32),
+        ElementType::I32 => quote!(i32),
+        ElementType::U64 => quote!(u64),
+        ElementType::F64 => quote!(f64),
+        ElementType::I64 => quote!(i64),
+        ElementType::String => quote!(alloc::borrow::Cow<'static, str>),
     };
 
-    syn::parse2(tokens)
-        .expect("We should always be able to parse a tensor type")
+    syn::parse2(quote!(#exports::Tensor<#element_type>))
+        .expect("We should always be able to parse a type")
 }
 
 fn transforms(
@@ -220,19 +221,19 @@ fn parse_tensor_descriptor(
     }
 }
 
-fn known_type_from_syn_type(ty: &syn::Type) -> Result<Type, Error> {
+fn known_type_from_syn_type(ty: &syn::Type) -> Result<ElementType, Error> {
     match ty {
         syn::Type::Path(p) => {
             if let Some(id) = p.path.get_ident() {
                 let name = id.to_string();
 
-                return Type::from_rust_name(&name)
-                    .ok_or_else(|| Error::new(ty.span(), "Unknown type"));
+                return ElementType::from_str(&name)
+                    .map_err(|e| Error::new(ty.span(), e));
             }
         },
         syn::Type::Reference(TypeReference { elem, .. }) => match &**elem {
             syn::Type::Path(TypePath { path, .. }) if path.is_ident("str") => {
-                return Ok(Type::String);
+                return Ok(ElementType::String);
             },
             _ => {},
         },
@@ -446,24 +447,24 @@ mod tests {
         let expected_transforms = &[
             TransformDescriptor {
                 inputs: TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: vec![Dimension::Value(1)].into(),
                 }
                 .into(),
                 outputs: TensorDescriptor {
-                    element_type: Type::u8,
+                    element_type: ElementType::U8,
                     dimensions: vec![Dimension::Any; 3].into(),
                 }
                 .into(),
             },
             TransformDescriptor {
                 inputs: TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: vec![Dimension::Value(1)].into(),
                 }
                 .into(),
                 outputs: TensorDescriptor {
-                    element_type: Type::u8,
+                    element_type: ElementType::U8,
                     dimensions: vec![Dimension::Any; 2].into(),
                 }
                 .into(),
@@ -540,8 +541,8 @@ mod tests {
     #[test]
     fn transform_assertion_automatically_wraps_in_tensor() {
         let inputs = vec![
-            (Type::u8, quote!(exports::Tensor<u8>)),
-            (Type::String, quote!(exports::Tensor<&'static str>)),
+            (ElementType::U8, quote!(exports::Tensor<u8>)),
+            (ElementType::String, quote!(exports::Tensor<&'static str>)),
         ];
         let exports: Path = syn::parse_str("exports").unwrap();
 
@@ -582,19 +583,19 @@ mod type_tests {
     }
 
     parse_tensor_type!(one_dimension_tensor, i16 => TensorDescriptor {
-       element_type: Type::i16,
+       element_type: ElementType::I16,
        dimensions: vec![Dimension::Value(1)].into(),
     });
     parse_tensor_type!(parse_f32_rank_3, [f32; 3] => TensorDescriptor {
-       element_type: Type::f32,
+       element_type: ElementType::F32,
        dimensions: vec![Dimension::Any, Dimension::Any, Dimension::Any].into(),
     });
     parse_tensor_type!(parse_arbitrary_length, [u8; _] => TensorDescriptor {
-       element_type: Type::u8,
+       element_type: ElementType::U8,
        dimensions: Dimensions::Arbitrary,
     });
     parse_tensor_type!(parse_str_type, str => TensorDescriptor {
-       element_type: Type::String,
+       element_type: ElementType::String,
        dimensions: vec![Dimension::Value(1)].into(),
     });
 
@@ -619,7 +620,7 @@ mod type_tests {
         TransformDescriptor {
             inputs: TensorDescriptors(Cow::Borrowed(&[
                 TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: Dimensions::Finite(Cow::Borrowed(&[
                         Dimension::Any,
                     ])),
@@ -627,7 +628,7 @@ mod type_tests {
             ])),
             outputs: TensorDescriptors(Cow::Borrowed(&[
                 TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: Dimensions::Finite(Cow::Borrowed(&[
                         Dimension::Any,
                     ])),
@@ -641,13 +642,13 @@ mod type_tests {
         TransformDescriptor {
             inputs: TensorDescriptors(Cow::Borrowed(&[
                 TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: Dimensions::Finite(Cow::Borrowed(&[
                         Dimension::Any,
                     ])),
                 },
                 TensorDescriptor {
-                    element_type: Type::u8,
+                    element_type: ElementType::U8,
                     dimensions: Dimensions::Finite(Cow::Borrowed(&[
                         Dimension::Any,
                         Dimension::Any,
@@ -656,7 +657,7 @@ mod type_tests {
             ])),
             outputs: TensorDescriptors(Cow::Borrowed(&[
                 TensorDescriptor {
-                    element_type: Type::f32,
+                    element_type: ElementType::F32,
                     dimensions: Dimensions::Finite(Cow::Borrowed(&[
                         Dimension::Any,
                     ])),
