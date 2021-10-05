@@ -17,9 +17,6 @@ pub(crate) fn rune_output(
         .arg("--debug")
         .arg("--cache-dir")
         .arg(ctx.cache_dir(name))
-        .arg("--unstable")
-        .arg("--rune-repo-dir")
-        .arg(&ctx.rune_project_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

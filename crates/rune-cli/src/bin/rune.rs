@@ -58,7 +58,8 @@ pub struct Args {
         default_value = "auto",
         aliases = &["color"],
         parse(try_from_str),
-        possible_values = ColorChoice::VARIANTS)
+        possible_values = ColorChoice::VARIANTS,
+        global = true)
     ]
     colour: ColorChoice,
     /// Prints out version information.
