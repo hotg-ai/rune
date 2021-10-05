@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.8.0] - 2021-10-05
+
 ### Added
 
 - The `#[transform]` attribute used with the
@@ -201,7 +203,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.7.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.8.0...HEAD
+[0.8.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.7.0...hotg-rune-cli-v0.8.0
 [0.7.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.6.0...hotg-rune-cli-v0.7.0
 [0.6.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.3...hotg-rune-cli-v0.6.0
 [0.5.3]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.2...hotg-rune-cli-v0.5.3
