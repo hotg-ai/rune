@@ -1,7 +1,8 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use indexmap::IndexMap;
 use legion::{Entity, Query, world::SubWorld};
 
 use crate::{
@@ -17,7 +18,8 @@ pub(crate) fn run(
     query: &mut Query<(Entity, &Outputs)>,
 ) {
     // construct an adjacency graph where edges go from a node to its output.
-    let mut outputs = HashMap::new();
+    // Note: use an IndexMap so ordering is deterministic
+    let mut outputs = IndexMap::new();
     query.for_each(world, |(&ent, out)| {
         outputs.insert(ent, out.tensors.as_slice());
     });
@@ -62,7 +64,7 @@ fn cycle_detected_diagnostic(
     diag.with_notes(notes)
 }
 
-fn next_cycle(outputs: &HashMap<Entity, &[Entity]>) -> Option<Vec<Entity>> {
+fn next_cycle(outputs: &IndexMap<Entity, &[Entity]>) -> Option<Vec<Entity>> {
     // https://www.geeksforgeeks.org/detect-cycle-in-a-graph/
     let mut stack = VecDeque::new();
     let mut visited = HashSet::new();
@@ -78,7 +80,7 @@ fn next_cycle(outputs: &HashMap<Entity, &[Entity]>) -> Option<Vec<Entity>> {
 
 fn detect_cycles(
     ent: Entity,
-    outputs: &HashMap<Entity, &[Entity]>,
+    outputs: &IndexMap<Entity, &[Entity]>,
     visited: &mut HashSet<Entity>,
     stack: &mut VecDeque<Entity>,
 ) -> bool {
