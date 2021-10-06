@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{LitByteStr, Path, Type};
-use hotg_rune_core::reflect::Type as ReflectType;
+use hotg_rune_core::element_type::ElementType;
 use crate::{
     descriptor::{
         ProcBlockDescriptor, TransformDescriptor, TensorDescriptor, Dimensions,
@@ -259,7 +259,7 @@ fn tensor_descriptors_to_tokens(
              element_type,
              dimensions,
          }| {
-            let element_type = reflect_type_to_tokens(exports, element_type);
+            let element_type = element_type_to_tokens(exports, *element_type);
             let dimensions = dimensions_to_tokens(exports, dimensions);
 
             quote! {
@@ -278,24 +278,22 @@ fn tensor_descriptors_to_tokens(
     }
 }
 
-fn reflect_type_to_tokens(exports: &Path, ty: &ReflectType) -> TokenStream {
-    match *ty {
-        ReflectType::Integer { signed, bit_width } => {
-            quote!(#exports::Type::Integer {
-                signed: #signed,
-                bit_width: #bit_width,
-            })
-        },
-        ReflectType::Float { bit_width } => quote!(#exports::Type::Float {
-            bit_width: #bit_width,
-        }),
-        ReflectType::String => quote!(#exports::Type::String),
-        ReflectType::Opaque { ref type_name } => {
-            quote!(#exports::Type::Opaque {
-                type_name: $exports::Cow::Borrowed(#type_name),
-            })
-        },
-    }
+fn element_type_to_tokens(exports: &Path, ty: ElementType) -> TokenStream {
+    let name = match ty {
+        ElementType::U8 => "U8",
+        ElementType::I8 => "I8",
+        ElementType::U16 => "U16",
+        ElementType::I16 => "I16",
+        ElementType::U32 => "U32",
+        ElementType::F32 => "F32",
+        ElementType::I32 => "I32",
+        ElementType::U64 => "U64",
+        ElementType::F64 => "F64",
+        ElementType::I64 => "I64",
+        ElementType::String => "String",
+    };
+    let ident = Ident::new(name, Span::call_site());
+    quote!(#exports::ElementType::#ident)
 }
 
 fn dimensions_to_tokens(
@@ -466,12 +464,14 @@ mod tests {
             proc_block_type: syn::parse_str("Proc").unwrap(),
             exports: syn::parse_str("exports").unwrap(),
             assertions: vec![TransformAssertion {
-                inputs: vec![
-                    syn::parse_str("exports::Tensor<&'static str>").unwrap()
-                ],
-                outputs: vec![
-                    syn::parse_str("exports::Tensor<&'static str>").unwrap()
-                ],
+                inputs: vec![syn::parse_str(
+                    "exports::Tensor<Cow<'static, str>>",
+                )
+                .unwrap()],
+                outputs: vec![syn::parse_str(
+                    "exports::Tensor<Cow<'static, str>>",
+                )
+                .unwrap()],
             }],
         };
         let should_be = quote! {
@@ -482,7 +482,7 @@ mod tests {
                 { }
 
                 fn transform_assertions() {
-                    assert_implements_transform::<Proc, exports::Tensor<&'static str>, exports::Tensor<&'static str>>();
+                    assert_implements_transform::<Proc, exports::Tensor<Cow<'static, str>>, exports::Tensor<Cow<'static, str>>>();
                 }
             };
         };
@@ -551,12 +551,12 @@ mod tests {
         let exports = syn::parse_str("exports").unwrap();
         let transform = TransformDescriptor {
             inputs: TensorDescriptor {
-                element_type: ReflectType::f32,
+                element_type: ElementType::F32,
                 dimensions: Dimensions::Arbitrary,
             }
             .into(),
             outputs: TensorDescriptor {
-                element_type: ReflectType::u8,
+                element_type: ElementType::U8,
                 dimensions: Dimensions::Finite(
                     vec![Dimension::Value(1980)].into(),
                 ),
@@ -567,13 +567,13 @@ mod tests {
             exports::TransformDescriptor {
                 inputs: exports::TensorDescriptors(exports::Cow::Borrowed(&[
                     exports::TensorDescriptor {
-                        element_type: exports::Type::Float { bit_width: 32usize },
+                        element_type: exports::ElementType::F32,
                         dimensions: exports::Dimensions::Arbitrary,
                     },
                 ])),
                 outputs: exports::TensorDescriptors(exports::Cow::Borrowed(&[
                     exports::TensorDescriptor {
-                        element_type: exports::Type::Integer { signed: false, bit_width: 8usize },
+                        element_type: exports::ElementType::U8,
                         dimensions: exports::Dimensions::Finite(
                             exports::Cow::Borrowed(&[
                                 exports::Dimension::Value(1980usize),

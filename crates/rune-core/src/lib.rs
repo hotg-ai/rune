@@ -9,7 +9,7 @@ extern crate alloc;
 mod buf_writer;
 mod logging;
 mod pixel_format;
-pub mod reflect;
+pub mod element_type;
 mod resources;
 mod shape;
 mod tensor;

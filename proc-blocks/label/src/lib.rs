@@ -4,7 +4,7 @@ extern crate alloc;
 
 use core::{convert::TryInto, fmt::Debug};
 
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 use hotg_rune_proc_blocks::{Tensor, Transform, ProcBlock};
 
 /// A proc block which, when given a set of indices, will return their
@@ -28,12 +28,23 @@ pub struct Label {
     labels: Vec<&'static str>,
 }
 
+impl Label {
+    fn get_by_index(&mut self, ix: usize) -> Cow<'static, str> {
+        // Note: We use a more cumbersome match statement instead of unwrap()
+        // to provide the user with more useful error messages
+        match self.labels.get(ix) {
+            Some(&label) => label.into(),
+            None => panic!("Index out of bounds: there are {} labels but label {} was requested", self.labels.len(), ix)
+        }
+    }
+}
+
 impl<T> Transform<Tensor<T>> for Label
 where
     T: Copy + TryInto<usize>,
     <T as TryInto<usize>>::Error: Debug,
 {
-    type Output = Tensor<&'static str>;
+    type Output = Tensor<Cow<'static, str>>;
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
         let view = input
@@ -45,14 +56,7 @@ where
                 .expect("Unable to convert the index to a usize")
         });
 
-        // Note: We use a more cumbersome match statement instead of unwrap()
-        // to provide the user with more useful error messages
-        indices
-            .map(|ix| match self.labels.get(ix) {
-                Some(&label) => label,
-                None => panic!("Index out of bounds: there are {} labels but label {} was requested", self.labels.len(), ix)
-            })
-            .collect()
+        indices.map(|ix| self.get_by_index(ix)).collect()
     }
 }
 
@@ -84,7 +88,9 @@ mod tests {
         let mut proc_block = Label::default();
         proc_block.set_labels(["zero", "one", "two", "three"]);
         let input = Tensor::new_vector(alloc::vec![3, 1, 2]);
-        let should_be = Tensor::new_vector(alloc::vec!["three", "one", "two"]);
+        let should_be = Tensor::new_vector(
+            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
+        );
 
         let got = proc_block.transform(input);
 

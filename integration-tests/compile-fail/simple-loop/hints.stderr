@@ -1,0 +1,5 @@
+1 │ version: 1
+  │ ^
+  │
+  = ... which passes data to "some_model"...
+  = ... which passes data to "another_model", completing the cycle.

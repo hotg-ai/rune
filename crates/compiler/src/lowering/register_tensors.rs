@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use codespan_reporting::diagnostic::Diagnostic;
-use hotg_rune_core::{Shape, reflect::Type};
+use hotg_rune_core::{Shape, element_type::ElementType};
 use legion::{Entity, systems::CommandBuffer};
 
 use crate::{
@@ -197,20 +197,11 @@ fn allocate_output_tensors(
 }
 
 fn shape(ty: &parse::Type) -> Result<Tensor, Diagnostic<()>> {
-    let element_type = match ty.name.as_str() {
-        "u8" | "U8" => Type::u8,
-        "i8" | "I8" => Type::i8,
-        "u16" | "U16" => Type::u16,
-        "i16" | "I16" => Type::i16,
-        "u32" | "U32" => Type::u32,
-        "i32" | "I32" => Type::i32,
-        "f32" | "F32" => Type::f32,
-        "u64" | "U64" => Type::u64,
-        "i64" | "I64" => Type::i64,
-        "f64" | "F64" => Type::f64,
-        "utf8" | "UTF8" => Type::str,
-        _ => return Err(unknown_element_type_diagnostic(&ty.name)),
-    };
+    let element_type: ElementType = ty
+        .name
+        .to_lowercase()
+        .parse()
+        .map_err(|_| unknown_element_type_diagnostic(&ty.name))?;
 
     Ok(Tensor::from(Shape::new(
         element_type,

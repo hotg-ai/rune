@@ -30,5 +30,5 @@ pub trait ProcBlock: Default + 'static {
 pub mod internal {
     pub use crate::{ProcBlock, Transform, descriptor::*};
     pub use alloc::borrow::Cow;
-    pub use hotg_rune_core::{reflect::Type, Tensor};
+    pub use hotg_rune_core::{element_type::ElementType, Tensor};
 }

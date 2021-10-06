@@ -232,7 +232,7 @@ where
 mod runecoral {
     use super::*;
     use anyhow::{Context, Error};
-    use hotg_rune_core::reflect::Type;
+    use hotg_rune_core::element_type::ElementType as RuneElementType;
     use std::{borrow::Cow, cell::Cell, convert::TryInto, ffi::CStr, sync::Mutex};
     use hotg_runecoral::{
         ElementType, InferenceContext, Tensor, TensorDescriptor, TensorMut,
@@ -300,16 +300,16 @@ mod runecoral {
         output_descriptors: Vec<TensorDescriptor<'static>>,
     }
 
-    fn element_type(rune_type: &Type) -> Result<ElementType, Error> {
-        Ok(match *rune_type {
-            Type::i8 => ElementType::Int8,
-            Type::u8 => ElementType::UInt8,
-            Type::i16 => ElementType::Int16,
-            Type::i32 => ElementType::Int32,
-            Type::i64 => ElementType::Int64,
-            Type::f32 => ElementType::Float32,
-            Type::f64 => ElementType::Float64,
-            Type::str => ElementType::String,
+    fn element_type(rune_type: RuneElementType) -> Result<ElementType, Error> {
+        Ok(match rune_type {
+            RuneElementType::I8 => ElementType::Int8,
+            RuneElementType::U8 => ElementType::UInt8,
+            RuneElementType::I16 => ElementType::Int16,
+            RuneElementType::I32 => ElementType::Int32,
+            RuneElementType::I64 => ElementType::Int64,
+            RuneElementType::F32 => ElementType::Float32,
+            RuneElementType::F64 => ElementType::Float64,
+            RuneElementType::String => ElementType::String,
             _ => {
                 anyhow::bail!(
                     "librunecoral doesn't support {:?} tensors",

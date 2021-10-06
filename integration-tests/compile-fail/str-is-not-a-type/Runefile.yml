@@ -1,0 +1,13 @@
+version: 1
+image: runicos/base
+pipeline:
+  input:
+    capability: RAND
+    outputs:
+      - type: str
+        dimensions: [1]
+  input_2:
+    capability: RAND
+    outputs:
+      - type: string
+        dimensions: [1]

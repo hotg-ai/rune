@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Changed
+
+- All tensors of strings will now use `Tensor<Cow<'static, str>>` as their
+  tensor types ([#345](https://github.com/hotg-ai/rune/pull/345))
+
 ## [0.8.0] - 2021-10-05
 
 ### Added

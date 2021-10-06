@@ -57,7 +57,7 @@ impl Assertion for MatchStdioStream {
             .context("Unable to parse output as UTF-8")?;
 
         if !output.contains(&self.expected) {
-            return Err(Error::from(MismatchedStderr {
+            return Err(Error::from(MismatchedStdio {
                 expected: self.expected.clone(),
                 actual: output.to_string(),
             }));
@@ -68,12 +68,12 @@ impl Assertion for MatchStdioStream {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct MismatchedStderr {
+struct MismatchedStdio {
     expected: String,
     actual: String,
 }
 
-impl Display for MismatchedStderr {
+impl Display for MismatchedStdio {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "Unable to find the expected output in stderr.")?;
         writeln!(f, "Expected:")?;
@@ -93,7 +93,7 @@ impl Display for MismatchedStderr {
     }
 }
 
-impl std::error::Error for MismatchedStderr {}
+impl std::error::Error for MismatchedStdio {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExitSuccessfully;

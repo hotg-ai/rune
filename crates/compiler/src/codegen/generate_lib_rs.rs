@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use hotg_rune_core::{Shape, reflect::Type};
+use hotg_rune_core::{Shape, element_type::ElementType};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{ToTokens, quote};
@@ -304,18 +304,17 @@ fn tensor_types<'world>(
 
 fn shape_to_tensor_type(shape: &Shape) -> TokenStream {
     let element_type = match shape.element_type() {
-        &Type::u8 => quote!(u8),
-        &Type::i8 => quote!(i8),
-        &Type::u16 => quote!(u16),
-        &Type::i16 => quote!(i16),
-        &Type::u32 => quote!(u32),
-        &Type::i32 => quote!(i32),
-        &Type::f32 => quote!(f32),
-        &Type::u64 => quote!(u64),
-        &Type::i64 => quote!(i64),
-        &Type::f64 => quote!(f64),
-        &Type::str => quote!(&str),
-        other => unreachable!("Unable to get the Rust name for {:?}", other),
+        ElementType::U8 => quote!(u8),
+        ElementType::I8 => quote!(i8),
+        ElementType::U16 => quote!(u16),
+        ElementType::I16 => quote!(i16),
+        ElementType::U32 => quote!(u32),
+        ElementType::I32 => quote!(i32),
+        ElementType::F32 => quote!(f32),
+        ElementType::U64 => quote!(u64),
+        ElementType::I64 => quote!(i64),
+        ElementType::F64 => quote!(f64),
+        ElementType::String => quote!(alloc::borrow::Cow<'static, str>),
     };
     quote!(Tensor<#element_type>)
 }
@@ -551,11 +550,26 @@ where
     quote! { &[#(#inputs),*] }
 }
 
-fn shape_to_tokens(shape: &Shape<'_>) -> TokenStream {
-    let rust_name = shape.element_type().rust_name().unwrap();
-    let rust_name = Ident::new(rust_name, Span::call_site());
-    let element_type = quote!(hotg_rune_core::reflect::Type::#rust_name);
+fn element_type_to_tokens(element_type: ElementType) -> TokenStream {
+    let name = match element_type {
+        ElementType::U8 => "U8",
+        ElementType::I8 => "I8",
+        ElementType::U16 => "U16",
+        ElementType::I16 => "I16",
+        ElementType::U32 => "U32",
+        ElementType::F32 => "F32",
+        ElementType::I32 => "I32",
+        ElementType::U64 => "U64",
+        ElementType::F64 => "F64",
+        ElementType::I64 => "I64",
+        ElementType::String => "String",
+    };
+    let ident = Ident::new(name, Span::call_site());
+    quote!(hotg_rune_core::element_type::ElementType::#ident)
+}
 
+fn shape_to_tokens(shape: &Shape<'_>) -> TokenStream {
+    let element_type = element_type_to_tokens(shape.element_type());
     let dimensions = shape.dimensions();
 
     quote! {
@@ -1119,7 +1133,7 @@ mod tests {
         let inputs = vec![
             ("f32[1]", quote!(Tensor<f32>)),
             ("u8[1, 2, 3, 4]", quote!(Tensor<u8>)),
-            ("str[42]", quote!(Tensor<&str>)),
+            ("utf8[42]", quote!(Tensor<alloc::borrow::Cow<'static, str>>)),
         ];
 
         for (shape, should_be) in inputs {

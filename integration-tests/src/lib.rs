@@ -120,6 +120,11 @@ impl TestContext {
 
     pub fn rune_cmd(&self) -> Command {
         let mut cmd = Command::new(&self.rune_binary);
+        cmd.arg("--unstable")
+            .arg("--colour=never")
+            .arg("--rune-repo-dir")
+            .arg(&self.rune_project_dir);
+
         cmd.env("RUST_LOG", "debug");
         cmd
     }

@@ -7,7 +7,7 @@ use core::{
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{Shape, reflect::ReflectionType};
+use crate::{Shape, element_type::AsElementType};
 
 /// A multidimensional array with copy-on-write semantics.
 ///
@@ -68,7 +68,7 @@ impl<T> Tensor<T> {
 
     pub fn shape(&self) -> Shape<'_>
     where
-        T: ReflectionType,
+        T: AsElementType,
     {
         Shape::new(T::TYPE, self.dimensions())
     }

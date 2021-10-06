@@ -1,4 +1,7 @@
-use hotg_rune_core::{outputs, Tensor};
+use hotg_rune_core::{
+    outputs, Tensor,
+    element_type::{ElementType, AsElementType},
+};
 use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::{fmt::Debug, cell::RefCell};
@@ -80,12 +83,12 @@ pub trait IntoSerialMessage {
     fn into_serial_message(self, channel: u32) -> Self::Message;
 }
 
-impl<T: Serialize> IntoSerialMessage for Tensor<T> {
+impl<T: Serialize + AsElementType> IntoSerialMessage for Tensor<T> {
     type Message = TensorMessage<T>;
 
     fn into_serial_message(self, channel: u32) -> Self::Message {
         TensorMessage {
-            type_name: core::any::type_name::<T>(),
+            type_name: T::TYPE.rune_name(),
             channel,
             tensor: self,
         }
@@ -97,7 +100,7 @@ impl IntoSerialMessage for &'static str {
 
     fn into_serial_message(self, channel: u32) -> Self::Message {
         StringMessage {
-            type_name: "&str",
+            type_name: ElementType::String.rune_name(),
             string: self,
             channel,
         }

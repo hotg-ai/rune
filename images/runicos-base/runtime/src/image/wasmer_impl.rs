@@ -344,8 +344,11 @@ fn vector_of_tensors<'vm>(
     for (i, ptr) in pointers.iter().enumerate() {
         let ptr = ptr.get();
         let shape = &shapes[i];
+        let size = shape
+            .size()
+            .context("The element type is dynamically sized")?;
         let data = ptr
-            .deref(memory, 0, shape.size() as u32)
+            .deref(memory, 0, size as u32)
             .with_context(|| format!("Bad pointer for tensor {}", i))?;
         tensors.push(data);
     }

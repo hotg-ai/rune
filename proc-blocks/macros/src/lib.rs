@@ -61,19 +61,20 @@ use syn::DeriveInput;
 /// ```rust
 /// use hotg_rune_proc_blocks::{ProcBlock, Transform};
 /// use hotg_rune_core::Tensor;
+/// use std::borrow::Cow;
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// #[transform(inputs = [f32; _], outputs = [u8; 1920])]
-/// #[transform(inputs = str, outputs = [i16; 2])]
+/// #[transform(inputs = utf8, outputs = [i16; 2])]
 /// struct Foo { }
 ///
 /// impl Transform<Tensor<f32>> for Foo {
 ///     type Output = Tensor<u8>;
 ///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output { todo!() }
 /// }
-/// impl Transform<Tensor<&'static str>> for Foo {
+/// impl Transform<Tensor<Cow<'static, str>>> for Foo {
 ///     type Output = Tensor<i16>;
-///     fn transform(&mut self, _input: Tensor<&'static str>) -> Self::Output { todo!() }
+///     fn transform(&mut self, _input: Tensor<Cow<'static, str>>) -> Self::Output { todo!() }
 /// }
 /// ```
 ///
