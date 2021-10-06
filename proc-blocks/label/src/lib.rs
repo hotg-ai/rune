@@ -25,7 +25,6 @@ impl Label {
     }
 }
 
-
 impl<T> Transform<Tensor<T>> for Label
 where
     T: Copy + IntoIndex,
@@ -33,7 +32,8 @@ where
     type Output = Tensor<Cow<'static, str>>;
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
-        let indices = input.elements().iter().copied().map(|ix| ix.into_index());
+        let indices =
+            input.elements().iter().copied().map(|ix| ix.into_index());
 
         indices.map(|ix| self.get_by_index(ix)).collect()
     }
@@ -48,14 +48,18 @@ mod tests {
         let mut proc_block = Label::default();
         proc_block.set_labels(["zero", "one", "two", "three"]);
         let input = Tensor::new_vector(alloc::vec![2, 0, 1]);
-        let should_be = Tensor::new_vector(["two", "zero", "one"].iter().copied().map(Cow::Borrowed),);
+        let should_be = Tensor::new_vector(
+            ["two", "zero", "one"].iter().copied().map(Cow::Borrowed),
+        );
 
         let got = proc_block.transform(input);
 
         assert_eq!(got, should_be);
 
         let input = Tensor::new_vector(alloc::vec![3, 1, 2]);
-        let should_be = Tensor::new_vector(["three", "one", "two"].iter().copied().map(Cow::Borrowed),);
+        let should_be = Tensor::new_vector(
+            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
+        );
 
         let got = proc_block.transform(input);
 
@@ -68,7 +72,9 @@ mod tests {
         let mut proc_block = Label::default();
         proc_block.set_labels(["zero", "one", "two", "three"]);
         let input = Tensor::new_vector(alloc::vec![-3, -1, -2]);
-        let should_be = Tensor::new_vector(["three", "one", "two"].iter().copied().map(Cow::Borrowed),);
+        let should_be = Tensor::new_vector(
+            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
+        );
 
         let got = proc_block.transform(input);
 
@@ -77,7 +83,9 @@ mod tests {
         let mut proc_block = Label::default();
         proc_block.set_labels(["zero", "one", "two", "three"]);
         let input = Tensor::new_vector(alloc::vec![3.1, 1.7, 2.5]);
-        let should_be = Tensor::new_vector(["three", "one", "two"].iter().copied().map(Cow::Borrowed),);
+        let should_be = Tensor::new_vector(
+            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
+        );
 
         let got = proc_block.transform(input);
 

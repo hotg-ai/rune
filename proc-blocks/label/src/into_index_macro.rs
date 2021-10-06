@@ -37,4 +37,6 @@ macro_rules! integer_into_index {
     )*}
 }
 
-integer_into_index!(i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize);
+integer_into_index!(
+    i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize
+);
