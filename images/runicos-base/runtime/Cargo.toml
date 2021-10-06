@@ -31,6 +31,8 @@ wasm3 = { version = "0.3.1", optional = true }
 default = ["wasmer-runtime"]
 wasmer-runtime = ["hotg-rune-wasmer-runtime", "wasmer", "wasmer-vm"]
 wasm3-runtime = ["hotg-rune-wasm3-runtime", "wasm3"]
+runecoral_edgetpu_acceleration = ["hotg-runecoral/edgetpu_acceleration"]
+runecoral_gpu_acceleration = ["hotg-runecoral/gpu_acceleration"]
 
 [dev-dependencies]
 syn = { version = "1.0.73", features = ["full", "extra-traits"] }
