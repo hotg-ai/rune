@@ -23,7 +23,7 @@ hotg-rune-runtime = { path = "../runtime", version = "^0.8.0"}
 hotg-rune-compiler = { path = "../compiler", version = "^0.8.0"}
 hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.8.0"}
 hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.8.0"}
-hotg-runecoral = "0.3.4"
+hotg-runecoral = "0.3.5"
 hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.8.0", features = ["wasm3-runtime"] }
 hound = "3.4.0"
 human-panic = "1.0.3"
@@ -53,3 +53,5 @@ build-info-build = "0.0.24"
 [[bench]]
 name = "rune_benchmark"
 harness = false
+
+[features]

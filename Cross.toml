@@ -4,6 +4,9 @@ passthrough = [
     "CROSS_CONTAINER_GID"
 ]
 
+[target.armv7-unknown-linux-gnueabihf]
+image = "tinyverseml/runecoral-cross-linux-armv7"
+
 [target.aarch64-unknown-linux-gnu]
 image = "tinyverseml/runecoral-cross-linux-aarch64"
 
