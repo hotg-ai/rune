@@ -229,6 +229,7 @@ mod tests {
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
+            version: 1,
             image: "image".parse().unwrap(),
             pipeline: map! {
                 rand: parse::Stage::Capability(CapabilityStage {

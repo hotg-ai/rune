@@ -24,7 +24,8 @@ static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
 
 /// The top level Runefile type.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, JsonSchema)]
+#[schemars(untagged)]
 pub enum Document {
     V1(DocumentV1),
 }
@@ -97,89 +98,6 @@ mod document_serde {
     }
 }
 
-impl JsonSchema for Document {
-    fn schema_name() -> String { String::from("Document") }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
-        let mut schema = SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            ..Default::default()
-        };
-
-        schema.object().required.insert(String::from("version"));
-
-        let variants = vec![(1, gen.subschema_for::<DocumentV1>())];
-
-        let sub = schema.subschemas();
-
-        // We want to match one of the supported document versions
-        sub.any_of = Some(variants.iter().map(|(_, s)| s.clone()).collect());
-
-        // Add a condition that the "version" field should have one of the
-        // supported values
-        let version_field_requirement = value_should_be_one_of(
-            "version",
-            variants.iter().map(|(version, _)| *version),
-        );
-
-        // if we've got a version, the corresponding schema needs to match
-        let mut conditions: Vec<_> = variants
-            .into_iter()
-            .map(|(version, schema)| {
-                apply_if_matches(requires_value("version", version), schema)
-            })
-            .collect();
-
-        conditions.push(version_field_requirement);
-
-        sub.all_of = Some(conditions);
-
-        schema.into()
-    }
-}
-
-fn requires_value(
-    property: impl Into<String>,
-    value: impl Into<serde_json::Value>,
-) -> Schema {
-    let mut schema = SchemaObject {
-        instance_type: Some(InstanceType::Object.into()),
-        ..Default::default()
-    };
-
-    schema.object().properties.insert(
-        property.into(),
-        SchemaObject {
-            const_value: Some(value.into()),
-            ..Default::default()
-        }
-        .into(),
-    );
-
-    schema.into()
-}
-
-fn value_should_be_one_of(
-    property: impl Into<String>,
-    values: impl Iterator<Item = impl Into<serde_json::Value>>,
-) -> Schema {
-    let mut schema = SchemaObject {
-        instance_type: Some(InstanceType::Object.into()),
-        ..Default::default()
-    };
-
-    schema.object().properties.insert(
-        property.into(),
-        (SchemaObject {
-            enum_values: Some(values.map(Into::into).collect()),
-            ..Default::default()
-        })
-        .into(),
-    );
-
-    schema.into()
-}
-
 macro_rules! impl_json_schema_via_regex {
     ($ty:ty, $pattern:expr, $docs:literal) => {
         impl JsonSchema for $ty {
@@ -214,6 +132,9 @@ macro_rules! impl_json_schema_via_regex {
     schemars::JsonSchema,
 )]
 pub struct DocumentV1 {
+    /// The version number. Must always be `"1"`.
+    #[schemars(required, range(min = 1, max = 1))]
+    pub version: usize,
     /// The base image that defines the interface between a Rune and its
     /// runtime.
     ///
@@ -386,6 +307,7 @@ impl std::error::Error for PathParseError {}
 )]
 pub struct ModelStage {
     /// The model to use, or a resource which specifies the model to use.
+    #[schemars(required)]
     pub model: ResourceOrString,
     /// Tensors to use as input to this model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -407,6 +329,7 @@ pub struct ModelStage {
 pub struct ProcBlockStage {
     /// A [`Path`] that Rune can use to locate the proc block.
     #[serde(rename = "proc-block")]
+    #[schemars(required)]
     pub proc_block: Path,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
@@ -427,6 +350,7 @@ pub struct ProcBlockStage {
 )]
 pub struct CapabilityStage {
     /// What type of capability to use ("IMAGE", "SOUND", etc.).
+    #[schemars(required)]
     pub capability: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
@@ -445,6 +369,7 @@ pub struct CapabilityStage {
 )]
 pub struct OutStage {
     /// The type of output (e.g. "SERIAL").
+    #[schemars(required)]
     pub out: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
@@ -453,7 +378,9 @@ pub struct OutStage {
 }
 
 /// A stage in the Rune's pipeline.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema,
+)]
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
     Model(ModelStage),
@@ -502,62 +429,6 @@ impl Stage {
         // TODO: Get span from serde_yaml
         Span::default()
     }
-}
-
-impl JsonSchema for Stage {
-    fn schema_name() -> String { String::from("Stage") }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
-        let mut stage_schema = SchemaObject {
-            instance_type: Some(InstanceType::Object.into()),
-            ..Default::default()
-        };
-
-        let variants = vec![
-            ("model", gen.subschema_for::<ModelStage>()),
-            ("proc-block", gen.subschema_for::<ProcBlockStage>()),
-            ("capability", gen.subschema_for::<CapabilityStage>()),
-            ("out", gen.subschema_for::<OutStage>()),
-        ];
-
-        // Make sure we get exactly one of the variant keys
-        stage_schema.subschemas().one_of =
-            Some(variants
-                .iter()
-                .map(|(_, schema)| schema.clone())
-                // .map(|(name, _)| requires_property(*name))
-                .collect());
-
-        // then if we have our key, make sure the rest of the variant's schema
-        // matches.
-        let conditions = variants
-            .into_iter()
-            .map(|(name, schema)| {
-                apply_if_matches(requires_property(name), schema)
-            })
-            .collect();
-
-        stage_schema.subschemas().all_of = Some(conditions);
-
-        stage_schema.into()
-    }
-}
-
-fn apply_if_matches(predicate: Schema, then: Schema) -> Schema {
-    let mut schema = SchemaObject::default();
-    schema.subschemas().if_schema = Some(Box::new(predicate));
-    schema.subschemas().then_schema = Some(Box::new(then));
-
-    schema.into()
-}
-
-fn requires_property(name: impl Into<String>) -> Schema {
-    let mut schema = SchemaObject {
-        instance_type: Some(InstanceType::Object.into()),
-        ..Default::default()
-    };
-    schema.object().required.insert(name.into());
-    schema.into()
 }
 
 /// Something that could be either a reference to a resource (`$resource`)
@@ -1157,6 +1028,7 @@ pipeline:
     - label
         "#;
         let should_be = Document::V1(DocumentV1 {
+            version: 1,
             image: "runicos/base".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability(CapabilityStage {

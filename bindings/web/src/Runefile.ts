@@ -5,14 +5,10 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type Document = Document1 & Document2;
-export type Document1 = {
-  [k: string]: unknown;
-} & {
-  version?: 1;
-  [k: string]: unknown;
-};
-export type Document2 = DocumentV1;
+/**
+ * The top level Runefile type.
+ */
+export type Document = DocumentV1;
 /**
  *
  * A specification for finding a dependency.
@@ -28,10 +24,10 @@ export type Document2 = DocumentV1;
  *
  */
 export type Path = string;
-export type Stage = {
-  [k: string]: unknown;
-};
-export type Stage1 = ModelStage | ProcBlockStage | CapabilityStage | OutStage;
+/**
+ * A stage in the Rune's pipeline.
+ */
+export type Stage = ModelStage | ProcBlockStage | CapabilityStage | OutStage;
 /**
  *
  * The name of a tensor.
@@ -40,10 +36,6 @@ export type Stage1 = ModelStage | ProcBlockStage | CapabilityStage | OutStage;
  *
  */
 export type Input = string;
-/**
- * Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).
- */
-export type ResourceOrString = ResourceName;
 /**
  *
  * A reference to some [`ResourceDeclaration`]. It typically looks like
@@ -74,7 +66,7 @@ export interface DocumentV1 {
    * The various stages in the Runefile's pipeline.
    */
   pipeline: {
-    [k: string]: Stage & Stage1;
+    [k: string]: Stage;
   };
   /**
    * Any resources that can be accessed by pipeline stages.
@@ -82,6 +74,10 @@ export interface DocumentV1 {
   resources?: {
     [k: string]: ResourceDeclaration;
   };
+  /**
+   * The version number. Must always be `"1"`.
+   */
+  version: number;
   [k: string]: unknown;
 }
 /**
@@ -95,7 +91,7 @@ export interface ModelStage {
   /**
    * The model to use, or a resource which specifies the model to use.
    */
-  model: ResourceOrString;
+  model: ResourceName;
   /**
    * The tensors that this model outputs.
    */
@@ -122,7 +118,7 @@ export interface ProcBlockStage {
   /**
    * A [`Path`] that Rune can use to locate the proc block.
    */
-  "proc-block": Path;
+  "proc-block": string;
   [k: string]: unknown;
 }
 /**

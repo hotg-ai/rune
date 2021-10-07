@@ -142,6 +142,7 @@ mod tests {
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
+            version: 1,
             image: "img".parse().unwrap(),
             pipeline: map! {
                 cap: Stage::Capability(CapabilityStage {

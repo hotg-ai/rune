@@ -1,39 +1,11 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Document",
-  "type": "object",
-  "allOf": [
-    {
-      "if": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "const": 1
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/DocumentV1"
-      }
-    },
-    {
-      "type": "object",
-      "properties": {
-        "version": {
-          "enum": [
-            1
-          ]
-        }
-      }
-    }
-  ],
+  "description": "The top level Runefile type.",
   "anyOf": [
     {
       "$ref": "#/definitions/DocumentV1"
     }
-  ],
-  "required": [
-    "version"
   ],
   "definitions": {
     "CapabilityStage": {
@@ -66,7 +38,8 @@
       "type": "object",
       "required": [
         "image",
-        "pipeline"
+        "pipeline",
+        "version"
       ],
       "properties": {
         "image": {
@@ -91,6 +64,13 @@
           "additionalProperties": {
             "$ref": "#/definitions/ResourceDeclaration"
           }
+        },
+        "version": {
+          "description": "The version number. Must always be `\"1\"`.",
+          "type": "integer",
+          "format": "uint",
+          "maximum": 1.0,
+          "minimum": 1.0
         }
       }
     },
@@ -116,9 +96,12 @@
         },
         "model": {
           "description": "The model to use, or a resource which specifies the model to use.",
-          "allOf": [
+          "anyOf": [
             {
-              "$ref": "#/definitions/ResourceOrString"
+              "$ref": "#/definitions/ResourceName"
+            },
+            {
+              "type": "string"
             }
           ]
         },
@@ -189,11 +172,9 @@
         },
         "proc-block": {
           "description": "A [`Path`] that Rune can use to locate the proc block.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Path"
-            }
-          ]
+          "type": "string",
+          "format": "string",
+          "pattern": "(?x)\n        (?P<base>[\\w\\d:/_.-]+)\n        (?:@(?P<version>[\\w\\d./-]+))?\n        (?:\\#(?P<sub_path>[\\w\\d._/-]+))?\n        "
         }
       }
     },
@@ -232,17 +213,6 @@
       "format": "string",
       "pattern": "^\\$[_a-zA-Z][_a-zA-Z0-9]*$"
     },
-    "ResourceOrString": {
-      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
-      "anyOf": [
-        {
-          "$ref": "#/definitions/ResourceName"
-        },
-        {
-          "type": "string"
-        }
-      ]
-    },
     "ResourceType": {
       "description": "How the resource should be treated inside the Rune.",
       "type": "string",
@@ -252,54 +222,8 @@
       ]
     },
     "Stage": {
-      "type": "object",
-      "allOf": [
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "model"
-            ]
-          },
-          "then": {
-            "$ref": "#/definitions/ModelStage"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "proc-block"
-            ]
-          },
-          "then": {
-            "$ref": "#/definitions/ProcBlockStage"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "capability"
-            ]
-          },
-          "then": {
-            "$ref": "#/definitions/CapabilityStage"
-          }
-        },
-        {
-          "if": {
-            "type": "object",
-            "required": [
-              "out"
-            ]
-          },
-          "then": {
-            "$ref": "#/definitions/OutStage"
-          }
-        }
-      ],
-      "oneOf": [
+      "description": "A stage in the Rune's pipeline.",
+      "anyOf": [
         {
           "$ref": "#/definitions/ModelStage"
         },
