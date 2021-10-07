@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- The Rune repository now contains a JSON schema that can be used to provide
+  auto-complete and basic validation for a `Runefile.yml`
+
 ### Changed
 
 - All tensors of strings will now use `Tensor<Cow<'static, str>>` as their

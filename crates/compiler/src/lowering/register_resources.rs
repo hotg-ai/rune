@@ -75,6 +75,7 @@ mod tests {
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
+            version: 1,
             image: "img".parse().unwrap(),
             pipeline: Default::default(),
             resources: map! {

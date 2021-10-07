@@ -16,12 +16,14 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "watch:test": "jest --watch",
-    "test": "jest"
+    "test": "jest",
+    "generate-runefile-types": "json2ts ../../crates/compiler/runefile-schema.json --output src/Runefile.ts"
   },
   "devDependencies": {
     "@types/jest": "^27.0.0",
     "blob-polyfill": "^5.0.20210201",
     "jest": "^27.0.6",
+    "json-schema-to-typescript": "^10.1.5",
     "ts-jest": "^27.0.4",
     "typescript": "^4.3.5"
   },

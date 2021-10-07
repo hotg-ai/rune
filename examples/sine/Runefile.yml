@@ -6,8 +6,8 @@ pipeline:
     outputs:
       - type: F32
         dimensions:
-        - 1
-        - 1
+          - 1
+          - 1
   mod360:
     proc-block: "hotg-ai/rune#proc-blocks/modulo"
     inputs:
@@ -15,8 +15,8 @@ pipeline:
     outputs:
       - type: F32
         dimensions:
-        - 1
-        - 1
+          - 1
+          - 1
     args:
       modulus: 360.0
   sine:
@@ -26,8 +26,8 @@ pipeline:
     outputs:
       - type: F32
         dimensions:
-        - 1
-        - 1
+          - 1
+          - 1
   serial:
     out: serial
     inputs:

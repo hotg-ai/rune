@@ -222,22 +222,24 @@ mod tests {
     use crate::{
         BuildContext,
         lowering::{self, PipelineNode},
+        parse::{CapabilityStage, OutStage, ProcBlockStage},
         phases::Phase,
     };
     use super::*;
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
+            version: 1,
             image: "image".parse().unwrap(),
             pipeline: map! {
-                rand: parse::Stage::Capability {
+                rand: parse::Stage::Capability(CapabilityStage {
                     capability: "RAND".to_string(),
                     outputs: vec![
                         ty!(f32[128]),
                     ],
                     args: map! {},
-                },
-                transform: parse::Stage::ProcBlock {
+                }),
+                transform: parse::Stage::ProcBlock(ProcBlockStage {
                     proc_block: "proc-block".parse().unwrap(),
                     inputs: vec![
                         "rand".parse().unwrap(),
@@ -247,15 +249,15 @@ mod tests {
                         ty!(u8[2]),
                     ],
                     args: map! {},
-                },
-                output: parse::Stage::Out {
+                }),
+                output: parse::Stage::Out(OutStage {
                     out: "SERIAL".to_string(),
                     inputs: vec![
                         "transform.1".parse().unwrap(),
                         "transform.0".parse().unwrap(),
                     ],
                     args: map! {},
-                }
+                })
             },
             resources: map! {},
         }

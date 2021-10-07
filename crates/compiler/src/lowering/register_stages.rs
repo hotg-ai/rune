@@ -5,7 +5,10 @@ use crate::{
     lowering::{
         Model, ModelFile, NameTable, ProcBlock, Resource, Sink, Source,
     },
-    parse::{self, DocumentV1, ResourceName, ResourceOrString, ResourceType},
+    parse::{
+        self, CapabilityStage, DocumentV1, ModelStage, OutStage,
+        ProcBlockStage, ResourceName, ResourceOrString, ResourceType,
+    },
 };
 
 /// Attach [`Model`], [`ProcBlock`], [`Sink`], and [`Source`] components to
@@ -27,44 +30,48 @@ pub(crate) fn run(
         };
 
         match stage {
-            parse::Stage::Model {
+            parse::Stage::Model(ModelStage {
                 model: ResourceOrString::Resource(r),
                 ..
-            } => {
+            }) => {
                 match resource_model(r, names, |ent| query.get(world, ent).ok())
                 {
                     Ok(model) => cmd.add_component(ent, model),
                     Err(diag) => diags.push(diag),
                 }
             },
-            parse::Stage::Model {
+            parse::Stage::Model(ModelStage {
                 model: ResourceOrString::String(path),
                 ..
-            } => cmd.add_component(
+            }) => cmd.add_component(
                 ent,
                 Model {
                     model_file: ModelFile::FromDisk(path.into()),
                 },
             ),
-            parse::Stage::ProcBlock {
-                proc_block, args, ..
-            } => cmd.add_component(
+            parse::Stage::ProcBlock(ProcBlockStage {
+                proc_block,
+                args,
+                ..
+            }) => cmd.add_component(
                 ent,
                 ProcBlock {
                     path: proc_block.clone(),
                     parameters: args.clone().into_iter().collect(),
                 },
             ),
-            parse::Stage::Capability {
-                capability, args, ..
-            } => cmd.add_component(
+            parse::Stage::Capability(CapabilityStage {
+                capability,
+                args,
+                ..
+            }) => cmd.add_component(
                 ent,
                 Source {
                     kind: capability.as_str().into(),
                     parameters: args.clone().into_iter().collect(),
                 },
             ),
-            parse::Stage::Out { out, .. } => cmd.add_component(
+            parse::Stage::Out(OutStage { out, .. }) => cmd.add_component(
                 ent,
                 Sink {
                     kind: out.as_str().into(),
@@ -124,65 +131,65 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 #[cfg(test)]
 mod tests {
     use legion::{IntoQuery, Resources, World};
-
     use crate::{
         BuildContext,
         lowering::{Name, SinkKind, SourceKind},
-        phases::Phase,
         lowering,
         parse::{ResourceDeclaration, ResourceType, Stage, Value},
+        phases::Phase,
     };
     use super::*;
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
+            version: 1,
             image: "img".parse().unwrap(),
             pipeline: map! {
-                cap: Stage::Capability {
+                cap: Stage::Capability(CapabilityStage {
                     capability: "SOUND".to_string(),
                     args: map! {
                         hz: Value::from(128),
                     },
                     outputs: Vec::new(),
-                },
-                transform: Stage::ProcBlock {
+                }),
+                transform: Stage::ProcBlock(ProcBlockStage {
                     proc_block: "my-proc-block".parse().unwrap(),
                     args: map! {
                         some_arg: Value::from("asdf"),
                     },
                     inputs: Vec::new(),
                     outputs: Vec::new(),
-                },
-                model_from_disk: Stage::Model {
+                }),
+                model_from_disk: Stage::Model(ModelStage {
                     model: ResourceOrString::String("model.tflite".into()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
-                },
-                model_from_resource: Stage::Model {
+                }),
+                model_from_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$MODEL_FILE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
-                },
-                model_with_not_a_resource: Stage::Model {
+                }),
+                model_with_not_a_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$cap".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
-                },
-                model_with_missing_resource: Stage::Model {
+                }),
+                model_with_missing_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$NON_EXISTENT".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
-                },
-                model_with_string_resource: Stage::Model {
+                }),
+                model_with_string_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$STRING_RESOURCE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
-                },
-                serial: Stage::Out {
+                }),
+                serial: Stage::Out(OutStage {
                     out: "SERIAL".to_string(),
                     args: Default::default(),
                     inputs: Vec::new(),
-                },
+                }),
             },
             resources: map! {
                 MODEL_FILE: ResourceDeclaration {

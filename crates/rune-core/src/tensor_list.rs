@@ -76,11 +76,7 @@ where
     fn new_tensors(shape: &[Shape<'_>]) -> Self {
         match shape {
             [s] => {
-                assert_eq!(
-                    s.element_type(),
-                    T::TYPE,
-                    "Incorrect element type"
-                );
+                assert_eq!(s.element_type(), T::TYPE, "Incorrect element type");
                 Tensor::zeroed(s.dimensions().to_vec())
             },
             _ => panic!("Expected a shape with 1 element, found {:?}", shape),
