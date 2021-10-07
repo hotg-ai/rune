@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Document",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "V1"
+      ],
+      "properties": {
+        "V1": {
+          "$ref": "#/definitions/DocumentV1"
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "DocumentV1": {
+      "type": "object",
+      "required": [
+        "image",
+        "pipeline"
+      ],
+      "properties": {
+        "image": {
+          "$ref": "#/definitions/Image"
+        },
+        "pipeline": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Stage"
+          }
+        },
+        "resources": {
+          "default": {},
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ResourceDeclaration"
+          }
+        }
+      }
+    },
+    "Image": {
+      "description": "The image a Rune is based on.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Path"
+        }
+      ]
+    },
+    "Input": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "index": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Path": {
+      "description": "A specification for finding a dependency.\n\nThe full syntax is `base@version#sub_path` where\n\n- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune` or `https://github.com/hotg-ai/rune`) - `version` is an optional field specifying the version (e.g. as a git tag) - `sub_path` is an optional field which is useful when pointing to repositories with multiple relevant items because it lets you specify which directory the specified item is in.",
+      "type": "object",
+      "required": [
+        "base"
+      ],
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "sub_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ResourceDeclaration": {
+      "description": "The declaration for a resource, typically something like a wordlist or environment variable.",
+      "type": "object",
+      "properties": {
+        "inline": {
+          "description": "A resource who's default value is specified inline.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "A resource who's default value is meant to be loaded from a file.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "default": "string",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ResourceType"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ResourceName": {
+      "description": "A reference to some [`ResourceDeclaration`]. It typically looks like `$RESOURCE_NAME`.",
+      "type": "string"
+    },
+    "ResourceOrString": {
+      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Resource"
+          ],
+          "properties": {
+            "Resource": {
+              "$ref": "#/definitions/ResourceName"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "String"
+          ],
+          "properties": {
+            "String": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ResourceType": {
+      "description": "How the resource should be treated inside the Rune.",
+      "type": "string",
+      "enum": [
+        "string",
+        "binary"
+      ]
+    },
+    "Stage": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "inputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Input"
+              }
+            },
+            "model": {
+              "$ref": "#/definitions/ResourceOrString"
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Type"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "proc-block"
+          ],
+          "properties": {
+            "args": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/kebab-case"
+              }
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Input"
+              }
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Type"
+              }
+            },
+            "proc-block": {
+              "$ref": "#/definitions/Path"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "capability"
+          ],
+          "properties": {
+            "args": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/kebab-case"
+              }
+            },
+            "capability": {
+              "type": "string"
+            },
+            "outputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Type"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "out"
+          ],
+          "properties": {
+            "args": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/kebab-case"
+              }
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Input"
+              }
+            },
+            "out": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "Type": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          }
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "kebab-case": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "type": "number",
+          "format": "float"
+        },
+        {
+          "$ref": "#/definitions/ResourceOrString"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/kebab-case"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ use std::{
     ops::Deref,
     str::FromStr,
 };
+use schemars::{JsonSchema, schema::Schema, gen::SchemaGenerator};
 use indexmap::IndexMap;
 use regex::Regex;
 use once_cell::sync::Lazy;
@@ -18,7 +19,7 @@ use codespan::Span;
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, JsonSchema)]
 pub enum Document {
     V1(DocumentV1),
 }
@@ -91,7 +92,14 @@ mod document_serde {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub struct DocumentV1 {
     pub image: Image,
     pub pipeline: IndexMap<String, Stage>,
@@ -129,7 +137,8 @@ impl FromStr for Document {
 /// - `sub_path` is an optional field which is useful when pointing to
 ///   repositories with multiple relevant items because it lets you specify
 ///   which directory the specified item is in.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, JsonSchema)]
+#[schemars(with = "String")]
 pub struct Path {
     pub base: String,
     pub sub_path: Option<String>,
@@ -231,7 +240,14 @@ impl Display for PathParseError {
 
 impl std::error::Error for PathParseError {}
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
     Model {
@@ -309,9 +325,10 @@ impl Stage {
     }
 }
 
-/// Something that could be either a reference to a resource (e.g. `$resource`)
-/// or a plain string (e.g. `./path`).
-#[derive(Debug, Clone, PartialEq)]
+/// Something that could be either a reference to a resource (`$resource`)
+/// or a plain string (`./path`).
+#[derive(Debug, Clone, PartialEq, JsonSchema)]
+#[schemars(with = "String")]
 pub enum ResourceOrString {
     Resource(ResourceName),
     String(String),
@@ -362,7 +379,14 @@ impl From<ResourceName> for ResourceOrString {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct Type {
     #[serde(rename = "type")]
@@ -371,7 +395,14 @@ pub struct Type {
     pub dimensions: Vec<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename = "kebab-case", untagged)]
 pub enum Value {
     Int(i32),
@@ -404,7 +435,8 @@ impl From<Vec<Value>> for Value {
     fn from(list: Vec<Value>) -> Value { Value::List(list) }
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd, JsonSchema)]
+#[schemars(with = "String")]
 pub struct Input {
     pub name: String,
     pub index: Option<usize>,
@@ -477,7 +509,13 @@ impl<'de> Deserialize<'de> for Input {
 /// The declaration for a resource, typically something like a wordlist or
 /// environment variable.
 #[derive(
-    Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct ResourceDeclaration {
@@ -498,7 +536,13 @@ impl ResourceDeclaration {
 
 /// How the resource should be treated inside the Rune.
 #[derive(
-    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(rename_all = "kebab-case")]
 pub enum ResourceType {
@@ -514,7 +558,7 @@ impl Default for ResourceType {
 
 /// A reference to some [`ResourceDeclaration`]. It typically looks like
 /// `$RESOURCE_NAME`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, schemars::JsonSchema)]
 pub struct ResourceName(pub String);
 
 impl ResourceName {
@@ -929,7 +973,14 @@ pipeline:
 }
 
 /// The image a Rune is based on.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 pub struct Image(pub Path);
 
 impl FromStr for Image {
