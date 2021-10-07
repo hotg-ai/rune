@@ -3,7 +3,7 @@ name: Continuous integration
 on:
   push:
     branches:
-    - master
+      - master
   pull_request:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-python@v2
         if: runner.os == 'macOS'
         with:
-          python-version: '3.x'
+          python-version: "3.x"
       - name: Install Build Dependencies
         run: |
           pip install numpy
@@ -117,6 +117,11 @@ jobs:
         if: ${{ steps.first_try.outcome == 'failure' }}
       - name: Automatically redirect to rune_runtime docs
         run: echo '<meta http-equiv="refresh" content="0; url=hotg_rune_core/index.html" />' > target/doc/index.html
+      - name: Generate HTML docs from JSON Schema
+        run: |
+          pip install json-schema-for-humans
+          mkdir -p target/doc/_runefile_schema/
+          generate-schema-doc crates/compiler/runefile-schema.json target/doc/_runefile_schema/schema.html --copy-css --copy-js --expand-buttons
       - name: Upload API Docs
         uses: JamesIves/github-pages-deploy-action@4.1.1
         if: github.ref == 'refs/heads/master'
