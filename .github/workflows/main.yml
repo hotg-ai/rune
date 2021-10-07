@@ -122,7 +122,7 @@ jobs:
       - name: Create the Output Directory
         run: |
           mkdir -p public
-          ln -s target/doc public/crate-docs
+          cp -r target/doc public/crate-docs
       - name: Automatically redirect to rune_runtime docs
         run: echo '<meta http-equiv="refresh" content="0; url=crate-docs/hotg_rune_core/index.html" />' > public/index.html
       - name: Generate HTML docs from JSON Schema
