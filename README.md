@@ -3,7 +3,7 @@
 [![Continuous integration](https://github.com/hotg-ai/rune/actions/workflows/main.yml/badge.svg)](https://github.com/hotg-ai/rune/actions/workflows/main.yml)
 ![Total Downloads](https://img.shields.io/github/downloads/hotg-ai/rune/total.svg)
 
-**[Nightly Release][nightly] | [API Docs][api-docs]**
+**[Nightly Release][nightly] | [API Docs][api-docs] | [Runefile Schema][schema]**
 
 Rune is a technology for deploying TinyML applications.
 
@@ -39,7 +39,9 @@ conditions.
 [crev]: https://github.com/crev-dev/cargo-crev
 [nightly]: https://github.com/hotg-ai/rune/releases/tag/nightly
 [api-docs]: https://hotg-ai.github.io/rune/
+[schema]: https://hotg-ai.github.io/rune/schema/schema.html
 [rustup]: https://rustup.rs/
 [whats-in-a-rune]: https://tinyverse.substack.com/p/whats-in-a-rune
 [contributing]: CONTRIBUTING.md
 [dev]: https://hotg.dev/docs/
+
