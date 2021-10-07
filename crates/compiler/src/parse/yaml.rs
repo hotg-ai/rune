@@ -9,7 +9,7 @@ use std::{
 use schemars::{
     JsonSchema,
     gen::SchemaGenerator,
-    schema::{InstanceType, Schema, SchemaObject},
+    schema::{InstanceType, Schema, SchemaObject, Metadata},
 };
 use indexmap::IndexMap;
 use regex::Regex;
@@ -23,6 +23,7 @@ use codespan::Span;
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
 
+/// The top level Runefile type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Document {
     V1(DocumentV1),
@@ -109,6 +110,11 @@ impl JsonSchema for Document {
 
         let variants = vec![(1, gen.subschema_for::<DocumentV1>())];
 
+        let sub = schema.subschemas();
+
+        // We want to match one of the supported document versions
+        sub.any_of = Some(variants.iter().map(|(_, s)| s.clone()).collect());
+
         // Add a condition that the "version" field should have one of the
         // supported values
         let version_field_requirement = value_should_be_one_of(
@@ -126,7 +132,7 @@ impl JsonSchema for Document {
 
         conditions.push(version_field_requirement);
 
-        schema.subschemas().all_of = Some(conditions);
+        sub.all_of = Some(conditions);
 
         schema.into()
     }
@@ -175,7 +181,7 @@ fn value_should_be_one_of(
 }
 
 macro_rules! impl_json_schema_via_regex {
-    ($ty:ty, $pattern:expr) => {
+    ($ty:ty, $pattern:expr, $docs:literal) => {
         impl JsonSchema for $ty {
             fn schema_name() -> String { String::from(stringify!($ty)) }
 
@@ -183,6 +189,10 @@ macro_rules! impl_json_schema_via_regex {
                 let mut schema = SchemaObject {
                     instance_type: Some(InstanceType::String.into()),
                     format: Some(String::from("string")),
+                    metadata: Some(Box::new(Metadata {
+                        description: Some(String::from($docs)),
+                        ..Default::default()
+                    })),
                     ..Default::default()
                 };
 
@@ -204,8 +214,14 @@ macro_rules! impl_json_schema_via_regex {
     schemars::JsonSchema,
 )]
 pub struct DocumentV1 {
+    /// The base image that defines the interface between a Rune and its
+    /// runtime.
+    ///
+    /// This should always be `"runicos/base"`.
     pub image: Image,
+    /// The various stages in the Runefile's pipeline.
     pub pipeline: IndexMap<String, Stage>,
+    /// Any resources that can be accessed by pipeline stages.
     #[serde(default)]
     pub resources: IndexMap<String, ResourceDeclaration>,
 }
@@ -246,6 +262,23 @@ pub struct Path {
     pub sub_path: Option<String>,
     pub version: Option<String>,
 }
+
+impl_json_schema_via_regex!(
+    Path,
+    PATH_PATTERN,
+    r#"
+A specification for finding a dependency.
+
+The full syntax is `base@version#sub_path` where
+
+- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`
+  or `https://github.com/hotg-ai/rune`)
+- `version` is an optional field specifying the version (e.g. as a git tag)
+- `sub_path` is an optional field which is useful when pointing to
+  repositories with multiple relevant items because it lets you specify
+  which directory the specified item is in.
+"#
+);
 
 impl Path {
     pub fn new(
@@ -331,8 +364,6 @@ impl<'de> Deserialize<'de> for Path {
     }
 }
 
-impl_json_schema_via_regex!(Path, PATH_PATTERN);
-
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct PathParseError;
 
@@ -344,6 +375,7 @@ impl Display for PathParseError {
 
 impl std::error::Error for PathParseError {}
 
+/// A ML model which will be executed by the runtime.
 #[derive(
     Debug,
     Clone,
@@ -353,13 +385,17 @@ impl std::error::Error for PathParseError {}
     schemars::JsonSchema,
 )]
 pub struct ModelStage {
+    /// The model to use, or a resource which specifies the model to use.
     pub model: ResourceOrString,
+    /// Tensors to use as input to this model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
+    /// The tensors that this model outputs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
 }
 
+/// A stage which executes a procedural block.
 #[derive(
     Debug,
     Clone,
@@ -369,6 +405,7 @@ pub struct ModelStage {
     schemars::JsonSchema,
 )]
 pub struct ProcBlockStage {
+    /// A [`Path`] that Rune can use to locate the proc block.
     #[serde(rename = "proc-block")]
     pub proc_block: Path,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -379,6 +416,7 @@ pub struct ProcBlockStage {
     pub args: IndexMap<String, Value>,
 }
 
+/// A stage which reads inputs from the runtime.
 #[derive(
     Debug,
     Clone,
@@ -388,6 +426,7 @@ pub struct ProcBlockStage {
     schemars::JsonSchema,
 )]
 pub struct CapabilityStage {
+    /// What type of capability to use ("IMAGE", "SOUND", etc.).
     pub capability: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
@@ -395,6 +434,7 @@ pub struct CapabilityStage {
     pub args: IndexMap<String, Value>,
 }
 
+/// A stage which passes outputs back to the runtime.
 #[derive(
     Debug,
     Clone,
@@ -404,6 +444,7 @@ pub struct CapabilityStage {
     schemars::JsonSchema,
 )]
 pub struct OutStage {
+    /// The type of output (e.g. "SERIAL").
     pub out: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
@@ -411,6 +452,7 @@ pub struct OutStage {
     pub args: IndexMap<String, Value>,
 }
 
+/// A stage in the Rune's pipeline.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
@@ -479,12 +521,12 @@ impl JsonSchema for Stage {
         ];
 
         // Make sure we get exactly one of the variant keys
-        stage_schema.subschemas().one_of = Some(
-            variants
+        stage_schema.subschemas().one_of =
+            Some(variants
                 .iter()
-                .map(|(name, _)| requires_property(*name))
-                .collect(),
-        );
+                .map(|(_, schema)| schema.clone())
+                // .map(|(name, _)| requires_property(*name))
+                .collect());
 
         // then if we have our key, make sure the rest of the variant's schema
         // matches.
@@ -571,6 +613,7 @@ impl From<ResourceName> for ResourceOrString {
     fn from(name: ResourceName) -> Self { ResourceOrString::Resource(name) }
 }
 
+/// The element type and dimensions for a particular tensor.
 #[derive(
     Debug,
     Clone,
@@ -588,6 +631,7 @@ pub struct Type {
     pub dimensions: Vec<usize>,
 }
 
+/// A value that may be used as a stage's argument.
 #[derive(
     Debug,
     Clone,
@@ -596,7 +640,7 @@ pub struct Type {
     serde::Deserialize,
     schemars::JsonSchema,
 )]
-#[serde(rename = "kebab-case", untagged)]
+#[serde(rename_all = "kebab-case", untagged)]
 pub enum Value {
     Int(i32),
     Float(f32),
@@ -629,11 +673,25 @@ impl From<Vec<Value>> for Value {
     fn from(list: Vec<Value>) -> Value { Value::List(list) }
 }
 
+/// The name of a tensor.
+///
+/// Typically something like "stage", or "stage.2" if the stage has multiple
+/// outputs.
 #[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
 pub struct Input {
     pub name: String,
     pub index: Option<usize>,
 }
+
+impl_json_schema_via_regex!(
+    Input,
+    INPUT_PATTERN,
+    r#"
+The name of a tensor.
+
+Typically something like "stage", or "stage.2" if the stage has multiple outputs.
+"#
+);
 
 impl Input {
     pub fn new(
@@ -698,8 +756,6 @@ impl<'de> Deserialize<'de> for Input {
     }
 }
 
-impl_json_schema_via_regex!(Input, INPUT_PATTERN);
-
 /// The declaration for a resource, typically something like a wordlist or
 /// environment variable.
 #[derive(
@@ -754,6 +810,15 @@ impl Default for ResourceType {
 /// `$RESOURCE_NAME`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ResourceName(pub String);
+
+impl_json_schema_via_regex!(
+    ResourceName,
+    RESOURCE_NAME_PATTERN,
+    r#"
+A reference to some [`ResourceDeclaration`]. It typically looks like
+`$RESOURCE_NAME`.
+"#
+);
 
 impl ResourceName {
     pub fn span(&self) -> Span {
@@ -827,8 +892,6 @@ impl Display for ResourceName {
         write!(f, "${}", self.0)
     }
 }
-
-impl_json_schema_via_regex!(ResourceName, RESOURCE_NAME_PATTERN);
 
 /// The image a Rune is based on.
 #[derive(

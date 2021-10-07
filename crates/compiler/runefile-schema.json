@@ -27,11 +27,17 @@
       }
     }
   ],
+  "anyOf": [
+    {
+      "$ref": "#/definitions/DocumentV1"
+    }
+  ],
   "required": [
     "version"
   ],
   "definitions": {
     "CapabilityStage": {
+      "description": "A stage which reads inputs from the runtime.",
       "type": "object",
       "required": [
         "capability"
@@ -40,10 +46,11 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/kebab-case"
+            "$ref": "#/definitions/Value"
           }
         },
         "capability": {
+          "description": "What type of capability to use (\"IMAGE\", \"SOUND\", etc.).",
           "type": "string"
         },
         "outputs": {
@@ -63,15 +70,22 @@
       ],
       "properties": {
         "image": {
-          "$ref": "#/definitions/Path"
+          "description": "The base image that defines the interface between a Rune and its runtime.\n\nThis should always be `\"runicos/base\"`.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Path"
+            }
+          ]
         },
         "pipeline": {
+          "description": "The various stages in the Runefile's pipeline.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/Stage"
           }
         },
         "resources": {
+          "description": "Any resources that can be accessed by pipeline stages.",
           "default": {},
           "type": "object",
           "additionalProperties": {
@@ -81,26 +95,35 @@
       }
     },
     "Input": {
+      "description": "\nThe name of a tensor.\n\nTypically something like \"stage\", or \"stage.2\" if the stage has multiple outputs.\n",
       "type": "string",
       "format": "string",
       "pattern": "^(?P<name>[a-zA-Z_][\\w-]*)(?:\\.(?P<index>\\d+))?$"
     },
     "ModelStage": {
+      "description": "A ML model which will be executed by the runtime.",
       "type": "object",
       "required": [
         "model"
       ],
       "properties": {
         "inputs": {
+          "description": "Tensors to use as input to this model.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Input"
           }
         },
         "model": {
-          "$ref": "#/definitions/ResourceOrString"
+          "description": "The model to use, or a resource which specifies the model to use.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ResourceOrString"
+            }
+          ]
         },
         "outputs": {
+          "description": "The tensors that this model outputs.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Type"
@@ -109,6 +132,7 @@
       }
     },
     "OutStage": {
+      "description": "A stage which passes outputs back to the runtime.",
       "type": "object",
       "required": [
         "out"
@@ -117,7 +141,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/kebab-case"
+            "$ref": "#/definitions/Value"
           }
         },
         "inputs": {
@@ -127,16 +151,19 @@
           }
         },
         "out": {
+          "description": "The type of output (e.g. \"SERIAL\").",
           "type": "string"
         }
       }
     },
     "Path": {
+      "description": "\nA specification for finding a dependency.\n\nThe full syntax is `base@version#sub_path` where\n\n- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`\n  or `https://github.com/hotg-ai/rune`)\n- `version` is an optional field specifying the version (e.g. as a git tag)\n- `sub_path` is an optional field which is useful when pointing to\n  repositories with multiple relevant items because it lets you specify\n  which directory the specified item is in.\n",
       "type": "string",
       "format": "string",
       "pattern": "(?x)\n        (?P<base>[\\w\\d:/_.-]+)\n        (?:@(?P<version>[\\w\\d./-]+))?\n        (?:\\#(?P<sub_path>[\\w\\d._/-]+))?\n        "
     },
     "ProcBlockStage": {
+      "description": "A stage which executes a procedural block.",
       "type": "object",
       "required": [
         "proc-block"
@@ -145,7 +172,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/kebab-case"
+            "$ref": "#/definitions/Value"
           }
         },
         "inputs": {
@@ -161,7 +188,12 @@
           }
         },
         "proc-block": {
-          "$ref": "#/definitions/Path"
+          "description": "A [`Path`] that Rune can use to locate the proc block.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Path"
+            }
+          ]
         }
       }
     },
@@ -195,6 +227,7 @@
       "additionalProperties": false
     },
     "ResourceName": {
+      "description": "\nA reference to some [`ResourceDeclaration`]. It typically looks like\n`$RESOURCE_NAME`.\n",
       "type": "string",
       "format": "string",
       "pattern": "^\\$[_a-zA-Z][_a-zA-Z0-9]*$"
@@ -268,32 +301,21 @@
       ],
       "oneOf": [
         {
-          "type": "object",
-          "required": [
-            "model"
-          ]
+          "$ref": "#/definitions/ModelStage"
         },
         {
-          "type": "object",
-          "required": [
-            "proc-block"
-          ]
+          "$ref": "#/definitions/ProcBlockStage"
         },
         {
-          "type": "object",
-          "required": [
-            "capability"
-          ]
+          "$ref": "#/definitions/CapabilityStage"
         },
         {
-          "type": "object",
-          "required": [
-            "out"
-          ]
+          "$ref": "#/definitions/OutStage"
         }
       ]
     },
     "Type": {
+      "description": "The element type and dimensions for a particular tensor.",
       "type": "object",
       "required": [
         "type"
@@ -312,7 +334,8 @@
         }
       }
     },
-    "kebab-case": {
+    "Value": {
+      "description": "A value that may be used as a stage's argument.",
       "anyOf": [
         {
           "type": "integer",
@@ -328,7 +351,7 @@
         {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/kebab-case"
+            "$ref": "#/definitions/Value"
           }
         }
       ]
