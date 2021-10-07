@@ -108,7 +108,8 @@ jobs:
           command: doc
           args: --workspace --verbose --locked
       # Sometimes generating docs on GitHub actions will spuriously fail with
-      # a random "file not found" error - possibly due to caching.
+      # a random "file not found" error - possibly due to caching - so we try
+      # twice before failing the build.
       #
       #   error: failed to remove file `/home/runner/work/rune/rune/target/doc/rune/constant.DEFAULT_RUST_LOG.html`
       #   Caused by:
@@ -118,19 +119,23 @@ jobs:
           cargo clean --doc
           cargo doc --workspace --verbose --locked
         if: ${{ steps.first_try.outcome == 'failure' }}
+      - name: Create the Output Directory
+        run: |
+          mkdir -p public
+          ln -s target/doc public/crate-docs
       - name: Automatically redirect to rune_runtime docs
-        run: echo '<meta http-equiv="refresh" content="0; url=hotg_rune_core/index.html" />' > target/doc/index.html
+        run: echo '<meta http-equiv="refresh" content="0; url=crate-docs/hotg_rune_core/index.html" />' > public/index.html
       - name: Generate HTML docs from JSON Schema
         run: |
           pip3 install json-schema-for-humans
-          mkdir -p target/doc/_runefile_schema/
-          generate-schema-doc crates/compiler/runefile-schema.json target/doc/_runefile_schema/schema.html --copy-css --copy-js --expand-buttons
+          mkdir -p public/schema
+          generate-schema-doc crates/compiler/runefile-schema.json public/schema/schema.html --copy-css --copy-js --expand-buttons
       - name: Upload API Docs
         uses: JamesIves/github-pages-deploy-action@4.1.1
         if: github.ref == 'refs/heads/master'
         with:
           branch: gh-pages
-          folder: target/doc
+          folder: public
 
   web-bindings:
     name: Test Web Bindings
