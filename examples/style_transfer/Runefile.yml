@@ -5,8 +5,8 @@ pipeline:
   content_image:
     capability: IMAGE
     outputs:
-    - type: u8
-      dimensions: [1, 384, 384, 3]
+      - type: u8
+        dimensions: [1, 384, 384, 3]
     args:
       source: 0
       pixel-format: "@PixelFormat::RGB"
@@ -16,8 +16,8 @@ pipeline:
   style:
     capability: IMAGE
     outputs:
-    - type: u8
-      dimensions: [1, 256, 256, 3]
+      - type: u8
+        dimensions: [1, 256, 256, 3]
     args:
       source: 1
       pixel-format: "@PixelFormat::RGB"
@@ -27,37 +27,37 @@ pipeline:
   normalized_content_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
     inputs:
-    - content_image
+      - content_image
     outputs:
-    - type: f32
-      dimensions: [1, 384, 384, 3]
+      - type: f32
+        dimensions: [1, 384, 384, 3]
 
   normalized_style_image:
     proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
     inputs:
-    - style
+      - style
     outputs:
-    - type: f32
-      dimensions: [1, 256, 256, 3]
+      - type: f32
+        dimensions: [1, 256, 256, 3]
 
   style_vector:
     model: ./style_predict.tflite
     inputs:
-    - normalized_style_image
+      - normalized_style_image
     outputs:
-    - type: f32
-      dimensions: [1, 1, 1, 100]
+      - type: f32
+        dimensions: [1, 1, 1, 100]
 
   style_transform:
     model: ./style_transform.tflite
     inputs:
-    - normalized_content_image
-    - style_vector
+      - normalized_content_image
+      - style_vector
     outputs:
-    - type: f32
-      dimensions: [1, 384, 384, 3]
+      - type: f32
+        dimensions: [1, 384, 384, 3]
 
   serial:
     out: SERIAL
     inputs:
-    - style_transform
+      - style_transform

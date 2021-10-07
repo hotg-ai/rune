@@ -1,4 +1,7 @@
-use std::{fs::File, process::Command};
+use std::{
+    fs::File,
+    process::{Command, Stdio},
+};
 use anyhow::{Error, Context};
 use std::path::{PathBuf, Path};
 use structopt::StructOpt;
@@ -26,6 +29,7 @@ impl UpdateSchema {
             .arg("run")
             .arg("--example=json-schema")
             .stdout(f)
+            .stderr(Stdio::inherit())
             .output()
             .context("Unable to start cargo")?;
         anyhow::ensure!(

@@ -24,6 +24,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
+name = "ahash"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43bb833f0bf979d8475d38fbf09ed3b8a55e1885fe93ad3f93239fc6a4f17b98"
+dependencies = [
+ "getrandom",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -273,7 +284,7 @@ dependencies = [
  "build-info-common",
  "chrono",
  "format-buf",
- "num-bigint",
+ "num-bigint 0.4.2",
  "num-traits",
  "proc-macro-error",
  "proc-macro-hack",
@@ -863,6 +874,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
+name = "fancy-regex"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d6b8560a05112eb52f04b00e5d3790c0dd75d9d980eb8a122fb23b92a623ccf"
+dependencies = [
+ "bit-set",
+ "regex",
+]
+
+[[package]]
 name = "fft"
 version = "0.8.0"
 dependencies = [
@@ -918,6 +939,16 @@ name = "format-buf"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7aea5a5909a74969507051a3b17adc84737e31a5f910559892aedce026f4d53"
+
+[[package]]
+name = "fraction"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78d24d088325f939faaf806483fbfac0548e43018606bfe7a44abc83f6dc75ea"
+dependencies = [
+ "lazy_static",
+ "num 0.2.1",
+]
 
 [[package]]
 name = "fuchsia-cprng"
@@ -1101,6 +1132,7 @@ dependencies = [
  "heck",
  "hotg-rune-core",
  "indexmap",
+ "jsonschema",
  "legion",
  "log",
  "once_cell",
@@ -1438,6 +1470,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonschema"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "033569cfbdf25f87a5d74cb373efa466cd7a2c069338e62d6944615c7995dd47"
+dependencies = [
+ "ahash",
+ "base64",
+ "chrono",
+ "fancy-regex",
+ "fraction",
+ "itoa",
+ "lazy_static",
+ "num-cmp",
+ "parking_lot",
+ "percent-encoding",
+ "regex",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "label"
 version = "0.8.0"
 dependencies = [
@@ -1629,7 +1682,7 @@ source = "git+https://github.com/hotg-ai/mel?rev=017694ee3143c11ea9b75ba6cd27fe7
 dependencies = [
  "apodize",
  "hertz",
- "num",
+ "num 0.4.0",
  "num-traits",
 ]
 
@@ -1719,7 +1772,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d506eb7e08d6329505faa8a3a00a5dcc6de9f76e0c77e4b75763ae3c770831ff"
 dependencies = [
  "approx",
- "num-complex",
+ "num-complex 0.4.0",
  "num-rational 0.4.0",
  "num-traits",
  "simba",
@@ -1733,7 +1786,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08e854964160a323e65baa19a0b1a027f76d590faba01f05c0cbc3187221a8c9"
 dependencies = [
  "matrixmultiply",
- "num-complex",
+ "num-complex 0.4.0",
  "num-integer",
  "num-traits",
  "rawpointer",
@@ -1775,14 +1828,39 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "num"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8536030f9fea7127f841b45bb6243b27255787fb4eb83958aa1ef9d2fdc0c36"
+dependencies = [
+ "num-bigint 0.2.6",
+ "num-complex 0.2.4",
+ "num-integer",
+ "num-iter",
+ "num-rational 0.2.4",
+ "num-traits",
+]
+
+[[package]]
+name = "num"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
 dependencies = [
- "num-complex",
+ "num-complex 0.4.0",
  "num-integer",
  "num-iter",
  "num-rational 0.4.0",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "090c7f9998ee0ff65aa5b723e4009f7b217707f1fb5ea551329cc4d6231fb304"
+dependencies = [
+ "autocfg",
+ "num-integer",
  "num-traits",
 ]
 
@@ -1794,6 +1872,22 @@ checksum = "74e768dff5fb39a41b3bcd30bb25cf989706c90d028d1ad71971987aa309d535"
 dependencies = [
  "autocfg",
  "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-cmp"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63335b2e2c34fae2fb0aa2cecfd9f0832a1e24b3b32ecec612c3426d46dc8aaa"
+
+[[package]]
+name = "num-complex"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
+dependencies = [
+ "autocfg",
  "num-traits",
 ]
 
@@ -1823,6 +1917,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2021c8337a54d21aca0d59a92577a029af9431cb59b909b03252b9c164fad59"
 dependencies = [
  "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-rational"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c000134b5dbf44adc5cb772486d335293351644b801551abe8f75c84cfa4aef"
+dependencies = [
+ "autocfg",
+ "num-bigint 0.2.6",
  "num-integer",
  "num-traits",
 ]
@@ -1878,7 +1984,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "ndarray",
- "num-complex",
+ "num-complex 0.4.0",
  "num-traits",
  "pyo3",
 ]
@@ -2714,7 +2820,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0b7840f121a46d63066ee7a99fc81dcabbc6105e437cae43528cea199b5a05f"
 dependencies = [
  "approx",
- "num-complex",
+ "num-complex 0.4.0",
  "num-traits",
  "paste 1.0.5",
 ]
@@ -2731,7 +2837,7 @@ version = "0.4.4"
 source = "git+https://github.com/hotg-ai/sonogram?rev=009bc0cba44267d8a0807e43c9bb0712f0f334ea#009bc0cba44267d8a0807e43c9bb0712f0f334ea"
 dependencies = [
  "libm",
- "num",
+ "num 0.4.0",
 ]
 
 [[package]]

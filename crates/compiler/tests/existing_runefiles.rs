@@ -2,6 +2,8 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
+use serde_json::Value;
+use jsonschema::JSONSchema;
 use hotg_rune_compiler::{
     Diagnostics,
     parse::Document,
@@ -147,6 +149,28 @@ macro_rules! parse_and_analyse {
                 );
 
                 handle_diagnostics(&file, &hooks.diags);
+            }
+
+            #[test]
+            fn validate_against_yaml_schema() {
+                let document: Value = serde_yaml::from_str(SRC).unwrap();
+
+                let schema = schemars::schema_for!(Document);
+                let schema = serde_json::to_value(&schema).unwrap();
+
+                let compiled_schema =
+                    JSONSchema::options().compile(&schema).unwrap();
+
+                let result = compiled_schema.validate(&document);
+                if let Err(errors) = result {
+                    for error in errors {
+                        println!("Validation error: {}", error);
+                        println!("Instance path: {}", error.instance_path);
+                        println!();
+                    }
+
+                    panic!("Validation failed");
+                }
             }
         }
     };

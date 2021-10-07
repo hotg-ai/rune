@@ -1,22 +1,61 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Document",
-  "oneOf": [
+  "type": "object",
+  "allOf": [
     {
-      "type": "object",
-      "required": [
-        "V1"
-      ],
-      "properties": {
-        "V1": {
-          "$ref": "#/definitions/DocumentV1"
+      "if": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "const": 1
+          }
         }
       },
-      "additionalProperties": false
+      "then": {
+        "$ref": "#/definitions/DocumentV1"
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            1
+          ]
+        }
+      }
     }
   ],
+  "required": [
+    "version"
+  ],
   "definitions": {
+    "CapabilityStage": {
+      "type": "object",
+      "required": [
+        "capability"
+      ],
+      "properties": {
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/kebab-case"
+          }
+        },
+        "capability": {
+          "type": "string"
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Type"
+          }
+        }
+      }
+    },
     "DocumentV1": {
+      "description": "Version 1 of the `Runefile.yml` format.",
       "type": "object",
       "required": [
         "image",
@@ -24,7 +63,7 @@
       ],
       "properties": {
         "image": {
-          "$ref": "#/definitions/Image"
+          "$ref": "#/definitions/Path"
         },
         "pipeline": {
           "type": "object",
@@ -41,54 +80,88 @@
         }
       }
     },
-    "Image": {
-      "description": "The image a Rune is based on.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Path"
-        }
-      ]
-    },
     "Input": {
+      "type": "string",
+      "format": "string",
+      "pattern": "^(?P<name>[a-zA-Z_][\\w-]*)(?:\\.(?P<index>\\d+))?$"
+    },
+    "ModelStage": {
       "type": "object",
       "required": [
-        "name"
+        "model"
       ],
       "properties": {
-        "index": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint",
-          "minimum": 0.0
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Input"
+          }
         },
-        "name": {
+        "model": {
+          "$ref": "#/definitions/ResourceOrString"
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Type"
+          }
+        }
+      }
+    },
+    "OutStage": {
+      "type": "object",
+      "required": [
+        "out"
+      ],
+      "properties": {
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/kebab-case"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Input"
+          }
+        },
+        "out": {
           "type": "string"
         }
       }
     },
     "Path": {
-      "description": "A specification for finding a dependency.\n\nThe full syntax is `base@version#sub_path` where\n\n- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune` or `https://github.com/hotg-ai/rune`) - `version` is an optional field specifying the version (e.g. as a git tag) - `sub_path` is an optional field which is useful when pointing to repositories with multiple relevant items because it lets you specify which directory the specified item is in.",
+      "type": "string",
+      "format": "string",
+      "pattern": "(?x)\n        (?P<base>[\\w\\d:/_.-]+)\n        (?:@(?P<version>[\\w\\d./-]+))?\n        (?:\\#(?P<sub_path>[\\w\\d._/-]+))?\n        "
+    },
+    "ProcBlockStage": {
       "type": "object",
       "required": [
-        "base"
+        "proc-block"
       ],
       "properties": {
-        "base": {
-          "type": "string"
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/kebab-case"
+          }
         },
-        "sub_path": {
-          "type": [
-            "string",
-            "null"
-          ]
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Input"
+          }
         },
-        "version": {
-          "type": [
-            "string",
-            "null"
-          ]
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Type"
+          }
+        },
+        "proc-block": {
+          "$ref": "#/definitions/Path"
         }
       }
     },
@@ -122,35 +195,18 @@
       "additionalProperties": false
     },
     "ResourceName": {
-      "description": "A reference to some [`ResourceDeclaration`]. It typically looks like `$RESOURCE_NAME`.",
-      "type": "string"
+      "type": "string",
+      "format": "string",
+      "pattern": "^\\$[_a-zA-Z][_a-zA-Z0-9]*$"
     },
     "ResourceOrString": {
       "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
-      "oneOf": [
+      "anyOf": [
         {
-          "type": "object",
-          "required": [
-            "Resource"
-          ],
-          "properties": {
-            "Resource": {
-              "$ref": "#/definitions/ResourceName"
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/definitions/ResourceName"
         },
         {
-          "type": "object",
-          "required": [
-            "String"
-          ],
-          "properties": {
-            "String": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
+          "type": "string"
         }
       ]
     },
@@ -163,104 +219,77 @@
       ]
     },
     "Stage": {
-      "anyOf": [
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "model"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/ModelStage"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "proc-block"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/ProcBlockStage"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "capability"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/CapabilityStage"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "out"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/OutStage"
+          }
+        }
+      ],
+      "oneOf": [
         {
           "type": "object",
           "required": [
             "model"
-          ],
-          "properties": {
-            "inputs": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Input"
-              }
-            },
-            "model": {
-              "$ref": "#/definitions/ResourceOrString"
-            },
-            "outputs": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Type"
-              }
-            }
-          }
+          ]
         },
         {
           "type": "object",
           "required": [
             "proc-block"
-          ],
-          "properties": {
-            "args": {
-              "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/kebab-case"
-              }
-            },
-            "inputs": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Input"
-              }
-            },
-            "outputs": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Type"
-              }
-            },
-            "proc-block": {
-              "$ref": "#/definitions/Path"
-            }
-          }
+          ]
         },
         {
           "type": "object",
           "required": [
             "capability"
-          ],
-          "properties": {
-            "args": {
-              "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/kebab-case"
-              }
-            },
-            "capability": {
-              "type": "string"
-            },
-            "outputs": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Type"
-              }
-            }
-          }
+          ]
         },
         {
           "type": "object",
           "required": [
             "out"
-          ],
-          "properties": {
-            "args": {
-              "type": "object",
-              "additionalProperties": {
-                "$ref": "#/definitions/kebab-case"
-              }
-            },
-            "inputs": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Input"
-              }
-            },
-            "out": {
-              "type": "string"
-            }
-          }
+          ]
         }
       ]
     },
@@ -294,7 +323,7 @@
           "format": "float"
         },
         {
-          "$ref": "#/definitions/ResourceOrString"
+          "type": "string"
         },
         {
           "type": "array",

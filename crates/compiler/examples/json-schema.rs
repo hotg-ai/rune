@@ -1,3 +1,6 @@
+//! An example program that just prints out the JSON schema for the Runefile
+//! format.
+
 use hotg_rune_compiler::parse::Document;
 
 fn main() {
