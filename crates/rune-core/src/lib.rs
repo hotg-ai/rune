@@ -22,7 +22,7 @@ pub use crate::{
     logging::SerializableRecord,
     shape::Shape,
     tensor_list::{TensorList, TensorListMut},
-    resources::{InlineResource, inline_resource_from_bytes},
+    resources::{InlineResource, decode_inline_resource},
 };
 
 /// The mimetype used for a TensorFlow Lite model.
