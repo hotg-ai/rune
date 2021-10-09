@@ -8,6 +8,8 @@ use legion::{Query, systems::CommandBuffer, world::SubWorld};
 use crate::{BuildContext, FeatureFlags, codegen::File, lowering::ProcBlock, parse};
 
 const REPO: &'static str = "https://github.com/hotg-ai/rune";
+/// The version of core crates that we want to target.
+const CORE_VERSION: &'static str = hotg_rune_core::VERSION;
 
 /// Generate a `Cargo.toml` file which includes all the relevant dependencies
 /// for this crate.
@@ -19,6 +21,23 @@ pub(crate) fn run(
     #[resource] features: &FeatureFlags,
     query: &mut Query<&ProcBlock>,
 ) {
+    if CORE_VERSION.contains("-dev") && features.rune_repo_dir.is_none() {
+        let msg = "
+            It looks like you are using a development version of \"rune\", but
+            haven't specified a \"rune_repo_dir\". Internal crates are resolved
+            using the \"$CORE_VERSION\" version from crates.io and builtin
+            proc-blocks are found using the \"v$CORE_VERSION\" tag from the Rune
+            repo, so there is a good chance you'll get compile errors about
+            unresolved dependencies. Specify the \"rune_repo_dir\" to resolve
+            this.
+        ";
+        log::warn!(
+            "{}",
+            msg.replace("\n", " ")
+                .replace("$CORE_VERSION", CORE_VERSION)
+        );
+    }
+
     let proc_blocks = query.iter(world);
     let mut manifest =
         generate_manifest(proc_blocks, &ctx.name, &ctx.current_directory);
@@ -109,7 +128,7 @@ where
     for name in hotg_dependencies {
         deps.insert(
             name.to_string(),
-            Dependency::Detailed(git_tagged_dependency(REPO, "nightly")),
+            Dependency::Simple(CORE_VERSION.to_string()),
         );
     }
 
@@ -127,7 +146,8 @@ fn proc_block_dependency(
     current_dir: &Path,
 ) -> DependencyDetail {
     if is_builtin(path) {
-        return git_tagged_dependency(REPO, "nightly");
+        let tag = format!("v{}", CORE_VERSION);
+        return git_tagged_dependency(REPO, &tag);
     } else if path.base.starts_with('.') {
         return local_proc_block(path, current_dir);
     }
@@ -318,24 +338,7 @@ mod tests {
 
         // All hotg dependencies should use the "nightly" tag from GitHub
         for (_, dep) in got.iter().filter(|(key, _)| key.starts_with("hotg-")) {
-            let DependencyDetail {
-                version,
-                path,
-                git,
-                branch,
-                tag,
-                rev,
-                features,
-                ..
-            } = dep.detail().unwrap();
-
-            assert_eq!(git.as_deref(), Some(REPO));
-            assert_eq!(tag.as_deref(), Some("nightly"));
-            assert!(version.is_none());
-            assert!(rev.is_none());
-            assert!(features.is_empty());
-            assert!(branch.is_none());
-            assert!(path.is_none());
+            assert_eq!(dep, &Dependency::Simple(CORE_VERSION.to_string()));
         }
     }
 
@@ -344,7 +347,7 @@ mod tests {
         let path = "hotg-ai/rune#proc_blocks/modulo".parse().unwrap();
         let should_be = DependencyDetail {
             git: Some(REPO.to_string()),
-            tag: Some("nightly".to_string()),
+            tag: Some(format!("v{}", CORE_VERSION)),
             ..empty_dependency_detail()
         };
 

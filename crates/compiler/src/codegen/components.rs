@@ -73,6 +73,8 @@ impl CustomSection {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RuneVersion {
+    /// The version of the tool generating a Rune, typically what you'd see
+    /// when running `rune --version`.
     pub version: String,
 }
 

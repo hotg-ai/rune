@@ -28,6 +28,9 @@ pub use crate::{
 /// The mimetype used for a TensorFlow Lite model.
 pub const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
+/// The version number for this crate.
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 macro_rules! constants {
     ($name:ident { $(
         $(#[$constant_meta:meta])*
