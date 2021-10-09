@@ -6,7 +6,6 @@ extern crate std;
 
 extern crate alloc;
 
-mod buf_writer;
 pub mod element_type;
 mod logging;
 mod pixel_format;
@@ -17,7 +16,6 @@ mod tensor_list;
 mod value;
 
 pub use crate::{
-    buf_writer::BufWriter,
     tensor::{Tensor, TensorView, TensorViewMut},
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},

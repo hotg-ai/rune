@@ -6,6 +6,7 @@
 extern crate alloc;
 
 pub mod allocator;
+mod buf_writer;
 mod capability;
 mod guards;
 pub mod intrinsics;
@@ -22,10 +23,10 @@ pub use crate::{
     model::Model,
     serial::Serial,
     resources::{Resource, ResourceError},
+    buf_writer::BufWriter,
 };
 
 use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use hotg_rune_core::BufWriter;
 use crate::allocator::Allocator;
 use dlmalloc::GlobalDlmalloc;
 
