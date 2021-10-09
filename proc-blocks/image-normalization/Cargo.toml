@@ -8,4 +8,4 @@ publish = false
 
 [dependencies]
 num-traits = { version = "0.2.14", default-features = false }
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.8.0"}
+hotg-rune-proc-blocks = "^0.8.0"

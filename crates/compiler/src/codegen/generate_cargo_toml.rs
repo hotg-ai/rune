@@ -10,6 +10,7 @@ use crate::{BuildContext, FeatureFlags, codegen::File, lowering::ProcBlock, pars
 const REPO: &'static str = "https://github.com/hotg-ai/rune";
 /// The version of core crates that we want to target.
 const CORE_VERSION: &'static str = hotg_rune_core::VERSION;
+const PROC_BLOCK_VERSION: &'static str = hotg_rune_proc_blocks::VERSION;
 
 /// Generate a `Cargo.toml` file which includes all the relevant dependencies
 /// for this crate.
@@ -119,18 +120,20 @@ where
     deps.insert(String::from("lazy_static"), lazy_static);
 
     // We'll always use the following HOTG dependencies.
-    let hotg_dependencies = &[
-        "hotg-rune-core",
-        "hotg-rune-proc-blocks",
-        "hotg-runicos-base-wasm",
-    ];
-
-    for name in hotg_dependencies {
-        deps.insert(
-            name.to_string(),
-            Dependency::Simple(CORE_VERSION.to_string()),
-        );
-    }
+    deps.insert(
+        "hotg-rune-core".to_string(),
+        Dependency::Simple(hotg_rune_core::VERSION.to_string()),
+    );
+    deps.insert(
+        "hotg-rune-proc-blocks".to_string(),
+        Dependency::Simple(hotg_rune_proc_blocks::VERSION.to_string()),
+    );
+    // FIXME: We should probably use the actual version number instead of
+    // assuming it'll be in sync with core.
+    deps.insert(
+        "hotg-runicos-base-wasm".to_string(),
+        Dependency::Simple(hotg_rune_core::VERSION.to_string()),
+    );
 
     for proc_block in proc_blocks {
         let dep = proc_block_dependency(&proc_block.path, current_dir);
@@ -146,7 +149,7 @@ fn proc_block_dependency(
     current_dir: &Path,
 ) -> DependencyDetail {
     if is_builtin(path) {
-        let tag = format!("v{}", CORE_VERSION);
+        let tag = format!("v{}", PROC_BLOCK_VERSION);
         return git_tagged_dependency(REPO, &tag);
     } else if path.base.starts_with('.') {
         return local_proc_block(path, current_dir);
@@ -336,10 +339,18 @@ mod tests {
         assert!(got.contains_key("hotg-rune-proc-blocks"));
         assert!(got.contains_key("hotg-runicos-base-wasm"));
 
-        // All hotg dependencies should use the "nightly" tag from GitHub
-        for (_, dep) in got.iter().filter(|(key, _)| key.starts_with("hotg-")) {
-            assert_eq!(dep, &Dependency::Simple(CORE_VERSION.to_string()));
-        }
+        assert_eq!(
+            got["hotg-rune-core"].clone(),
+            Dependency::Simple(CORE_VERSION.to_string())
+        );
+        assert_eq!(
+            got["hotg-rune-proc-blocks"].clone(),
+            Dependency::Simple(PROC_BLOCK_VERSION.to_string())
+        );
+        assert_eq!(
+            got["hotg-runicos-base-wasm"].clone(),
+            Dependency::Simple(CORE_VERSION.to_string())
+        );
     }
 
     #[test]

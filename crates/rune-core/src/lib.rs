@@ -6,7 +6,7 @@ extern crate std;
 
 extern crate alloc;
 
-pub mod element_type;
+mod element_type;
 mod logging;
 mod pixel_format;
 mod resources;
@@ -23,6 +23,7 @@ pub use crate::{
     shape::Shape,
     tensor_list::{TensorList, TensorListMut},
     resources::{InlineResource, decode_inline_resource},
+    element_type::{AsElementType, ElementType, UnknownElementType},
 };
 
 /// The mimetype used for a TensorFlow Lite model.

@@ -7,7 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-core = { git = "https://github.com/hotg-ai/rune", tag = "nightly" }
-hotg-rune-proc-blocks = { git = "https://github.com/hotg-ai/rune", tag = "nightly" }
+hotg-rune-core = "^0.8.0"
+hotg-rune-proc-blocks = "^0.8.0"
 
 [workspace]

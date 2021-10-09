@@ -86,9 +86,9 @@ dependencies = [
 
 [[package]]
 name = "assert_cmd"
-version = "2.0.1"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b800c4403e8105d959595e1f88119e78bc12bc874c4336973658b648a746ba93"
+checksum = "e996dc7940838b7ef1096b882e29ec30a3149a3a443cdc8dba19ed382eca1fe2"
 dependencies = [
  "bstr",
  "doc-comment",
@@ -119,8 +119,8 @@ dependencies = [
 name = "audio_float_conversion"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
- "pretty_assertions",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pretty_assertions 0.7.2",
 ]
 
 [[package]]
@@ -254,7 +254,7 @@ dependencies = [
  "git2",
  "glob",
  "lazy_static",
- "pretty_assertions",
+ "pretty_assertions 0.7.2",
  "rustc_version 0.4.0",
  "serde_json",
  "xz2",
@@ -388,9 +388,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.70"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26a6ce4b6a484fa3edb70f7efa6fc430fd2b87285fe8b84304fd0936faa0dc0"
+checksum = "79c2681d6594606957bbb8631c4b90a7fcaaa72cdb714743a437b156d6a7eedd"
 dependencies = [
  "jobserver",
 ]
@@ -672,9 +672,9 @@ dependencies = [
 
 [[package]]
 name = "cty"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7313c0d620d0cb4dbd9d019e461a4beb501071ff46ec0ab933efb4daa76d73e3"
+checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
 name = "darling"
@@ -893,13 +893,13 @@ dependencies = [
 name = "fft"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hound",
  "libm",
  "mel",
  "nalgebra",
  "normalize",
- "pretty_assertions",
+ "pretty_assertions 0.7.2",
  "sonogram",
 ]
 
@@ -1102,7 +1102,7 @@ dependencies = [
  "dotenv",
  "env_logger 0.9.0",
  "hotg-rune-compiler",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1137,13 +1137,14 @@ dependencies = [
  "codespan-reporting",
  "env_logger 0.9.0",
  "heck",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
+ "hotg-rune-proc-blocks 0.8.0",
  "indexmap",
  "jsonschema",
  "legion",
  "log",
  "once_cell",
- "pretty_assertions",
+ "pretty_assertions 0.7.2",
  "proc-macro2",
  "quote",
  "regex",
@@ -1157,6 +1158,16 @@ dependencies = [
 [[package]]
 name = "hotg-rune-core"
 version = "0.8.0"
+dependencies = [
+ "log",
+ "serde",
+]
+
+[[package]]
+name = "hotg-rune-core"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22f49d3938dbb26cfcfad99dcedce6c287b70b4519dcd4ab2b6b12a1ea022cb4"
 dependencies = [
  "log",
  "serde",
@@ -1182,7 +1193,7 @@ dependencies = [
  "anyhow",
  "build-info",
  "build-info-build",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1197,9 +1208,23 @@ name = "hotg-rune-proc-block-macros"
 version = "0.8.0"
 dependencies = [
  "difference",
- "hotg-rune-core",
- "hotg-rune-proc-blocks",
- "pretty_assertions",
+ "hotg-rune-core 0.8.0",
+ "hotg-rune-proc-blocks 0.8.0",
+ "pretty_assertions 1.0.0",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
+name = "hotg-rune-proc-block-macros"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "572c7e954b0bec352339e0e6bc96edbcff33e44ea668c3dbbe0ae4b133d3cf88"
+dependencies = [
+ "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2",
  "quote",
  "serde",
@@ -1211,8 +1236,21 @@ dependencies = [
 name = "hotg-rune-proc-blocks"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-core",
- "hotg-rune-proc-block-macros",
+ "difference",
+ "hotg-rune-core 0.8.0",
+ "hotg-rune-proc-block-macros 0.8.0",
+ "pretty_assertions 0.7.2",
+ "serde",
+]
+
+[[package]]
+name = "hotg-rune-proc-blocks"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5119da997d4b2e19072720ea81bc62d83ef7f39e04f8eba0f935dea0265f651c"
+dependencies = [
+ "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hotg-rune-proc-block-macros 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -1221,7 +1259,7 @@ name = "hotg-rune-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
  "hound",
  "image",
  "log",
@@ -1234,7 +1272,7 @@ name = "hotg-rune-wasm3-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1246,7 +1284,7 @@ name = "hotg-rune-wasmer-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1257,9 +1295,9 @@ dependencies = [
 
 [[package]]
 name = "hotg-runecoral"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fc586da148d857e11236fb93e55c280a33e2b01fadc610fd40e4c1c69afd399"
+checksum = "7303bd67f7f7bddb3113cd27cebb6344d480657f096633d4490c12fb3c597aaa"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -1272,7 +1310,7 @@ name = "hotg-runicos-base-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1291,7 +1329,7 @@ name = "hotg-runicos-base-wasm"
 version = "0.8.0"
 dependencies = [
  "dlmalloc",
- "hotg-rune-core",
+ "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "serde",
  "serde-json-core",
@@ -1365,7 +1403,7 @@ dependencies = [
 name = "image-normalization"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits",
 ]
 
@@ -1501,7 +1539,7 @@ dependencies = [
 name = "label"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1518,9 +1556,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "leb128"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
+checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "legion"
@@ -1575,9 +1613,9 @@ dependencies = [
 
 [[package]]
 name = "libloading"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f84d96438c15fcd6c3f244c8fce01d1e2b9c6b5623e9c711dc9286d8fc92d6a"
+checksum = "c0cf036d15402bea3c5d4de17b3fce76b3e4a56ebc1f577be0e7a72f7c607cf0"
 dependencies = [
  "cfg-if 1.0.0",
  "winapi",
@@ -1755,7 +1793,7 @@ dependencies = [
 name = "modulo"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits",
 ]
 
@@ -1769,7 +1807,7 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 name = "most_confident_indices"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1803,7 +1841,7 @@ dependencies = [
 name = "noise-filtering"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libm",
  "paste 1.0.5",
 ]
@@ -1824,7 +1862,7 @@ dependencies = [
 name = "normalize"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2177,9 +2215,9 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "predicates"
-version = "2.0.2"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c143348f141cc87aab5b950021bac6145d0e5ae754b0591de23244cee42c9308"
+checksum = "5c6ce811d0b2e103743eec01db1c50612221f173084ce2f7941053e94b6bb474"
 dependencies = [
  "difflib",
  "float-cmp",
@@ -2197,12 +2235,12 @@ checksum = "57e35a3326b75e49aa85f5dc6ec15b41108cf5aee58eabb1f274dd18b73c2451"
 
 [[package]]
 name = "predicates-tree"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7dd0fd014130206c9352efbdc92be592751b2b9274dff685348341082c6ea3d"
+checksum = "338c7be2905b732ae3984a2f40032b5e94fd8f52505b186c7d4d68d193445df7"
 dependencies = [
  "predicates-core",
- "treeline",
+ "termtree",
 ]
 
 [[package]]
@@ -2210,6 +2248,18 @@ name = "pretty_assertions"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cab0e7c02cf376875e9335e0ba1da535775beb5450d21e1dffca068818ed98b"
+dependencies = [
+ "ansi_term 0.12.1",
+ "ctor",
+ "diff",
+ "output_vt100",
+]
+
+[[package]]
+name = "pretty_assertions"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0cfe1b2403f172ba0f234e500906ee0a3e493fb81092dac23ebefe129301cc"
 dependencies = [
  "ansi_term 0.12.1",
  "ctor",
@@ -2327,9 +2377,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d0b9745dc2debf507c8422de05d7226cc1f0644216dfdfead988f9b1ab32a7"
+checksum = "38bc8cc6a5f2e3655e0899c1b848643b2562f853f114bfec7be120678e3ace05"
 dependencies = [
  "proc-macro2",
 ]
@@ -2561,8 +2611,8 @@ name = "rune_py"
 version = "0.8.0"
 dependencies = [
  "fft",
- "hotg-rune-core",
- "hotg-rune-proc-blocks",
+ "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image-normalization",
  "noise-filtering",
  "normalize",
@@ -2912,9 +2962,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.78"
+version = "1.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4eac2e6c19f5c3abc0c229bea31ff0b9b091c7b14990e8924b92902a303a0c0"
+checksum = "d010a1623fbd906d51d650a9916aaefc05ffa0e4053ff7fe601167f3e715d194"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2967,6 +3017,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "termtree"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78fbf2dd23e79c28ccfa2472d3e6b3b189866ffef1aeb91f17c2d968b6586378"
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2977,18 +3033,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.29"
+version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "602eca064b2d83369e2b2f34b09c70b605402801927c65c11071ac911d299b88"
+checksum = "854babe52e4df1653706b98fcfc05843010039b406875930a70e4d9644e5c417"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.29"
+version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bad553cc2c78e8de258400763a647e80e6d1b31ee237275d756f6836d204494c"
+checksum = "aa32fd3f627f367fe16f893e2597ae3c05020f8bba2666a4e6ea73d377e5714b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3053,9 +3109,9 @@ dependencies = [
 
 [[package]]
 name = "tracing"
-version = "0.1.28"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84f96e095c0c82419687c20ddf5cb3eadb61f4e1405923c9dc8e53a1adacbda8"
+checksum = "375a639232caf30edfc78e8d89b2d4c375515393e7af7e16f01cd96917fb2105"
 dependencies = [
  "cfg-if 1.0.0",
  "pin-project-lite",
@@ -3065,9 +3121,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4f915eb6abf914599c200260efced9203504c4c37380af10cdf3b7d36970650"
+checksum = "f4f480b8f81512e825f337ad51e94c1eb5d3bbdf2b363dcd01e2b19a9ffe3f8e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3084,12 +3140,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "treeline"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7f741b240f1a48843f9b8e0444fb55fb2a4ff67293b50a9179dfd5ea67f8d41"
-
-[[package]]
 name = "typenum"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3103,9 +3153,9 @@ checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
 name = "unicode-bidi"
-version = "0.3.6"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "246f4c42e67e7a4e3c6106ff716a5d067d4132a642840b242e357e468a2a0085"
+checksum = "1a01404663e3db436ed2746d9fefef640d868edae3cceb81c3b8d5732fda678f"
 
 [[package]]
 name = "unicode-normalization"

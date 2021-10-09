@@ -5,19 +5,17 @@ use core::fmt::{self, Formatter, Debug};
 /// # Examples
 ///
 /// ```rust
-/// # use hotg_rune_core::{inline_resource_from_bytes, InlineResource};
+/// # use hotg_rune_core::{decode_inline_resource, InlineResource};
 /// let resource = InlineResource::new(*b"Name", *b"Some Value");
 /// let bytes = resource.as_bytes();
 ///
-/// let (name, value, rest) = inline_resource_from_bytes(bytes).unwrap();
+/// let (name, value, rest) = decode_inline_resource(bytes).unwrap();
 ///
 /// assert_eq!(name, "Name");
 /// assert_eq!(value, b"Some Value");
 /// assert!(rest.is_empty());
 /// ```
-pub fn decode_inline_resource(
-    bytes: &[u8],
-) -> Option<(&str, &[u8], &[u8])> {
+pub fn decode_inline_resource(bytes: &[u8]) -> Option<(&str, &[u8], &[u8])> {
     let (name_len, rest) = read_u32(bytes)?;
     if rest.len() < name_len {
         return None;

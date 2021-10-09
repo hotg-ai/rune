@@ -18,11 +18,11 @@ chrono = { version = "0.4.19", features = ["std"] }
 codespan-reporting = "0.11.0"
 dirs = "3.0"
 env_logger = "0.9"
-hotg-rune-core = { path = "../rune-core", version = "^0.8.0"}
-hotg-rune-runtime = { path = "../runtime", version = "^0.8.0"}
-hotg-rune-compiler = { path = "../compiler", version = "^0.8.0"}
-hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.8.0"}
-hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.8.0"}
+hotg-rune-core = { path = "../rune-core", version = "^0.8.0" }
+hotg-rune-runtime = { path = "../runtime", version = "^0.8.0" }
+hotg-rune-compiler = { path = "../compiler", version = "^0.8.0" }
+hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.8.0" }
+hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.8.0" }
 hotg-runecoral = "0.3.4"
 hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.8.0", features = ["wasm3-runtime"] }
 hound = "3.4.0"

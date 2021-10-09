@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use hotg_rune_core::{Shape, element_type::ElementType};
+use hotg_rune_core::{Shape, ElementType};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{ToTokens, quote};
@@ -565,7 +565,7 @@ fn element_type_to_tokens(element_type: ElementType) -> TokenStream {
         ElementType::String => "String",
     };
     let ident = Ident::new(name, Span::call_site());
-    quote!(hotg_rune_core::element_type::ElementType::#ident)
+    quote!(hotg_rune_core::ElementType::#ident)
 }
 
 fn shape_to_tokens(shape: &Shape<'_>) -> TokenStream {
@@ -708,7 +708,7 @@ fn generate_prelude() -> TokenStream {
         extern crate lazy_static;
 
         use alloc::boxed::Box;
-        use hotg_rune_core::*;
+        use hotg_rune_core::PixelFormat;
         use hotg_rune_proc_blocks::*;
 
         static mut PIPELINE: Option<Box<dyn FnMut()>> = None;

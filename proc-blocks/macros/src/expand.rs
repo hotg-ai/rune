@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{LitByteStr, Path, Type};
-use hotg_rune_core::element_type::ElementType;
+use hotg_rune_core::ElementType;
 use crate::{
     descriptor::{
         ProcBlockDescriptor, TransformDescriptor, TensorDescriptor, Dimensions,

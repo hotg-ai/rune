@@ -232,7 +232,7 @@ where
 mod runecoral {
     use super::*;
     use anyhow::{Context, Error};
-    use hotg_rune_core::element_type::ElementType as RuneElementType;
+    use hotg_rune_core::ElementType as RuneElementType;
     use std::{borrow::Cow, cell::Cell, convert::TryInto, ffi::CStr, sync::Mutex};
     use hotg_runecoral::{
         ElementType, InferenceContext, Tensor, TensorDescriptor, TensorMut,
