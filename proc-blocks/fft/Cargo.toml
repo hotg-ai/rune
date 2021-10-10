@@ -8,7 +8,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.8.0"}
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.8.2-dev"}
 hound = "3.4"
 libm = "0.2.1"
 # See https://github.com/hotg-ai/rune/pull/107#issuecomment-825806000

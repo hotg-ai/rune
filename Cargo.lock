@@ -108,7 +108,7 @@ dependencies = [
 name = "audio_float_conversion"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "pretty_assertions",
 ]
 
@@ -860,7 +860,7 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 name = "fft"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "hound",
  "libm",
  "mel",
@@ -1163,7 +1163,7 @@ version = "0.8.0"
 dependencies = [
  "difference",
  "hotg-rune-core 0.8.2-dev",
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "pretty_assertions",
  "proc-macro2",
  "quote",
@@ -1188,7 +1188,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-blocks"
-version = "0.8.1"
+version = "0.8.2-dev"
 dependencies = [
  "hotg-rune-proc-blocks 0.9.0",
 ]
@@ -1353,7 +1353,7 @@ dependencies = [
 name = "image-normalization"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "num-traits",
 ]
 
@@ -1468,7 +1468,7 @@ dependencies = [
 name = "label"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
 ]
 
 [[package]]
@@ -1722,7 +1722,7 @@ dependencies = [
 name = "modulo"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "num-traits",
 ]
 
@@ -1736,7 +1736,7 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 name = "most_confident_indices"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
 ]
 
 [[package]]
@@ -1770,7 +1770,7 @@ dependencies = [
 name = "noise-filtering"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "libm",
  "paste 1.0.5",
 ]
@@ -1791,7 +1791,7 @@ dependencies = [
 name = "normalize"
 version = "0.8.0"
 dependencies = [
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
 ]
 
 [[package]]
@@ -2476,7 +2476,7 @@ version = "0.8.0"
 dependencies = [
  "fft",
  "hotg-rune-core 0.8.2-dev",
- "hotg-rune-proc-blocks 0.8.1",
+ "hotg-rune-proc-blocks 0.8.2-dev",
  "image-normalization",
  "noise-filtering",
  "normalize",
