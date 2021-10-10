@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - All tensors of strings will now use `Tensor<Cow<'static, str>>` as their
   tensor types ([#345](https://github.com/hotg-ai/rune/pull/345))
+- Generated Runes will now pull internal crates (`hotg-rune-core`, etc.) from
+  crates.io using a version that matches the `rune` compiler
+  ([#353](https://github.com/hotg-ai/rune/pull/353)) instead of using the
+  `nightly` tag
+
+### Removed
+
+- All processing blocks have been moved to the
+ [`hotg-ai/proc-block`](https://github.com/hotg-ai/proc-blocks) repository
+ ([#353](https://github.com/hotg-ai/rune/pull/353))
 
 ## [0.8.0] - 2021-10-05
 
