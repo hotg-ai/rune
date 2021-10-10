@@ -14,7 +14,7 @@ bench = false
 
 [dependencies]
 fft = { path = "../../proc-blocks/fft", version = "^0.8.0"}
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.8.0"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.8.2-dev"}
 hotg-rune-proc-blocks = { path = "../../proc-blocks/proc-blocks", version = "^0.8.0"}
 image-normalization = { path = "../../proc-blocks/image-normalization", version = "^0.8.0"}
 noise-filtering = { path = "../../proc-blocks/noise-filtering", version = "^0.8.0"}

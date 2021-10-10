@@ -17,7 +17,7 @@ readme = "README.md"
 anyhow = "1.0"
 log = "0.4.14"
 hotg-rune-runtime = { path = "../runtime", version = "^0.8.0"}
-hotg-rune-core = { path = "../rune-core", version = "^0.8.0"}
+hotg-rune-core = { path = "../rune-core", version = "^0.8.2-dev"}
 wasm3 = { version = "0.3.1",  features = ["build-bindgen"]}
 
 [dev-dependencies]

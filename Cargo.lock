@@ -1058,7 +1058,7 @@ dependencies = [
  "dirs",
  "env_logger 0.9.0",
  "hotg-rune-compiler",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1093,7 +1093,7 @@ dependencies = [
  "codespan-reporting",
  "env_logger 0.9.0",
  "heck",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "indexmap",
  "legion",
  "log",
@@ -1110,7 +1110,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-core"
-version = "0.8.1"
+version = "0.8.2-dev"
 dependencies = [
  "hotg-rune-core 0.9.0",
  "log",
@@ -1147,7 +1147,7 @@ dependencies = [
  "anyhow",
  "build-info",
  "build-info-build",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1162,7 +1162,7 @@ name = "hotg-rune-proc-block-macros"
 version = "0.8.0"
 dependencies = [
  "difference",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-proc-blocks 0.8.0",
  "pretty_assertions",
  "proc-macro2",
@@ -1209,7 +1209,7 @@ name = "hotg-rune-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hound",
  "image",
  "log",
@@ -1222,7 +1222,7 @@ name = "hotg-rune-wasm3-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1234,7 +1234,7 @@ name = "hotg-rune-wasmer-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1260,7 +1260,7 @@ name = "hotg-runicos-base-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1279,7 +1279,7 @@ name = "hotg-runicos-base-wasm"
 version = "0.8.0"
 dependencies = [
  "dlmalloc",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "log",
  "serde",
  "serde-json-core",
@@ -2475,7 +2475,7 @@ name = "rune_py"
 version = "0.8.0"
 dependencies = [
  "fft",
- "hotg-rune-core 0.8.1",
+ "hotg-rune-core 0.8.2-dev",
  "hotg-rune-proc-blocks 0.8.0",
  "image-normalization",
  "noise-filtering",

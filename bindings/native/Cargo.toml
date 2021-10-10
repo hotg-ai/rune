@@ -16,7 +16,7 @@ anyhow = "1.0"
 build-info = "0.0.24"
 log = "0.4.14"
 paste = "1.0"
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.8.0"}
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.8.2-dev"}
 hotg-rune-runtime = { path = "../../crates/runtime", version = "^0.8.0"}
 hotg-rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "^0.8.0", optional = true }
 hotg-rune-wasm3-runtime = { path = "../../crates/wasm3-runtime", version = "^0.8.0", optional = true }
