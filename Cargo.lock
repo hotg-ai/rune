@@ -1055,7 +1055,7 @@ dependencies = [
  "dotenv",
  "env_logger 0.9.0",
  "hotg-rune-compiler",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1090,7 +1090,7 @@ dependencies = [
  "codespan-reporting",
  "env_logger 0.9.0",
  "heck",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-proc-blocks",
  "indexmap",
  "jsonschema",
@@ -1117,16 +1117,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotg-rune-core"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22f49d3938dbb26cfcfad99dcedce6c287b70b4519dcd4ab2b6b12a1ea022cb4"
-dependencies = [
- "log",
- "serde",
-]
-
-[[package]]
 name = "hotg-rune-integration-tests"
 version = "0.8.0"
 dependencies = [
@@ -1146,7 +1136,7 @@ dependencies = [
  "anyhow",
  "build-info",
  "build-info-build",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1161,7 +1151,7 @@ name = "hotg-rune-proc-block-macros"
 version = "0.8.0"
 dependencies = [
  "difference",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-proc-blocks",
  "pretty_assertions 1.0.0",
  "proc-macro2",
@@ -1176,7 +1166,7 @@ name = "hotg-rune-proc-blocks"
 version = "0.8.0"
 dependencies = [
  "difference",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-proc-block-macros",
  "pretty_assertions 0.7.2",
  "serde",
@@ -1187,7 +1177,7 @@ name = "hotg-rune-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hound",
  "image",
  "log",
@@ -1200,7 +1190,7 @@ name = "hotg-rune-wasm3-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1212,7 +1202,7 @@ name = "hotg-rune-wasmer-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1238,7 +1228,7 @@ name = "hotg-runicos-base-runtime"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.8.0",
+ "hotg-rune-core",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1257,7 +1247,7 @@ name = "hotg-runicos-base-wasm"
 version = "0.8.0"
 dependencies = [
  "dlmalloc",
- "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hotg-rune-core",
  "log",
  "serde",
  "serde-json-core",
@@ -2434,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "rune_py"
-version = "0.8.0"
+version = "0.0.0"
 dependencies = [
  "numpy",
  "pyo3",
@@ -3412,7 +3402,7 @@ checksum = "85e60b0d1b5f99db2556934e21937020776a5d31520bf169e851ac44e6420214"
 
 [[package]]
 name = "xtask"
-version = "0.3.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "cargo_toml",
