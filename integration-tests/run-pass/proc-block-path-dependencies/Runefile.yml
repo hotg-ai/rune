@@ -9,7 +9,7 @@ pipeline:
       - type: F32
         dimensions: [1, 1]
   mod360:
-    proc-block: "hotg-ai/rune#proc-blocks/modulo"
+    proc-block: "hotg-ai/proc-blocks#modulo"
     inputs:
       - rand
     outputs:
@@ -41,7 +41,6 @@ pipeline:
         dimensions: [1, 1]
       - type: F32
         dimensions: [1, 1]
-
 
   # Add another stage which captures the output from all the other stages so
   # we can inspect it

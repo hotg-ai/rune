@@ -5,7 +5,6 @@ members = [
     "bindings/*",
     "images/runicos-base/*",
     "integration-tests",
-    "proc-blocks/*",
 ]
 exclude = ["bindings/web"]
 

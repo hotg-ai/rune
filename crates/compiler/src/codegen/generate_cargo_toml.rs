@@ -268,40 +268,7 @@ fn path_dependency(path: impl AsRef<Path>) -> Dependency {
 }
 
 fn patch_hotg_dependencies(hotg_repo_dir: &Path, manifest: &mut Manifest) {
-    let known_paths = &[
-        ("hotg-rune-core", "crates/rune-core"),
-        ("hotg-rune-proc-blocks", "proc-blocks/proc-blocks"),
-        ("hotg-runicos-base-wasm", "images/runicos-base/wasm"),
-    ];
     let mut overrides = BTreeMap::new();
-
-    let proc_blocks_dir = hotg_repo_dir.join("proc-blocks");
-
-    for (name, dep) in &manifest.dependencies {
-        let uses_hotg_github =
-            dep.git().map(|repo| repo == REPO).unwrap_or(false);
-
-        if !name.starts_with("hotg-") && !uses_hotg_github {
-            continue;
-        }
-
-        // We're pretty sure this is a hotg crate, now we need to figure out
-        // which local crate to redirect to. First we'll check a list of known
-        // crates, otherwise we'll assume it is a proc block.
-
-        let path = known_paths
-            .iter()
-            .find_map(|(n, p)| {
-                if name == *n {
-                    Some(hotg_repo_dir.join(p))
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| proc_blocks_dir.join(name));
-
-        overrides.insert(name.clone(), path_dependency(path));
-    }
 
     overrides.insert(
         "hotg-rune-core".to_string(),
@@ -309,7 +276,16 @@ fn patch_hotg_dependencies(hotg_repo_dir: &Path, manifest: &mut Manifest) {
     );
     overrides.insert(
         "hotg-rune-proc-blocks".to_string(),
-        path_dependency(hotg_repo_dir.join("proc-blocks").join("proc-blocks")),
+        path_dependency(hotg_repo_dir.join("crates").join("proc-blocks")),
+    );
+    overrides.insert(
+        "hotg-runicos-base-wasm".to_string(),
+        path_dependency(
+            hotg_repo_dir
+                .join("images")
+                .join("runicos-base")
+                .join("wasm"),
+        ),
     );
 
     manifest

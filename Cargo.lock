@@ -68,23 +68,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
-name = "apodize"
-version = "1.0.0"
-source = "git+https://github.com/hotg-ai/apodize?rev=41baaee092a9b49e26442d946046a8c3ec3d9ccf#41baaee092a9b49e26442d946046a8c3ec3d9ccf"
-dependencies = [
- "libm",
-]
-
-[[package]]
-name = "approx"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "072df7202e63b127ab55acfe16ce97013d5b97bf160489336d3f1840fd78e99e"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "assert_cmd"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -113,14 +96,6 @@ dependencies = [
  "hermit-abi",
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "audio_float_conversion"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "pretty_assertions 0.7.2",
 ]
 
 [[package]]
@@ -890,20 +865,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fft"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hound",
- "libm",
- "mel",
- "nalgebra",
- "normalize",
- "pretty_assertions 0.7.2",
- "sonogram",
-]
-
-[[package]]
 name = "flate2"
 version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -953,7 +914,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78d24d088325f939faaf806483fbfac0548e43018606bfe7a44abc83f6dc75ea"
 dependencies = [
  "lazy_static",
- "num 0.2.1",
+ "num",
 ]
 
 [[package]]
@@ -1080,14 +1041,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hertz"
-version = "0.3.0"
-source = "git+https://github.com/hotg-ai/hertz?rev=707d6d3c239663f04cc22f33391fbe54833189db#707d6d3c239663f04cc22f33391fbe54833189db"
-dependencies = [
- "libm",
-]
-
-[[package]]
 name = "hotg-rune-cli"
 version = "0.8.0"
 dependencies = [
@@ -1138,7 +1091,7 @@ dependencies = [
  "env_logger 0.9.0",
  "heck",
  "hotg-rune-core 0.8.0",
- "hotg-rune-proc-blocks 0.8.0",
+ "hotg-rune-proc-blocks",
  "indexmap",
  "jsonschema",
  "legion",
@@ -1209,22 +1162,8 @@ version = "0.8.0"
 dependencies = [
  "difference",
  "hotg-rune-core 0.8.0",
- "hotg-rune-proc-blocks 0.8.0",
+ "hotg-rune-proc-blocks",
  "pretty_assertions 1.0.0",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
-]
-
-[[package]]
-name = "hotg-rune-proc-block-macros"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "572c7e954b0bec352339e0e6bc96edbcff33e44ea668c3dbbe0ae4b133d3cf88"
-dependencies = [
- "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2",
  "quote",
  "serde",
@@ -1238,19 +1177,8 @@ version = "0.8.0"
 dependencies = [
  "difference",
  "hotg-rune-core 0.8.0",
- "hotg-rune-proc-block-macros 0.8.0",
+ "hotg-rune-proc-block-macros",
  "pretty_assertions 0.7.2",
- "serde",
-]
-
-[[package]]
-name = "hotg-rune-proc-blocks"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5119da997d4b2e19072720ea81bc62d83ef7f39e04f8eba0f935dea0265f651c"
-dependencies = [
- "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hotg-rune-proc-block-macros 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -1400,14 +1328,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image-normalization"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "num-traits",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1536,13 +1456,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "label"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1620,12 +1533,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "winapi",
 ]
-
-[[package]]
-name = "libm"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
 
 [[package]]
 name = "libz-sys"
@@ -1721,17 +1628,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mel"
-version = "0.3.0"
-source = "git+https://github.com/hotg-ai/mel?rev=017694ee3143c11ea9b75ba6cd27fe7c8a69a867#017694ee3143c11ea9b75ba6cd27fe7c8a69a867"
-dependencies = [
- "apodize",
- "hertz",
- "num 0.4.0",
- "num-traits",
-]
-
-[[package]]
 name = "memchr"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1790,39 +1686,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "modulo"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "num-traits",
-]
-
-[[package]]
 name = "more-asserts"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
-
-[[package]]
-name = "most_confident_indices"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "nalgebra"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d506eb7e08d6329505faa8a3a00a5dcc6de9f76e0c77e4b75763ae3c770831ff"
-dependencies = [
- "approx",
- "num-complex 0.4.0",
- "num-rational 0.4.0",
- "num-traits",
- "simba",
- "typenum",
-]
 
 [[package]]
 name = "ndarray"
@@ -1838,15 +1705,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "noise-filtering"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libm",
- "paste 1.0.5",
-]
-
-[[package]]
 name = "nom"
 version = "6.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1856,13 +1714,6 @@ dependencies = [
  "funty",
  "memchr",
  "version_check",
-]
-
-[[package]]
-name = "normalize"
-version = "0.8.0"
-dependencies = [
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1882,19 +1733,6 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-rational 0.2.4",
- "num-traits",
-]
-
-[[package]]
-name = "num"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
-dependencies = [
- "num-complex 0.4.0",
- "num-integer",
- "num-iter",
- "num-rational 0.4.0",
  "num-traits",
 ]
 
@@ -1990,24 +1828,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-rational"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d41702bd167c2df5520b384281bc111a4b5efcf7fbc4c9c222c815b07e0a6a6a"
-dependencies = [
- "autocfg",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg",
- "libm",
 ]
 
 [[package]]
@@ -2610,14 +2436,7 @@ dependencies = [
 name = "rune_py"
 version = "0.8.0"
 dependencies = [
- "fft",
- "hotg-rune-core 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hotg-rune-proc-blocks 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "image-normalization",
- "noise-filtering",
- "normalize",
  "numpy",
- "paste 1.0.5",
  "pyo3",
 ]
 
@@ -2871,31 +2690,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
-name = "simba"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0b7840f121a46d63066ee7a99fc81dcabbc6105e437cae43528cea199b5a05f"
-dependencies = [
- "approx",
- "num-complex 0.4.0",
- "num-traits",
- "paste 1.0.5",
-]
-
-[[package]]
 name = "smallvec"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
-
-[[package]]
-name = "sonogram"
-version = "0.4.4"
-source = "git+https://github.com/hotg-ai/sonogram?rev=009bc0cba44267d8a0807e43c9bb0712f0f334ea#009bc0cba44267d8a0807e43c9bb0712f0f334ea"
-dependencies = [
- "libm",
- "num 0.4.0",
-]
 
 [[package]]
 name = "stable_deref_trait"
@@ -3138,12 +2936,6 @@ checksum = "1f4ed65637b8390770814083d20756f87bfa2c21bf2f110babdc5438351746e4"
 dependencies = [
  "lazy_static",
 ]
-
-[[package]]
-name = "typenum"
-version = "1.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b63708a265f51345575b27fe43f9500ad611579e764c79edbc2037b1121959ec"
 
 [[package]]
 name = "ucd-trie"

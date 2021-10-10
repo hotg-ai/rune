@@ -13,14 +13,7 @@ bench = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fft = { path = "../../proc-blocks/fft" }
-hotg-rune-core = "^0.8.0"
-hotg-rune-proc-blocks = "^0.8.0"
-image-normalization = { path = "../../proc-blocks/image-normalization" }
-noise-filtering = { path = "../../proc-blocks/noise-filtering" }
-normalize = { path = "../../proc-blocks/normalize" }
 numpy = "0.14"
-paste = "1.0"
 pyo3 = { version = "0.14", features = ["extension-module", "abi3", "abi3-py36", "multiple-pymethods"] }
 
 [[test]]
