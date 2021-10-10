@@ -267,7 +267,43 @@ SUBCOMMANDS:
     update-schema      Update the JSON schema for a Runefile
 ```
 
-## Continuous Deployment
+## Release Process
+
+The majority of the process for releasing a new version of Rune is automated,
+but a human still needs to do be involved.
+
+1. Create a new *"Updates from the Tinyverse"* post and go around the team
+   asking people to update it with whatever cool stuff they've been doing
+2. Make sure `CHANGELOG.md` is up to date
+3. Use `cargo release` to bump version numbers and publish to crates.io
+4. Wait for the (automatically triggered) release build to complete then move
+   the associated release on GitHub Releases from "draft" to "published"
+5. Use [the semver trick][semver-trick] on crates typically imported by proc
+   blocks (typically `hotg-rune-core` and `hotg-rune-proc-blocks`) so existing
+   proc blocks will work transparently with the new version of Rune
+6. Update the various proc blocks in [`hotg-ai/proc-blocks`][hotg-proc-blocks]
+   to use the latest version of dependencies then tag that using the release's
+   version number
+
+The `cargo release` step can occasionally fail, requiring you to complete it
+manually.
+
+The full process:
+
+1. Update the headings in `CHANGELOG.md` to associate the items under
+   `## Unreleased` with a version particular version and release date (e.g.
+   `## [0.9.0] - 2021-10-10`). This will also add a link people to the diff
+   between this release and the previous one
+2. Bump the version numbers for all crates that don't have `publish = false`
+   and commit the version number bump
+3. Run `cargo publish` on all crates being released
+4. Create a **signed** tag pointing to this commit with an appropriate tag name
+   (e.g. `v0.9.0`)
+5. Bump the version numbers to start the next dev cycle, typically using
+   something like `0.9.1-dev`, and commit the changes
+6. Push the new commits and tag up to GitHub
+
+### Nightly Releases
 
 We've [set up GitHub Actions][nightly-yml] to generate a "nightly" build
 every 24 hours.
@@ -286,3 +322,6 @@ button. See [*Manually running a workflow*][manual-workflow] for more.
 [manual-workflow]: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 [workspaces]: https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html
 [issue-222]: https://github.com/hotg-ai/rune/issues/222
+[cargo-release]: https://crates.io/crates/cargo-release
+[semver-trick]: https://github.com/dtolnay/semver-trick
+[hotg-proc-blocks]: https://github.com/hotg-ai/proc-blocks
