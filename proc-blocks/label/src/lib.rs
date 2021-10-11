@@ -9,6 +9,22 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::fmt::Debug;
 use hotg_rune_proc_blocks::{ProcBlock, Tensor, Transform};
 
+/// A proc block which, when given a set of indices, will return their
+/// associated labels.
+///
+/// # Examples
+///
+/// ```rust
+/// # use label::Label;
+/// # use hotg_rune_proc_blocks::{Transform, Tensor};
+/// let mut proc_block = Label::default();
+/// proc_block.set_labels(["zero", "one", "two", "three"]);
+/// let input = Tensor::new_vector(vec![3, 1, 2]);
+///
+/// let got = proc_block.transform(input);
+///
+/// assert_eq!(got.elements(), &["three", "one", "two"]);
+
 #[derive(Debug, Default, Clone, PartialEq, ProcBlock)]
 pub struct Label {
     labels: Vec<&'static str>,
@@ -32,8 +48,11 @@ where
     type Output = Tensor<Cow<'static, str>>;
 
     fn transform(&mut self, input: Tensor<T>) -> Self::Output {
-        let indices =
-            input.elements().iter().copied().map(|ix| ix.into_index());
+        let indices = input
+            .elements()
+            .iter()
+            .copied()
+            .map(IntoIndex::try_into_index);
 
         indices.map(|ix| self.get_by_index(ix)).collect()
     }
@@ -55,15 +74,6 @@ mod tests {
         let got = proc_block.transform(input);
 
         assert_eq!(got, should_be);
-
-        let input = Tensor::new_vector(alloc::vec![3, 1, 2]);
-        let should_be = Tensor::new_vector(
-            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
-        );
-
-        let got = proc_block.transform(input);
-
-        assert_eq!(got, should_be);
     }
 
     #[test]
@@ -72,23 +82,7 @@ mod tests {
         let mut proc_block = Label::default();
         proc_block.set_labels(["zero", "one", "two", "three"]);
         let input = Tensor::new_vector(alloc::vec![-3, -1, -2]);
-        let should_be = Tensor::new_vector(
-            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
-        );
 
-        let got = proc_block.transform(input);
-
-        assert_eq!(got, should_be);
-
-        let mut proc_block = Label::default();
-        proc_block.set_labels(["zero", "one", "two", "three"]);
-        let input = Tensor::new_vector(alloc::vec![3.1, 1.7, 2.5]);
-        let should_be = Tensor::new_vector(
-            ["three", "one", "two"].iter().copied().map(Cow::Borrowed),
-        );
-
-        let got = proc_block.transform(input);
-
-        assert_eq!(got, should_be);
+        let _got = proc_block.transform(input);
     }
 }
