@@ -7,11 +7,6 @@ use cargo_toml::{
 use legion::{Query, systems::CommandBuffer, world::SubWorld};
 use crate::{BuildContext, FeatureFlags, codegen::File, lowering::ProcBlock, parse};
 
-const REPO: &'static str = "https://github.com/hotg-ai/rune";
-/// The version of core crates that we want to target.
-const CORE_VERSION: &'static str = hotg_rune_core::VERSION;
-const PROC_BLOCK_VERSION: &'static str = hotg_rune_proc_blocks::VERSION;
-
 /// Generate a `Cargo.toml` file which includes all the relevant dependencies
 /// for this crate.
 #[legion::system]
@@ -22,8 +17,11 @@ pub(crate) fn run(
     #[resource] features: &FeatureFlags,
     query: &mut Query<&ProcBlock>,
 ) {
-    if CORE_VERSION.contains("-dev") && features.rune_repo_dir.is_none() {
-        let msg = "
+    let core_version = hotg_rune_core::VERSION;
+
+    if core_version.contains("-dev") && features.rune_repo_dir.is_none() {
+        let msg = indoc::indoc!(
+            "
             It looks like you are using a development version of \"rune\", but
             haven't specified a \"rune_repo_dir\". Internal crates are resolved
             using the \"$CORE_VERSION\" version from crates.io and builtin
@@ -31,11 +29,12 @@ pub(crate) fn run(
             repo, so there is a good chance you'll get compile errors about
             unresolved dependencies. Specify the \"rune_repo_dir\" to resolve
             this.
-        ";
+        "
+        );
         log::warn!(
             "{}",
             msg.replace("\n", " ")
-                .replace("$CORE_VERSION", CORE_VERSION)
+                .replace("$CORE_VERSION", core_version)
         );
     }
 
@@ -122,17 +121,17 @@ where
     // We'll always use the following HOTG dependencies.
     deps.insert(
         "hotg-rune-core".to_string(),
-        Dependency::Simple(hotg_rune_core::VERSION.to_string()),
+        Dependency::Simple(format!("^{}", hotg_rune_core::VERSION)),
     );
     deps.insert(
         "hotg-rune-proc-blocks".to_string(),
-        Dependency::Simple(hotg_rune_proc_blocks::VERSION.to_string()),
+        Dependency::Simple(format!("^{}", hotg_rune_proc_blocks::VERSION)),
     );
     // FIXME: We should probably use the actual version number instead of
     // assuming it'll be in sync with core.
     deps.insert(
         "hotg-runicos-base-wasm".to_string(),
-        Dependency::Simple(hotg_rune_core::VERSION.to_string()),
+        Dependency::Simple(format!("^{}", hotg_rune_core::VERSION)),
     );
 
     for proc_block in proc_blocks {
@@ -148,10 +147,7 @@ fn proc_block_dependency(
     path: &parse::Path,
     current_dir: &Path,
 ) -> DependencyDetail {
-    if is_builtin(path) {
-        let tag = format!("v{}", PROC_BLOCK_VERSION);
-        return git_tagged_dependency(REPO, &tag);
-    } else if path.base.starts_with('.') {
+    if path.base.starts_with('.') {
         return local_proc_block(path, current_dir);
     }
 
@@ -180,16 +176,6 @@ fn local_proc_block(
 ) -> DependencyDetail {
     DependencyDetail {
         path: Some(current_dir.join(&path.base).display().to_string()),
-        ..empty_dependency_detail()
-    }
-}
-
-fn is_builtin(path: &parse::Path) -> bool { path.base == "hotg-ai/rune" }
-
-fn git_tagged_dependency(repo: &str, tag: &str) -> DependencyDetail {
-    DependencyDetail {
-        git: Some(repo.into()),
-        tag: Some(tag.into()),
         ..empty_dependency_detail()
     }
 }
@@ -288,16 +274,26 @@ fn patch_hotg_dependencies(hotg_repo_dir: &Path, manifest: &mut Manifest) {
         ),
     );
 
+    // Patch crates.io
     manifest
         .patch
         .entry("crates-io".to_string())
         .or_default()
         .extend(overrides.clone());
+    // Sometimes we'll pull from GitHub, so patch that too
     manifest
         .patch
         .entry("https://github.com/hotg-ai/rune".to_string())
         .or_default()
         .extend(overrides.clone());
+
+    // What can sometimes happen is that we'll use hotg_rune_core::VERSION as
+    // the version requirement, but if we are patching the hotg-XXX crate
+    // versions there's a good chance hotg_rune_core::VERSION doesn't exist on
+    // crates.io yet.
+    //
+    // If so, just override with the patched version.
+    manifest.dependencies.extend(overrides);
 }
 
 #[cfg(test)]
@@ -317,30 +313,16 @@ mod tests {
 
         assert_eq!(
             got["hotg-rune-core"].clone(),
-            Dependency::Simple(CORE_VERSION.to_string())
+            Dependency::Simple(format!("^{}", hotg_rune_core::VERSION))
         );
         assert_eq!(
             got["hotg-rune-proc-blocks"].clone(),
-            Dependency::Simple(PROC_BLOCK_VERSION.to_string())
+            Dependency::Simple(format!("^{}", hotg_rune_proc_blocks::VERSION))
         );
         assert_eq!(
             got["hotg-runicos-base-wasm"].clone(),
-            Dependency::Simple(CORE_VERSION.to_string())
+            Dependency::Simple(format!("^{}", hotg_rune_core::VERSION))
         );
-    }
-
-    #[test]
-    fn builtin_proc_blocks_always_use_nightly_tag() {
-        let path = "hotg-ai/rune#proc_blocks/modulo".parse().unwrap();
-        let should_be = DependencyDetail {
-            git: Some(REPO.to_string()),
-            tag: Some(format!("v{}", CORE_VERSION)),
-            ..empty_dependency_detail()
-        };
-
-        let got = proc_block_dependency(&path, Path::new("."));
-
-        assert_eq!(got, should_be);
     }
 
     #[test]

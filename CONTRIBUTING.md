@@ -1,4 +1,4 @@
-# Contributing to the Rune Project
+ to the Rune Project
 
 ## Getting Started
 
@@ -299,9 +299,7 @@ The full process:
 3. Run `cargo publish` on all crates being released
 4. Create a **signed** tag pointing to this commit with an appropriate tag name
    (e.g. `v0.9.0`)
-5. Bump the version numbers to start the next dev cycle, typically using
-   something like `0.9.1-dev`, and commit the changes
-6. Push the new commits and tag up to GitHub
+5. Push the new commits and tag up to GitHub
 
 ### Nightly Releases
 
