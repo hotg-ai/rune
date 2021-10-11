@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-proc-block-macros"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
