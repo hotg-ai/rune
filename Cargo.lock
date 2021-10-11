@@ -1152,7 +1152,6 @@ version = "0.9.0"
 dependencies = [
  "difference",
  "hotg-rune-core",
- "hotg-rune-proc-blocks",
  "pretty_assertions 1.0.0",
  "proc-macro2",
  "quote",
