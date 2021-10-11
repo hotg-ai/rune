@@ -5,19 +5,17 @@ use core::fmt::{self, Formatter, Debug};
 /// # Examples
 ///
 /// ```rust
-/// # use hotg_rune_core::{inline_resource_from_bytes, InlineResource};
+/// # use hotg_rune_core::{decode_inline_resource, InlineResource};
 /// let resource = InlineResource::new(*b"Name", *b"Some Value");
 /// let bytes = resource.as_bytes();
 ///
-/// let (name, value, rest) = inline_resource_from_bytes(bytes).unwrap();
+/// let (name, value, rest) = decode_inline_resource(bytes).unwrap();
 ///
 /// assert_eq!(name, "Name");
 /// assert_eq!(value, b"Some Value");
 /// assert!(rest.is_empty());
 /// ```
-pub fn inline_resource_from_bytes(
-    bytes: &[u8],
-) -> Option<(&str, &[u8], &[u8])> {
+pub fn decode_inline_resource(bytes: &[u8]) -> Option<(&str, &[u8], &[u8])> {
     let (name_len, rest) = read_u32(bytes)?;
     if rest.len() < name_len {
         return None;
@@ -49,7 +47,7 @@ fn read_u32(buffer: &[u8]) -> Option<(usize, &[u8])> {
 
 /// A `(&str, &[u8])` which stores the first field (name) and second field
 /// (data) inline and can be read out of memory using
-/// [`inline_resource_from_bytes()`].
+/// [`decode_inline_resource()`].
 #[derive(Clone, PartialEq)]
 #[repr(C)]
 pub struct InlineResource<const NAME_LEN: usize, const DATA_LEN: usize> {
@@ -123,7 +121,7 @@ mod tests {
         let as_bytes = resource.as_bytes();
 
         let (got_name, got_value, rest) =
-            inline_resource_from_bytes(as_bytes).unwrap();
+            decode_inline_resource(as_bytes).unwrap();
 
         assert_eq!(got_name, resource.name().unwrap());
         assert_eq!(got_value, resource.data());

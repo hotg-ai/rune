@@ -54,7 +54,7 @@ mod tests {
 
         assert_eq!(section_name, RESOURCE_CUSTOM_SECTION);
         let (resource_name, resource_data, rest) =
-            hotg_rune_core::inline_resource_from_bytes(&value).unwrap();
+            hotg_rune_core::decode_inline_resource(&value).unwrap();
         assert_eq!(resource_name, name.as_str());
         assert_eq!(resource_data, data.as_ref());
         assert!(rest.is_empty());

@@ -1,22 +1,29 @@
-extern crate proc_macro;
+#![no_std]
+
 extern crate alloc;
 
-#[cfg(test)]
-#[macro_use]
-extern crate pretty_assertions;
-
-mod analysis;
-mod expand;
-mod types;
-
-#[allow(dead_code)]
 mod descriptor;
 
-use proc_macro::TokenStream;
-use quote::ToTokens;
-use syn::DeriveInput;
+pub use hotg_rune_core::Tensor;
+pub use descriptor::*;
 
-/// Derive the `ProcBlock` trait for a particular type.
+/// This crate's version.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(feature = "derive")]
+pub use hotg_rune_proc_block_macros::ProcBlock;
+
+/// Process some data, transforming it from one form to another.
+pub trait Transform<Input>: ProcBlock {
+    type Output;
+
+    fn transform(&mut self, input: Input) -> Self::Output;
+}
+
+/// The base trait that all proc blocks must implement.
+///
+/// This trait shouldn't be implemented manually, instead you should prefer the
+/// `#[derive(ProcBlock)]` custom derive.
 ///
 /// # Struct Attributes
 ///
@@ -101,7 +108,6 @@ use syn::DeriveInput;
 /// assert_eq!(foo.second, 42);
 /// ```
 ///
-///
 /// A parameter can opt-out of this with the `#[proc_block(skip)]` attribute.
 ///
 /// ```rust,compile_fail
@@ -118,13 +124,16 @@ use syn::DeriveInput;
 ///
 /// foo.set_skip_me("..."); // Error: no method named `set_skip_me` found for struct `Foo` in the current scope
 /// ```
-#[proc_macro_derive(ProcBlock, attributes(transform, proc_block))]
-pub fn proc_block(input: TokenStream) -> TokenStream {
-    let input = syn::parse_macro_input!(input as DeriveInput);
+pub trait ProcBlock: Default + 'static {
+    /// A description of the proc block.
+    const DESCRIPTOR: ProcBlockDescriptor<'static>;
+}
 
-    let tokens = analysis::analyse(&input)
-        .map(ToTokens::into_token_stream)
-        .unwrap_or_else(|e| e.into_compile_error());
-
-    TokenStream::from(tokens)
+/// An internal module used by the `hotg_rune_proc_block_macros` crate
+/// so it has access to all the types it will need.
+#[doc(hidden)]
+pub mod internal {
+    pub use crate::{ProcBlock, Transform, descriptor::*};
+    pub use alloc::borrow::Cow;
+    pub use hotg_rune_core::{ElementType, Tensor};
 }

@@ -6,8 +6,7 @@ extern crate std;
 
 extern crate alloc;
 
-mod buf_writer;
-pub mod element_type;
+mod element_type;
 mod logging;
 mod pixel_format;
 mod resources;
@@ -17,18 +16,21 @@ mod tensor_list;
 mod value;
 
 pub use crate::{
-    buf_writer::BufWriter,
     tensor::{Tensor, TensorView, TensorViewMut},
     value::{Value, Type, AsType, InvalidConversionError},
     pixel_format::{PixelFormat, PixelFormatConversionError},
     logging::SerializableRecord,
     shape::Shape,
     tensor_list::{TensorList, TensorListMut},
-    resources::{InlineResource, inline_resource_from_bytes},
+    resources::{InlineResource, decode_inline_resource},
+    element_type::{AsElementType, ElementType, UnknownElementType},
 };
 
 /// The mimetype used for a TensorFlow Lite model.
 pub const TFLITE_MIMETYPE: &str = "application/tflite-model";
+
+/// The version number for this crate.
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 macro_rules! constants {
     ($name:ident { $(

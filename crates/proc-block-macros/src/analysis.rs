@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use proc_macro2::{Ident, Group};
-use hotg_rune_core::element_type::ElementType;
+use hotg_rune_core::ElementType;
 use quote::quote;
 use syn::{
     Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,

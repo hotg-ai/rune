@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-cli"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 description = "A self-sufficient runtime for TinyML Containers."
@@ -16,15 +16,15 @@ anyhow = "1.0"
 build-info = { version = "0.0.24", features = ["serde"] }
 chrono = { version = "0.4.19", features = ["std"] }
 codespan-reporting = "0.11.0"
-dirs = "3.0"
+dirs = "4"
 env_logger = "0.9"
-hotg-rune-core = { path = "../rune-core", version = "^0.8.0"}
-hotg-rune-runtime = { path = "../runtime", version = "^0.8.0"}
-hotg-rune-compiler = { path = "../compiler", version = "^0.8.0"}
-hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.8.0"}
-hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.8.0"}
+hotg-rune-core = { path = "../rune-core", version = "^0.9.0"}
+hotg-rune-runtime = { path = "../runtime", version = "^0.9.0"}
+hotg-rune-compiler = { path = "../compiler", version = "^0.9.0"}
+hotg-rune-wasm3-runtime = { path = "../wasm3-runtime", version = "^0.9.0"}
+hotg-rune-wasmer-runtime = { path = "../wasmer-runtime", version = "^0.9.0"}
 hotg-runecoral = "0.3.4"
-hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.8.0", features = ["wasm3-runtime"] }
+hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.9.0", features = ["wasm3-runtime"] }
 hound = "3.4.0"
 human-panic = "1.0.3"
 image = "0.23.14"
@@ -38,6 +38,7 @@ serde_json = "1.0.64"
 structopt = "0.3.21"
 strum = { version = "0.21.0", features = ["derive"] }
 wasmparser = "0.80"
+dotenv = "0.15.0"
 
 [dev-dependencies]
 assert_cmd = "2"

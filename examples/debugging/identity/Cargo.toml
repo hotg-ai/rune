@@ -1,13 +1,13 @@
 [package]
 name = "identity"
-version = "0.5.2"
+version = "0.0.0"
 edition = "2018"
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-core = { git = "https://github.com/hotg-ai/rune", tag = "nightly" }
-hotg-rune-proc-blocks = { git = "https://github.com/hotg-ai/rune", tag = "nightly" }
+hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.9.0", default-features = false }
+hotg-rune-proc-blocks = { path = "../../../crates/proc-blocks", version = "^0.9.0" }
 
 [workspace]

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.0] - 2021-10-10
+
 ### Added
 
 - The Rune repository now contains a JSON schema that can be used to provide
@@ -18,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - All tensors of strings will now use `Tensor<Cow<'static, str>>` as their
   tensor types ([#345](https://github.com/hotg-ai/rune/pull/345))
+- Generated Runes will now pull internal crates (`hotg-rune-core`, etc.) from
+  crates.io using a version that matches the `rune` compiler
+  ([#353](https://github.com/hotg-ai/rune/pull/353)) instead of using the
+  `nightly` tag
+
+### Removed
+
+- All processing blocks have been moved to the
+ [`hotg-ai/proc-block`](https://github.com/hotg-ai/proc-blocks) repository
+ ([#353](https://github.com/hotg-ai/rune/pull/353))
 
 ## [0.8.0] - 2021-10-05
 
@@ -213,7 +225,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.8.0...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.0...HEAD
+[0.9.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.8.0...hotg-rune-cli-v0.9.0
 [0.8.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.7.0...hotg-rune-cli-v0.8.0
 [0.7.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.6.0...hotg-rune-cli-v0.7.0
 [0.6.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.5.3...hotg-rune-cli-v0.6.0

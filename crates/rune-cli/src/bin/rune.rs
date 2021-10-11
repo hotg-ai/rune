@@ -1,4 +1,5 @@
 use anyhow::Error;
+use env_logger::Env;
 use log::LevelFilter;
 use structopt::{clap::AppSettings, StructOpt};
 use strum::VariantNames;
@@ -8,6 +9,7 @@ use hotg_rune_cli::{
 };
 
 fn main() -> Result<(), Error> {
+    let _ = dotenv::dotenv();
     human_panic::setup_panic!();
 
     let Args {
@@ -17,7 +19,8 @@ fn main() -> Result<(), Error> {
         unstable,
     } = Args::from_args();
 
-    env_logger::builder()
+    let env = Env::default().default_filter_or("warn");
+    env_logger::Builder::from_env(env)
         .format_timestamp_millis()
         .format_indent(Some(2))
         .write_style(colour.into())

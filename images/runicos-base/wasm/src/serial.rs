@@ -1,7 +1,4 @@
-use hotg_rune_core::{
-    outputs, Tensor,
-    element_type::{ElementType, AsElementType},
-};
+use hotg_rune_core::{outputs, Tensor, ElementType, AsElementType};
 use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::{fmt::Debug, cell::RefCell};

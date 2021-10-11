@@ -28,7 +28,7 @@ pub(crate) fn load_from_custom_sections(
             // ".rune_resource" sections into one blob.
             core::iter::from_fn(move || {
                 let (name, value, rest) =
-                    hotg_rune_core::inline_resource_from_bytes(data)?;
+                    hotg_rune_core::decode_inline_resource(data)?;
                 data = rest;
                 Some((name, value))
             })

@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-compiler"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 description = "Runefile parsing and analysis."
@@ -19,7 +19,8 @@ cargo_toml = "0.10.0"
 codespan = { version = "0.11.0", features = ["serialization"] }
 codespan-reporting = "0.11.0"
 heck = "0.3.3"
-hotg-rune-core = { path = "../rune-core", version = "^0.8.0"}
+hotg-rune-core = { path = "../rune-core", version = "^0.9.0"}
+hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.9.0", default-features = false }
 indexmap = { version = "1.6.2", features = ["serde-1"] }
 legion = { version = "0.4.0", default-features = false, features = ["serialize", "codegen", "extended-tuple-impls"] }
 log = "0.4.14"
@@ -36,4 +37,4 @@ toml = "0.5.8"
 [dev-dependencies]
 env_logger = "0.9.0"
 jsonschema = { version = "0.12.1", default-features = false }
-pretty_assertions = "0.7.0"
+pretty_assertions = "1"

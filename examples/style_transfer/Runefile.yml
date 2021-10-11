@@ -25,7 +25,7 @@ pipeline:
       height: 256
 
   normalized_content_image:
-    proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
+    proc-block: "hotg-ai/proc-blocks#image-normalization"
     inputs:
       - content_image
     outputs:
@@ -33,7 +33,7 @@ pipeline:
         dimensions: [1, 384, 384, 3]
 
   normalized_style_image:
-    proc-block: "hotg-ai/rune#proc-blocks/image-normalization"
+    proc-block: "hotg-ai/proc-blocks#image-normalization"
     inputs:
       - style
     outputs:

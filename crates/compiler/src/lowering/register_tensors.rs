@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use codespan_reporting::diagnostic::Diagnostic;
-use hotg_rune_core::{Shape, element_type::ElementType};
+use hotg_rune_core::{Shape, ElementType};
 use legion::{Entity, systems::CommandBuffer};
 
 use crate::{

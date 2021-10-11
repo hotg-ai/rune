@@ -1,6 +1,6 @@
 use log::{Log, Metadata, Record};
-use hotg_rune_core::{SerializableRecord, BufWriter};
-use crate::intrinsics;
+use hotg_rune_core::SerializableRecord;
+use crate::{BufWriter, intrinsics};
 use alloc::borrow::Cow;
 use core::fmt::{Display, Write};
 
