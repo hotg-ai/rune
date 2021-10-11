@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-integration-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "env_logger 0.9.0",
@@ -1131,7 +1131,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-native"
-version = "0.9.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "build-info",
@@ -2423,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "rune_py"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "numpy",
  "pyo3",
@@ -3401,7 +3401,7 @@ checksum = "85e60b0d1b5f99db2556934e21937020776a5d31520bf169e851ac44e6420214"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "cargo_toml",

@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 publish = false
@@ -19,3 +19,6 @@ serde_json = "1"
 structopt = "0.3.21"
 walkdir = "2.3.1"
 zip = "0.5.11"
+
+[package.metadata.release]
+disable-release = true
