@@ -22,8 +22,11 @@ pub(crate) fn run(
     #[resource] features: &FeatureFlags,
     query: &mut Query<&ProcBlock>,
 ) {
-    if CORE_VERSION.contains("-dev") && features.rune_repo_dir.is_none() {
-        let msg = "
+    let core_version = hotg_rune_core::VERSION;
+
+    if core_version.contains("-dev") && features.rune_repo_dir.is_none() {
+        let msg = indoc::indoc!(
+            "
             It looks like you are using a development version of \"rune\", but
             haven't specified a \"rune_repo_dir\". Internal crates are resolved
             using the \"$CORE_VERSION\" version from crates.io and builtin
@@ -31,11 +34,12 @@ pub(crate) fn run(
             repo, so there is a good chance you'll get compile errors about
             unresolved dependencies. Specify the \"rune_repo_dir\" to resolve
             this.
-        ";
+        "
+        );
         log::warn!(
             "{}",
             msg.replace("\n", " ")
-                .replace("$CORE_VERSION", CORE_VERSION)
+                .replace("$CORE_VERSION", core_version)
         );
     }
 

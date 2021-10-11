@@ -22,6 +22,7 @@ heck = "0.3.3"
 hotg-rune-core = { path = "../rune-core", version = "^0.9.3-dev"}
 hotg-rune-proc-blocks = { path = "../proc-blocks", version = "^0.9.3-dev", default-features = false }
 indexmap = { version = "1.6.2", features = ["serde-1"] }
+indoc = "1"
 legion = { version = "0.4.0", default-features = false, features = ["serialize", "codegen", "extended-tuple-impls"] }
 log = "0.4.14"
 once_cell = "1.7.2"
