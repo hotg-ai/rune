@@ -103,19 +103,19 @@ impl Run {
         &self,
         rune: &[u8],
         img: BaseImage,
-    ) -> Result<Box<dyn FnMut()>, Error> {
+    ) -> Result<Box<dyn FnMut() -> Result<(), Error>>, Error> {
         if self.wasm3 {
             let mut runtime =
                 hotg_rune_wasm3_runtime::Runtime::load(&rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
-            Ok(Box::new(|| runtime.call()))
+            Ok(Box::new(move || runtime.call()))
         } else {
             let mut runtime =
                 hotg_rune_wasmer_runtime::Runtime::load(&rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
-            Ok(Box::new(|| runtime.call()))
+            Ok(Box::new(move || runtime.call()))
         }
     }
 
