@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- The `rune run` command will now emit a warning about
+  [#131](https://github.com/hotg-ai/rune/issues/131)
+  ([`tensorflow/tensorflow#52300](https://github.com/tensorflow/tensorflow/issues/52300)
+  upstream) when doing inference on MacOS
+
 ## [0.9.2] - 2021-10-11
 
 ## [0.9.1] - 2021-10-11
