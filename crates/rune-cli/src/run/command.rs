@@ -79,10 +79,14 @@ impl Run {
         })?;
 
         let img = self.initialize_image(&rune)?;
-
         let mut call = self.load_runtime(&rune, img)?;
 
         log::info!("The Rune was loaded successfully");
+
+        if cfg!(target_os = "macos") {
+            let ticket = "https://github.com/hotg-ai/rune/issues/131";
+            log::warn!("TensorFlow Lite on MacOS has a bug where inference will occasionally segfault. See {} for more.", ticket);
+        }
 
         for i in 0..self.repeats {
             if i > 0 {
