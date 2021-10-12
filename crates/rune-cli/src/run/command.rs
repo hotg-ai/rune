@@ -80,31 +80,39 @@ impl Run {
 
         let img = self.initialize_image(&rune)?;
 
+        let mut call = self.load_runtime(&rune, img)?;
+
+        log::info!("The Rune was loaded successfully");
+
+        for i in 0..self.repeats {
+            if i > 0 {
+                log::info!("Call {}", i + 1);
+            }
+
+            call().context("Call failed")?;
+        }
+
+        Ok(())
+    }
+
+    fn load_runtime(
+        &self,
+        rune: &[u8],
+        img: BaseImage,
+    ) -> Result<Box<dyn FnMut()>, Error> {
         if self.wasm3 {
             let mut runtime =
                 hotg_rune_wasm3_runtime::Runtime::load(&rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
-            for i in 0..self.repeats {
-                if i > 0 {
-                    log::info!("Call {}", i + 1);
-                }
-                runtime.call().context("Call failed")?;
-            }
+            Ok(Box::new(|| runtime.call()))
         } else {
             let mut runtime =
                 hotg_rune_wasmer_runtime::Runtime::load(&rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
-            for i in 0..self.repeats {
-                if i > 0 {
-                    log::info!("Call {}", i + 1);
-                }
-                runtime.call().context("Call failed")?;
-            }
+            Ok(Box::new(|| runtime.call()))
         }
-
-        Ok(())
     }
 
     fn initialize_image(&self, rune: &[u8]) -> Result<BaseImage, Error> {
