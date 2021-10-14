@@ -44,6 +44,7 @@ pub(crate) fn analyse(input: &DeriveInput) -> Result<DeriveOutput, Error> {
             exports,
             type_name,
             descriptor,
+            generics: input.generics.clone(),
         },
         assertions: Assertions {
             set: setter_assertions,
@@ -325,7 +326,14 @@ fn analyse_properties(
 
     let type_name = input.ident.clone();
 
-    Ok((Setters { type_name, setters }, SetterAssertions(assertions)))
+    Ok((
+        Setters {
+            type_name,
+            setters,
+            generics: input.generics.clone(),
+        },
+        SetterAssertions(assertions),
+    ))
 }
 
 struct ParsedField {
@@ -428,6 +436,8 @@ fn export_path(_attrs: &[syn::Attribute]) -> Result<Path, Error> {
 
 #[cfg(test)]
 mod tests {
+    use syn::Generics;
+
     use crate::types::{Setter, SetterAssertion, TransformAssertion};
     use super::*;
 
@@ -525,6 +535,7 @@ mod tests {
                 property: syn::parse_str("first").unwrap(),
                 property_type: syn::parse_str("u32").unwrap(),
             }],
+            generics: Generics::default(),
         };
         let expected_assertions = SetterAssertions(vec![SetterAssertion {
             proc_block_type: syn::parse_str("Proc").unwrap(),

@@ -1,5 +1,5 @@
 use proc_macro2::Ident;
-use syn::{Path, Type};
+use syn::{Generics, Path, Type};
 use crate::descriptor::ProcBlockDescriptor;
 
 #[derive(Debug)]
@@ -14,6 +14,7 @@ pub(crate) struct DeriveOutput {
 pub(crate) struct ProcBlockImpl {
     pub type_name: Ident,
     pub exports: Path,
+    pub generics: Generics,
     pub descriptor: ProcBlockDescriptor<'static>,
 }
 
@@ -26,6 +27,7 @@ pub(crate) struct CustomSection {
 #[derive(Debug, PartialEq)]
 pub(crate) struct Setters {
     pub type_name: Ident,
+    pub generics: Generics,
     pub setters: Vec<Setter>,
 }
 
