@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([`tensorflow/tensorflow#52300](https://github.com/tensorflow/tensorflow/issues/52300)
   upstream) when doing inference on MacOS
 
+### Changed
+
+- Bumped the version of Rust used to compile Runes from `nightly-2021-08-14` to
+  `nightly-2021-10-15`
+
 ## [0.9.2] - 2021-10-11
 
 ## [0.9.1] - 2021-10-11
