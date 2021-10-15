@@ -43,7 +43,7 @@ struct Tracked {
 
 impl Image<Registrar<'_>> for Tracked {
     fn initialize_imports(self, registrar: &mut Registrar<'_>) {
-        let calls = self.calls.clone();
+        let calls = self.calls;
         registrar.register_function("env", "tick", move |_, ()| {
             calls.fetch_add(1, Ordering::SeqCst);
             Ok(())

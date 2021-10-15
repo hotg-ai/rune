@@ -46,7 +46,7 @@ impl CustomSection {
         let value = value.into();
 
         debug_assert!(
-            section_name.starts_with("."),
+            section_name.starts_with('.'),
             "Link section names should start with a \".\", found \"{}\"",
             section_name
         );

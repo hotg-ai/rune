@@ -55,7 +55,7 @@ impl CheckManifests {
 
         let mut diagnostics: Vec<_> = crates
             .iter()
-            .filter_map(|c| check_manifest(c))
+            .filter_map(check_manifest)
             .map(Error::from)
             .collect();
 
@@ -131,13 +131,13 @@ fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
 
     log::debug!("Checking \"{}\"", short_path.display());
 
-    let mut expect = Diagnostics::new(&short_path);
+    let mut expect = Diagnostics::new(short_path);
 
-    expect.array_field("Authors", &authors).to_equal(AUTHORS);
-    expect.array_field("Categories", &categories).is_not_empty();
-    expect.array_field("Keywords", &keywords).is_not_empty();
+    expect.array_field("Authors", authors).to_equal(AUTHORS);
+    expect.array_field("Categories", categories).is_not_empty();
+    expect.array_field("Keywords", keywords).is_not_empty();
     expect
-        .array_field("Keywords", &keywords)
+        .array_field("Keywords", keywords)
         .length_less_than(5);
     expect
         .field("Name", Some(name))

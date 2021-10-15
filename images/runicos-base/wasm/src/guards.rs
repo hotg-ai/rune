@@ -27,7 +27,7 @@ impl Drop for AllocationLogger {
 /// letting `rune-core` run code at the start and end.
 #[derive(Debug)]
 pub struct SetupGuard {
-    log: AllocationLogger,
+    _log: AllocationLogger,
 }
 
 impl SetupGuard {
@@ -37,7 +37,7 @@ impl SetupGuard {
         log::set_logger(&LOGGER).unwrap();
 
         SetupGuard {
-            log: AllocationLogger::new("Setup", ALLOCATOR.stats()),
+            _log: AllocationLogger::new("Setup", ALLOCATOR.stats()),
         }
     }
 }
@@ -50,13 +50,13 @@ impl Default for SetupGuard {
 /// run, letting `rune-core` run code as necessary.
 #[derive(Debug)]
 pub struct PipelineGuard {
-    log: AllocationLogger,
+    _log: AllocationLogger,
 }
 
 impl PipelineGuard {
     pub fn new() -> Self {
         PipelineGuard {
-            log: AllocationLogger::new("Pipeline", ALLOCATOR.stats()),
+            _log: AllocationLogger::new("Pipeline", ALLOCATOR.stats()),
         }
     }
 }

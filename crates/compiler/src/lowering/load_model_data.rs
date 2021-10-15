@@ -20,7 +20,7 @@ pub(crate) fn run(
         ModelFile::FromDisk(path) => {
             match super::load_resource_data::load(
                 &build_ctx.current_directory,
-                &path,
+                path,
                 name,
                 span,
             ) {

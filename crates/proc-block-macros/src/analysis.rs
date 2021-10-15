@@ -29,7 +29,7 @@ pub(crate) fn analyse(input: &DeriveInput) -> Result<DeriveOutput, Error> {
     let (description, available_transforms, transform_assertions) =
         analyse_struct_attributes(&input.ident, &exports, &input.attrs)?;
 
-    let (setters, setter_assertions) = analyse_properties(&input)?;
+    let (setters, setter_assertions) = analyse_properties(input)?;
 
     let descriptor = ProcBlockDescriptor {
         type_name: type_name.to_string().into(),
@@ -145,7 +145,7 @@ fn parse_transform_descriptor(
         return Err(Error::new(ident.span(), "Expected \"inputs\""));
     }
     let _: Token![=] = tokens.parse()?;
-    let inputs = parse_tensor_descriptors(&tokens)?;
+    let inputs = parse_tensor_descriptors(tokens)?;
     let _: Token![,] = tokens.parse()?;
 
     let ident: Ident = tokens.parse()?;
@@ -153,7 +153,7 @@ fn parse_transform_descriptor(
         return Err(Error::new(ident.span(), "Expected \"outputs\""));
     }
     let _: Token![=] = tokens.parse()?;
-    let outputs = parse_tensor_descriptors(&tokens)?;
+    let outputs = parse_tensor_descriptors(tokens)?;
 
     Ok(TransformDescriptor { inputs, outputs })
 }

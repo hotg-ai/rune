@@ -11,6 +11,11 @@ categories = ["science", "wasm", "command-line-utilities"]
 keywords = ["rune", "tinyml", "container", "machine", "learning"]
 readme = "README.md"
 
+[[bin]]
+name = "rune"
+doc = false
+path = "src/bin/rune.rs"
+
 [dependencies]
 anyhow = "1.0"
 build-info = { version = "0.0.24", features = ["serde"] }

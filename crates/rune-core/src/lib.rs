@@ -30,7 +30,7 @@ pub use crate::{
 pub const TFLITE_MIMETYPE: &str = "application/tflite-model";
 
 /// The version number for this crate.
-pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 macro_rules! constants {
     ($name:ident { $(

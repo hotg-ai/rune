@@ -128,7 +128,7 @@ impl Samples {
                 continue;
             }
 
-            let mut words = line.split(",").map(|s| s.trim());
+            let mut words = line.split(',').map(|s| s.trim());
 
             match (words.next(), words.next(), words.next()) {
                 (Some(a), Some(b), Some(c)) => {

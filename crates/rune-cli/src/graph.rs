@@ -118,8 +118,8 @@ fn declare_nodes(w: &mut dyn Write, rune: &RuneGraph) -> Result<(), Error> {
             w,
             node.name,
             &qualifier,
-            &node.inputs,
-            &node.outputs,
+            node.inputs,
+            node.outputs,
         )?;
         writeln!(w, "];")?;
     }

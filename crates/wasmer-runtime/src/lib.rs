@@ -35,7 +35,7 @@ impl Runtime {
         log::debug!("Instantiating the WebAssembly module");
 
         let instance =
-            Instance::new(&module, &imports).context("Instantiation failed")?;
+            Instance::new(module, &imports).context("Instantiation failed")?;
 
         // TODO: Rename the _manifest() method to _start() so it gets
         // automatically invoked while instantiating.
