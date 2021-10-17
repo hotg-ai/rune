@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped the version of Rust used to compile Runes from `nightly-2021-08-14` to
   `nightly-2021-10-15`
 
+### Fixed
+
+- The `#[derive(ProcBlock)]` custom derive can now handle types with generic
+  parameters ([#358](https://github.com/hotg-ai/rune/pull/358))
+
 ## [0.9.2] - 2021-10-11
 
 ## [0.9.1] - 2021-10-11

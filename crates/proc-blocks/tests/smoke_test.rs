@@ -5,6 +5,7 @@ use hotg_rune_proc_blocks::{
     Dimension, Dimensions, ProcBlock, ProcBlockDescriptor, TensorDescriptor,
     Transform, TransformDescriptor,
 };
+use std::marker::PhantomData;
 use hotg_rune_core::{Tensor, ElementType};
 
 /// A dummy proc block.
@@ -30,6 +31,20 @@ impl Transform<Tensor<u8>> for Foo {
     type Output = Tensor<f32>;
 
     fn transform(&mut self, _: Tensor<u8>) -> Self::Output { unimplemented!() }
+}
+
+#[derive(ProcBlock)]
+struct Generic<T: 'static> {
+    #[proc_block(skip)]
+    _output_type: PhantomData<T>,
+}
+
+impl<T> Default for Generic<T> {
+    fn default() -> Self {
+        Generic {
+            _output_type: PhantomData,
+        }
+    }
 }
 
 #[test]

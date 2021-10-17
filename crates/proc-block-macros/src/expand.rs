@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{LitByteStr, Path, Type};
+use syn::{Generics, LitByteStr, Path, Type};
 use hotg_rune_core::ElementType;
 use crate::{
     descriptor::{
@@ -30,12 +30,32 @@ impl ToTokens for DeriveOutput {
     }
 }
 
+fn generic_parameters(g: &Generics) -> (TokenStream, TokenStream) {
+    if g.params.is_empty() {
+        return (TokenStream::new(), TokenStream::new());
+    }
+
+    let params = g.params.iter();
+    let impl_generics = quote!(<#(#params),*>);
+
+    let params = g.type_params().map(|p| &p.ident);
+    let type_generics = quote!(<#(#params),*>);
+
+    (impl_generics, type_generics)
+}
+
 impl ToTokens for Setters {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let Setters { type_name, setters } = self;
+        let Setters {
+            type_name,
+            setters,
+            generics,
+        } = self;
+
+        let (impl_generics, type_generics) = generic_parameters(generics);
 
         let t = quote! {
-            impl #type_name {
+            impl #impl_generics #type_name #type_generics  {
                 #( #setters )*
             }
         };
@@ -195,12 +215,15 @@ impl ToTokens for ProcBlockImpl {
             type_name,
             exports,
             descriptor,
+            generics,
         } = self;
 
         let descriptor = descriptor_to_tokens(exports, descriptor);
 
+        let (impl_generics, type_generics) = generic_parameters(generics);
+
         let t = quote! {
-            impl #exports::ProcBlock for #type_name {
+            impl #impl_generics #exports::ProcBlock for #type_name #type_generics  {
                 const DESCRIPTOR: #exports::ProcBlockDescriptor<'static> = #descriptor;
             }
         };
@@ -340,6 +363,8 @@ mod tests {
         io::Write,
         process::{Command, Output, Stdio},
     };
+    use syn::Generics;
+
     use crate::types::{
         ProcBlockImpl, Setter, TransformAssertion, TransformAssertions,
     };
@@ -528,6 +553,7 @@ mod tests {
                 description: "Hello, World!".into(),
                 available_transforms: Cow::default(),
             },
+            generics: Generics::default(),
         };
         let should_be = quote! {
             impl exports::ProcBlock for Proc {
