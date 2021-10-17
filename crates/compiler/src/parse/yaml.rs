@@ -456,7 +456,7 @@ impl<'de> Deserialize<'de> for ResourceOrString {
     {
         let repr = Cow::<str>::deserialize(deserializer)?;
 
-        if repr.starts_with("$") {
+        if repr.starts_with('$') {
             match ResourceName::from_str(&repr) {
                 Ok(name) => Ok(ResourceOrString::Resource(name)),
                 Err(e) => Err(D::Error::custom(e)),
@@ -706,7 +706,7 @@ impl FromStr for ResourceName {
     type Err = Box<dyn std::error::Error>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.starts_with("$") {
+        if !s.starts_with('$') {
             return Err("resource names always start with a \"$\"".into());
         }
 
@@ -740,7 +740,7 @@ impl<'de> Deserialize<'de> for ResourceName {
     {
         let repr = Cow::<str>::deserialize(deserializer)?;
 
-        if !repr.starts_with("$") {
+        if !repr.starts_with('$') {
             return Err(D::Error::custom(
                 "resource names always start with a \"$\"",
             ));
@@ -1104,7 +1104,7 @@ pipeline:
     fn parse_values() {
         let inputs = vec![
             ("42", Value::Int(42)),
-            ("3.14", Value::Float(3.14)),
+            ("1.4", Value::Float(1.4)),
             ("\"42\"", Value::String("42".into())),
             (
                 "[1, 2.0, \"asdf\"]",

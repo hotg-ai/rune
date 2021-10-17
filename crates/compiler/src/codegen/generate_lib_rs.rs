@@ -78,13 +78,7 @@ fn generate_lib_rs<'world>(
     capabilities: &[(&Name, &Source, &Outputs)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
-    pipeline_nodes: &[(
-        &Entity,
-        &Name,
-        Option<&Inputs>,
-        Option<&Outputs>,
-        &PipelineNode,
-    )],
+    pipeline_nodes: &[Node<'_>],
     tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
     mut get_name: impl FnMut(Entity) -> Option<&'world Name>,
     mut get_tensor: impl FnMut(Entity) -> Option<&'world Tensor>,
@@ -126,13 +120,7 @@ fn generate_manifest_function<'world, F, T>(
     capabilities: &[(&Name, &Source, &Outputs)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
-    pipeline_nodes: &[(
-        &Entity,
-        &Name,
-        Option<&Inputs>,
-        Option<&Outputs>,
-        &PipelineNode,
-    )],
+    pipeline_nodes: &[Node<'_>],
     tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
     get_name: &mut F,
     get_tensor: &mut T,
@@ -280,7 +268,7 @@ fn input_bindings(
     }
 }
 
-fn tensor_types<'world>(
+fn tensor_types(
     tensors: &[Entity],
     all_tensors: &[(&Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)],
 ) -> TokenStream {
@@ -359,14 +347,16 @@ struct ExecutionOrder<'world> {
             Option<&'world Outputs>,
         ),
     >,
-    tensors: &'world [(
-        &'world Entity,
-        &'world Tensor,
-        Option<&'world Inputs>,
-        Option<&'world Outputs>,
-    )],
     tensor_inputs: HashMap<Entity, &'world [Entity]>,
 }
+
+type Node<'world> = (
+    &'world Entity,
+    &'world Name,
+    Option<&'world Inputs>,
+    Option<&'world Outputs>,
+    &'world PipelineNode,
+);
 
 impl<'world> ExecutionOrder<'world> {
     /// Given a set of pipeline nodes, determine the order they should be
@@ -382,13 +372,7 @@ impl<'world> ExecutionOrder<'world> {
     ///
     /// [topo]: https://www.geeksforgeeks.org/topological-sorting/
     fn calculate(
-        pipeline_nodes: &'world [(
-            &'world Entity,
-            &'world Name,
-            Option<&'world Inputs>,
-            Option<&'world Outputs>,
-            &'world PipelineNode,
-        )],
+        pipeline_nodes: &'world [Node<'world>],
         tensors: &'world [(
             &'world Entity,
             &'world Tensor,
@@ -407,7 +391,6 @@ impl<'world> ExecutionOrder<'world> {
                     (*ent, (name, inputs, outputs))
                 })
                 .collect(),
-            tensors,
             tensor_inputs: tensors
                 .iter()
                 .copied()
@@ -678,7 +661,7 @@ fn value_to_tokens(value: &Value) -> TokenStream {
     match value {
         Value::Int(i) => i.into_token_stream(),
         Value::Float(f) => f.into_token_stream(),
-        Value::String(ResourceOrString::String(s)) if s.starts_with("@") => {
+        Value::String(ResourceOrString::String(s)) if s.starts_with('@') => {
             s[1..].parse().unwrap()
         },
         Value::String(ResourceOrString::String(s)) => s.into_token_stream(),
@@ -925,8 +908,8 @@ mod tests {
         let mut pretty = String::new();
         stdout.read_to_string(&mut pretty).unwrap();
 
-        let opening_curly = pretty.find("{").unwrap();
-        let closing_curly = pretty.rfind("}").unwrap();
+        let opening_curly = pretty.find('{').unwrap();
+        let closing_curly = pretty.rfind('}').unwrap();
 
         pretty[opening_curly + 1..closing_curly].trim().to_string()
     }

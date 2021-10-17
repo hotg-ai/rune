@@ -18,7 +18,7 @@ pub(crate) fn run(cmd: &mut CommandBuffer) {
 fn rust_toolchain() -> Value {
     toml::toml! {
         [toolchain]
-        channel = "nightly-2021-08-14"
+        channel = "nightly-2021-10-15"
         targets = ["wasm32-unknown-unknown"]
         components = ["rustfmt"]
     }

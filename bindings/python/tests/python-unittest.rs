@@ -26,7 +26,6 @@ fn main() {
 #[derive(Debug)]
 struct Runner {
     manifest_dir: &'static Path,
-    original_path: String,
     virtual_env: PathBuf,
     path: String,
 }
@@ -40,7 +39,6 @@ impl Runner {
 
         Runner {
             manifest_dir,
-            original_path,
             virtual_env,
             path,
         }

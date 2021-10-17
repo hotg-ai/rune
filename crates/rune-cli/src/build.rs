@@ -65,7 +65,7 @@ impl Build {
             ctx.current_directory.join(&ctx.name).with_extension("rune")
         });
 
-        let mut hooks = Hooks::new(dest, color, self.runefile.clone());
+        let mut hooks = Hooks::new(dest, color, self.runefile);
         hotg_rune_compiler::build_with_hooks(ctx, features, &mut hooks);
 
         match hooks.error {
@@ -136,7 +136,7 @@ impl Build {
 
 static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
     let cache_dir = dirs::cache_dir()
-        .or_else(|| dirs::home_dir())
+        .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."));
 
     cache_dir.join("runes").to_string_lossy().into_owned()

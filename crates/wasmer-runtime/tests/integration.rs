@@ -82,5 +82,5 @@ fn compile_standalone_wasm(src: &str, store: &Store) -> Result<Module, Error> {
     anyhow::ensure!(status.success());
 
     let raw = std::fs::read(&dest)?;
-    Module::new(&store, &raw).map_err(Error::from)
+    Module::new(store, &raw).map_err(Error::from)
 }

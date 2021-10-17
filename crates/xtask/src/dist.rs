@@ -34,7 +34,6 @@ impl Dist {
         let project_root = crate::project_root()?;
         let target_dir = project_root.join("target");
         let dist = target_dir.join("dist");
-        let workspace_cargo_toml = project_root.join("Cargo.toml");
 
         clear_directory(&dist).context("Unable to clear the dist directory")?;
 
@@ -43,7 +42,6 @@ impl Dist {
             project_root,
             target_dir,
             dist,
-            workspace_cargo_toml,
         };
 
         for component in components {
@@ -81,7 +79,6 @@ struct Context {
     project_root: PathBuf,
     target_dir: PathBuf,
     dist: PathBuf,
-    workspace_cargo_toml: PathBuf,
 }
 
 type ComponentFunc = fn(&Context) -> Result<(), Error>;
@@ -400,6 +397,7 @@ fn compile_example_rune(
     let mut cmd = Command::new(cargo);
     cmd.arg("run")
         .arg("--release")
+        .arg("--package=hotg-rune-cli")
         .arg("--bin=rune")
         .arg("--")
         .arg("build")

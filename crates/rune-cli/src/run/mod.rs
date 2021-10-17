@@ -37,7 +37,7 @@ where
 {
     let integer: i32 = value
         .try_into()
-        .map_err(|e| ParameterError::IncorrectType(e))?;
+        .map_err(ParameterError::IncorrectType)?;
 
     match T::try_from(integer) {
         Ok(value) => {

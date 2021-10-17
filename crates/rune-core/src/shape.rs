@@ -47,7 +47,7 @@ impl<'a> Shape<'a> {
             dimensions,
         } = self;
 
-        Shape::new(element_type.clone(), dimensions.clone().into_owned())
+        Shape::new(*element_type, dimensions.clone().into_owned())
     }
 }
 

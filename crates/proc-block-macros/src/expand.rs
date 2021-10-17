@@ -365,15 +365,13 @@ mod tests {
 
         let Output { stdout, status, .. } = child.wait_with_output().unwrap();
 
-        if !status.success() {
-            panic!("Unable to format the input\n\n{}", input);
-        }
+        assert!(status.success(), "Unable to format the input\n\n{}", input);
 
         let mut pretty = String::from_utf8(stdout).unwrap();
 
-        let start = pretty.find("{").unwrap();
+        let start = pretty.find('{').unwrap();
         drop(pretty.drain(..=start));
-        let end = pretty.rfind("}").unwrap();
+        let end = pretty.rfind('}').unwrap();
         drop(pretty.drain(end..));
 
         pretty

@@ -249,12 +249,12 @@ mod runecoral {
 
         let input_descriptors = inputs
             .iter()
-            .map(|s| descriptor(s))
+            .map(descriptor)
             .collect::<Result<Vec<_>, Error>>()
             .context("Invalid input")?;
         let output_descriptors = outputs
             .iter()
-            .map(|s| descriptor(s))
+            .map(descriptor)
             .collect::<Result<Vec<_>, Error>>()
             .context("Invalid output")?;
 
@@ -265,8 +265,10 @@ mod runecoral {
         )
         .context("Unable to create the inference context")?;
 
-        ensure_shapes_equal(&input_descriptors, &ctx.inputs().collect())?;
-        ensure_shapes_equal(&output_descriptors, &ctx.outputs().collect())?;
+        let model_input_descriptors: Vec<_> = ctx.inputs().collect();
+        ensure_shapes_equal(&input_descriptors, &model_input_descriptors)?;
+        let model_output_descriptors: Vec<_> = ctx.outputs().collect();
+        ensure_shapes_equal(&output_descriptors, &model_output_descriptors)?;
 
         Ok(Box::new(RuneCoralModel {
             ctx: Mutex::new(ctx),
@@ -320,8 +322,8 @@ mod runecoral {
     }
 
     fn ensure_shapes_equal(
-        from_rune: &Vec<TensorDescriptor<'_>>,
-        from_model: &Vec<TensorDescriptor<'_>>,
+        from_rune: &[TensorDescriptor<'_>],
+        from_model: &[TensorDescriptor<'_>],
     ) -> Result<(), Error> {
         if from_rune.len() == from_model.len()
             && from_rune.iter().zip(from_model.iter()).all(|(x, y)| {
