@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.3] - 2021-10-17
+
 ### Added
 
 - The `rune run` command will now emit a warning about
@@ -246,7 +248,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.2...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.3...HEAD
+[0.9.3]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.2...hotg-rune-cli-v0.9.3
 [0.9.2]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.1...hotg-rune-cli-v0.9.2
 [0.9.1]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.0...hotg-rune-cli-v0.9.1
 [0.9.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.8.0...hotg-rune-cli-v0.9.0
