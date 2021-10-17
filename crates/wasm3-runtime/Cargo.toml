@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-wasm3-runtime"
-version = "0.9.2"
+version = "0.9.3"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
