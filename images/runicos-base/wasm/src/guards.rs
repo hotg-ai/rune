@@ -36,6 +36,8 @@ impl SetupGuard {
         log::set_max_level(log::STATIC_MAX_LEVEL);
         log::set_logger(&LOGGER).unwrap();
 
+        log::debug!("Initializing");
+
         SetupGuard {
             _log: AllocationLogger::new("Setup", ALLOCATOR.stats()),
         }
@@ -44,6 +46,12 @@ impl SetupGuard {
 
 impl Default for SetupGuard {
     fn default() -> Self { SetupGuard::new() }
+}
+
+impl Drop for SetupGuard {
+    fn drop(&mut self) {
+        log::debug!("Initialization complete");
+    }
 }
 
 /// A guard type which should be alive for the duration of a single pipeline
@@ -55,6 +63,8 @@ pub struct PipelineGuard {
 
 impl PipelineGuard {
     pub fn new() -> Self {
+        log::debug!("Running the pipeline");
+
         PipelineGuard {
             _log: AllocationLogger::new("Pipeline", ALLOCATOR.stats()),
         }
@@ -63,4 +73,10 @@ impl PipelineGuard {
 
 impl Default for PipelineGuard {
     fn default() -> Self { PipelineGuard::new() }
+}
+
+impl Drop for PipelineGuard {
+    fn drop(&mut self) {
+        log::debug!("Pipeline finished");
+    }
 }

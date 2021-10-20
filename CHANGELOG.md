@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- You will now be able to see when each step in a Rune's pipeline is started if
+  you set the `$RUST_LOG` environment variable to `debug`
+  - we recommend setting `$RUST_LOG` to something like
+    `debug,regalloc=warn,hotg_runicos_base_runtime=info,hotg_rune_cli=info` to
+    keep the output manageable
+
 ## [0.9.3] - 2021-10-17
 
 ### Added

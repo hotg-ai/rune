@@ -14,6 +14,12 @@ impl Logger {
     pub const fn new() -> Self { Logger {} }
 }
 
+fn write(msg: &[u8]) {
+    unsafe {
+        intrinsics::_debug(msg.as_ptr(), msg.len() as u32);
+    }
+}
+
 impl Log for Logger {
     fn enabled(&self, _metadata: &Metadata<'_>) -> bool { true }
 
@@ -40,12 +46,10 @@ impl Log for Logger {
         let mut json_buffer = [0; 4096];
 
         match serde_json_core::to_slice(&record, &mut json_buffer) {
-            Ok(bytes_written) => unsafe {
-                let payload = &json_buffer[..bytes_written];
-                intrinsics::_debug(payload.as_ptr(), payload.len() as u32);
-            },
+            Ok(bytes_written) => write(&json_buffer[..bytes_written]),
             Err(_) => {
                 // Oh well, we tried
+                write(b"Unable to serialize a log message as JSON");
                 return;
             },
         }

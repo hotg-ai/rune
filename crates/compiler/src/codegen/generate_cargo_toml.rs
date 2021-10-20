@@ -104,7 +104,7 @@ where
         version: Some(String::from("0.4")),
         features: vec![
             String::from("max_level_debug"),
-            String::from("release_max_level_info"),
+            String::from("release_max_level_debug"),
         ],
         ..empty_dependency_detail()
     });
