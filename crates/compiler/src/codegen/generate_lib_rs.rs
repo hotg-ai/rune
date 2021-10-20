@@ -141,6 +141,7 @@ where
     quote! {
         #[no_mangle]
         pub extern "C" fn _manifest() -> i32 {
+            let _setup = hotg_runicos_base_wasm::SetupGuard::default();
             #capabilities
             #proc_blocks
             #models
@@ -233,7 +234,10 @@ fn execute_output(
     let name = Ident::new(name, Span::call_site());
     let inputs = input_bindings(&inputs.tensors, tensor_names);
 
+    let msg = format!("Sending results to the \"{}\" output", name);
+
     quote! {
+        log::debug!(#msg);
         #name.consume(#inputs);
     }
 }
@@ -250,7 +254,10 @@ fn execute_model_or_proc_block(
     let output_types = tensor_types(&outputs.tensors, tensors);
     let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
 
+    let msg = format!("Executing \"{}\"", name);
+
     quote! {
+        log::debug!(#msg);
         let #outputs: #output_types = #name.transform(#inputs);
     }
 }
@@ -330,7 +337,12 @@ fn execute_capability(
     let output_types = tensor_types(&outputs.tensors, tensors);
     let outputs = tensor_name_or_tuple(&outputs.tensors, tensor_names);
 
-    quote! { let #outputs: #output_types = #name.generate(); }
+    let msg = format!("Reading data from \"{}\"", name);
+
+    quote! {
+        log::debug!(#msg);
+        let #outputs: #output_types = #name.generate();
+    }
 }
 
 #[derive(Debug, Default)]
@@ -1029,6 +1041,7 @@ mod tests {
         let got = execute_capability(&name, &outputs, &tensor_names, tensors);
 
         let should_be = quote! {
+            log::debug!("Reading data from \"first\"");
             let first_0: Tensor<f32> = first.generate();
         };
         assert_quote_eq!(got, should_be);
@@ -1071,6 +1084,7 @@ mod tests {
         );
 
         let should_be = quote! {
+            log::debug!("Executing \"model\"");
             let model_output: Tensor<f32> = model.transform(model_input.clone());
         };
         assert_quote_eq!(got, should_be);
@@ -1106,6 +1120,7 @@ mod tests {
         let got = execute_output(&name, &inputs, &tensor_names);
 
         let should_be = quote! {
+            log::debug!("Sending results to the \"serial\" output");
             serial.consume((first_input.clone(), second_input.clone()));
         };
         assert_quote_eq!(got, should_be);
