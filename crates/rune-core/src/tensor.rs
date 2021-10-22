@@ -114,9 +114,8 @@ impl<T> Tensor<T> {
     ///
     /// let got = tensor.slice::<1>(&[0, 1]).unwrap();
     ///
-    /// let should_be = &input[0][1];
     /// assert_eq!(got.dimensions(), [2]);
-    /// assert_eq!(got.elements(), should_be);
+    /// assert_eq!(got.elements(), &input[0][1]);
     /// ```
     pub fn slice<const RANK: usize>(
         &self,

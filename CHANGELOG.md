@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - we recommend setting `$RUST_LOG` to something like
     `debug,regalloc=warn,hotg_runicos_base_runtime=info,hotg_rune_cli=info` to
     keep the output manageable
+- Gave the `hotg_rune_core::Tensor` type a way of viewing contiguous
+  sub-sections of the tensor
 
 ## [0.9.3] - 2021-10-17
 
