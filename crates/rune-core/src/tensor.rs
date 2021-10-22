@@ -1,8 +1,8 @@
 use core::{
     convert::TryInto,
+    fmt::{self, Formatter, Display},
     iter::FromIterator,
     ops::{Index, IndexMut},
-    fmt::{self, Formatter, Display},
 };
 use alloc::{sync::Arc, vec::Vec};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -88,29 +88,139 @@ impl<T> Tensor<T> {
         Arc::get_mut(&mut self.elements)
     }
 
-    pub fn view<const RANK: usize>(&self) -> Option<TensorView<'_, T, RANK>> {
-        let dimensions = self.dimensions.as_slice().try_into().ok()?;
+    /// Try to get a contiguous sub-slice of this tensor.
+    ///
+    /// # Note
+    ///
+    /// Due to the way tensors are laid out in memory, you can only slice off
+    /// the leading dimensions.
+    ///
+    /// In order to be well-formed, this requires that
+    /// `RANK + leading_indices.len()` equals [`Tensor::rank()`], and that each
+    /// of the indices are within bounds.
+    ///
+    /// # Example
+    ///
+    /// Say you have a `[3, 4, 2]` tensor, passing in `[0, 1]` would
+    /// give you a 1D [`TensorView`] that views the 3 elements at
+    /// `[0, 1, ..]`.
+    ///
+    /// ```rs
+    /// # use hotg_rune_core::Tensor;
+    /// let input = [
+    ///     [[1, 2], [3, 4], [4, 5], [6, 7]],
+    ///     [[8, 9], [10, 11], [12, 13], [14, 15]],
+    ///     [[16, 17], [18, 19], [20, 21], [22, 23]],
+    /// ];
+    /// let tensor: Tensor<i32> = input.into();
+    ///
+    /// let got = tensor.slice::<1>(&[0, 1]).unwrap();
+    ///
+    /// let should_be = &input[0][1];
+    /// assert_eq!(got.dimensions(), [2]);
+    /// assert_eq!(got.elements(), should_be);
+    /// ```
+    pub fn slice<const RANK: usize>(
+        &self,
+        leading_indices: &[usize],
+    ) -> Option<TensorView<'_, T, RANK>> {
+        let (dimensions, range) =
+            self.slice_indices::<RANK>(leading_indices)?;
+
+        let elements = &self.elements[range];
 
         Some(TensorView {
-            elements: &self.elements,
+            elements,
             dimensions,
         })
     }
 
+    /// A mutable version of [`Tensor::slice()`].
+    pub fn slice_mut<const RANK: usize>(
+        &mut self,
+        leading_indices: &[usize],
+    ) -> Option<TensorViewMut<'_, T, RANK>>
+    where
+        T: Clone,
+    {
+        let (dimensions, range) =
+            self.slice_indices::<RANK>(leading_indices)?;
+
+        let elements = self.make_elements_mut();
+        let elements = &mut elements[range];
+
+        Some(TensorViewMut {
+            elements,
+            dimensions,
+        })
+    }
+
+    /// The index math that powers [`Tensor::slice()`] and
+    /// [`Tensor::slice_mut()`].
+    ///
+    /// Given a set of leading indices, we need to figure out which section of
+    /// [`Tensor::elements()`] is being referred and the shape of that section.
+    fn slice_indices<const RANK: usize>(
+        &self,
+        leading_indices: &[usize],
+    ) -> Option<([usize; RANK], core::ops::Range<usize>)> {
+        if leading_indices.len() >= self.dimensions.len() {
+            // The user is trying to slice off (for example) the first 5
+            // dimensions from a 3D tensor.
+            return None;
+        }
+
+        if RANK + leading_indices.len() != self.rank() {
+            // The total number of dimensions must equal the number of
+            // dimensions we are slicing off (leading_indices) plus the rank of
+            // the resulting TensorView.
+            return None;
+        }
+
+        let (front, rest) = self.dimensions.split_at(leading_indices.len());
+
+        // the leading indices must all be within bounds. So if our tensor's
+        // dimensions() returned [1, 5, 6, 3], you could pass in &[0, 0] to
+        // get all elements [0, 0, .., ..], but passing in &[5] would be out of
+        // bounds because the first dimension must be < 1.
+        if front
+            .iter()
+            .zip(leading_indices)
+            .any(|(max, value)| *value > *max)
+        {
+            return None;
+        }
+
+        let number_of_elements: usize = rest.iter().copied().product();
+        let start_index = if leading_indices.is_empty() {
+            0
+        } else {
+            index_of(front, leading_indices)
+                .expect("Should have already done bounds checks")
+        };
+
+        let range = start_index..start_index + number_of_elements;
+
+        let dimensions = rest
+            .try_into()
+            .expect("We've already checked that the ranks add up");
+
+        Some((dimensions, range))
+    }
+
+    /// Try to reinterpret this tensor as a `RANK`-D tensor.
+    pub fn view<const RANK: usize>(&self) -> Option<TensorView<'_, T, RANK>> {
+        self.slice::<RANK>(&[])
+    }
+
+    /// The mutable version of [`Tensor::view()`].
     pub fn view_mut<'a, 'this: 'a, const RANK: usize>(
         &'this mut self,
     ) -> Option<TensorViewMut<'a, T, RANK>>
     where
         T: Clone,
     {
-        let dimensions: &[usize; RANK] =
-            self.dimensions.as_slice().try_into().ok()?;
-        let dimensions = *dimensions;
-
-        Some(TensorViewMut {
-            elements: self.make_elements_mut(),
-            dimensions,
-        })
+        self.slice_mut::<RANK>(&[])
     }
 
     pub fn as_ptr_and_byte_length(&self) -> (*const u8, usize) {
@@ -654,12 +764,12 @@ mod tests {
     fn convert_from_3d_array() {
         // double-checked using numpy
         let input = [
-            [[1, 2], [3, 4], [4, 5], [6, 7]],
+            [[0, 1], [2, 3], [4, 5], [6, 7]],
             [[8, 9], [10, 11], [12, 13], [14, 15]],
             [[16, 17], [18, 19], [20, 21], [22, 23]],
         ];
         let elements_should_be = [
-            1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
             19, 20, 21, 22, 23,
         ];
 
@@ -667,5 +777,20 @@ mod tests {
 
         assert_eq!(got.dimensions(), &[3, 4, 2]);
         assert_eq!(got.elements(), elements_should_be);
+    }
+
+    #[test]
+    fn slice_off_the_first_dimension_from_a_3d_tensor() {
+        let input = [
+            [[0, 1], [2, 3], [4, 5], [6, 7]],
+            [[8, 9], [10, 11], [12, 13], [14, 15]],
+            [[16, 17], [18, 19], [20, 21], [22, 23]],
+        ];
+        let tensor: Tensor<i32> = input.into();
+
+        let got = tensor.slice::<2>(&[0]).unwrap();
+
+        assert_eq!(got.dimensions(), [4, 2]);
+        assert_eq!(got.elements(), &[0, 1, 2, 3, 4, 5, 6, 7]);
     }
 }
