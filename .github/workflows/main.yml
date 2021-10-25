@@ -51,17 +51,17 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --workspace --verbose --locked
+          args: --workspace --verbose --locked --all-features
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --workspace --verbose --locked
+          args: --workspace --verbose --locked --all-features
       - name: Unit Tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --verbose --locked
+          args: --workspace --verbose --locked --all-features
       - name: Integration Tests
         uses: actions-rs/cargo@v1
         with:
@@ -71,11 +71,6 @@ jobs:
         with:
           command: xtask
           args: check-manifests
-      - name: Use GNU Tar from Msys
-        if: ${{ runner.os == 'Windows' }}
-        run: |
-          echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          rm C:\msys64\usr\bin\bash.exe
 
   api-docs:
     name: Generate API Docs
