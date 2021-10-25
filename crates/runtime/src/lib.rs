@@ -5,6 +5,8 @@
 //! - `builtins` - enable various builtin outputs and capabilities.
 //! - `wasm3` - enable the [WASM3](https://github.com/wasm3/wasm3) runtime
 
+#![cfg_attr(feature = "unstable_doc_cfg", feature(doc_cfg))]
+
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
 
