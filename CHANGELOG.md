@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     keep the output manageable
 - Gave the `hotg_rune_core::Tensor` type a way of viewing contiguous
   sub-sections of the tensor
+- The `hotg_rune_core::Tensor` type now lets you get items by index directly
+  instead of requiring users to go through `TensorView`
 
 ## [0.9.3] - 2021-10-17
 

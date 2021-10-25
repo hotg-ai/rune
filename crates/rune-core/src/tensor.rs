@@ -106,7 +106,7 @@ impl<T> Tensor<T> {
     /// ```rust
     /// # use hotg_rune_core::Tensor;
     /// let input = [
-    ///     [[1, 2], [3, 4], [4, 5], [6, 7]],
+    ///     [[0, 1], [2, 3], [4, 5], [6, 7]],
     ///     [[8, 9], [10, 11], [12, 13], [14, 15]],
     ///     [[16, 17], [18, 19], [20, 21], [22, 23]],
     /// ];
@@ -195,6 +195,28 @@ impl<T> Tensor<T> {
 
         Tensor::new_row_major(elements.collect(), self.dimensions.clone())
     }
+
+    /// Get a reference to the element with this particular index.
+    pub fn get(&self, indices: &[usize]) -> Option<&T> {
+        let element_index = index_of(self.dimensions(), indices).ok()?;
+        #[cfg(test)]
+        println!(
+            "{:?} from {:?} => {}",
+            indices,
+            self.dimensions(),
+            element_index
+        );
+        self.elements.get(element_index)
+    }
+
+    /// Get a mutable reference to the element with this particular index.
+    pub fn get_mut(&mut self, indices: &[usize]) -> Option<&mut T>
+    where
+        T: Clone,
+    {
+        let element_index = index_of(self.dimensions(), indices).ok()?;
+        self.make_elements_mut().get_mut(element_index)
+    }
 }
 
 /// The index math that powers [`Tensor::slice()`] and
@@ -221,7 +243,7 @@ fn slice_indices<const RANK: usize>(
 
     let (front, rest) = dimensions.split_at(leading_indices.len());
 
-    // the leading indices must all be within bounds. So if our tensor's
+    // The leading indices must all be within bounds. So if our tensor's
     // dimensions() returned [1, 5, 6, 3], you could pass in &[0, 0] to
     // get all elements [0, 0, .., ..], but passing in &[5] would be out of
     // bounds because the first index must be < 1.
@@ -237,8 +259,11 @@ fn slice_indices<const RANK: usize>(
     let start_index = if leading_indices.is_empty() {
         0
     } else {
-        index_of(front, leading_indices)
-            .expect("Should have already done bounds checks")
+        let index_without_stride = index_of(front, leading_indices)
+            .expect("Should have already done bounds checks");
+        let stride: usize = rest.iter().product();
+
+        index_without_stride * stride
     };
 
     let range = start_index..start_index + number_of_elements;
@@ -267,6 +292,44 @@ impl<T: PartialEq, const N: usize> PartialEq<[T; N]> for Tensor<T> {
 impl<T> FromIterator<T> for Tensor<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         Tensor::new_vector(iter)
+    }
+}
+
+impl<T, Ix> Index<Ix> for Tensor<T>
+where
+    Ix: AsRef<[usize]>,
+{
+    type Output = T;
+
+    fn index(&self, index: Ix) -> &Self::Output {
+        let index = index.as_ref();
+
+        match self.get(index) {
+            Some(value) => value,
+            None => panic!(
+                "Tried to get item {:?} from a tensor with dimensions {:?}",
+                index,
+                self.dimensions()
+            ),
+        }
+    }
+}
+
+impl<T, Ix> IndexMut<Ix> for Tensor<T>
+where
+    Ix: AsRef<[usize]>,
+    T: Clone,
+{
+    fn index_mut(&mut self, index: Ix) -> &mut Self::Output {
+        let index = index.as_ref();
+
+        match self.get_mut(index) {
+            Some(value) => value,
+            None => panic!(
+                "Tried to get item {:?} from a tensor, but it is out of bounds",
+                index,
+            ),
+        }
     }
 }
 
@@ -364,13 +427,10 @@ fn index_of(
         return Err(IndexError::ZeroVector);
     }
 
-    assert_eq!(dimensions.len(), indices.len());
-    assert!(!indices.is_empty());
-
     let rank = dimensions.len();
-    let mut index = indices[rank - 1];
+    let mut index = 0;
 
-    for i in 0..rank - 1 {
+    for i in 0..rank {
         let ix = indices[i];
         let dim = dimensions[i];
 
@@ -382,7 +442,8 @@ fn index_of(
             });
         }
 
-        let stride = dimensions[i + 1];
+        let stride: usize = dimensions[i + 1..].iter().product();
+
         index += ix * stride;
     }
 
@@ -839,5 +900,45 @@ mod tests {
 
         assert_eq!(got.dimensions(), [4, 2]);
         assert_eq!(got.elements(), &[0, 1, 2, 3, 4, 5, 6, 7]);
+    }
+
+    #[test]
+    fn slice_off_the_first_two_dimensions_from_a_3d_tensor() {
+        let input = [
+            [[0, 1], [2, 3], [4, 5], [6, 7]],
+            [[8, 9], [10, 11], [12, 13], [14, 15]],
+            [[16, 17], [18, 19], [20, 21], [22, 23]],
+        ];
+        let tensor: Tensor<i32> = input.into();
+
+        let got = tensor.slice::<1>(&[1, 3]).unwrap();
+
+        assert_eq!(got.dimensions(), [2]);
+        assert_eq!(got.elements(), &[14, 15]);
+    }
+
+    #[test]
+    fn you_can_index_into_tensors() {
+        let tensor: Tensor<i32> = [
+            [[0, 1], [2, 3], [4, 5], [6, 7]],
+            [[8, 9], [10, 11], [12, 13], [14, 15]],
+            [[16, 17], [18, 19], [20, 21], [22, 23]],
+        ]
+        .into();
+
+        let inputs = vec![
+            ([0, 0, 0], 0),
+            ([0, 0, 1], 1),
+            ([0, 1, 0], 2),
+            ([1, 0, 0], 8),
+            ([1, 1, 1], 11),
+            ([1, 2, 0], 12),
+            ([2, 3, 1], 23),
+        ];
+
+        for (index, should_be) in inputs {
+            let got = tensor[index];
+            assert_eq!(got, should_be);
+        }
     }
 }
