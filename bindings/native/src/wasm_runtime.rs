@@ -8,12 +8,12 @@ trait WasmRuntime {
 }
 
 #[cfg(feature = "wasmer-runtime")]
-impl WasmRuntime for hotg_rune_wasmer_runtime::Runtime {
+impl WasmRuntime for hotg_rune_runtime::wasmer::Runtime {
     fn call(&mut self) -> anyhow::Result<()> { self.call() }
 }
 
 #[cfg(feature = "wasm3-runtime")]
-impl WasmRuntime for hotg_rune_wasm3_runtime::Runtime {
+impl WasmRuntime for hotg_rune_runtime::wasm3::Runtime {
     fn call(&mut self) -> anyhow::Result<()> { self.call() }
 }
 
@@ -43,7 +43,7 @@ const _: () = {
         let image: std::boxed::Box<_> = image.into();
 
         let result =
-            match hotg_rune_wasmer_runtime::Runtime::load(&*rune, *image) {
+            match hotg_rune_runtime::wasmer::Runtime::load(&*rune, *image) {
                 Ok(r) => Result::Ok(Box::new(RuntimeWrapper {
                     inner: std::boxed::Box::new(r),
                 })),
@@ -74,7 +74,7 @@ const _: () = {
         let image: std::boxed::Box<_> = image.into();
 
         let result =
-            match hotg_rune_wasm3_runtime::Runtime::load(&*rune, *image) {
+            match hotg_rune_runtime::wasm3::Runtime::load(&*rune, *image) {
                 Ok(r) => Result::Ok(Box::new(RuntimeWrapper {
                     inner: std::boxed::Box::new(r),
                 })),

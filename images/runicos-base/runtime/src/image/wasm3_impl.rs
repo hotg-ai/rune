@@ -11,9 +11,8 @@ use std::{
 };
 use anyhow::{Context, Error};
 use hotg_rune_core::{SerializableRecord, Shape, TFLITE_MIMETYPE};
-use hotg_rune_runtime::{Capability, Image, Output};
+use hotg_rune_runtime::{Capability, Image, Output, wasm3::Registrar};
 use wasm3::{CallContext, error::Trap};
-use hotg_rune_wasm3_runtime::Registrar;
 use crate::{
     CapabilityFactory, Model, ModelFactory, OutputFactory, ResourceFactory,
     image::{BaseImage, Identifiers, LogFunc},
@@ -193,7 +192,7 @@ hostfn_wrappers! {
     hostfn8: (A0, A1, A2, A3, A4, A5, A6, A7,);
 }
 
-impl<'vm> Image<hotg_rune_wasm3_runtime::Registrar<'vm>> for BaseImage {
+impl<'vm> Image<Registrar<'vm>> for BaseImage {
     fn initialize_imports(self, registrar: &mut Registrar<'vm>) {
         let BaseImage {
             capabilities,
@@ -880,7 +879,6 @@ fn runtime_error(e: Error) -> RuntimeError { RuntimeError(e) }
 #[cfg(test)]
 mod tests {
     use syn::{ForeignItem, ForeignItemFn, Item};
-    use hotg_rune_wasm3_runtime::Registrar;
     use super::*;
 
     fn extern_functions(src: &str) -> impl Iterator<Item = ForeignItemFn> {

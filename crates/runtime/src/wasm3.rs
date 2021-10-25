@@ -1,7 +1,6 @@
 use std::collections::HashSet;
-
 use anyhow::{anyhow, Error};
-use hotg_rune_runtime::Image;
+use crate::Image;
 use wasm3::{
     CallContext, Environment, Function, Module, ParsedModule, WasmArgs,
     WasmType, error::Trap,

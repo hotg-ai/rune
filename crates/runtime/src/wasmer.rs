@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use anyhow::{Context, Error};
-use hotg_rune_runtime::Image;
+use crate::Image;
 use wasmer::{Exports, Function, Instance, Module, NativeFunc, Store};
 use wasmer::ImportObject;
 

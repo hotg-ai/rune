@@ -25,3 +25,9 @@ pretty_assertions = "1"
 [features]
 default = ["derive"]
 derive = ["hotg-rune-proc-block-macros"]
+# Enable rustdoc's "This is supported on crate feature XXX only" annotations
+# (requires nightly)
+unstable_doc_cfg = []
+
+[package.metadata.docs.rs]
+all-features = true

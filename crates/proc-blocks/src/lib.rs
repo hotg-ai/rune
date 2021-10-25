@@ -1,4 +1,14 @@
+//! Common abstractions used by all Rune proc blocks.
+//!
+//! # Feature Flags
+//!
+//! This crate has the following cargo feature flags:
+//!
+//! - `derive` - re-export the `#[derive(ProcBlock)]` from the
+//!   `hotg-rune-proc-block-macros` crate
+
 #![no_std]
+#![cfg_attr(feature = "unstable_doc_cfg", feature(doc_cfg))]
 
 extern crate alloc;
 
@@ -7,11 +17,11 @@ mod descriptor;
 pub use hotg_rune_core::Tensor;
 pub use descriptor::*;
 
-/// This crate's version.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 #[cfg(feature = "derive")]
 pub use hotg_rune_proc_block_macros::ProcBlock;
+
+/// This crate's version.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Process some data, transforming it from one form to another.
 pub trait Transform<Input>: ProcBlock {

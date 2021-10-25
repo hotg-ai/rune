@@ -18,3 +18,9 @@ log = { version = "0.4.14", default-features = false, features = ["serde", "max_
 [features]
 default = []
 std = []
+# Enable rustdoc's "This is supported on crate feature XXX only" annotations
+# (requires nightly)
+unstable_doc_cfg = []
+
+[package.metadata.docs.rs]
+all-features = true
