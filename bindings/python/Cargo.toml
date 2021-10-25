@@ -25,4 +25,4 @@ harness = false
 requires-dist = ["numpy~=1.15"]
 
 [package.metadata.release]
-disable-release = true
+release = false

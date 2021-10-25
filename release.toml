@@ -1,9 +1,8 @@
 sign-commit = true
-sign-tag = true
 consolidate-commits = true
 consolidate-pushes = true
 # We'll tag manually
-disable-tag = true
+tag = false
 # If we use dev versions (e.g. "0.9.3-dev") then we won't be able to patch
 # our internal crates with a local version.
 dev-version = false
