@@ -1057,7 +1057,6 @@ dependencies = [
  "hotg-rune-compiler",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-wasmer-runtime",
  "hotg-runecoral",
  "hotg-runicos-base-runtime",
  "hound",
@@ -1138,7 +1137,6 @@ dependencies = [
  "build-info-build",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-wasmer-runtime",
  "hotg-runicos-base-runtime",
  "log",
  "paste 1.0.5",
@@ -1183,20 +1181,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "wasm3",
-]
-
-[[package]]
-name = "hotg-rune-wasmer-runtime"
-version = "0.10.0"
-dependencies = [
- "anyhow",
- "hotg-rune-core",
- "hotg-rune-runtime",
- "log",
- "tempfile",
  "wasmer",
- "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]
@@ -1218,7 +1203,6 @@ dependencies = [
  "anyhow",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-wasmer-runtime",
  "hotg-runecoral",
  "log",
  "rand 0.8.4",

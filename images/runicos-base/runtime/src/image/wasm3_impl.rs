@@ -11,9 +11,8 @@ use std::{
 };
 use anyhow::{Context, Error};
 use hotg_rune_core::{SerializableRecord, Shape, TFLITE_MIMETYPE};
-use hotg_rune_runtime::{Capability, Image, Output};
+use hotg_rune_runtime::{Capability, Image, Output, wasm3::Registrar};
 use wasm3::{CallContext, error::Trap};
-use hotg_rune_runtime::wasm3::Registrar;
 use crate::{
     CapabilityFactory, Model, ModelFactory, OutputFactory, ResourceFactory,
     image::{BaseImage, Identifiers, LogFunc},

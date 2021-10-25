@@ -9,13 +9,13 @@ use anyhow::{Context, Error};
 use hotg_rune_core::{SerializableRecord, Shape, TFLITE_MIMETYPE};
 use hotg_rune_runtime::{Capability, Image, Output};
 use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
-use hotg_rune_wasmer_runtime::Registrar;
+use hotg_rune_runtime::wasmer::Registrar;
 use crate::{
     CapabilityFactory, Model, ModelFactory, OutputFactory, ResourceFactory,
 };
 use super::{BaseImage, Identifiers, LogFunc};
 
-impl<'vm> Image<hotg_rune_wasmer_runtime::Registrar<'vm>> for BaseImage {
+impl<'vm> Image<Registrar<'vm>> for BaseImage {
     fn initialize_imports(self, registrar: &mut Registrar<'vm>) {
         let BaseImage {
             capabilities,
@@ -806,7 +806,6 @@ fn runtime_error(e: Error) -> RuntimeError {
 mod tests {
     use syn::{ForeignItem, ForeignItemFn, Item};
     use wasmer::{Export, Store};
-    use hotg_rune_wasmer_runtime::Registrar;
     use super::*;
 
     fn extern_functions(src: &str) -> impl Iterator<Item = ForeignItemFn> {

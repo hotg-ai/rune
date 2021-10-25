@@ -4,14 +4,16 @@
 //!
 //! - `builtins` - enable various builtin outputs and capabilities.
 //! - `wasm3` - enable the [WASM3](https://github.com/wasm3/wasm3) runtime
+//! - `wasmer` - enable the [wasmer](https://wasmer.io/) runtime
 
 #![cfg_attr(feature = "unstable_doc_cfg", feature(doc_cfg))]
 
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
-
 #[cfg(feature = "wasm3")]
 pub mod wasm3;
+#[cfg(feature = "wasmer")]
+pub mod wasmer;
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};

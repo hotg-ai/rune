@@ -17,7 +17,6 @@ readme = "README.md"
 anyhow = "1.0.40"
 hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.10.0", features = ["std"] }
 hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.10.0", features = ["builtins", "wasm3"] }
-hotg-rune-wasmer-runtime = { path = "../../../crates/wasmer-runtime", version = "^0.10.0", optional = true }
 hotg-runecoral = "0.3.6"
 log = "0.4.14"
 rand = "0.8.4"
@@ -28,7 +27,7 @@ wasm3 = { version = "0.3.1", optional = true }
 
 [features]
 default = ["wasmer-runtime"]
-wasmer-runtime = ["hotg-rune-wasmer-runtime", "wasmer", "wasmer-vm"]
+wasmer-runtime = ["hotg-rune-runtime/wasmer", "wasmer", "wasmer-vm"]
 wasm3-runtime = ["hotg-rune-runtime/wasm3", "wasm3"]
 
 [dev-dependencies]
