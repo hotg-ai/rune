@@ -14,9 +14,10 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hotg-rune-proc-block-macros = { path = "../proc-block-macros", version = "^0.9.2", optional = true }
-hotg-rune-core = { path = "../rune-core", version = "^0.9.2", default-features = false }
-serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }
+new-hotg-rune-proc-blocks = { version = "^0.10.0", package = "hotg-rune-proc-blocks" }
+# hotg-rune-proc-block-macros = { path = "../proc-block-macros", version = "^0.9.2", optional = true }
+# hotg-rune-core = { path = "../rune-core", version = "^0.9.2", default-features = false }
+# serde = { version = "1.0.126", default-features = false, features = ["derive", "alloc"] }
 
 [dev-dependencies]
 difference = "2.0.0"
@@ -24,4 +25,4 @@ pretty_assertions = "1"
 
 [features]
 default = ["derive"]
-derive = ["hotg-rune-proc-block-macros"]
+derive = ["new-hotg-rune-proc-blocks/derive"]

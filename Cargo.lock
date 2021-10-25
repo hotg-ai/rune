@@ -1055,7 +1055,7 @@ dependencies = [
  "dotenv",
  "env_logger 0.9.0",
  "hotg-rune-compiler",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1090,8 +1090,8 @@ dependencies = [
  "codespan-reporting",
  "env_logger 0.9.0",
  "heck",
- "hotg-rune-core",
- "hotg-rune-proc-blocks",
+ "hotg-rune-core 0.9.3",
+ "hotg-rune-proc-blocks 0.9.3",
  "indexmap",
  "indoc 1.0.3",
  "jsonschema",
@@ -1112,6 +1112,15 @@ dependencies = [
 [[package]]
 name = "hotg-rune-core"
 version = "0.9.3"
+dependencies = [
+ "hotg-rune-core 0.10.0",
+]
+
+[[package]]
+name = "hotg-rune-core"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0bbf34044fc8cf3ad8e32ad9ed20de5efc3061279603ffd6ab0d2179be70851"
 dependencies = [
  "log",
  "serde",
@@ -1137,7 +1146,7 @@ dependencies = [
  "anyhow",
  "build-info",
  "build-info-build",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1152,8 +1161,22 @@ name = "hotg-rune-proc-block-macros"
 version = "0.9.3"
 dependencies = [
  "difference",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "pretty_assertions 1.0.0",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
+name = "hotg-rune-proc-block-macros"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82d850ba80a74802d504be4c0c5b7ac0c55136783221617b06f2a3f3d84b4c46"
+dependencies = [
+ "hotg-rune-core 0.10.0",
  "proc-macro2",
  "quote",
  "serde",
@@ -1166,9 +1189,18 @@ name = "hotg-rune-proc-blocks"
 version = "0.9.3"
 dependencies = [
  "difference",
- "hotg-rune-core",
- "hotg-rune-proc-block-macros",
+ "hotg-rune-proc-blocks 0.10.0",
  "pretty_assertions 1.0.0",
+]
+
+[[package]]
+name = "hotg-rune-proc-blocks"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c92b8d2a1f35f3d231fab2d8bbf1060c64ceb3afe47d1152d3d36ca5d2c15f"
+dependencies = [
+ "hotg-rune-core 0.10.0",
+ "hotg-rune-proc-block-macros 0.10.0",
  "serde",
 ]
 
@@ -1177,7 +1209,7 @@ name = "hotg-rune-runtime"
 version = "0.9.3"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "hound",
  "image",
  "log",
@@ -1190,7 +1222,7 @@ name = "hotg-rune-wasm3-runtime"
 version = "0.9.3"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1202,7 +1234,7 @@ name = "hotg-rune-wasmer-runtime"
 version = "0.9.3"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1228,7 +1260,7 @@ name = "hotg-runicos-base-runtime"
 version = "0.9.3"
 dependencies = [
  "anyhow",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1247,7 +1279,7 @@ name = "hotg-runicos-base-wasm"
 version = "0.9.3"
 dependencies = [
  "dlmalloc",
- "hotg-rune-core",
+ "hotg-rune-core 0.9.3",
  "log",
  "serde",
  "serde-json-core",
