@@ -1,4 +1,14 @@
+//! Core types and abstractions used by the Rune ecosystem.
+//!
+//! # Feature Flags
+//!
+//! This crate has the following cargo feature flags:
+//!
+//! - `std` - enables functionality that requires the standard library
+//!   (typically implementations of `std::error::Error`)
+
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "unstable_doc_cfg", feature(doc_cfg))]
 
 #[cfg(test)]
 #[macro_use]
