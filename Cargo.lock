@@ -1057,7 +1057,6 @@ dependencies = [
  "hotg-rune-compiler",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "hotg-runecoral",
  "hotg-runicos-base-runtime",
@@ -1139,7 +1138,6 @@ dependencies = [
  "build-info-build",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "hotg-runicos-base-runtime",
  "log",
@@ -1182,18 +1180,8 @@ dependencies = [
  "image",
  "log",
  "rand 0.8.4",
- "thiserror",
-]
-
-[[package]]
-name = "hotg-rune-wasm3-runtime"
-version = "0.10.0"
-dependencies = [
- "anyhow",
- "hotg-rune-core",
- "hotg-rune-runtime",
- "log",
  "tempfile",
+ "thiserror",
  "wasm3",
 ]
 
@@ -1230,7 +1218,6 @@ dependencies = [
  "anyhow",
  "hotg-rune-core",
  "hotg-rune-runtime",
- "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
  "hotg-runecoral",
  "log",
@@ -3117,7 +3104,6 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a4e5d10bf1ffe7753275d4bbae3dc135dd2d2decd90e615accf9fef8bc52bab"
 dependencies = [
- "bindgen",
  "cc",
  "cty",
  "shlex 0.1.1",

@@ -8,7 +8,7 @@ use std::{
 use hotg_rune_runtime::Image;
 use tempfile::TempDir;
 use anyhow::Error;
-use hotg_rune_wasm3_runtime::{Registrar, Runtime};
+use hotg_rune_runtime::wasm3::{Registrar, Runtime};
 
 #[test]
 fn load_and_call_a_rune_that_does_nothing() {

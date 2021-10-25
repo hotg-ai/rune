@@ -1,5 +1,15 @@
+//! The Rune Runtime
+//!
+//! # Feature Flags
+//!
+//! - `builtins` - enable various builtin outputs and capabilities.
+//! - `wasm3` - enable the [WASM3](https://github.com/wasm3/wasm3) runtime
+
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
+
+#[cfg(feature = "wasm3")]
+pub mod wasm3;
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};

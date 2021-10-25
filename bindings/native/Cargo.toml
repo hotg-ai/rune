@@ -19,7 +19,6 @@ paste = "1.0"
 hotg-rune-core = { path = "../../crates/rune-core", version = "^0.10.0"}
 hotg-rune-runtime = { path = "../../crates/runtime", version = "^0.10.0"}
 hotg-rune-wasmer-runtime = { path = "../../crates/wasmer-runtime", version = "^0.10.0", optional = true }
-hotg-rune-wasm3-runtime = { path = "../../crates/wasm3-runtime", version = "^0.10.0", optional = true }
 hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.10.0", default-features = false }
 safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
 
@@ -29,7 +28,7 @@ build-info-build = "0.0.24"
 [features]
 c-headers = ["safer-ffi/headers"]
 wasmer-runtime = ["hotg-rune-wasmer-runtime", "hotg-runicos-base-runtime/wasmer-runtime"]
-wasm3-runtime = ["hotg-rune-wasm3-runtime", "hotg-runicos-base-runtime/wasm3-runtime"]
+wasm3-runtime = ["hotg-runicos-base-runtime/wasm3"]
 
 [package.metadata.release]
 release = false

@@ -84,7 +84,8 @@ impl Run {
         log::info!("The Rune was loaded successfully");
 
         if cfg!(target_os = "macos") {
-            let ticket = "https://github.com/tensorflow/tensorflow/issues/52300";
+            let ticket =
+                "https://github.com/tensorflow/tensorflow/issues/52300";
             log::warn!("TensorFlow Lite has a bug where its MacOS CPU backend will occasionally segfault during inference. See {} for more.", ticket);
         }
 
@@ -106,7 +107,7 @@ impl Run {
     ) -> Result<Box<dyn FnMut() -> Result<(), Error>>, Error> {
         if self.wasm3 {
             let mut runtime =
-                hotg_rune_wasm3_runtime::Runtime::load(rune, img)
+                hotg_rune_runtime::wasm3::Runtime::load(rune, img)
                     .context("Unable to initialize the virtual machine")?;
 
             Ok(Box::new(move || runtime.call()))
