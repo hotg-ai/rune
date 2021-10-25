@@ -1042,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-cli"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1055,7 +1055,7 @@ dependencies = [
  "dotenv",
  "env_logger 0.9.0",
  "hotg-rune-compiler",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1082,7 +1082,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-compiler"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "atomic_refcell",
  "cargo_toml",
@@ -1090,8 +1090,8 @@ dependencies = [
  "codespan-reporting",
  "env_logger 0.9.0",
  "heck",
- "hotg-rune-core 0.9.3",
- "hotg-rune-proc-blocks 0.9.3",
+ "hotg-rune-core 0.9.4",
+ "hotg-rune-proc-blocks 0.9.4",
  "indexmap",
  "indoc 1.0.3",
  "jsonschema",
@@ -1111,7 +1111,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-core"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "hotg-rune-core 0.10.0",
 ]
@@ -1146,7 +1146,7 @@ dependencies = [
  "anyhow",
  "build-info",
  "build-info-build",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1158,10 +1158,10 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-block-macros"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "difference",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "pretty_assertions 1.0.0",
  "proc-macro2",
  "quote",
@@ -1186,7 +1186,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-blocks"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "difference",
  "hotg-rune-proc-blocks 0.10.0",
@@ -1206,10 +1206,10 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-runtime"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "hound",
  "image",
  "log",
@@ -1219,10 +1219,10 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-wasm3-runtime"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1231,10 +1231,10 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-wasmer-runtime"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "hotg-rune-runtime",
  "log",
  "tempfile",
@@ -1257,10 +1257,10 @@ dependencies = [
 
 [[package]]
 name = "hotg-runicos-base-runtime"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "anyhow",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "hotg-rune-runtime",
  "hotg-rune-wasm3-runtime",
  "hotg-rune-wasmer-runtime",
@@ -1276,10 +1276,10 @@ dependencies = [
 
 [[package]]
 name = "hotg-runicos-base-wasm"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "dlmalloc",
- "hotg-rune-core 0.9.3",
+ "hotg-rune-core 0.9.4",
  "log",
  "serde",
  "serde-json-core",

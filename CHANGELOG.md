@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.9.4] - 2021-10-26
+
 ### Added
 
 - You will now be able to see when each step in a Rune's pipeline is started if
@@ -260,7 +262,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2021-03-21
 
 <!-- next-url -->
-[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.3...HEAD
+[Unreleased]: https://github.com/assert-rs/predicates-rs/compare/{{tag_name}}...HEAD
+[0.9.4]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.3...{{tag_name}}
 [0.9.3]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.2...hotg-rune-cli-v0.9.3
 [0.9.2]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.1...hotg-rune-cli-v0.9.2
 [0.9.1]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.0...hotg-rune-cli-v0.9.1

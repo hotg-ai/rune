@@ -1,6 +1,6 @@
 [package]
 name = "hotg-rune-compiler"
-version = "0.9.3"
+version = "0.9.4"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 edition = "2018"
 description = "Runefile parsing and analysis."
