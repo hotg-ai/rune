@@ -13,4 +13,4 @@ hotg-rune-proc-blocks = "^0.9.0"
 [workspace]
 
 [package.metadata.release]
-disable-release = true
+release = false

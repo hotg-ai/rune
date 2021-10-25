@@ -32,4 +32,4 @@ wasmer-runtime = ["hotg-rune-wasmer-runtime", "hotg-runicos-base-runtime/wasmer-
 wasm3-runtime = ["hotg-rune-wasm3-runtime", "hotg-runicos-base-runtime/wasm3-runtime"]
 
 [package.metadata.release]
-disable-release = true
+release = false

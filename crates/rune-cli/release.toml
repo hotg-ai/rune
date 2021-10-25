@@ -1,5 +1,4 @@
-disable-tag = false
-tag-message = "Released {{version}}"
+tag = false
 
 pre-release-replacements = [
   {file="../../CHANGELOG.md", search="Unreleased", replace="{{version}}"},
