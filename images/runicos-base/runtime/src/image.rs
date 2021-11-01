@@ -1,9 +1,3 @@
-#[cfg(feature = "wasm3-runtime")]
-mod wasm3_impl;
-
-#[cfg(feature = "wasmer-runtime")]
-mod wasmer_impl;
-
 use std::{
     cell::Cell,
     collections::HashMap,
@@ -20,14 +14,15 @@ use hotg_rune_runtime::{Capability, Output, common_outputs::Serial};
 
 use crate::random::Random;
 
-type LogFunc = dyn Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static;
+pub(crate) type LogFunc =
+    dyn Fn(&Record<'_>) -> Result<(), Error> + Send + Sync + 'static;
 
 pub struct BaseImage {
-    capabilities: HashMap<u32, Box<dyn CapabilityFactory>>,
-    models: HashMap<String, Box<dyn ModelFactory>>,
-    outputs: HashMap<u32, Box<dyn OutputFactory>>,
-    resources: HashMap<String, Box<dyn ResourceFactory>>,
-    log: Arc<LogFunc>,
+    pub(crate) capabilities: HashMap<u32, Box<dyn CapabilityFactory>>,
+    pub(crate) models: HashMap<String, Box<dyn ModelFactory>>,
+    pub(crate) outputs: HashMap<u32, Box<dyn OutputFactory>>,
+    pub(crate) resources: HashMap<String, Box<dyn ResourceFactory>>,
+    pub(crate) log: Arc<LogFunc>,
 }
 
 impl BaseImage {
@@ -115,10 +110,10 @@ fn default_log_function(record: &Record<'_>) -> Result<(), Error> {
 }
 
 #[derive(Debug, Default, Clone)]
-struct Identifiers(Arc<AtomicU32>);
+pub(crate) struct Identifiers(Arc<AtomicU32>);
 
 impl Identifiers {
-    fn next(&self) -> u32 { self.0.fetch_add(1, Ordering::SeqCst) }
+    pub fn next(&self) -> u32 { self.0.fetch_add(1, Ordering::SeqCst) }
 }
 
 impl Default for BaseImage {

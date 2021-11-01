@@ -30,6 +30,13 @@ default = ["wasmer-runtime", "tensorflow-lite"]
 tensorflow-lite = ["hotg-runecoral"]
 wasm3-runtime = ["hotg-rune-runtime/wasm3", "wasm3"]
 wasmer-runtime = ["hotg-rune-runtime/wasmer", "wasmer", "wasmer-vm"]
+# Enable rustdoc's "This is supported on crate feature XXX only" annotations
+# (requires nightly)
+unstable_doc_cfg = []
 
 [dev-dependencies]
 syn = { version = "1.0.73", features = ["full", "extra-traits"] }
+
+[package.metadata.docs.rs]
+default-features = false
+features = ["wasm3-runtime", "wasmer-runtime", "unstable_doc_cfg"]

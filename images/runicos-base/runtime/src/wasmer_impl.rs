@@ -2,196 +2,20 @@ use std::{
     cell::Cell,
     collections::HashMap,
     convert::TryInto,
-    fmt,
-    marker::PhantomData,
-    mem, slice,
-    str::Utf8Error,
     sync::{Arc, Mutex},
     io::Read,
 };
 use anyhow::{Context, Error};
 use hotg_rune_core::{SerializableRecord, Shape, TFLITE_MIMETYPE};
-use hotg_rune_runtime::{Capability, Image, Output, wasm3::Registrar};
-use wasm3::{CallContext, error::Trap};
+use hotg_rune_runtime::{Capability, Image, Output};
+use wasmer::{Array, Function, LazyInit, Memory, RuntimeError, ValueType, WasmPtr};
+use hotg_rune_runtime::wasmer::Registrar;
 use crate::{
     CapabilityFactory, Model, ModelFactory, OutputFactory, ResourceFactory,
     image::{BaseImage, Identifiers, LogFunc},
 };
 
-/// Extends the `wasm3::CallContext` struct with memory access helpers.
-trait CallContextExt<'cc> {
-    fn get_slice(&self, start: u32, len: u32) -> &'cc [u8];
-    unsafe fn get_mut_slice(&mut self, start: u32, len: u32) -> &'cc mut [u8];
-}
-
-impl<'cc> CallContextExt<'cc> for CallContext<'cc> {
-    fn get_slice(&self, start: u32, len: u32) -> &'cc [u8] {
-        // Safety: this module never calls WASM functions itself.
-        let memory = unsafe { &*self.memory() };
-        &memory[start as usize..][..len as usize]
-    }
-
-    unsafe fn get_mut_slice(&mut self, start: u32, len: u32) -> &'cc mut [u8] {
-        let memory = &mut *self.memory_mut();
-        &mut memory[start as usize..][..len as usize]
-    }
-}
-
-struct WasmPtr<ELEM, MODE> {
-    offset: u32,
-    _p: PhantomData<(ELEM, MODE)>,
-}
-
-impl<ELEM, MODE> fmt::Debug for WasmPtr<ELEM, MODE> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("WasmPtr")
-            .field("offset", &self.offset)
-            .finish()
-    }
-}
-
-impl<ELEM, MODE> PartialEq for WasmPtr<ELEM, MODE> {
-    fn eq(&self, other: &Self) -> bool { self.offset == other.offset }
-}
-
-impl<ELEM, MODE> Clone for WasmPtr<ELEM, MODE> {
-    fn clone(&self) -> Self { *self }
-}
-
-impl<ELEM, MODE> Copy for WasmPtr<ELEM, MODE> {}
-
-// There's no way to implement `WasmType` for user-defined types, so we'll have
-// to make due with accepting `u32` and converting that to `WasmPtr` via
-// `.into()`.
-impl<ELEM, MODE> From<u32> for WasmPtr<ELEM, MODE> {
-    fn from(offset: u32) -> Self {
-        Self {
-            offset,
-            _p: PhantomData,
-        }
-    }
-}
-
-struct Array;
-
-impl<T> WasmPtr<T, Array> {
-    fn deref<'cc>(
-        self,
-        cc: &CallContext<'cc>,
-        index: u32,
-        length: u32,
-    ) -> Option<&'cc [Cell<T>]> {
-        let elem_size = mem::size_of::<T>();
-
-        // Semantics with ZSTs are unclear, so reject this.
-        assert!(elem_size > 0, "ZST in `WasmPtr::deref`");
-
-        let start_offset = index as usize * elem_size;
-        let len_bytes = length as usize * elem_size;
-
-        let bytes = cc.get_slice(
-            (self.offset as usize)
-                .checked_add(start_offset)?
-                .try_into()
-                .ok()?,
-            len_bytes.try_into().ok()?,
-        );
-        if bytes.as_ptr() as usize % mem::align_of::<T>() != 0 {
-            // `self` was unaligned
-            return None;
-        }
-
-        Some(unsafe {
-            slice::from_raw_parts(bytes.as_ptr() as _, length as usize)
-        })
-    }
-
-    /// # Safety
-    ///
-    /// Exclusivity of the returned reference must be upheld by the caller.
-    unsafe fn deref_mut<'cc>(
-        self,
-        cc: &mut CallContext<'cc>,
-        index: u32,
-        length: u32,
-    ) -> Option<&'cc mut [Cell<T>]> {
-        let elem_size = mem::size_of::<T>();
-
-        // Semantics with ZSTs are unclear, so reject this.
-        assert!(elem_size > 0, "ZST in `WasmPtr::deref`");
-
-        let start_offset = index as usize * elem_size;
-        let len_bytes = length as usize * elem_size;
-
-        let bytes = cc.get_mut_slice(
-            (self.offset as usize)
-                .checked_add(start_offset)?
-                .try_into()
-                .ok()?,
-            len_bytes.try_into().ok()?,
-        );
-        if bytes.as_ptr() as usize % mem::align_of::<T>() != 0 {
-            // `self` was unaligned
-            return None;
-        }
-
-        Some(slice::from_raw_parts_mut(
-            bytes.as_mut_ptr() as _,
-            length as usize,
-        ))
-    }
-}
-
-impl WasmPtr<u8, Array> {
-    fn get_utf8_str<'a>(
-        self,
-        cc: &CallContext<'a>,
-        len: u32,
-    ) -> Result<&'a str, Utf8Error> {
-        let bytes = cc.get_slice(self.offset, len);
-        std::str::from_utf8(bytes)
-    }
-}
-
-struct RuntimeError(anyhow::Error);
-
-fn res(res: Result<u32, RuntimeError>) -> Result<u32, Trap> {
-    res.map_err(|e| {
-        log::error!("{:?}", e.0);
-        Trap::Abort
-    })
-}
-
-macro_rules! hostfn_wrappers {
-    (
-        $(
-            $hostfn_name:ident: ( $( $name:ident, )* );
-        )+
-    ) => {
-        $(
-            #[allow(dead_code, non_snake_case)]
-            fn $hostfn_name<Env $(, $name)*>(
-                f: fn(CallContext<'_>, &Env $(, $name)*) -> Result<u32, RuntimeError>,
-                env: Env,
-            ) -> impl FnMut(CallContext<'_>, ($($name,)*)) -> Result<u32, Trap> {
-                move |cc, ($($name,)*)| res(f(cc, &env $(, $name)*))
-            }
-        )+
-    };
-}
-
-hostfn_wrappers! {
-    hostfn0: ();
-    hostfn1: (A0,);
-    hostfn2: (A0, A1,);
-    hostfn3: (A0, A1, A2,);
-    hostfn4: (A0, A1, A2, A3,);
-    hostfn5: (A0, A1, A2, A3, A4,);
-    hostfn6: (A0, A1, A2, A3, A4, A5,);
-    hostfn7: (A0, A1, A2, A3, A4, A5, A6,);
-    hostfn8: (A0, A1, A2, A3, A4, A5, A6, A7,);
-}
-
+#[cfg(feature = "wasmer-runtime")]
 impl<'vm> Image<Registrar<'vm>> for BaseImage {
     fn initialize_imports(self, registrar: &mut Registrar<'vm>) {
         let BaseImage {
@@ -203,102 +27,164 @@ impl<'vm> Image<Registrar<'vm>> for BaseImage {
         } = self;
         let identifiers = Identifiers::default();
 
-        let log_env = LogEnv { log };
+        let log_env = LogEnv {
+            log,
+            memory: LazyInit::new(),
+        };
         let cap_env = CapabilityEnv {
             factories: Arc::new(capabilities),
             instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
         };
         let model_env = ModelEnv {
             factories: Arc::new(models),
             instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
         };
         let output_env = OutputEnv {
             factories: Arc::new(outputs),
             instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers: identifiers.clone(),
+            memory: LazyInit::new(),
         };
         let resource_env = ResourceEnv {
             factories: Arc::new(resources),
             instances: Arc::new(Mutex::new(HashMap::new())),
             identifiers,
+            memory: LazyInit::new(),
         };
 
+        let store = registrar.store();
+
         registrar
-            .register_function("env", "_debug", hostfn2(debug, log_env))
+            .register_function(
+                "env",
+                "_debug",
+                Function::new_native_with_env(store, log_env, debug),
+            )
             .register_function(
                 "env",
                 "request_capability",
-                hostfn1(request_capability, cap_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    cap_env.clone(),
+                    request_capability,
+                ),
             )
             .register_function(
                 "env",
                 "request_capability_set_param",
-                hostfn6(request_capability_set_param, cap_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    cap_env.clone(),
+                    request_capability_set_param,
+                ),
             )
             .register_function(
                 "env",
                 "request_provider_response",
-                hostfn3(request_provider_response, cap_env),
+                Function::new_native_with_env(
+                    store,
+                    cap_env,
+                    request_provider_response,
+                ),
             )
             .register_function(
                 "env",
                 "tfm_model_invoke",
-                hostfn5(tfm_model_invoke, model_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    model_env.clone(),
+                    tfm_model_invoke,
+                ),
             )
             .register_function(
                 "env",
                 "tfm_preload_model",
-                hostfn4(tfm_preload_model, model_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    model_env.clone(),
+                    tfm_preload_model,
+                ),
             )
             .register_function(
                 "env",
                 "rune_model_load",
-                hostfn8(rune_model_load, model_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    model_env.clone(),
+                    rune_model_load,
+                ),
             )
             .register_function(
                 "env",
                 "rune_model_infer",
-                hostfn3(rune_model_infer, model_env),
+                Function::new_native_with_env(
+                    store,
+                    model_env,
+                    rune_model_infer,
+                ),
             )
             .register_function(
                 "env",
                 "request_output",
-                hostfn1(request_output, output_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    output_env.clone(),
+                    request_output,
+                ),
             )
             .register_function(
                 "env",
                 "consume_output",
-                hostfn3(consume_output, output_env),
+                Function::new_native_with_env(
+                    store,
+                    output_env,
+                    consume_output,
+                ),
             )
             .register_function(
                 "env",
                 "rune_resource_open",
-                hostfn2(rune_resource_open, resource_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    resource_env.clone(),
+                    rune_resource_open,
+                ),
             )
             .register_function(
                 "env",
                 "rune_resource_read",
-                hostfn3(rune_resource_read, resource_env.clone()),
+                Function::new_native_with_env(
+                    store,
+                    resource_env.clone(),
+                    rune_resource_read,
+                ),
             )
             .register_function(
                 "env",
                 "rune_resource_close",
-                hostfn1(rune_resource_close, resource_env),
+                Function::new_native_with_env(
+                    store,
+                    resource_env,
+                    rune_resource_close,
+                ),
             );
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, wasmer::WasmerEnv)]
 struct OutputEnv {
     factories: Arc<HashMap<u32, Box<dyn OutputFactory>>>,
     instances: Arc<Mutex<HashMap<u32, Box<dyn Output>>>>,
     identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 fn request_output(
-    _cc: CallContext<'_>,
     env: &OutputEnv,
     output_type: u32,
 ) -> Result<u32, RuntimeError> {
@@ -325,22 +211,25 @@ fn request_output(
 }
 
 fn consume_output(
-    cc: CallContext<'_>,
     env: &OutputEnv,
     output_id: u32,
-    buffer: u32,
+    buffer: WasmPtr<u8, Array>,
     len: u32,
 ) -> Result<u32, RuntimeError> {
-    let buffer: WasmPtr<u8, Array> = buffer.into();
-
     let mut outputs = env.instances.lock().unwrap();
     let output = outputs
         .get_mut(&output_id)
         .with_context(|| format!("There is no output with ID {}", output_id))
         .map_err(runtime_error)?;
 
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
     let buffer = buffer
-        .deref(&cc, 0, len)
+        .deref(memory, 0, len)
         .context("Invalid input")
         .map_err(runtime_error)?;
 
@@ -358,38 +247,42 @@ fn consume_output(
     Ok(len)
 }
 
-#[derive(Clone)]
+#[derive(Clone, wasmer::WasmerEnv)]
 struct ModelEnv {
     factories: Arc<HashMap<String, Box<dyn ModelFactory>>>,
     instances: Arc<Mutex<HashMap<u32, Box<dyn Model>>>>,
     identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 fn tfm_model_invoke(
-    cc: CallContext<'_>,
     env: &ModelEnv,
     model_id: u32,
-    input: u32,
+    input: WasmPtr<u8, Array>,
     input_len: u32,
-    output: u32,
+    output: WasmPtr<u8, Array>,
     output_len: u32,
 ) -> Result<u32, RuntimeError> {
-    let input: WasmPtr<u8, Array> = input.into();
-    let output: WasmPtr<u8, Array> = output.into();
-
     let mut models = env.instances.lock().unwrap();
     let model = models
         .get_mut(&model_id)
         .with_context(|| format!("There is no model with ID {}", model_id))
         .map_err(runtime_error)?;
 
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
+
     let input = input
-        .deref(&cc, 0, input_len)
+        .deref(memory, 0, input_len)
         .context("Invalid input")
         .map_err(runtime_error)?;
 
     let output = output
-        .deref(&cc, 0, output_len)
+        .deref(memory, 0, output_len)
         .context("Invalid output")
         .map_err(runtime_error)?;
 
@@ -402,14 +295,16 @@ fn tfm_model_invoke(
 }
 
 fn rune_model_infer(
-    cc: CallContext<'_>,
     env: &ModelEnv,
     model_id: u32,
-    inputs: u32,
-    outputs: u32,
+    inputs: WasmPtr<WasmPtr<u8, Array>, Array>,
+    outputs: WasmPtr<WasmPtr<u8, Array>, Array>,
 ) -> Result<u32, RuntimeError> {
-    let inputs: WasmPtr<WasmPtr<u8, Array>, Array> = inputs.into();
-    let outputs: WasmPtr<WasmPtr<u8, Array>, Array> = outputs.into();
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
     let mut models = env.instances.lock().unwrap();
     let model = models
@@ -417,10 +312,10 @@ fn rune_model_infer(
         .with_context(|| format!("There is no model with ID {}", model_id))
         .map_err(runtime_error)?;
 
-    let inputs = vector_of_tensors(&cc, model.input_shapes(), inputs)
+    let inputs = vector_of_tensors(memory, model.input_shapes(), inputs)
         .context("Invalid inputs")
         .map_err(runtime_error)?;
-    let outputs = vector_of_tensors(&cc, model.output_shapes(), outputs)
+    let outputs = vector_of_tensors(memory, model.output_shapes(), outputs)
         .context("Invalid outputs")
         .map_err(runtime_error)?;
 
@@ -436,13 +331,13 @@ fn rune_model_infer(
     Ok(0)
 }
 
-fn vector_of_tensors<'cc>(
-    cc: &CallContext<'cc>,
+fn vector_of_tensors<'vm>(
+    memory: &'vm Memory,
     shapes: &[Shape<'_>],
     ptr: WasmPtr<WasmPtr<u8, Array>, Array>,
-) -> Result<Vec<&'cc [Cell<u8>]>, Error> {
+) -> Result<Vec<&'vm [Cell<u8>]>, Error> {
     let pointers = ptr
-        .deref(cc, 0, shapes.len() as u32)
+        .deref(memory, 0, shapes.len() as u32)
         .context("Invalid tensor array pointer")?;
 
     let mut tensors = Vec::new();
@@ -454,7 +349,7 @@ fn vector_of_tensors<'cc>(
             .size()
             .context("The element type is dynamically sized")?;
         let data = ptr
-            .deref(cc, 0, size as u32)
+            .deref(memory, 0, size as u32)
             .with_context(|| format!("Bad pointer for tensor {}", i))?;
         tensors.push(data);
     }
@@ -469,34 +364,37 @@ pub struct StringRef {
     len: u32,
 }
 
+// Safety: All bit patterns are valid and the wasmer memory will do any
+// necessary bounds checks.
+unsafe impl ValueType for StringRef {}
+
 fn rune_model_load(
-    cc: CallContext<'_>,
     env: &ModelEnv,
-    mimetype: u32,
+    mimetype: WasmPtr<u8, Array>,
     mimetype_len: u32,
-    model: u32,
+    model: WasmPtr<u8, Array>,
     model_len: u32,
-    input_descriptors: u32,
+    input_descriptors: WasmPtr<StringRef, Array>,
     input_len: u32,
-    output_descriptors: u32,
+    output_descriptors: WasmPtr<StringRef, Array>,
     output_len: u32,
 ) -> Result<u32, RuntimeError> {
-    let mimetype: WasmPtr<u8, Array> = mimetype.into();
-    let model: WasmPtr<u8, Array> = model.into();
-    let input_descriptors: WasmPtr<StringRef, Array> = input_descriptors.into();
-    let output_descriptors: WasmPtr<StringRef, Array> =
-        output_descriptors.into();
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
     // Safety: This function isn't reentrant so there are no concurrent
     // modifications. That also means it's safe to transmute [Cell<T>] to [T].
     let (mimetype, model) = unsafe {
         let mimetype = mimetype
-            .get_utf8_str(&cc, mimetype_len)
+            .get_utf8_str(memory, mimetype_len)
             .context("Invalid mimtype string")
             .map_err(runtime_error)?;
 
         let model = model
-            .deref(&cc, 0, model_len)
+            .deref(memory, 0, model_len)
             .context("Invalid model")
             .map_err(runtime_error)?;
         let model = std::slice::from_raw_parts(
@@ -519,10 +417,11 @@ fn rune_model_load(
         .map_err(runtime_error)?;
 
     let (inputs, outputs) = unsafe {
-        let inputs = shape_from_descriptors(&cc, input_descriptors, input_len)
-            .map_err(runtime_error)?;
+        let inputs =
+            shape_from_descriptors(memory, input_descriptors, input_len)
+                .map_err(runtime_error)?;
         let outputs =
-            shape_from_descriptors(&cc, output_descriptors, output_len)
+            shape_from_descriptors(memory, output_descriptors, output_len)
                 .map_err(runtime_error)?;
 
         (inputs, outputs)
@@ -540,20 +439,23 @@ fn rune_model_load(
 }
 
 fn tfm_preload_model(
-    cc: CallContext<'_>,
     env: &ModelEnv,
-    model: u32,
+    model: WasmPtr<u8, Array>,
     model_len: u32,
     _: u32,
     _: u32,
 ) -> Result<u32, RuntimeError> {
-    let model: WasmPtr<u8, Array> = model.into();
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
     // Safety: This function isn't reentrant so there are no concurrent
     // modifications. That also means it's safe to transmute [Cell<T>] to [T].
     let model = unsafe {
         let model = model
-            .deref(&cc, 0, model_len)
+            .deref(memory, 0, model_len)
             .context("Invalid model")
             .map_err(runtime_error)?;
         std::slice::from_raw_parts(model.as_ptr() as *const u8, model.len())
@@ -581,21 +483,21 @@ fn tfm_preload_model(
     Ok(id)
 }
 
-// # Safety
-unsafe fn shape_from_descriptors<'cc>(
-    cc: &CallContext<'cc>,
+/// # Safety
+unsafe fn shape_from_descriptors(
+    memory: &Memory,
     descriptors: WasmPtr<StringRef, Array>,
     len: u32,
 ) -> Result<Vec<Shape<'static>>, Error> {
     let descriptors = descriptors
-        .deref(cc, 0, len)
+        .deref(memory, 0, len)
         .context("Invalid descriptor pointer")?;
 
     let mut shapes = Vec::new();
 
     for (i, descriptor) in descriptors.iter().enumerate() {
         let StringRef { data, len } = descriptor.get();
-        let descriptor = data.get_utf8_str(cc, len).with_context(|| {
+        let descriptor = data.get_utf8_str(memory, len).with_context(|| {
             format!("The {}'th descriptor pointer is invalid", i)
         })?;
         let shape = descriptor.parse().with_context(|| {
@@ -607,15 +509,16 @@ unsafe fn shape_from_descriptors<'cc>(
     Ok(shapes)
 }
 
-#[derive(Clone)]
+#[derive(Clone, wasmer::WasmerEnv)]
 struct CapabilityEnv {
     factories: Arc<HashMap<u32, Box<dyn CapabilityFactory>>>,
     instances: Arc<Mutex<HashMap<u32, Box<dyn Capability>>>>,
     identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 fn request_capability(
-    _cc: CallContext<'_>,
     env: &CapabilityEnv,
     capability_type: u32,
 ) -> Result<u32, RuntimeError> {
@@ -655,23 +558,25 @@ fn request_capability(
 }
 
 fn request_capability_set_param(
-    cc: CallContext<'_>,
     env: &CapabilityEnv,
     capability_id: u32,
-    key_ptr: u32,
+    key_ptr: WasmPtr<u8, Array>,
     key_len: u32,
-    value_ptr: u32,
+    value_ptr: WasmPtr<u8, Array>,
     value_len: u32,
     value_type: u32,
 ) -> Result<u32, RuntimeError> {
-    let key_ptr: WasmPtr<u8, Array> = key_ptr.into();
-    let value_ptr: WasmPtr<u8, Array> = value_ptr.into();
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
     // Safety: this function isn't reentrant, so we don't need to worry about
     // concurrent mutations.
     unsafe {
         let key = key_ptr
-            .get_utf8_str(&cc, key_len)
+            .get_utf8_str(memory, key_len)
             .context("Unable to read the key")
             .map_err(runtime_error)?;
 
@@ -681,7 +586,7 @@ fn request_capability_set_param(
             .map_err(runtime_error)?;
 
         let value = value_ptr
-            .deref(&cc, 0, value_len)
+            .deref(memory, 0, value_len)
             .context("Unable to read the value")
             .map_err(runtime_error)?;
 
@@ -712,19 +617,22 @@ fn request_capability_set_param(
 }
 
 fn request_provider_response(
-    mut cc: CallContext<'_>,
     env: &CapabilityEnv,
-    buffer: u32,
+    buffer: WasmPtr<u8, Array>,
     len: u32,
     capability_id: u32,
 ) -> Result<u32, RuntimeError> {
-    let buffer: WasmPtr<u8, Array> = buffer.into();
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
     // Safety: this function isn't reentrant, so we don't need to worry about
     // concurrent mutations.
     let buffer = unsafe {
         let buffer = buffer
-            .deref_mut(&mut cc, 0, len)
+            .deref_mut(memory, 0, len)
             .context("Invalid buffer pointer")
             .map_err(runtime_error)?;
 
@@ -745,39 +653,48 @@ fn request_provider_response(
     Ok(buffer.len() as u32)
 }
 
-#[derive(Clone)]
+#[derive(Clone, wasmer::WasmerEnv)]
 struct LogEnv {
     log: Arc<LogFunc>,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 fn debug(
-    cc: CallContext<'_>,
     env: &LogEnv,
-    msg: u32,
+    msg: WasmPtr<u8, Array>,
     len: u32,
 ) -> Result<u32, RuntimeError> {
-    let msg: WasmPtr<u8, Array> = msg.into();
-
-    let message = msg
-        .get_utf8_str(&cc, len)
-        .context("Unable to read the message")
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
         .map_err(runtime_error)?;
 
-    log::debug!("Received message: {}", message);
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    unsafe {
+        let message = msg
+            .get_utf8_str(memory, len)
+            .context("Unable to read the message")
+            .map_err(runtime_error)?;
 
-    match serde_json::from_str::<SerializableRecord>(message) {
-        Ok(record) => {
-            record
-                .with_record(|r| (env.log)(r))
-                .map_err(runtime_error)?;
-        },
-        Err(e) => {
-            log::warn!(
-                "Unable to deserialize {:?} as a log message: {}",
-                message,
-                e
-            );
-        },
+        log::debug!("Received message: {}", message);
+
+        match serde_json::from_str::<SerializableRecord>(message) {
+            Ok(record) => {
+                record
+                    .with_record(|r| (env.log)(r))
+                    .map_err(runtime_error)?;
+            },
+            Err(e) => {
+                log::warn!(
+                    "Unable to deserialize {:?} as a log message: {}",
+                    message,
+                    e
+                );
+            },
+        }
     }
 
     Ok(0)
@@ -788,19 +705,28 @@ struct ResourceEnv {
     factories: Arc<HashMap<String, Box<dyn ResourceFactory>>>,
     instances: Arc<Mutex<HashMap<u32, Box<dyn Read + Send + Sync + 'static>>>>,
     identifiers: Identifiers,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 fn rune_resource_open(
-    cc: CallContext<'_>,
     env: &ResourceEnv,
-    name: u32,
+    name: WasmPtr<u8, Array>,
     len: u32,
 ) -> Result<u32, RuntimeError> {
-    let name: WasmPtr<u8, Array> = name.into();
-    let name = name
-        .get_utf8_str(&cc, len)
-        .context("Invalid buffer pointer")
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
         .map_err(runtime_error)?;
+
+    // Safety: this function isn't reentrant, so we don't need to worry about
+    // concurrent mutations.
+    let name = unsafe {
+        name.get_utf8_str(memory, len)
+            .context("Invalid buffer pointer")
+            .map_err(runtime_error)?
+    };
 
     let factory = env
         .factories
@@ -820,19 +746,22 @@ fn rune_resource_open(
 }
 
 fn rune_resource_read(
-    mut cc: CallContext<'_>,
     env: &ResourceEnv,
     id: u32,
-    buffer: u32,
+    buffer: WasmPtr<u8, Array>,
     len: u32,
 ) -> Result<u32, RuntimeError> {
-    let buffer: WasmPtr<u8, Array> = buffer.into();
+    let memory = env
+        .memory
+        .get_ref()
+        .context("The memory isn't initialized")
+        .map_err(runtime_error)?;
 
     // Safety: this function isn't reentrant, so we don't need to worry about
     // concurrent mutations.
     let buffer = unsafe {
         let buffer = buffer
-            .deref_mut(&mut cc, 0, len)
+            .deref_mut(memory, 0, len)
             .context("Invalid buffer pointer")
             .map_err(runtime_error)?;
 
@@ -856,11 +785,7 @@ fn rune_resource_read(
     Ok(bytes_read as u32)
 }
 
-fn rune_resource_close(
-    _cc: CallContext<'_>,
-    env: &ResourceEnv,
-    id: u32,
-) -> Result<u32, RuntimeError> {
+fn rune_resource_close(env: &ResourceEnv, id: u32) -> Result<(), RuntimeError> {
     let instance = env.instances.lock().unwrap().remove(&id);
 
     if instance.is_none() {
@@ -871,14 +796,17 @@ fn rune_resource_close(
         return Err(runtime_error(e));
     }
 
-    Ok(0)
+    Ok(())
 }
 
-fn runtime_error(e: Error) -> RuntimeError { RuntimeError(e) }
+fn runtime_error(e: Error) -> RuntimeError {
+    RuntimeError::from_trap(wasmer_vm::Trap::User(e.into()))
+}
 
 #[cfg(test)]
 mod tests {
     use syn::{ForeignItem, ForeignItemFn, Item};
+    use wasmer::{Export, Store};
     use super::*;
 
     fn extern_functions(src: &str) -> impl Iterator<Item = ForeignItemFn> {
@@ -900,27 +828,29 @@ mod tests {
 
     #[test]
     fn all_intrinsics_are_registered() {
-        // Unlike the wasmer-version of this test, we don't validate function
-        // signatures here
-        // However, wasm3 already does this when linking functions to a WASM
-        // program that imports them, so this should not cause subtle
-        // bugs in practice (spawning the runtime will just fail).
-
-        let intrinsics_rs = include_str!("../../../wasm/src/intrinsics.rs");
+        let store = Store::default();
+        let intrinsics_rs = include_str!("../../wasm/src/intrinsics.rs");
         let intrinsics = extern_functions(intrinsics_rs).map(|f| f.sig);
-        let mut registrar = Registrar::tracing();
+        let mut registrar = Registrar::new(&store);
 
         BaseImage::default().initialize_imports(&mut registrar);
 
-        let imports = registrar.into_trace();
+        let imports = registrar.into_import_object();
 
         for intrinsic in intrinsics {
             let name = intrinsic.ident.to_string();
+            let got = imports.get_export("env", &name).expect(&name);
 
-            assert!(
-                imports.contains(&("env".to_string(), name.clone())),
-                "wasm3 API is missing function `{}`",
-                name
+            let got = match got {
+                Export::Function(f) => f,
+                other => panic!("\"{}\" was a {:?}", name, other),
+            };
+            let host_function_signature = &got.vm_function.signature;
+            assert_eq!(
+                intrinsic.inputs.len(),
+                host_function_signature.params().len(),
+                "parameters for \"{}\" are mismatched",
+                name,
             );
         }
     }
