@@ -10,6 +10,7 @@ use std::{
     sync::Arc,
 };
 use hotg_rune_core::Shape;
+use indexmap::IndexMap;
 use legion::Entity;
 use crate::parse::{Path, ResourceType, Value};
 
@@ -50,6 +51,7 @@ impl<'a> From<&'a str> for SinkKind {
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
     pub model_file: ModelFile,
+    pub args: IndexMap<String, String>,
 }
 
 /// Where to load a model from.

@@ -1,4 +1,5 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use indexmap::IndexMap;
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
@@ -32,21 +33,25 @@ pub(crate) fn run(
         match stage {
             parse::Stage::Model(ModelStage {
                 model: ResourceOrString::Resource(r),
+                args,
                 ..
             }) => {
-                match resource_model(r, names, |ent| query.get(world, ent).ok())
-                {
+                match resource_model(r, names, args, |ent| {
+                    query.get(world, ent).ok()
+                }) {
                     Ok(model) => cmd.add_component(ent, model),
                     Err(diag) => diags.push(diag),
                 }
             },
             parse::Stage::Model(ModelStage {
                 model: ResourceOrString::String(path),
+                args,
                 ..
             }) => cmd.add_component(
                 ent,
                 Model {
                     model_file: ModelFile::FromDisk(path.into()),
+                    args: args.clone(),
                 },
             ),
             parse::Stage::ProcBlock(ProcBlockStage {
@@ -84,6 +89,7 @@ pub(crate) fn run(
 fn resource_model<'a>(
     resource_name: &parse::ResourceName,
     names: &NameTable,
+    args: &IndexMap<String, String>,
     get_resource: impl FnOnce(Entity) -> Option<&'a Resource> + 'a,
 ) -> Result<Model, Diagnostic<()>> {
     let ent = match names.get(resource_name.as_str()) {
@@ -102,6 +108,7 @@ fn resource_model<'a>(
 
     Ok(Model {
         model_file: ModelFile::Resource(ent),
+        args: args.clone(),
     })
 }
 
@@ -130,6 +137,7 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 
 #[cfg(test)]
 mod tests {
+    use indexmap::IndexMap;
     use legion::{IntoQuery, Resources, World};
     use crate::{
         BuildContext,
@@ -164,26 +172,31 @@ mod tests {
                     model: ResourceOrString::String("model.tflite".into()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_from_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$MODEL_FILE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_with_not_a_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$cap".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_with_missing_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$NON_EXISTENT".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_with_string_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$STRING_RESOURCE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 serial: Stage::Out(OutStage {
                     out: "SERIAL".to_string(),
@@ -251,6 +264,7 @@ mod tests {
                 Name::from("model_from_disk"),
                 Model {
                     model_file: ModelFile::FromDisk("model.tflite".into()),
+                    args: IndexMap::new(),
                 },
             ),
             (
@@ -262,6 +276,7 @@ mod tests {
                             .get("MODEL_FILE")
                             .unwrap(),
                     ),
+                    args: IndexMap::new(),
                 },
             ),
         ];
