@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - You can now specify a model's format by setting the `format` field under
-  `args` to one of `tflite`, `tensorflow`, or `onnx`
+  `args` to one of `tensorflow-lite`, `tensorflow`, or `onnx`
   - Note that this will just ask the runtime to load a particular model, there
     is no guarantee it will be supported
 

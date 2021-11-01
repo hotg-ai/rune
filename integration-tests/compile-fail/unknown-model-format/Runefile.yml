@@ -1,0 +1,12 @@
+version: 1
+image: runicos/base
+
+pipeline:
+  some_model:
+    model: $MODEL_FILE
+    args:
+      format: unknown-format
+
+resources:
+  MODEL_FILE:
+    type: binary
