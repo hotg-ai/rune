@@ -315,6 +315,8 @@ pub struct ModelStage {
     /// The tensors that this model outputs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub args: IndexMap<String, String>,
 }
 
 /// A stage which executes a procedural block.
@@ -1066,6 +1068,7 @@ pipeline:
                     model: "./model.tflite".into(),
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
+                    args: IndexMap::new(),
                 }),
             },
             resources: map![],

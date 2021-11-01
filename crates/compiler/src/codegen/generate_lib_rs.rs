@@ -517,7 +517,7 @@ where
     let output_descriptors: TokenStream =
         tensor_descriptors(&outputs.tensors, get_tensor);
 
-    let mimetype = "application/tflite-model";
+    let mimetype = model.format.mimetype();
 
     quote! {
         let mut #name = hotg_runicos_base_wasm::Model::load(

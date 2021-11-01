@@ -9,10 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- You can now specify a model's format by setting the `format` field under
+  `args` to one of `tensorflow-lite`, `tensorflow`, or `onnx`
+  - Note that this will just ask the runtime to load a particular model, there
+    is no guarantee it will be supported
+
 ### Changed
 
 - The `hotg-rune-wasmer-runtime` and `hotg-rune-wasm3-runtime` crates have been
   merged into `hotg-rune-runtime`
+
 ## [0.10.0] - 2021-10-25
 
 ### Added

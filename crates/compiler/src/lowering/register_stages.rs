@@ -1,9 +1,13 @@
+use std::str::FromStr;
+
 use codespan_reporting::diagnostic::{Diagnostic, Label};
+use indexmap::IndexMap;
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
     lowering::{
-        Model, ModelFile, NameTable, ProcBlock, Resource, Sink, Source,
+        Model, ModelFile, ModelFormat, NameTable, ProcBlock, Resource, Sink,
+        Source, UnknownFormatError,
     },
     parse::{
         self, CapabilityStage, DocumentV1, ModelStage, OutStage,
@@ -30,25 +34,14 @@ pub(crate) fn run(
         };
 
         match stage {
-            parse::Stage::Model(ModelStage {
-                model: ResourceOrString::Resource(r),
-                ..
-            }) => {
-                match resource_model(r, names, |ent| query.get(world, ent).ok())
-                {
+            parse::Stage::Model(ModelStage { model, args, .. }) => {
+                match register_model(names, model, args, |ent| {
+                    query.get(world, ent).ok()
+                }) {
                     Ok(model) => cmd.add_component(ent, model),
                     Err(diag) => diags.push(diag),
                 }
             },
-            parse::Stage::Model(ModelStage {
-                model: ResourceOrString::String(path),
-                ..
-            }) => cmd.add_component(
-                ent,
-                Model {
-                    model_file: ModelFile::FromDisk(path.into()),
-                },
-            ),
             parse::Stage::ProcBlock(ProcBlockStage {
                 proc_block,
                 args,
@@ -81,11 +74,51 @@ pub(crate) fn run(
     }
 }
 
+fn register_model<'a>(
+    names: &NameTable,
+    model: &ResourceOrString,
+    args: &IndexMap<String, String>,
+    get_resource: impl FnOnce(Entity) -> Option<&'a Resource> + 'a,
+) -> Result<Model, Diagnostic<()>> {
+    let (format, args) = model_format_and_args(args)?;
+
+    let model_file = match model {
+        ResourceOrString::Resource(r) => {
+            resource_model(r, names, get_resource)?
+        },
+        ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
+    };
+    Ok(Model {
+        model_file,
+        args,
+        format,
+    })
+}
+
+fn model_format_and_args(
+    args: &IndexMap<String, String>,
+) -> Result<(ModelFormat, IndexMap<String, String>), Diagnostic<()>> {
+    let mut args = args.clone();
+
+    let format = match args.remove("format") {
+        Some(f) => ModelFormat::from_str(&f)
+            .map_err(|e| unknown_format_diagnostic(&e))?,
+        None => ModelFormat::default(),
+    };
+
+    Ok((format, args))
+}
+
+fn unknown_format_diagnostic(error: &UnknownFormatError) -> Diagnostic<()> {
+    // TODO: use span information to tell the user where the error came from
+    Diagnostic::error().with_message(error.to_string())
+}
+
 fn resource_model<'a>(
     resource_name: &parse::ResourceName,
     names: &NameTable,
     get_resource: impl FnOnce(Entity) -> Option<&'a Resource> + 'a,
-) -> Result<Model, Diagnostic<()>> {
+) -> Result<ModelFile, Diagnostic<()>> {
     let ent = match names.get(resource_name.as_str()) {
         Some(&e) => e,
         None => return Err(unknown_resource_diagnostic(resource_name)),
@@ -100,9 +133,7 @@ fn resource_model<'a>(
         return Err(model_resource_should_be_binary_diagnostic(resource_name));
     }
 
-    Ok(Model {
-        model_file: ModelFile::Resource(ent),
-    })
+    Ok(ModelFile::Resource(ent))
 }
 
 fn model_resource_should_be_binary_diagnostic(
@@ -130,11 +161,12 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 
 #[cfg(test)]
 mod tests {
+    use indexmap::IndexMap;
     use legion::{IntoQuery, Resources, World};
     use crate::{
         BuildContext,
         lowering::{Name, SinkKind, SourceKind},
-        lowering,
+        lowering::{self, ModelFormat},
         parse::{ResourceDeclaration, ResourceType, Stage, Value},
         phases::Phase,
     };
@@ -164,26 +196,31 @@ mod tests {
                     model: ResourceOrString::String("model.tflite".into()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_from_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$MODEL_FILE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_with_not_a_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$cap".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_with_missing_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$NON_EXISTENT".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 model_with_string_resource: Stage::Model(ModelStage {
                     model: ResourceOrString::Resource("$STRING_RESOURCE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
+                    args: IndexMap::new(),
                 }),
                 serial: Stage::Out(OutStage {
                     out: "SERIAL".to_string(),
@@ -251,6 +288,8 @@ mod tests {
                 Name::from("model_from_disk"),
                 Model {
                     model_file: ModelFile::FromDisk("model.tflite".into()),
+                    format: ModelFormat::default(),
+                    args: IndexMap::new(),
                 },
             ),
             (
@@ -262,6 +301,8 @@ mod tests {
                             .get("MODEL_FILE")
                             .unwrap(),
                     ),
+                    format: ModelFormat::default(),
+                    args: IndexMap::new(),
                 },
             ),
         ];
