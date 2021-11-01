@@ -43,6 +43,11 @@ impl Diagnostics {
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     pub fn len(&self) -> usize { self.0.len() }
+
+    /// Remove all [`Diagnostic`]s from this set of [`Diagnostics`].
+    pub fn drain(&mut self) -> impl Iterator<Item = Diagnostic<()>> + '_ {
+        self.0.drain(..)
+    }
 }
 
 impl<'a> IntoIterator for &'a Diagnostics {
