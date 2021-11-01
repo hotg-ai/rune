@@ -1,10 +1,11 @@
 use anyhow::{Context, Error};
 use codespan_reporting::{
+    diagnostic::{Diagnostic, Severity},
     files::SimpleFile,
     term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
 };
 use hotg_rune_compiler::{
-    BuildContext, Diagnostics, Verbosity,
+    BuildContext, Verbosity,
     codegen::RuneVersion,
     compile::{CompilationResult, CompiledBinary},
     hooks::{
@@ -181,7 +182,7 @@ impl Hooks {
 
     fn check_diagnostics(
         &mut self,
-        diags: &Diagnostics,
+        diags: impl Iterator<Item = Diagnostic<()>>,
         ctx: &BuildContext,
     ) -> Continuation {
         let mut writer = StandardStream::stderr(self.color);
@@ -192,12 +193,18 @@ impl Hooks {
             &ctx.runefile,
         );
 
+        let mut errors = 0;
+
         for diag in diags {
+            if diag.severity >= Severity::Error {
+                errors += 1;
+            }
+
             match codespan_reporting::term::emit(
                 &mut writer,
                 &config,
                 &file,
-                diag,
+                &diag,
             )
             .context("Unable to print the diagnostic")
             {
@@ -209,11 +216,17 @@ impl Hooks {
             }
         }
 
-        if diags.has_errors() {
-            self.error = Some(Error::msg("There were 1 or more errors"));
-            Continuation::Halt
-        } else {
-            Continuation::Continue
+        match errors {
+            0 => Continuation::Continue,
+            1 => {
+                self.error = Some(Error::msg("There was a build error"));
+                Continuation::Halt
+            },
+            _ => {
+                self.error =
+                    Some(anyhow::anyhow!("There were {} build errors", errors));
+                Continuation::Halt
+            },
         }
     }
 }
@@ -223,25 +236,37 @@ impl hotg_rune_compiler::hooks::Hooks for Hooks {
         &mut self,
         ctx: &mut dyn AfterTypeCheckingContext,
     ) -> Continuation {
-        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+        self.check_diagnostics(
+            ctx.diagnostics_mut().drain(),
+            &ctx.build_context(),
+        )
     }
 
     fn after_parse(&mut self, ctx: &mut dyn AfterParseContext) -> Continuation {
-        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+        self.check_diagnostics(
+            ctx.diagnostics_mut().drain(),
+            &ctx.build_context(),
+        )
     }
 
     fn after_lowering(
         &mut self,
         ctx: &mut dyn AfterLoweringContext,
     ) -> Continuation {
-        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+        self.check_diagnostics(
+            ctx.diagnostics_mut().drain(),
+            &ctx.build_context(),
+        )
     }
 
     fn after_codegen(
         &mut self,
         ctx: &mut dyn AfterCodegenContext,
     ) -> Continuation {
-        self.check_diagnostics(&ctx.diagnostics(), &ctx.build_context())
+        self.check_diagnostics(
+            ctx.diagnostics_mut().drain(),
+            &ctx.build_context(),
+        )
     }
 
     fn after_compile(
