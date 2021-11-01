@@ -87,6 +87,12 @@
         "model"
       ],
       "properties": {
+        "args": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "inputs": {
           "description": "Tensors to use as input to this model.",
           "type": "array",

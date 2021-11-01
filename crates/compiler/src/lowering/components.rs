@@ -3,16 +3,20 @@
 use std::{
     borrow::Borrow,
     collections::HashMap,
+    error::Error,
     fmt::{self, Display, Formatter},
     hash::Hash,
     ops::Deref,
     path::PathBuf,
+    str::FromStr,
     sync::Arc,
 };
 use hotg_rune_core::Shape;
 use indexmap::IndexMap;
 use legion::Entity;
-use crate::parse::{Path, ResourceType, Value};
+use crate::{
+    parse::{Path, ResourceType, Value},
+};
 
 /// An output.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -51,6 +55,7 @@ impl<'a> From<&'a str> for SinkKind {
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
     pub model_file: ModelFile,
+    pub format: ModelFormat,
     pub args: IndexMap<String, String>,
 }
 
@@ -290,3 +295,51 @@ impl Deref for ModelData {
 
     fn deref(&self) -> &Self::Target { &self.0 }
 }
+
+#[derive(
+    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+)]
+#[non_exhaustive]
+pub enum ModelFormat {
+    TensorFlowLite,
+    TensorFlow,
+    ONNX,
+}
+
+impl Default for ModelFormat {
+    fn default() -> Self { ModelFormat::TensorFlowLite }
+}
+
+impl FromStr for ModelFormat {
+    type Err = UnknownFormatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "tensorflow-lite" => Ok(ModelFormat::TensorFlowLite),
+            "tensorflow" => Ok(ModelFormat::TensorFlow),
+            "onnx" => Ok(ModelFormat::ONNX),
+            other => Err(UnknownFormatError {
+                format: other.to_string(),
+                expected: &["tensorflow-lite", "tensorflow", "onnx"],
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnknownFormatError {
+    pub format: String,
+    pub expected: &'static [&'static str],
+}
+
+impl Display for UnknownFormatError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Expected the format to be one of {:?}, but found \"{}\"",
+            self.expected, self.format
+        )
+    }
+}
+
+impl Error for UnknownFormatError {}

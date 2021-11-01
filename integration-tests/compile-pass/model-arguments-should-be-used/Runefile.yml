@@ -1,0 +1,29 @@
+image: runicos/base
+version: 1
+
+pipeline:
+  input:
+    capability: RAND
+    outputs:
+      - type: i32
+        dimensions: [4]
+
+  some_model:
+    model: $MODEL
+    inputs:
+    - input
+    outputs:
+    - type: i32
+      dimensions: [4]
+    args:
+      unused_argument: asdfg
+      another_unused_argument: asd42
+
+  serial:
+    out: serial
+    inputs:
+      - input
+
+resources:
+  MODEL:
+    type: binary

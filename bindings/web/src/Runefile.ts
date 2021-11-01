@@ -84,6 +84,9 @@ export interface DocumentV1 {
  * A ML model which will be executed by the runtime.
  */
 export interface ModelStage {
+  args?: {
+    [k: string]: string;
+  };
   /**
    * Tensors to use as input to this model.
    */
