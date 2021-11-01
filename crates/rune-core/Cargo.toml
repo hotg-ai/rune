@@ -12,8 +12,8 @@ keywords = ["rune", "tinyml", "container", "machine", "learning"]
 readme = "README.md"
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 log = { version = "0.4.14", default-features = false, features = ["serde", "max_level_trace"] }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 
 [features]
 default = []
