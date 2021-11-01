@@ -38,6 +38,10 @@ pub use crate::{
 
 /// The mimetype used for a TensorFlow Lite model.
 pub const TFLITE_MIMETYPE: &str = "application/tflite-model";
+/// The mimetype used for a TensorFlow model.
+pub const TF_MIMETYPE: &str = "application/tf-model";
+/// The mimetype used for a ONNX model.
+pub const ONNX_MIMETYPE: &str = "application/onnx-model";
 
 /// The version number for this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -306,6 +306,16 @@ pub enum ModelFormat {
     ONNX,
 }
 
+impl ModelFormat {
+    pub fn mimetype(self) -> &'static str {
+        match self {
+            ModelFormat::TensorFlowLite => hotg_rune_core::TFLITE_MIMETYPE,
+            ModelFormat::TensorFlow => hotg_rune_core::TF_MIMETYPE,
+            ModelFormat::ONNX => hotg_rune_core::ONNX_MIMETYPE,
+        }
+    }
+}
+
 impl Default for ModelFormat {
     fn default() -> Self { ModelFormat::TensorFlowLite }
 }
