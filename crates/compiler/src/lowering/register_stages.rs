@@ -1,13 +1,11 @@
-use std::str::FromStr;
-
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
     lowering::{
-        Model, ModelFile, ModelFormat, NameTable, ProcBlock, Resource, Sink,
-        Source, UnknownFormatError,
+        Mimetype, Model, ModelFile, NameTable, ProcBlock, Resource, Sink,
+        Source,
     },
     parse::{
         self, CapabilityStage, DocumentV1, ModelStage, OutStage,
@@ -38,7 +36,10 @@ pub(crate) fn run(
                 match register_model(names, model, args, |ent| {
                     query.get(world, ent).ok()
                 }) {
-                    Ok(model) => cmd.add_component(ent, model),
+                    Ok((model, mimetype)) => {
+                        cmd.add_component(ent, model);
+                        cmd.add_component(ent, mimetype);
+                    },
                     Err(diag) => diags.push(diag),
                 }
             },
@@ -79,8 +80,8 @@ fn register_model<'a>(
     model: &ResourceOrString,
     args: &IndexMap<String, String>,
     get_resource: impl FnOnce(Entity) -> Option<&'a Resource> + 'a,
-) -> Result<Model, Diagnostic<()>> {
-    let (format, args) = model_format_and_args(args)?;
+) -> Result<(Model, Mimetype), Diagnostic<()>> {
+    let (mimetype, args) = model_format_and_args(args)?;
 
     let model_file = match model {
         ResourceOrString::Resource(r) => {
@@ -88,30 +89,63 @@ fn register_model<'a>(
         },
         ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
     };
-    Ok(Model {
-        model_file,
-        args,
-        format,
-    })
+    Ok((Model { model_file, args }, mimetype))
 }
 
 fn model_format_and_args(
     args: &IndexMap<String, String>,
-) -> Result<(ModelFormat, IndexMap<String, String>), Diagnostic<()>> {
+) -> Result<(Mimetype, IndexMap<String, String>), Diagnostic<()>> {
     let mut args = args.clone();
 
-    let format = match args.remove("format") {
-        Some(f) => ModelFormat::from_str(&f)
-            .map_err(|e| unknown_format_diagnostic(&e))?,
-        None => ModelFormat::default(),
+    let known_formats = [
+        ("tensorflow-lite", hotg_rune_core::TFLITE_MIMETYPE),
+        ("tensorflow", hotg_rune_core::TF_MIMETYPE),
+        ("onnx", hotg_rune_core::ONNX_MIMETYPE),
+    ];
+
+    let mimetype = match args.remove("format") {
+        Some(format) => known_formats
+            .iter()
+            .find(|(name, _)| *name == format)
+            .map(|(_, mt)| Mimetype::from(*mt))
+            .ok_or_else(|| {
+                unknown_format_diagnostic(
+                    &format,
+                    known_formats.iter().copied().map(|(f, _)| f),
+                )
+            })?,
+        None => Mimetype::default(),
     };
 
-    Ok((format, args))
+    Ok((mimetype, args))
 }
 
-fn unknown_format_diagnostic(error: &UnknownFormatError) -> Diagnostic<()> {
+fn unknown_format_diagnostic(
+    format: &str,
+    expected: impl Iterator<Item = &'static str>,
+) -> Diagnostic<()> {
     // TODO: use span information to tell the user where the error came from
-    Diagnostic::error().with_message(error.to_string())
+
+    let msg = format!(
+        "Expected the format to be one of {}, but found {:?}",
+        join(expected, ", "),
+        format
+    );
+    Diagnostic::error().with_message(msg)
+}
+
+fn join<'a>(items: impl Iterator<Item = &'a str>, separator: &str) -> String {
+    let mut buffer = String::new();
+
+    for (i, item) in items.enumerate() {
+        if i > 0 {
+            buffer.push_str(separator);
+        }
+
+        buffer.push_str(item);
+    }
+
+    buffer
 }
 
 fn resource_model<'a>(
@@ -165,8 +199,7 @@ mod tests {
     use legion::{IntoQuery, Resources, World};
     use crate::{
         BuildContext,
-        lowering::{Name, SinkKind, SourceKind},
-        lowering::{self, ModelFormat},
+        lowering::{self, Name, SinkKind, SourceKind},
         parse::{ResourceDeclaration, ResourceType, Stage, Value},
         phases::Phase,
     };
@@ -288,7 +321,6 @@ mod tests {
                 Name::from("model_from_disk"),
                 Model {
                     model_file: ModelFile::FromDisk("model.tflite".into()),
-                    format: ModelFormat::default(),
                     args: IndexMap::new(),
                 },
             ),
@@ -301,7 +333,6 @@ mod tests {
                             .get("MODEL_FILE")
                             .unwrap(),
                     ),
-                    format: ModelFormat::default(),
                     args: IndexMap::new(),
                 },
             ),

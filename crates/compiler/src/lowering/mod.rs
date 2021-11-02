@@ -45,5 +45,6 @@ pub(crate) fn register_components(registry: &mut Registry<String>) {
         .register_with_type_name::<SourceKind>()
         .register_with_type_name::<Tensor>()
         .register_with_type_name::<ResourceData>()
+        .register_with_type_name::<Mimetype>()
         .register_with_type_name::<ModelData>();
 }

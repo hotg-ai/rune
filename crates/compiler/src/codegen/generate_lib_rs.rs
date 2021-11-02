@@ -7,8 +7,8 @@ use heck::{CamelCase, SnakeCase};
 use crate::{
     codegen::{CustomSection, File},
     lowering::{
-        Inputs, Model, ModelFile, Name, Outputs, PipelineNode, ProcBlock,
-        Resource, ResourceData, Sink, SinkKind, Source, Tensor,
+        Inputs, Mimetype, Model, ModelFile, Name, Outputs, PipelineNode,
+        ProcBlock, Resource, ResourceData, Sink, SinkKind, Source, Tensor,
     },
     parse::{ResourceOrString, ResourceType, Value},
 };
@@ -24,7 +24,7 @@ pub(crate) fn run(
     cmd: &mut CommandBuffer,
     world: &SubWorld,
     sections: &mut Query<&CustomSection>,
-    models: &mut Query<(&Name, &Model, &Inputs, &Outputs)>,
+    models: &mut Query<(&Name, &Model, &Mimetype, &Inputs, &Outputs)>,
     names: &mut Query<&Name>,
     tensors: &mut Query<(Entity, &Tensor, Option<&Inputs>, Option<&Outputs>)>,
     tensor_by_ent: &mut Query<&Tensor>,
@@ -71,6 +71,7 @@ fn generate_lib_rs<'world>(
     models: &'world [(
         &'world Name,
         &'world Model,
+        &'world Mimetype,
         &'world Inputs,
         &'world Outputs,
     )],
@@ -87,7 +88,7 @@ fn generate_lib_rs<'world>(
     let custom_sections = generate_custom_sections(sections);
     let resources_module = generate_resources_module(resources);
     let models_module = generate_models_module(
-        models.iter().map(|(n, m, _, _)| (*n, *m)),
+        models.iter().map(|(n, m, ..)| (*n, *m)),
         &mut get_name,
     );
     let manifest = generate_manifest_function(
@@ -116,7 +117,7 @@ fn generate_lib_rs<'world>(
 /// our pipeline then turns it into a closure that gets stored in the
 /// `PIPELINE` static variable.
 fn generate_manifest_function<'world, F, T>(
-    models: &[(&Name, &Model, &Inputs, &Outputs)],
+    models: &[(&Name, &Model, &Mimetype, &Inputs, &Outputs)],
     capabilities: &[(&Name, &Source, &Outputs)],
     proc_blocks: &[(&Name, &ProcBlock)],
     outputs: &[(&Name, &Sink)],
@@ -133,7 +134,9 @@ where
     let proc_blocks = initialize_proc_blocks(proc_blocks);
     let models: TokenStream = models
         .iter()
-        .map(|(n, m, i, o)| initialize_model(n, m, i, o, get_name, get_tensor))
+        .map(|(n, m, mt, i, o)| {
+            initialize_model(n, m, mt, i, o, get_name, get_tensor)
+        })
         .collect();
     let outputs = initialize_outputs(outputs);
     let pipeline = execute_pipeline(pipeline_nodes, tensors);
@@ -491,6 +494,7 @@ fn sink_type_name(kind: &SinkKind) -> TokenStream {
 fn initialize_model<'world, N, T>(
     name: &Name,
     model: &Model,
+    mimetype: &Mimetype,
     inputs: &Inputs,
     outputs: &Outputs,
     get_name: &mut N,
@@ -517,7 +521,7 @@ where
     let output_descriptors: TokenStream =
         tensor_descriptors(&outputs.tensors, get_tensor);
 
-    let mimetype = model.format.mimetype();
+    let mimetype = mimetype.as_ref();
 
     quote! {
         let mut #name = hotg_runicos_base_wasm::Model::load(
