@@ -1,14 +1,12 @@
 //! The various types that make up Rune's *High-level Internal Representation*.
 
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     collections::HashMap,
-    error::Error,
     fmt::{self, Display, Formatter},
     hash::Hash,
     ops::Deref,
     path::PathBuf,
-    str::FromStr,
     sync::Arc,
 };
 use hotg_rune_core::Shape;
@@ -55,7 +53,6 @@ impl<'a> From<&'a str> for SinkKind {
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
     pub model_file: ModelFile,
-    pub format: ModelFormat,
     pub args: IndexMap<String, String>,
 }
 
@@ -296,60 +293,36 @@ impl Deref for ModelData {
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-#[derive(
-    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
-)]
-#[non_exhaustive]
-pub enum ModelFormat {
-    TensorFlowLite,
-    TensorFlow,
-    ONNX,
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Mimetype(Cow<'static, str>);
+
+impl Mimetype {
+    pub const ONNX: Mimetype =
+        Mimetype(Cow::Borrowed(hotg_rune_core::ONNX_MIMETYPE));
+    pub const TENSORFLOW: Mimetype =
+        Mimetype(Cow::Borrowed(hotg_rune_core::TF_MIMETYPE));
+    pub const TENSORFLOW_LITE: Mimetype =
+        Mimetype(Cow::Borrowed(hotg_rune_core::TFLITE_MIMETYPE));
 }
 
-impl ModelFormat {
-    pub fn mimetype(self) -> &'static str {
-        match self {
-            ModelFormat::TensorFlowLite => hotg_rune_core::TFLITE_MIMETYPE,
-            ModelFormat::TensorFlow => hotg_rune_core::TF_MIMETYPE,
-            ModelFormat::ONNX => hotg_rune_core::ONNX_MIMETYPE,
-        }
-    }
+impl Deref for Mimetype {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-impl Default for ModelFormat {
-    fn default() -> Self { ModelFormat::TensorFlowLite }
+impl Default for Mimetype {
+    fn default() -> Self { Mimetype::TENSORFLOW_LITE }
 }
 
-impl FromStr for ModelFormat {
-    type Err = UnknownFormatError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "tensorflow-lite" => Ok(ModelFormat::TensorFlowLite),
-            "tensorflow" => Ok(ModelFormat::TensorFlow),
-            "onnx" => Ok(ModelFormat::ONNX),
-            other => Err(UnknownFormatError {
-                format: other.to_string(),
-                expected: &["tensorflow-lite", "tensorflow", "onnx"],
-            }),
-        }
-    }
+impl From<&'static str> for Mimetype {
+    fn from(s: &'static str) -> Self { Mimetype(Cow::Borrowed(s)) }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnknownFormatError {
-    pub format: String,
-    pub expected: &'static [&'static str],
+impl From<String> for Mimetype {
+    fn from(s: String) -> Self { Mimetype(Cow::Owned(s)) }
 }
 
-impl Display for UnknownFormatError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Expected the format to be one of {:?}, but found \"{}\"",
-            self.expected, self.format
-        )
-    }
+impl AsRef<str> for Mimetype {
+    fn as_ref(&self) -> &str { &self.0 }
 }
-
-impl Error for UnknownFormatError {}
