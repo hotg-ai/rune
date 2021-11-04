@@ -1,5 +1,5 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import tf, { InferenceModel, Tensor } from "@tensorflow/tfjs";
+import tf, { InferenceModel, Tensor, NamedTensorMap } from "@tensorflow/tfjs";
 import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "..";
 import Shape from "../Shape";
@@ -32,12 +32,23 @@ export class TensorFlowModel implements Model {
 
     transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
         const inputs = toTensors(inputArray, inputDimensions);
-        const outputs = this.model.predict(inputs, {}) as tf.Tensor[];
+        const output = this.model.predict(inputs, {});
 
-        for (let i = 0; i <= outputArray.length; i++) {
-            const output = outputs[i];
-            const dest = outputArray[i];
-            dest.set(output.dataSync());
+        if (Array.isArray(output)) {
+            output.forEach((tensor, i) => outputArray[i].set(tensor.dataSync()));
+        } else if (output instanceof Tensor) {
+            var dest = outputArray[0];
+            var out = output.dataSync();
+            dest.set(out);
+        } else {
+            const namesToIndices: Record<string, number> = {};
+            this.model.outputs.forEach((info, i) => namesToIndices[info.name] = i);
+
+            for (const name in output) {
+                const tensor = output[name];
+                const index = namesToIndices[name];
+                outputArray[index].set(tensor.dataSync());
+            }
         }
     }
 }
