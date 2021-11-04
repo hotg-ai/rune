@@ -4,8 +4,7 @@ global.Blob = Blob;
 import child_process from "child_process";
 import path from "path";
 import fs from "fs";
-import { Runtime } from "./Runtime";
-import { Capability, Output } from ".";
+import { Runtime, Capability, Output } from "./Runtime";
 
 const decoder = new TextDecoder("utf8");
 

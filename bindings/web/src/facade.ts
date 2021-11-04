@@ -1,19 +1,17 @@
-import { Capability, Imports, Model, Output, Runtime } from ".";
+import { Tensor } from "@tensorflow/tfjs-core";
+import { Capabilities, CapabilityType } from ".";
+import { Capability, Imports, Model, Output, Runtime } from "./Runtime";
 
-const Capabilities = {
-    "rand": 1,
-    "sound": 2,
-    "accel": 3,
-    "image": 4,
-    "raw": 5,
-}
-
-type CapabilityConstructor = () => Capability;
 type ModelConstructor = (model: ArrayBuffer) => Promise<Model>;
 type Logger = (message: string) => void;
 
-export default class Builder {
-    private capabilities: Partial<Record<string, CapabilityConstructor>> = {};
+export type InputDescription = {
+    type: CapabilityType,
+    args: Partial<Record<string, number>>,
+};
+export type ReadInput = (input: InputDescription) => Tensor;
+
+export class Builder {
     private modelHandlers: Partial<Record<string, ModelConstructor>> = {};
     private log: Logger = console.log;
 
@@ -22,20 +20,6 @@ export default class Builder {
      */
     public onDebug(handler: Logger): this {
         this.log = handler;
-        return this;
-    }
-
-    /**
-     * Add support for a capability.
-     * @param cap The name of the capability type being provided.
-     * @param constructor A function that can construct a new instance of this
-     * capability.
-     * @returns
-     */
-    public withCapability<C extends keyof typeof Capabilities>(cap: C, constructor: CapabilityConstructor): this {
-        const capabilityType = Capabilities[cap];
-        this.capabilities[capabilityType] = constructor;
-
         return this;
     }
 
@@ -52,55 +36,58 @@ export default class Builder {
         return this;
     }
 
-    public async build<T = any>(rune: ArrayBuffer | string, postprocess?: (output: any) => T): Promise<() => Result<T>> {
+    public async build(rune: ArrayBuffer | string): Promise<(r: ReadInput) => Result> {
         if (typeof rune == "string") {
             const response = await fetch(rune);
             rune = await response.arrayBuffer();
         }
+        const { modelHandlers, log } = this;
 
-        const imports = new ImportsObject(this.capabilities, this.modelHandlers, this.log);
-
+        const imports = new ImportsObject(modelHandlers, log);
         const runtime = await Runtime.load(rune, imports);
 
-        return () => {
+        return readInputs => {
+            imports.setInputs(readInputs);
             runtime.call();
 
             let outputs = imports.outputs;
             imports.outputs = [];
-
-            if (postprocess) {
-                outputs = outputs.map(postprocess);
-            }
 
             return { outputs };
         };
     }
 }
 
-export type Result<T = any> = {
-    outputs: Array<OutputValue<T>>,
+export type Result = {
+    outputs: Array<OutputValue>,
 };
 
-export type OutputValue<T> = {
+export type OutputValue = {
     id: number,
-    value: T,
+    value: any,
 };
 
 class ImportsObject implements Imports {
     private decoder = new TextDecoder("utf8");
     outputs: Array<any> = [];
-    private capabilities: Partial<Record<string, CapabilityConstructor>>;
     private modelHandlers: Partial<Record<string, ModelConstructor>>;
     private logger: Logger;
+    private capabilities: LazyCapability[] = [];
 
     constructor(
-        capabilities: Partial<Record<string, CapabilityConstructor>>,
         modelHandlers: Partial<Record<string, ModelConstructor>>,
         logger: Logger,
     ) {
-        this.capabilities = capabilities;
         this.modelHandlers = modelHandlers;
         this.logger = logger;
+    }
+
+    setInputs(readInput: ReadInput) {
+        const inputs = this.capabilities.map(c => c.description()).map(readInput);
+
+        for (let i = 0; i < this.capabilities.length; i++) {
+            this.capabilities[i].value = inputs[i];
+        }
     }
 
     createOutput(type: number): Output {
@@ -120,14 +107,16 @@ class ImportsObject implements Imports {
     }
 
     createCapability(type: number): Capability {
-        const constructor = this.capabilities[type];
-
-        if (!constructor) {
-            // TODO: Convert from capability type to human-friendly name
-            throw new Error(`No support was provided for capability type ${type}`);
+        const pair = Object.entries(Capabilities).find(pair => pair[1] == type);
+        if (!pair) {
+            throw new Error(`Unable to handle capability number ${type}`);
         }
 
-        return constructor();
+        const capabilityType = pair[0];
+        const cap = new LazyCapability(capabilityType as CapabilityType);
+        this.capabilities.push(cap);
+
+        return cap;
     }
 
     createModel(mimetype: string, model: ArrayBuffer): Promise<Model> {
@@ -142,5 +131,33 @@ class ImportsObject implements Imports {
 
     log(message: string): void {
         this.logger(message);
+    }
+}
+
+class LazyCapability implements Capability {
+    type: CapabilityType;
+    value?: Tensor;
+    args: Record<string, number> = {};
+
+    constructor(type: CapabilityType) {
+        this.type = type;
+    }
+
+    description(): InputDescription {
+        return {
+            type: this.type,
+            args: this.args,
+        };
+    }
+
+    generate(dest: Uint8Array): void {
+        if (!this.value) {
+            throw new Error();
+        }
+        dest.set(this.value.dataSync());
+    }
+
+    setParameter(name: string, value: number): void {
+        this.args[name] = value;
     }
 }
