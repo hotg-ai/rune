@@ -1,15 +1,7 @@
 import { Tensor } from "@tensorflow/tfjs-core";
-import { Capability, Imports, Model, Output, Runtime } from ".";
+import { Capabilities, CapabilityType } from ".";
+import { Capability, Imports, Model, Output, Runtime } from "./Runtime";
 
-const Capabilities = {
-    "rand": 1,
-    "sound": 2,
-    "accel": 3,
-    "image": 4,
-    "raw": 5,
-}
-
-export type CapabilityType = keyof typeof Capabilities;
 type ModelConstructor = (model: ArrayBuffer) => Promise<Model>;
 type Logger = (message: string) => void;
 

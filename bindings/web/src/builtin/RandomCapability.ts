@@ -1,4 +1,4 @@
-import { Capability } from "..";
+import { Capability } from "../Runtime";
 
 export class RandomCapability implements Capability {
     setParameter(name: string, value: number): void {

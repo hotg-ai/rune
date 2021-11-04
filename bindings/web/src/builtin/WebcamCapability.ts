@@ -1,4 +1,4 @@
-import { Capability } from "..";
+import { Capability } from "../Runtime";
 
 type Properties = {
     width: number,

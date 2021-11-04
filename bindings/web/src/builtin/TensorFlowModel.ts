@@ -1,7 +1,7 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
 import tf, { InferenceModel, Tensor, NamedTensorMap } from "@tensorflow/tfjs";
 import * as LZString from "lz-string/libs/lz-string.js";
-import { Model } from "..";
+import { Model } from "../Runtime";
 import Shape from "../Shape";
 
 // Explicitly pull in the CPU backend
