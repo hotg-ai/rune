@@ -41,7 +41,14 @@ export class TensorFlowModel implements Model {
             var out = output.dataSync();
             dest.set(out);
         } else {
-            throw new Error("Inference returned something that wasn't a Tensor or a list of Tensors");
+            const namesToIndices: Record<string, number> = {};
+            this.model.outputs.forEach((info, i) => namesToIndices[info.name] = i);
+
+            for (const name in output) {
+                const tensor = output[name];
+                const index = namesToIndices[name];
+                outputArray[index].set(tensor.dataSync());
+            }
         }
     }
 }
