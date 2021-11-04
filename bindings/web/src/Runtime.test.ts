@@ -8,7 +8,7 @@ import { Runtime, Capability, Output } from "./Runtime";
 
 const decoder = new TextDecoder("utf8");
 
-describe.skip("Runtime", () => {
+describe("Runtime", () => {
     const noopRune = buildExample("noop");
 
     it("can load the noop Rune", async () => {
