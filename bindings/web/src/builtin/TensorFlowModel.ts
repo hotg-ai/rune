@@ -1,5 +1,5 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import tf, { InferenceModel, Tensor } from "@tensorflow/tfjs";
+import tf, { InferenceModel, Tensor, NamedTensorMap } from "@tensorflow/tfjs";
 import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "..";
 import Shape from "../Shape";
@@ -32,13 +32,22 @@ export class TensorFlowModel implements Model {
 
     transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
         const inputs = toTensors(inputArray, inputDimensions);
-        const outputs = this.model.predict(inputs, {}) as tf.Tensor[];
+        const output = this.model.predict(inputs, {});
 
-        for (let i = 0; i <= outputArray.length; i++) {
-            const output = outputs[i];
-            const dest = outputArray[i];
-            dest.set(output.dataSync());
-        }
+            
+            if(output.constructor.name!="Tensor") {
+                //output is a NamedTensorMap;
+                for(var i = 0;i<outputArray.length;i++) {
+                    var dest = outputArray[i];
+                    var out = (output as NamedTensorMap)[Object.keys(output)[i]].dataSync();
+                    dest.set(out);
+                }
+            } else {
+                //output is a Tensor;
+                var dest = outputArray[0];
+                var out = (output as Tensor).dataSync();
+                dest.set(out);
+            }
     }
 }
 
