@@ -35,18 +35,25 @@ export class TensorFlowModel implements Model {
         const output = this.model.predict(inputs, {});
 
             
-            if(output.constructor.name!="Tensor") {
+            if(output.constructor.name=="NamedTensorMap") {
                 //output is a NamedTensorMap;
                 for(var i = 0;i<outputArray.length;i++) {
                     var dest = outputArray[i];
                     var out = (output as NamedTensorMap)[Object.keys(output)[i]].dataSync();
                     dest.set(out);
                 }
-            } else {
+            } else if (output.constructor.name=="Tensor"){
                 //output is a Tensor;
                 var dest = outputArray[0];
                 var out = (output as Tensor).dataSync();
                 dest.set(out);
+            } else {
+                //output is a Tensor[];
+                for(var i = 0;i<outputArray.length;i++) {
+                    var dest = outputArray[i];
+                    var out = (output as Tensor[])[i].dataSync();
+                    dest.set(out);
+                }
             }
     }
 }
