@@ -34,27 +34,15 @@ export class TensorFlowModel implements Model {
         const inputs = toTensors(inputArray, inputDimensions);
         const output = this.model.predict(inputs, {});
 
-            
-            if(output.constructor.name=="NamedTensorMap") {
-                //output is a NamedTensorMap;
-                for(var i = 0;i<outputArray.length;i++) {
-                    var dest = outputArray[i];
-                    var out = (output as NamedTensorMap)[Object.keys(output)[i]].dataSync();
-                    dest.set(out);
-                }
-            } else if (output.constructor.name=="Tensor"){
-                //output is a Tensor;
-                var dest = outputArray[0];
-                var out = (output as Tensor).dataSync();
-                dest.set(out);
-            } else {
-                //output is a Tensor[];
-                for(var i = 0;i<outputArray.length;i++) {
-                    var dest = outputArray[i];
-                    var out = (output as Tensor[])[i].dataSync();
-                    dest.set(out);
-                }
-            }
+        if (Array.isArray(output)) {
+            output.forEach((tensor, i) => outputArray[i].set(tensor.dataSync()));
+        } else if (output instanceof Tensor) {
+            var dest = outputArray[0];
+            var out = output.dataSync();
+            dest.set(out);
+        } else {
+            throw new Error("Inference returned something that wasn't a Tensor or a list of Tensors");
+        }
     }
 }
 
