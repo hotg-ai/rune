@@ -19,7 +19,7 @@ export interface Imports {
     createOutput(type: number): Output;
     createCapability(type: number): Capability;
     createModel(mimetype: string, model: ArrayBuffer): Promise<Model>;
-    log(message: string): void;
+    log(message: string | StructuredLogMessage): void;
 }
 
 export interface Model {
@@ -132,8 +132,20 @@ function importsToHostFunctions(
     const env = {
         _debug(msg: number, len: number) {
             const raw = memory().subarray(msg, msg + len);
-            const message = utf8.decode(raw);
-            console.log(message);
+            const decoded = utf8.decode(raw);
+            const parsed = tryParseJSON(decoded);
+
+            function tryParseJSON(input: string): any | undefined {
+                try {
+                    return JSON.parse(input);
+                } catch {
+                    return;
+                }
+            }
+
+            const message = isStructuredLogMessage(parsed) ? parsed : decoded;
+
+            imports.log(message);
         },
 
         request_output(type: number) {
@@ -286,6 +298,24 @@ function isRuneExports(obj: any): obj is Exports {
         obj._manifest instanceof Function);
 }
 
+export function isStructuredLogMessage(obj?: any): obj is StructuredLogMessage {
+    return obj
+        && typeof obj.level == 'string'
+        && typeof obj.message == 'string'
+        && typeof obj.target == 'string'
+        && typeof obj.module_path == 'string'
+        && typeof obj.file == 'string'
+        && typeof obj.line == 'number';
+}
+
+export type StructuredLogMessage = {
+    level: string,
+    message: string,
+    target: string,
+    module_path: string,
+    file: string,
+    line: number,
+};
 
 interface TypedArray extends ArrayBuffer {
     readonly buffer: ArrayBuffer;

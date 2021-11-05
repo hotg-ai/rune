@@ -1,9 +1,9 @@
 import { Tensor } from "@tensorflow/tfjs-core";
 import { Capabilities, CapabilityType } from ".";
-import { Capability, Imports, Model, Output, Runtime } from "./Runtime";
+import { Capability, Imports, Model, Output, Runtime, StructuredLogMessage } from "./Runtime";
 
 type ModelConstructor = (model: ArrayBuffer) => Promise<Model>;
-type Logger = (message: string) => void;
+type Logger = (message: string | StructuredLogMessage) => void;
 
 export type InputDescription = {
     type: CapabilityType,
@@ -129,7 +129,7 @@ class ImportsObject implements Imports {
         return handler(model);
     }
 
-    log(message: string): void {
+    log(message: string | StructuredLogMessage): void {
         this.logger(message);
     }
 }
