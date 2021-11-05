@@ -143,9 +143,17 @@ function importsToHostFunctions(
                 }
             }
 
-            const message = isStructuredLogMessage(parsed) ? parsed : decoded;
+            if (isStructuredLogMessage(parsed)) {
+                imports.log(parsed);
 
-            imports.log(message);
+                if (parsed.level == "ERROR") {
+                    // Translate all errors inside the Rune into exceptions,
+                    // aborting execution.
+                    throw new Error(parsed.message);
+                }
+            } else {
+                imports.log(decoded);
+            }
         },
 
         request_output(type: number) {
