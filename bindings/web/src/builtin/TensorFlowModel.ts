@@ -57,7 +57,7 @@ export class TensorFlowModel implements Model {
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     const tensors = [];
 
-    for (let i = 0; i <= buffers.length; i++) {
+    for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         const shape = shapes[i];
         const arr = toTypedArray(shape.type, buffer);
