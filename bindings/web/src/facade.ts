@@ -178,7 +178,10 @@ class LazyCapability implements Capability {
         if (!this.value) {
             throw new Error();
         }
-        dest.set(this.value.dataSync());
+        const tensorData = this.value.dataSync()
+        const { buffer, byteLength, byteOffset } = tensorData;
+        const bytes = new Uint8Array(buffer.slice(byteOffset, byteOffset + byteLength));
+        dest.set(bytes);
     }
 
     setParameter(name: string, value: number): void {
