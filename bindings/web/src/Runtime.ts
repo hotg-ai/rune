@@ -1,3 +1,4 @@
+import { toTypedArray } from "./helpers";
 import Shape from "./Shape";
 
 /**
@@ -19,7 +20,7 @@ export interface Imports {
     createOutput(type: number): Output;
     createCapability(type: number): Capability;
     createModel(mimetype: string, model: ArrayBuffer): Promise<Model>;
-    log(message: string): void;
+    log(message: string | StructuredLogMessage): void;
 }
 
 export interface Model {
@@ -132,8 +133,28 @@ function importsToHostFunctions(
     const env = {
         _debug(msg: number, len: number) {
             const raw = memory().subarray(msg, msg + len);
-            const message = utf8.decode(raw);
-            console.log(message);
+            const decoded = utf8.decode(raw);
+            const parsed = tryParseJSON(decoded);
+
+            function tryParseJSON(input: string): any | undefined {
+                try {
+                    return JSON.parse(input);
+                } catch {
+                    return;
+                }
+            }
+
+            if (isStructuredLogMessage(parsed)) {
+                imports.log(parsed);
+
+                if (parsed.level == "ERROR") {
+                    // Translate all errors inside the Rune into exceptions,
+                    // aborting execution.
+                    throw new Error(parsed.message);
+                }
+            } else {
+                imports.log(decoded);
+            }
         },
 
         request_output(type: number) {
@@ -171,7 +192,8 @@ function importsToHostFunctions(
             valueType: number) {
             const keyBytes = memory().subarray(keyPtr, keyPtr + keyLength);
             const key = decoder.decode(keyBytes);
-            const value = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
+            const bytes = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
+            const value = decodeValue(valueType, bytes);
 
             const capability = capabilities[id];
 
@@ -179,9 +201,7 @@ function importsToHostFunctions(
                 throw new Error(`Tried to set "${key}" to ${value} but capability ${id} doesn't exist`);
             }
 
-            // TODO: use valueType to figure out what type of array to convert to
-            // instead of assuming Int32Array.
-            capability.setParameter(key, convertTypedArray(value, Int32Array));
+            capability.setParameter(key, value);
         },
 
         request_provider_response(buffer: number, len: number, id: number) {
@@ -286,6 +306,24 @@ function isRuneExports(obj: any): obj is Exports {
         obj._manifest instanceof Function);
 }
 
+export function isStructuredLogMessage(obj?: any): obj is StructuredLogMessage {
+    return obj
+        && typeof obj.level == 'string'
+        && typeof obj.message == 'string'
+        && typeof obj.target == 'string'
+        && typeof obj.module_path == 'string'
+        && typeof obj.file == 'string'
+        && typeof obj.line == 'number';
+}
+
+export type StructuredLogMessage = {
+    level: string,
+    message: string,
+    target: string,
+    module_path: string,
+    file: string,
+    line: number,
+};
 
 interface TypedArray extends ArrayBuffer {
     readonly buffer: ArrayBuffer;
@@ -303,3 +341,26 @@ function convertTypedArray<T>(src: TypedArray, constructor: any): T {
 function deprecated(feature: string, version: string) {
     throw new Error(`This runtime no longer supports Runes using "${feature}". Please rebuild with Rune ${version}`);
 }
+
+function decodeValue(valueType: number, bytes: Uint8Array): number {
+    switch (valueType) {
+        case 1:
+            const i32s = toTypedArray("i32", bytes);
+            return i32s[0];
+        case 2:
+            const f32s = toTypedArray("f32", bytes);
+            return f32s[0];
+        case 5:
+            return bytes[0];
+        case 6:
+            const i16s = toTypedArray("i16", bytes);
+            return i16s[0];
+        case 7:
+            const i8s = toTypedArray("i8", bytes);
+            return i8s[0];
+
+        default:
+            throw new Error(`Unknown value type, ${valueType}, with binary representation, ${bytes}`);
+    }
+}
+

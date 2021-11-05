@@ -1,9 +1,9 @@
 import { Tensor } from "@tensorflow/tfjs-core";
 import { Capabilities, CapabilityType } from ".";
-import { Capability, Imports, Model, Output, Runtime } from "./Runtime";
+import { Capability, Imports, Model, Output, Runtime, StructuredLogMessage } from "./Runtime";
 
 type ModelConstructor = (model: ArrayBuffer) => Promise<Model>;
-type Logger = (message: string) => void;
+type Logger = (message: string | StructuredLogMessage) => void;
 
 export type InputDescription = {
     type: CapabilityType,
@@ -13,7 +13,7 @@ export type ReadInput = (input: InputDescription) => Tensor;
 
 export class Builder {
     private modelHandlers: Partial<Record<string, ModelConstructor>> = {};
-    private log: Logger = console.log;
+    private log: Logger = () => { };
 
     /**
      * Set a handler that will be called every time the Rune logs a message.
@@ -44,14 +44,29 @@ export class Builder {
         const { modelHandlers, log } = this;
 
         const imports = new ImportsObject(modelHandlers, log);
-        const runtime = await Runtime.load(rune, imports);
+        let runtime: Runtime | undefined = await Runtime.load(rune, imports);
 
         return readInputs => {
-            imports.setInputs(readInputs);
-            runtime.call();
+            if (!runtime) {
+                throw new Error("A previous call to this Rune has failed, leaving it in an invalid state");
+            }
 
-            let outputs = imports.outputs;
-            imports.outputs = [];
+            imports.setInputs(readInputs);
+
+            try {
+                runtime.call();
+            } catch (e) {
+                // We encountered an error while invoking the Rune, typically by
+                // throwing an exception from one of our host functions.  JS
+                // exceptions abort execution without unwinding the
+                // WebAssembly/Rust stack so we need to assume the runtime is
+                // FUBAR.
+                runtime = undefined;
+                throw e;
+            }
+
+            let outputs = [...imports.outputs];
+            imports.outputs.length = 0;
 
             return { outputs };
         };
@@ -62,10 +77,14 @@ export type Result = {
     outputs: Array<OutputValue>,
 };
 
-export type OutputValue = {
-    id: number,
-    value: any,
-};
+export type TensorResult = {
+    channel: number,
+    dimensions: number[],
+    elements: number[],
+    type_name: string,
+}
+
+export type OutputValue = TensorResult | string | any;
 
 class ImportsObject implements Imports {
     private decoder = new TextDecoder("utf8");
@@ -101,7 +120,12 @@ class ImportsObject implements Imports {
         return {
             consume(data: Uint8Array) {
                 const json = decoder.decode(data);
-                outputs.push(json);
+
+                try {
+                    outputs.push(JSON.parse(json));
+                } catch {
+                    outputs.push(json);
+                }
             }
         }
     }
@@ -129,7 +153,7 @@ class ImportsObject implements Imports {
         return handler(model);
     }
 
-    log(message: string): void {
+    log(message: string | StructuredLogMessage): void {
         this.logger(message);
     }
 }
@@ -154,7 +178,10 @@ class LazyCapability implements Capability {
         if (!this.value) {
             throw new Error();
         }
-        dest.set(this.value.dataSync());
+        const tensorData = this.value.dataSync()
+        const { buffer, byteLength, byteOffset } = tensorData;
+        const bytes = new Uint8Array(buffer.slice(byteOffset, byteOffset + byteLength));
+        dest.set(bytes);
     }
 
     setParameter(name: string, value: number): void {

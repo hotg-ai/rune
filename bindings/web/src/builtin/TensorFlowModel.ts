@@ -1,11 +1,13 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import tf, { InferenceModel, Tensor, NamedTensorMap } from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs";
+import { InferenceModel, Tensor } from "@tensorflow/tfjs-core";
 import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
 
 // Explicitly pull in the CPU backend
 import '@tensorflow/tfjs-backend-cpu';
+import { toTypedArray } from "../helpers";
 
 export class TensorFlowModel implements Model {
     private model: InferenceModel;
@@ -56,7 +58,7 @@ export class TensorFlowModel implements Model {
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     const tensors = [];
 
-    for (let i = 0; i <= buffers.length; i++) {
+    for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         const shape = shapes[i];
         const arr = toTypedArray(shape.type, buffer);
@@ -66,32 +68,6 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     return tensors;
 }
 
-function toTypedArray(typeName: string, data: ArrayBuffer): any {
-    switch (typeName) {
-        case "f64":
-            return new Float64Array(data);
-        case "f32":
-            return new Float32Array(data);
-        case "i64":
-            return new BigInt64Array(data);
-        case "i32":
-            return new Int32Array(data);
-        case "i16":
-            return new Int16Array(data);
-        case "i8":
-            return new Int16Array(data);
-        case "u64":
-            return new BigUint64Array(data);
-        case "u32":
-            return new Uint32Array(data);
-        case "u16":
-            return new Uint16Array(data);
-        case "u8":
-            return new Uint8Array(data);
-        default:
-            throw new Error(`Unknown tensor type: ${typeName}`);
-    }
-}
 
 async function modelToIndexedDB(model_bytes: string) {
     var data = JSON.parse(LZString.decompressFromUTF16(model_bytes)!);

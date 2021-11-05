@@ -1,3 +1,5 @@
+export { InputDescription, OutputValue, ReadInput, Result } from "./facade";
+
 import { Builder } from "./facade";
 import { TensorFlowModel, TensorFlowLiteMimeType } from "./builtin";
 
