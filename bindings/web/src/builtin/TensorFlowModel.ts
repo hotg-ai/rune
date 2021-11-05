@@ -67,28 +67,31 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     return tensors;
 }
 
-function toTypedArray(typeName: string, data: ArrayBuffer): any {
+function toTypedArray(typeName: string, data: Uint8Array): any {
+    let { buffer, byteOffset, byteLength } = data;
+    const bytes = buffer.slice(byteOffset, byteOffset + byteLength);
+
     switch (typeName) {
         case "f64":
-            return new Float64Array(data);
+            return new Float64Array(bytes);
         case "f32":
-            return new Float32Array(data);
+            return new Float32Array(bytes);
         case "i64":
-            return new BigInt64Array(data);
+            return new BigInt64Array(bytes);
         case "i32":
-            return new Int32Array(data);
+            return new Int32Array(bytes);
         case "i16":
-            return new Int16Array(data);
+            return new Int16Array(bytes);
         case "i8":
-            return new Int16Array(data);
+            return new Int16Array(bytes);
         case "u64":
-            return new BigUint64Array(data);
+            return new BigUint64Array(bytes);
         case "u32":
-            return new Uint32Array(data);
+            return new Uint32Array(bytes);
         case "u16":
-            return new Uint16Array(data);
+            return new Uint16Array(bytes);
         case "u8":
-            return new Uint8Array(data);
+            return new Uint8Array(bytes);
         default:
             throw new Error(`Unknown tensor type: ${typeName}`);
     }
