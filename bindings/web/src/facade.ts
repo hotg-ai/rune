@@ -44,11 +44,26 @@ export class Builder {
         const { modelHandlers, log } = this;
 
         const imports = new ImportsObject(modelHandlers, log);
-        const runtime = await Runtime.load(rune, imports);
+        let runtime: Runtime | undefined = await Runtime.load(rune, imports);
 
         return readInputs => {
+            if (!runtime) {
+                throw new Error("A previous call to this Rune has failed, leaving it in an invalid state");
+            }
+
             imports.setInputs(readInputs);
-            runtime.call();
+
+            try {
+                runtime.call();
+            } catch (e) {
+                // We encountered an error while invoking the Rune, typically by
+                // throwing an exception from one of our host functions.  JS
+                // exceptions abort execution without unwinding the
+                // WebAssembly/Rust stack so we need to assume the runtime is
+                // FUBAR.
+                runtime = undefined;
+                throw e;
+            }
 
             let outputs = imports.outputs;
             imports.outputs = [];
