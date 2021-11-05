@@ -1,5 +1,6 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import tf, { InferenceModel, Tensor, NamedTensorMap } from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs";
+import { InferenceModel, Tensor } from "@tensorflow/tfjs-core";
 import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
