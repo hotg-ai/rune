@@ -77,10 +77,14 @@ export type Result = {
     outputs: Array<OutputValue>,
 };
 
-export type OutputValue = {
-    id: number,
-    value: any,
-};
+export type TensorResult = {
+    channel: number,
+    dimensions: number[],
+    elements: number[],
+    type_name: string,
+}
+
+export type OutputValue = TensorResult | string | any;
 
 class ImportsObject implements Imports {
     private decoder = new TextDecoder("utf8");
