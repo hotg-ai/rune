@@ -1,3 +1,4 @@
+import { toTypedArray } from "./helpers";
 import Shape from "./Shape";
 
 /**
@@ -191,7 +192,8 @@ function importsToHostFunctions(
             valueType: number) {
             const keyBytes = memory().subarray(keyPtr, keyPtr + keyLength);
             const key = decoder.decode(keyBytes);
-            const value = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
+            const bytes = memory().subarray(valuePtr, valuePtr + valueLength).slice(0);
+            const value = decodeValue(valueType, bytes);
 
             const capability = capabilities[id];
 
@@ -199,9 +201,7 @@ function importsToHostFunctions(
                 throw new Error(`Tried to set "${key}" to ${value} but capability ${id} doesn't exist`);
             }
 
-            // TODO: use valueType to figure out what type of array to convert to
-            // instead of assuming Int32Array.
-            capability.setParameter(key, convertTypedArray(value, Int32Array));
+            capability.setParameter(key, value);
         },
 
         request_provider_response(buffer: number, len: number, id: number) {
@@ -341,3 +341,26 @@ function convertTypedArray<T>(src: TypedArray, constructor: any): T {
 function deprecated(feature: string, version: string) {
     throw new Error(`This runtime no longer supports Runes using "${feature}". Please rebuild with Rune ${version}`);
 }
+
+function decodeValue(valueType: number, bytes: Uint8Array): number {
+    switch (valueType) {
+        case 1:
+            const i32s = toTypedArray("i32", bytes);
+            return i32s[0];
+        case 2:
+            const f32s = toTypedArray("f32", bytes);
+            return f32s[0];
+        case 5:
+            return bytes[0];
+        case 6:
+            const i16s = toTypedArray("i16", bytes);
+            return i16s[0];
+        case 7:
+            const i8s = toTypedArray("i8", bytes);
+            return i8s[0];
+
+        default:
+            throw new Error(`Unknown value type, ${valueType}, with binary representation, ${bytes}`);
+    }
+}
+

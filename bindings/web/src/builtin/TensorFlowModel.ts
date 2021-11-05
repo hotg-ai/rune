@@ -7,6 +7,7 @@ import Shape from "../Shape";
 
 // Explicitly pull in the CPU backend
 import '@tensorflow/tfjs-backend-cpu';
+import { toTypedArray } from "../helpers";
 
 export class TensorFlowModel implements Model {
     private model: InferenceModel;
@@ -67,35 +68,6 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     return tensors;
 }
 
-function toTypedArray(typeName: string, data: Uint8Array): any {
-    let { buffer, byteOffset, byteLength } = data;
-    const bytes = buffer.slice(byteOffset, byteOffset + byteLength);
-
-    switch (typeName) {
-        case "f64":
-            return new Float64Array(bytes);
-        case "f32":
-            return new Float32Array(bytes);
-        case "i64":
-            return new BigInt64Array(bytes);
-        case "i32":
-            return new Int32Array(bytes);
-        case "i16":
-            return new Int16Array(bytes);
-        case "i8":
-            return new Int16Array(bytes);
-        case "u64":
-            return new BigUint64Array(bytes);
-        case "u32":
-            return new Uint32Array(bytes);
-        case "u16":
-            return new Uint16Array(bytes);
-        case "u8":
-            return new Uint8Array(bytes);
-        default:
-            throw new Error(`Unknown tensor type: ${typeName}`);
-    }
-}
 
 async function modelToIndexedDB(model_bytes: string) {
     var data = JSON.parse(LZString.decompressFromUTF16(model_bytes)!);
