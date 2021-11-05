@@ -13,7 +13,7 @@ export type ReadInput = (input: InputDescription) => Tensor;
 
 export class Builder {
     private modelHandlers: Partial<Record<string, ModelConstructor>> = {};
-    private log: Logger = console.log;
+    private log: Logger = () => { };
 
     /**
      * Set a handler that will be called every time the Rune logs a message.
@@ -65,8 +65,8 @@ export class Builder {
                 throw e;
             }
 
-            let outputs = imports.outputs;
-            imports.outputs = [];
+            let outputs = [...imports.outputs];
+            imports.outputs.length = 0;
 
             return { outputs };
         };
@@ -116,7 +116,12 @@ class ImportsObject implements Imports {
         return {
             consume(data: Uint8Array) {
                 const json = decoder.decode(data);
-                outputs.push(json);
+
+                try {
+                    outputs.push(JSON.parse(json));
+                } catch {
+                    outputs.push(json);
+                }
             }
         }
     }
