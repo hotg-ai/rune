@@ -4,12 +4,12 @@ use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use crate::{
     Diagnostics,
     lowering::{
-        Mimetype, Model, ModelFile, NameTable, ProcBlock, Resource, Sink,
+        self, Mimetype, Model, ModelFile, NameTable, ProcBlock, Resource, Sink,
         Source,
     },
     parse::{
         self, CapabilityStage, DocumentV1, ModelStage, OutStage,
-        ProcBlockStage, ResourceName, ResourceOrString, ResourceType,
+        ProcBlockStage, ResourceName, ResourceType,
     },
 };
 
@@ -30,12 +30,19 @@ pub(crate) fn run(
             Some(&e) => e,
             None => continue,
         };
+        let mut get_resource_by_name = |name: &str| names.get(name);
+
+        let args = match translate_args(stage.args()) {
+            Ok(a) => a,
+            Err(diag) => {
+                diags.push(diag);
+                continue;
+            },
+        };
 
         match stage {
-            parse::Stage::Model(ModelStage { model, args, .. }) => {
-                match register_model(names, model, args, |ent| {
-                    query.get(world, ent).ok()
-                }) {
+            parse::Stage::Model(ModelStage { model, .. }) => {
+                match register_model(names, model, &args) {
                     Ok((model, mimetype)) => {
                         cmd.add_component(ent, model);
                         cmd.add_component(ent, mimetype);
@@ -43,11 +50,7 @@ pub(crate) fn run(
                     Err(diag) => diags.push(diag),
                 }
             },
-            parse::Stage::ProcBlock(ProcBlockStage {
-                proc_block,
-                args,
-                ..
-            }) => {
+            parse::Stage::ProcBlock(ProcBlockStage { proc_block, .. }) => {
                 if proc_block.version.is_none() {
                     let diag = warn_on_unversioned_proc_block_diagnostic(
                         name, proc_block,
@@ -59,19 +62,17 @@ pub(crate) fn run(
                     ent,
                     ProcBlock {
                         path: proc_block.clone(),
-                        parameters: args.clone().into_iter().collect(),
+                        parameters: args,
                     },
                 )
             },
             parse::Stage::Capability(CapabilityStage {
-                capability,
-                args,
-                ..
+                capability, ..
             }) => cmd.add_component(
                 ent,
                 Source {
                     kind: capability.as_str().into(),
-                    parameters: args.clone().into_iter().collect(),
+                    parameters: args,
                 },
             ),
             parse::Stage::Out(OutStage { out, .. }) => cmd.add_component(
@@ -105,26 +106,34 @@ fn warn_on_unversioned_proc_block_diagnostic(
         )])
 }
 
+fn translate_args(
+    args: &IndexMap<String, parse::ResourceOrString>,
+) -> Result<IndexMap<String, lowering::ResourceOrString>, Diagnostic<()>> {
+    todo!()
+}
+
 fn register_model<'a>(
     names: &NameTable,
-    model: &ResourceOrString,
-    args: &IndexMap<String, String>,
-    get_resource: impl FnOnce(Entity) -> Option<&'a Resource> + 'a,
+    model: &parse::ResourceOrString,
+    args: &IndexMap<String, lowering::ResourceOrString>,
 ) -> Result<(Model, Mimetype), Diagnostic<()>> {
     let (mimetype, args) = model_format_and_args(args)?;
 
     let model_file = match model {
-        ResourceOrString::Resource(r) => {
+        lowering::ResourceOrString::Resource(r) => {
             resource_model(r, names, get_resource)?
         },
-        ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
+        lowering::ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
     };
     Ok((Model { model_file, args }, mimetype))
 }
 
 fn model_format_and_args(
-    args: &IndexMap<String, String>,
-) -> Result<(Mimetype, IndexMap<String, String>), Diagnostic<()>> {
+    args: &IndexMap<String, lowering::ResourceOrString>,
+) -> Result<
+    (Mimetype, IndexMap<String, lowering::ResourceOrString>),
+    Diagnostic<()>,
+> {
     let mut args = args.clone();
 
     let known_formats = [
@@ -135,7 +144,7 @@ fn model_format_and_args(
     ];
 
     let mimetype = match args.remove("format") {
-        Some(format) => known_formats
+        Some(parse::ResourceOrString::String(format)) => known_formats
             .iter()
             .find(|(name, _)| *name == format)
             .map(|(_, mt)| Mimetype::from(*mt))
@@ -145,6 +154,7 @@ fn model_format_and_args(
                     known_formats.iter().copied().map(|(f, _)| f),
                 )
             })?,
+        Some(parse::ResourceOrString::Resource(name)) => todo!(),
         None => Mimetype::default(),
     };
 
@@ -231,7 +241,7 @@ mod tests {
     use crate::{
         BuildContext,
         lowering::{self, Name, SinkKind, SourceKind},
-        parse::{ResourceDeclaration, ResourceType, Stage, Value},
+        parse::{ResourceDeclaration, ResourceType, Stage},
         phases::Phase,
     };
     use super::*;
@@ -244,44 +254,44 @@ mod tests {
                 cap: Stage::Capability(CapabilityStage {
                     capability: "SOUND".to_string(),
                     args: map! {
-                        hz: Value::from(128),
+                        hz: "128".into(),
                     },
                     outputs: Vec::new(),
                 }),
                 transform: Stage::ProcBlock(ProcBlockStage {
                     proc_block: "my-proc-block".parse().unwrap(),
                     args: map! {
-                        some_arg: Value::from("asdf"),
+                        some_arg: "asdf".into(),
                     },
                     inputs: Vec::new(),
                     outputs: Vec::new(),
                 }),
                 model_from_disk: Stage::Model(ModelStage {
-                    model: ResourceOrString::String("model.tflite".into()),
+                    model: parse::ResourceOrString::String("model.tflite".into()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
                     args: IndexMap::new(),
                 }),
                 model_from_resource: Stage::Model(ModelStage {
-                    model: ResourceOrString::Resource("$MODEL_FILE".parse().unwrap()),
+                    model: parse::ResourceOrString::Resource("$MODEL_FILE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
                     args: IndexMap::new(),
                 }),
                 model_with_not_a_resource: Stage::Model(ModelStage {
-                    model: ResourceOrString::Resource("$cap".parse().unwrap()),
+                    model: parse::ResourceOrString::Resource("$cap".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
                     args: IndexMap::new(),
                 }),
                 model_with_missing_resource: Stage::Model(ModelStage {
-                    model: ResourceOrString::Resource("$NON_EXISTENT".parse().unwrap()),
+                    model: parse::ResourceOrString::Resource("$NON_EXISTENT".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
                     args: IndexMap::new(),
                 }),
                 model_with_string_resource: Stage::Model(ModelStage {
-                    model: ResourceOrString::Resource("$STRING_RESOURCE".parse().unwrap()),
+                    model: parse::ResourceOrString::Resource("$STRING_RESOURCE".parse().unwrap()),
                     inputs: Vec::new(),
                     outputs: Vec::new(),
                     args: IndexMap::new(),
@@ -340,7 +350,7 @@ mod tests {
             ProcBlock {
                 path: "my-proc-block".parse().unwrap(),
                 parameters: map! {
-                    some_arg: Value::from("asdf"),
+                    some_arg: "asdf".into(),
                 },
             },
         )];
@@ -382,7 +392,7 @@ mod tests {
             Source {
                 kind: SourceKind::Sound,
                 parameters: map! {
-                    hz: Value::from(128),
+                    hz: "128".into(),
                 },
             },
         )];

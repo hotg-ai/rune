@@ -316,7 +316,7 @@ pub struct ModelStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, String>,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// A stage which executes a procedural block.
@@ -338,7 +338,7 @@ pub struct ProcBlockStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, Value>,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// A stage which reads inputs from the runtime.
@@ -357,7 +357,7 @@ pub struct CapabilityStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, Value>,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// A stage which passes outputs back to the runtime.
@@ -376,7 +376,7 @@ pub struct OutStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, Value>,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// A stage in the Rune's pipeline.
@@ -430,6 +430,15 @@ impl Stage {
     pub fn span(&self) -> Span {
         // TODO: Get span from serde_yaml
         Span::default()
+    }
+
+    pub fn args(&self) -> &IndexMap<String, ResourceOrString> {
+        match self {
+            Stage::Model(m) => &m.args,
+            Stage::ProcBlock(p) => &p.args,
+            Stage::Capability(c) => &c.args,
+            Stage::Out(out) => &out.args,
+        }
     }
 }
 
@@ -502,48 +511,6 @@ pub struct Type {
     pub name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dimensions: Vec<usize>,
-}
-
-/// A value that may be used as a stage's argument.
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
-)]
-#[serde(rename_all = "kebab-case", untagged)]
-pub enum Value {
-    Int(i32),
-    Float(f32),
-    #[schemars(with = "String")]
-    String(ResourceOrString),
-    List(Vec<Value>),
-}
-
-impl From<f32> for Value {
-    fn from(f: f32) -> Value { Value::Float(f) }
-}
-
-impl From<i32> for Value {
-    fn from(i: i32) -> Value { Value::Int(i) }
-}
-
-impl From<String> for Value {
-    fn from(s: String) -> Value { Value::String(s.into()) }
-}
-
-impl<'a> From<&'a str> for Value {
-    fn from(s: &'a str) -> Value { Value::String(s.into()) }
-}
-
-impl From<ResourceName> for Value {
-    fn from(name: ResourceName) -> Value { Value::String(name.into()) }
-}
-
-impl From<Vec<Value>> for Value {
-    fn from(list: Vec<Value>) -> Value { Value::List(list) }
 }
 
 /// The name of a tensor.
@@ -974,7 +941,7 @@ mod tests {
             }],
             args: vec![(
                 "word-list".to_string(),
-                Value::from(ResourceName::from_str("$WORD_LIST").unwrap()),
+                ResourceName::from_str("$WORD_LIST").unwrap().into(),
             )]
             .into_iter()
             .collect(),
@@ -1024,7 +991,13 @@ pipeline:
     outputs:
     - type: utf8
     args:
-      labels: ["silence", "unknown", "up", "down", "left", "right"]
+      labels: |
+        silence
+        unknown
+        up
+        down
+        left
+        right
 
   output:
     out: SERIAL
@@ -1038,7 +1011,7 @@ pipeline:
                 audio: Stage::Capability(CapabilityStage {
                     capability: String::from("SOUND"),
                     outputs: vec![ty!(i16[16000])],
-                    args: map! { hz: Value::Int(16000) },
+                    args: map! { hz: "16000".into() },
                 }),
                 output: Stage::Out(OutStage {
                     out: String::from("SERIAL"),
@@ -1050,14 +1023,7 @@ pipeline:
                     inputs: vec!["model".parse().unwrap()],
                     outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
                     args: map! {
-                        labels: Value::from(vec![
-                            Value::from("silence"),
-                            Value::from("unknown"),
-                            Value::from("up"),
-                            Value::from("down"),
-                            Value::from("left"),
-                            Value::from("right"),
-                        ]),
+                        labels: "silence\nunknown\nup\ndown\nleft\nright\n".into()
                     },
                 }),
                 fft: Stage::ProcBlock(ProcBlockStage {
@@ -1097,34 +1063,12 @@ pipeline:
                 name: String::from("i16"),
                 dimensions: vec![16000],
             }],
-            args: map! { hz: Value::Int(16000) },
+            args: map! { hz: "16000".into() },
         });
 
         let got: Stage = serde_yaml::from_str(src).unwrap();
 
         assert_eq!(got, should_be);
-    }
-
-    #[test]
-    fn parse_values() {
-        let inputs = vec![
-            ("42", Value::Int(42)),
-            ("1.4", Value::Float(1.4)),
-            ("\"42\"", Value::String("42".into())),
-            (
-                "[1, 2.0, \"asdf\"]",
-                Value::List(vec![
-                    Value::Int(1),
-                    Value::Float(2.0),
-                    Value::String("asdf".into()),
-                ]),
-            ),
-        ];
-
-        for (src, should_be) in inputs {
-            let got: Value = serde_yaml::from_str(src).unwrap();
-            assert_eq!(got, should_be);
-        }
     }
 
     #[test]

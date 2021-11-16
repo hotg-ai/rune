@@ -10,8 +10,8 @@ use crate::{
         ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
     },
     lowering::{
-        Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource, Sink,
-        Source, Tensor,
+        self, Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource,
+        Sink, Source, Tensor,
     },
     parse::{ResourceName, ResourceOrString},
 };
@@ -59,7 +59,14 @@ pub(crate) fn run(
             .collect(),
         proc_blocks: proc_blocks
             .iter(world)
-            .map(|(n, p, i, o)| proc_block_summary(n, p, i, o, &canon))
+            .map(|(n, p, i, o)| {
+                proc_block_summary(n, p, i, o, &canon, |ent| {
+                    resources
+                        .get(world, ent)
+                        .map(|(name, _)| ResourceName(name.to_string()))
+                        .unwrap()
+                })
+            })
             .collect(),
         outputs: outputs
             .iter(world)
@@ -144,10 +151,25 @@ fn proc_block_summary(
     inputs: &Inputs,
     outputs: &Outputs,
     get_tensor: &Canon,
+    mut resources: impl FnMut(Entity) -> ResourceName,
 ) -> (Name, ProcBlockSummary) {
     let summary = ProcBlockSummary {
         path: proc_block.path.clone(),
-        args: proc_block.parameters.clone(),
+        args: proc_block
+            .parameters
+            .iter()
+            .map(|(key, value)| {
+                let value = match value {
+                    lowering::ResourceOrString::String(s) => {
+                        ResourceOrString::String(s.clone())
+                    },
+                    lowering::ResourceOrString::Resource(ent) => {
+                        ResourceOrString::Resource(resources(*ent))
+                    },
+                };
+                (key.clone(), value)
+            })
+            .collect(),
         inputs: tensor_shapes(&inputs.tensors, get_tensor),
         outputs: tensor_shapes(&outputs.tensors, get_tensor),
     };
