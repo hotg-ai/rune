@@ -6,13 +6,20 @@ on:
       - master
   pull_request:
 
+env:
+  SCCACHE_VERSION: v0.2.15
+  SCCACHE_CACHE_SIZE: 40G
+  # SCCACHE_BUCKET: ${{ secrets.SCCACHE_BUCKET }}
+  # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
 jobs:
   check:
     name: Compile and Test
     strategy:
       matrix:
         os:
-          - ubuntu-18.04
+          - [Linux, self-hosted]
           - macos-latest
           # Note: we need to use pre-compiled TensorFlow Lite binaries on
           # Windows, so ignore the Windows build for now
@@ -20,14 +27,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            python/target
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
@@ -41,12 +40,28 @@ jobs:
       - uses: actions/setup-python@v2
         if: runner.os == 'macOS'
         with:
-          python-version: "3.6"
-      - name: Install Build Dependencies
-        run: |
-          pip install numpy
+          python-version: "3.6.x"
+      - name: Install Numpy
+        run: pip3 install numpy
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
       - name: Setup Rust
         run: rustup show
+      - name: Install sccache
+        uses: actions-rs/install@v0.1
+        with:
+          crate: sccache
+      - name: Clear Sccache Stats
+        run: sccache --zero-stats
+      - name: Override RUSTC_WRAPPER
+        run: echo "RUSTC_WRAPPER=$(command -v sccache)" >> $GITHUB_ENV
+      - name: Install bindgen
+        uses: actions-rs/install@v0.1
+        with:
+          crate: bindgen
       - name: Type Check
         uses: actions-rs/cargo@v1
         with:
@@ -71,6 +86,8 @@ jobs:
         with:
           command: xtask
           args: check-manifests
+      - name: Print Sccache Stats
+        run: sccache --show-stats
 
   api-docs:
     name: Generate API Docs
@@ -95,6 +112,12 @@ jobs:
         if: runner.os == 'macOS'
       - name: Setup Rust
         run: rustup show
+      - name: Install sccache
+        uses: actions-rs/install@v0.1
+        with:
+          crate: sccache
+      - name: Override RUSTC_WRAPPER
+        run: echo "RUSTC_WRAPPER=$(command -v sccache)" >> $GITHUB_ENV
       - name: Generate API Docs
         id: first_try
         uses: actions-rs/cargo@v1
