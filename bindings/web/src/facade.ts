@@ -1,5 +1,5 @@
 import { Tensor } from "@tensorflow/tfjs-core";
-import { Capabilities, CapabilityType } from ".";
+import { Capabilities, CapabilityType, Outputs } from ".";
 import { Capability, Imports, Model, Output, Runtime, StructuredLogMessage } from "./Runtime";
 
 type ModelConstructor = (model: ArrayBuffer) => Promise<Model>;
@@ -79,21 +79,19 @@ export class Builder {
 }
 
 export type Result = {
-    outputs: Array<OutputValue>,
+    outputs: OutputValue[],
 };
 
-export type TensorResult = {
+export type OutputValue = {
     channel: number,
     dimensions: number[],
-    elements: number[],
+    elements: string[] | number[],
     type_name: string,
 }
 
-export type OutputValue = TensorResult | string | any;
-
 class ImportsObject implements Imports {
     private decoder = new TextDecoder("utf8");
-    outputs: Array<any> = [];
+    outputs: Array<OutputValue> = [];
     private modelHandlers: Partial<Record<string, ModelConstructor>>;
     private logger: Logger;
     private capabilities: LazyCapability[] = [];
@@ -115,6 +113,10 @@ class ImportsObject implements Imports {
     }
 
     createOutput(type: number): Output {
+        if (type != Outputs.serial) {
+            throw new Error(`Unsupported output type: ${type}`);
+        }
+
         const { decoder, outputs } = this;
 
         // We want the end user to receive all outputs as a return value, but
@@ -125,11 +127,12 @@ class ImportsObject implements Imports {
         return {
             consume(data: Uint8Array) {
                 const json = decoder.decode(data);
+                const deserialized = JSON.parse(json);
 
-                try {
-                    outputs.push(JSON.parse(json));
-                } catch {
-                    outputs.push(json);
+                if (isOutputValue(deserialized)) {
+                    outputs.push(deserialized);
+                } else {
+                    throw new Error();
                 }
             }
         }
@@ -161,6 +164,27 @@ class ImportsObject implements Imports {
     log(message: string | StructuredLogMessage): void {
         this.logger(message);
     }
+}
+
+function isNumberArray(value: any): value is number[] {
+    return Array.isArray(value) && value.every(v => typeof v === "number");
+}
+
+function isStringArray(value: any): value is string[] {
+    return Array.isArray(value) && value.every(v => typeof v === "string");
+}
+
+function isOutputValue(value?: any): value is OutputValue {
+    if (!value) {
+        return false;
+    }
+
+    const { channel, dimensions, elements, type_name } = value;
+
+    return typeof channel === "number" &&
+        isNumberArray(dimensions) &&
+        (isNumberArray(elements) || isStringArray(elements)) &&
+        typeof type_name === "string";
 }
 
 class LazyCapability implements Capability {

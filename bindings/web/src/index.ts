@@ -11,6 +11,10 @@ export const Capabilities = {
     "raw": 5,
 } as const;
 
+export const Outputs = {
+    "serial": 1,
+} as const;
+
 export type CapabilityType = keyof typeof Capabilities;
 
 /**
