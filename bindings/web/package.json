@@ -12,7 +12,7 @@
     "dist/**"
   ],
   "scripts": {
-    "prepublish": "tsc",
+    "prepare": "tsc",
     "build": "tsc",
     "watch": "tsc --watch",
     "watch:test": "jest --watch",
