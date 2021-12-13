@@ -9,7 +9,12 @@ export type InputDescription = {
     type: CapabilityType,
     args: Partial<Record<string, number>>,
 };
-export type ReadInput = (input: InputDescription) => Tensor;
+
+/**
+ * A function that returns the desired input, either as a tensor or the raw
+ * byte buffer.
+ */
+export type ReadInput = (input: InputDescription) => Tensor | Uint8Array;
 
 export class Builder {
     private modelHandlers: Partial<Record<string, ModelConstructor>> = {};
@@ -160,7 +165,7 @@ class ImportsObject implements Imports {
 
 class LazyCapability implements Capability {
     type: CapabilityType;
-    value?: Tensor;
+    value?: Tensor | Uint8Array;
     args: Record<string, number> = {};
 
     constructor(type: CapabilityType) {
@@ -178,9 +183,11 @@ class LazyCapability implements Capability {
         if (!this.value) {
             throw new Error();
         }
-        const tensorData = this.value.dataSync()
+
+        const tensorData = this.value instanceof Uint8Array ? this.value : this.value.dataSync();
         const { buffer, byteLength, byteOffset } = tensorData;
         const bytes = new Uint8Array(buffer.slice(byteOffset, byteOffset + byteLength));
+
         dest.set(bytes);
     }
 
