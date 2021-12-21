@@ -155,8 +155,10 @@ class ImportsObject implements Imports {
 
                 if (isOutputValue(deserialized)) {
                     outputs.push(deserialized);
+                } else if (Array.isArray(deserialized) && deserialized.every(isOutputValue)) {
+                    outputs.push(...deserialized);
                 } else {
-                    throw new Error();
+                    throw new SerialDeserializeError(json, deserialized);
                 }
             }
         }
@@ -241,5 +243,16 @@ class LazyCapability implements Capability {
 
     setParameter(name: string, value: number): void {
         this.args[name] = value;
+    }
+}
+
+class SerialDeserializeError extends Error {
+    readonly json: string;
+    readonly deserialized?: any;
+
+    constructor(json: string, deserialized: any | undefined) {
+        super("Unable to deserialize the SERIAL output");
+        this.json = json;
+        this.deserialized = deserialized;
     }
 }
