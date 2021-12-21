@@ -1,4 +1,4 @@
- to the Rune Project
+ # Contributing to the Rune Project
 
 ## Getting Started
 
@@ -59,7 +59,7 @@ already several `rune_XXX` crates on crates.io so we've had to add an
 *additional* `hotg_` prefix to indicate the crates are related to Hammer of the
 Gods (see [hotg-ai/rune#222][issue-222] for more).
 
-## Where Code Runes
+## Where Code Runs
 
 Our crate structure is complicated by the fact that there are **three**
 environments that the Rune project's code will run in, with considerable
@@ -300,6 +300,9 @@ The full process:
 4. Create a **signed** tag pointing to this commit with an appropriate tag name
    (e.g. `v0.9.0`)
 5. Push the new commits and tag up to GitHub
+
+Once the main package has been released, make sure to bump the version numbers
+for any bindings and publish them to their respective package.
 
 ### Nightly Releases
 

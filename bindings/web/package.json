@@ -1,23 +1,27 @@
 {
   "name": "@hotg-ai/rune",
-  "version": "0.6.4",
+  "version": "0.10.0",
   "description": "Execute Runes inside a JavaScript environment.",
   "repository": "https://github.com/hotg-ai/rune",
+  "homepage": "https://hotg.dev/",
   "author": "The Rune Developers <developers@hotg.ai>",
   "license": "MIT OR Apache-2.0",
-  "private": false,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist/**"
-  ],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "private": true,
   "scripts": {
-    "prepare": "tsc",
     "build": "tsc",
     "watch": "tsc --watch",
     "watch:test": "jest --watch",
     "test": "jest",
+    "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json",
     "generate-runefile-types": "json2ts ../../crates/compiler/runefile-schema.json --output src/Runefile.ts"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^3.11.0",
+    "@tensorflow/tfjs-core": "^3.11.0",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.7",
+    "lz-string": "^1.4.4"
   },
   "devDependencies": {
     "@types/jest": "^27.0.0",
@@ -26,11 +30,5 @@
     "json-schema-to-typescript": "^10.1.5",
     "ts-jest": "^27.0.4",
     "typescript": "^4.3.5"
-  },
-  "dependencies": {
-    "@tensorflow/tfjs": "^3.11.0",
-    "@tensorflow/tfjs-core": "^3.11.0",
-    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.7",
-    "lz-string": "^1.4.4"
   }
 }

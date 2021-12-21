@@ -62,7 +62,7 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
         const buffer = buffers[i];
         const shape = shapes[i];
         const arr = toTypedArray(shape.type, buffer);
-        tensors.push(tf.tensor(arr, shape.values));
+        tensors.push(tf.tensor(arr, shape.dimensions));
     }
 
     return tensors;

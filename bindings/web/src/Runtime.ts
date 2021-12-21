@@ -16,6 +16,9 @@ export interface Capability {
     setParameter(name: string, value: number): void;
 }
 
+/**
+ * Functions required by the Rune runtime.
+ */
 export interface Imports {
     createOutput(type: number): Output;
     createCapability(type: number): Capability;
@@ -23,8 +26,16 @@ export interface Imports {
     log(message: string | StructuredLogMessage): void;
 }
 
+/**
+ * Something which can run inference on a model.
+ */
 export interface Model {
-    transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void;
+    transform(
+        inputArray: Uint8Array[],
+        inputDimensions: Shape[],
+        outputArray: Uint8Array[],
+        outputDimensions: Shape[],
+    ): void;
 }
 
 
@@ -213,6 +224,7 @@ function importsToHostFunctions(
 
             cap.generate(dest);
         },
+
         rune_model_load(mimetype: number, mimetype_len: number, model: number, model_len: number, input_descriptors: number, input_len: number, output_descriptors: number, output_len: number) {
             const mime = decoder.decode(memory().subarray(mimetype, mimetype + mimetype_len));
             const model_data = memory().subarray(model, model + model_len);
