@@ -1,4 +1,4 @@
-const ByteSize: Record<string, number> = {
+const ByteSize = {
     "f64": 8,
     "i64": 8,
     "u64": 8,
@@ -9,20 +9,32 @@ const ByteSize: Record<string, number> = {
     "i16": 2,
     "u8": 1,
     "i8": 1
-};
+} as const;
 
+/**
+ * A description of a tensor.
+ */
 export default class Shape {
-    type: string;
-    values: number[];
+    /**
+     * The element type.
+     */
+    readonly type: string;
+    /**
+     * The tensor's dimensions.
+     */
+    readonly dimensions: number[];
 
     constructor(type: string, values: number[]) {
         this.type = type;
-        this.values = values;
+        this.dimensions = values;
     }
 
-    static parse(dimensions: string): Shape {
+    /**
+     * Parse a string like "u8[1, 2, 3]" into a Shape.
+     */
+    static parse(text: string): Shape {
         const pattern = /^([\w\d]+)\[(\d+(?:,\s*\d+)*)\]$/;
-        const match = pattern.exec(dimensions.replace(" ", ""));
+        const match = pattern.exec(text.replace(" ", ""));
 
         if (!match) {
             throw new Error();
@@ -30,15 +42,48 @@ export default class Shape {
 
         const [_, typeName, dims] = match;
 
-        return new Shape(typeName!, dims.split(",").map(d => parseInt(d.trim())));
+        checkElementType(typeName, text);
+
+        return new Shape(typeName, dims.split(",").map(d => parseInt(d.trim())));
     }
 
+    /**
+     * The number of dimensions this tensor has.
+     */
+    get rank(): number {
+        return this.dimensions.length;
+    }
+
+    /**
+     * The number of elements in this tensor.
+     */
     get tensorSize(): number {
-        return this.values.reduce((product, dim) => product * dim, 1);
+        return this.dimensions.reduce((product, dim) => product * dim, 1);
     }
 
+    /**
+     * The number of bytes used to store this tensor's elements.
+     */
     get byteSize(): number {
-        return this.tensorSize * ByteSize[this.type];
+        const sizes: Record<string, number | undefined> = ByteSize;
+        const elementSize = sizes[this.type] || 1;
+        return this.tensorSize * elementSize;
+    }
+
+    toString(): string {
+        const { type, dimensions } = this;
+        const dims = dimensions.join(", ");
+        return `${type}[${dims}]`;
     }
 }
 
+
+function checkElementType(typeName: string, input: string) {
+    const knownElements = Object.keys(ByteSize);
+
+    if (typeName in ByteSize) {
+        return;
+    }
+
+    console.warn(`The "${typeName}" in "${input}" isn't one of the known element types (${knownElements})`);
+}
