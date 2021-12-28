@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const projectRoot = path.join(__dirname, "../../../../");
+const projectRoot = path.join(__dirname, "../../../../..");
 
 /**
  * Load a tf.js model which was generated as part of the

@@ -2,7 +2,7 @@ import { loadTensorFlowJS } from "./tfjs";
 import { tfjsModel } from "./__test__";
 
 describe("TensorFlowModel", () => {
-    it("can load a tflite model", async () => {
+    it("can load a tf.js model", async () => {
         const buffer = tfjsModel();
 
         const model = await loadTensorFlowJS(buffer);

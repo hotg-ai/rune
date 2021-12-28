@@ -7,6 +7,7 @@
       "DOM"
     ],
     "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -14,9 +15,8 @@
     "declaration": true
   },
   "exclude": [
-    "jest.config.ts"
-  ],
-  "files": [
-    "src/index.ts"
+    "jest.config.ts",
+    "dist/*",
+    "node_modules/*"
   ]
 }
