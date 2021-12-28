@@ -1,7 +1,6 @@
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
 import * as tf from "@tensorflow/tfjs";
 import { InferenceModel, Tensor } from "@tensorflow/tfjs-core";
-import * as LZString from "lz-string/libs/lz-string.js";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
 
@@ -82,39 +81,4 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     }
 
     return tensors;
-}
-
-
-async function modelToIndexedDB(model_bytes: string) {
-    var data = JSON.parse(LZString.decompressFromUTF16(model_bytes)!);
-    var DBOpenRequest = window.indexedDB.open("tensorflowjs", 1);
-    let successes = 0;
-    DBOpenRequest.onupgradeneeded = function (event) {
-        const db = DBOpenRequest.result;
-        var objectStore = db.createObjectStore("models_store", {
-            "keyPath": "modelPath"
-        });
-        var objectInfoStore = db.createObjectStore("model_info_store", {
-            "keyPath": "modelPath"
-        });
-
-    }
-    DBOpenRequest.onsuccess = function (event) {
-        const db = DBOpenRequest.result;
-        data.models_store.modelArtifacts.weightData = new Uint32Array(data.weightData).buffer;
-        var objectStore = db.transaction("models_store", "readwrite").objectStore("models_store");
-        var objectStoreRequest = objectStore.put(data["models_store"]);
-        objectStoreRequest.onsuccess = function (event) {
-            successes++;
-        }
-        var objectInfoStore = db.transaction("model_info_store", "readwrite").objectStore("model_info_store");
-        var objectInfoStoreRequest = objectInfoStore.put(data["model_info_store"]);
-        objectInfoStoreRequest.onsuccess = function (event) {
-            successes++;
-        }
-    }
-    while (successes < 2) {
-        await new Promise(r => setTimeout(r, 100));
-    }
-    return true;
 }
