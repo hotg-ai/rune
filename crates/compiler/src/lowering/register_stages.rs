@@ -98,10 +98,10 @@ fn model_format_and_args(
     let mut args = args.clone();
 
     let known_formats = [
-        ("tensorflow-lite", hotg_rune_core::TFLITE_MIMETYPE),
-        ("tensorflow", hotg_rune_core::TF_MIMETYPE),
         ("onnx", hotg_rune_core::ONNX_MIMETYPE),
+        ("tensorflow", hotg_rune_core::TF_MIMETYPE),
         ("tensorflow-js", hotg_rune_core::TFJS_MIMETYPE),
+        ("tensorflow-lite", hotg_rune_core::TFLITE_MIMETYPE),
     ];
 
     let mimetype = match args.remove("format") {
