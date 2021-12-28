@@ -12,10 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - You can now specify a model's format by setting the `format` field under
-  `args` to one of `tensorflow-lite`, `tensorflow`, or `onnx`
+  `args` to one of `onnx`, `tensorflow`, `tensorflow-js`, or `tensorflow-lite`
   ([#367](https://github.com/hotg-ai/rune/pull/367))
   - Note that this will just ask the runtime to load a particular model, there
-    is no guarantee it will be supported
+    is no guarantee the model format it will be supported
+- Directories which are used as a model will now be embedded in the Rune as a
+  zip archive
 
 ### Changed
 
