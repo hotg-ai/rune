@@ -14,6 +14,7 @@
     "watch": "tsc --watch",
     "watch:test": "jest --watch",
     "test": "jest",
+    "fmt": "prettier --write .",
     "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json",
     "generate-runefile-types": "json2ts ../../crates/compiler/runefile-schema.json --output src/Runefile.ts"
   },
@@ -28,6 +29,7 @@
     "blob-polyfill": "^6.0.20211015",
     "jest": "^27.0.6",
     "json-schema-to-typescript": "^10.1.5",
+    "prettier": "^2.5.1",
     "ts-jest": "^27.0.4",
     "ts-node": "^10.4.0",
     "typescript": "^4.3.5"
