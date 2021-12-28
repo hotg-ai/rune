@@ -9,6 +9,9 @@ import Shape from "../Shape";
 import '@tensorflow/tfjs-backend-cpu';
 import { toTypedArray } from "../helpers";
 
+import { unzip } from 'unzipit';
+import { TensorFlowZipRequest } from "./TensorFlowZipRequest";
+
 export class TensorFlowModel implements Model {
     private model: InferenceModel;
 
@@ -17,12 +20,25 @@ export class TensorFlowModel implements Model {
     }
 
     static async loadTensorFlow(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const decoder = new TextDecoder("utf16");
-        let decoded = decodeURIComponent(escape(decoder.decode(buffer)));
 
-        await modelToIndexedDB(decoded);
-        const model_name = "imagenet_mobilenet_v3";
-        const model = await tf.loadGraphModel('indexeddb://' + model_name);
+        let json: ArrayBuffer = new ArrayBuffer(0);
+        let weights = new Map<string, ArrayBuffer>();
+        const { entries } = await unzip(buffer);
+        for (const [name, entry] of Object.entries(entries)) {
+            console.log(name, entry.size);
+            const arrayBuffer = await entries[name].arrayBuffer();
+            console.log(name.split('.').pop());
+            if (name.split('.').pop() == "json") {
+                json = arrayBuffer;
+                const decoder = new TextDecoder("utf-8");
+                let decoded = decoder.decode(arrayBuffer);
+                var jsonResult = JSON.parse(decoded);
+                console.log(jsonResult)
+            } else if (name.split('.').pop() == "bin") {
+                weights.set(name.split('/').pop()!, arrayBuffer);
+            }
+        }
+        const model = await tf.loadGraphModel(new TensorFlowZipRequest(json, weights));
 
         return new TensorFlowModel(model);
     }
