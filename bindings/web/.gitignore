@@ -1,3 +1,6 @@
 dist/
 node_modules/
 yarn-error.log
+
+# We use yarn
+package-lock.json
