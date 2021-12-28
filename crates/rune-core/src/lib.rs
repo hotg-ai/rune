@@ -43,6 +43,8 @@ pub const TF_MIMETYPE: &str = "application/tf-model";
 /// The mimetype used for a ONNX model.
 pub const ONNX_MIMETYPE: &str = "application/onnx-model";
 
+pub const TFJS_MIMETYPE: &str = "application/tfjs-model";
+
 /// The version number for this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

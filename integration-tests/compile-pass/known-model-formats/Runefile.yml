@@ -1,0 +1,48 @@
+version: 1
+image: asdf
+pipeline:
+  rand:
+    capability: RAND
+    outputs:
+      - type: f32
+        dimensions: [128]
+
+  tensorflow:
+    model: ./sine.tflite
+    args:
+      format: tensorflow
+    inputs:
+      - rand
+    outputs:
+      - type: f32
+        dimensions: [1]
+
+  tensorflow_lite:
+    model: ./sine.tflite
+    args:
+      format: tensorflow-lite
+    inputs:
+      - rand
+    outputs:
+      - type: f32
+        dimensions: [1]
+
+  tensorflow_js:
+    model: ./sine.tflite
+    args:
+      format: tensorflow-js
+    inputs:
+      - rand
+    outputs:
+      - type: f32
+        dimensions: [1]
+
+  onnx:
+    model: ./sine.tflite
+    args:
+      format: onnx
+    inputs:
+      - rand
+    outputs:
+      - type: f32
+        dimensions: [1]

@@ -1,1 +1,1 @@
-error: Expected the format to be one of tensorflow-lite, tensorflow, onnx, but found "unknown-format"
+error: Expected the format to be one of onnx, tensorflow, tensorflow-js, tensorflow-lite, but found "unknown-format"
