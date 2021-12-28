@@ -1,11 +1,11 @@
-import * as tf from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs-core";
 import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
-
-// Explicitly pull in the CPU backend
-import '@tensorflow/tfjs-backend-cpu';
 import { toTypedArray } from "../helpers";
+
+// Registers the default backends
+import "@tensorflow/tfjs";
 
 /**
  * A TensorFlow model.
@@ -39,12 +39,12 @@ export class TensorFlowModel implements Model {
         }
     }
 
-    get inputs(): ModelTensorInfo[] {
-        return this.model.inputs;
+    get inputs(): Shape[] {
+        return this.model.inputs.map(toShape);
     }
 
-    get outputs(): ModelTensorInfo[] {
-        return this.model.outputs;
+    get outputs(): Shape[] {
+        return this.model.outputs.map(toShape);
     }
 }
 
@@ -59,4 +59,18 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     }
 
     return tensors;
+}
+
+function toShape({ dtype, shape, tfDtype }: ModelTensorInfo): Shape {
+    return new Shape(
+        tfDtype || dtype,
+        // Note: The TypeScript declarations actually lie here. Depending on the
+        // actual model, our "shape" may either be an Array<number> or a
+        // Array<number|null>.
+        //
+        // As a best effort, we try to filter out the dimensions with unknown
+        // lengths (null) and fall back to the empty array if no shape was
+        // provided at all.
+        shape?.filter(s => typeof s === "number") ?? [],
+    );
 }

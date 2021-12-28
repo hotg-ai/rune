@@ -1,4 +1,5 @@
-import * as tf from "@tensorflow/tfjs";
+import { loadLayersModel } from "@tensorflow/tfjs-layers";
+import { InferenceModel } from "@tensorflow/tfjs-core";
 import { unzip } from 'unzipit';
 import type { IOHandler, ModelArtifacts, ModelJSON, SaveResult, WeightsManifestConfig, WeightsManifestEntry } from '@tensorflow/tfjs-core/dist/io/types';
 import { TensorFlowModel } from "./TensorFlowModel";
@@ -30,9 +31,9 @@ export async function loadTensorFlowJS(buffer: ArrayBuffer): Promise<TensorFlowM
   }
 
   const io = new ShardedModel(modelJson, weights);
-  const model = await tf.loadGraphModel(io);
+  const model = await loadLayersModel(io);
 
-  return new TensorFlowModel(model);
+  return new TensorFlowModel(model as InferenceModel);
 }
 
 class MissingModelJsonError extends Error {

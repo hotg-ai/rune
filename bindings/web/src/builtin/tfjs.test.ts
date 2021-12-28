@@ -1,3 +1,4 @@
+import Shape from "../Shape";
 import { loadTensorFlowJS } from "./tfjs";
 import { tfjsModel } from "./__test__";
 
@@ -7,7 +8,7 @@ describe("TensorFlowModel", () => {
 
         const model = await loadTensorFlowJS(buffer);
 
-        expect(model.inputs).toEqual({});
-        expect(model.outputs).toEqual({});
+        expect(model.inputs).toEqual([new Shape("float32", [1])]);
+        expect(model.outputs).toEqual([new Shape("float32", [1])]);
     })
 });
