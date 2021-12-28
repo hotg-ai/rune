@@ -42,7 +42,7 @@ pub const TFLITE_MIMETYPE: &str = "application/tflite-model";
 pub const TF_MIMETYPE: &str = "application/tf-model";
 /// The mimetype used for a ONNX model.
 pub const ONNX_MIMETYPE: &str = "application/onnx-model";
-
+/// The mimetype used for a TensorFlow JS model.
 pub const TFJS_MIMETYPE: &str = "application/tfjs-model";
 
 /// The version number for this crate.

@@ -1,7 +1,7 @@
 export { InputDescription, OutputValue, ReadInput, Result, Builder, Evaluate } from "./facade";
 
 import { Builder } from "./facade";
-import { TensorFlowModel, TensorFlowLiteMimeType } from "./builtin";
+import { loadTensorFlowJS, loadTensorFlowLite, mimetypes } from "./builtin";
 
 /**
  * A map of capability names to their identifies.
@@ -35,9 +35,10 @@ export type OutputType = keyof typeof Outputs;
  * Use a high level builder API to initialize the Rune runtime.
  *
  * Check out the "Runtime" module if you need tighter control over the runtime
- * or want to avoidunnecessary indirection/copies.
+ * or want to avoid unnecessary indirection/copies.
  */
 export function builder(): Builder {
     return new Builder()
-        .withModelHandler(TensorFlowLiteMimeType, TensorFlowModel.loadTensorFlowLite);
+        .withModelHandler(mimetypes.tflite, loadTensorFlowLite)
+        .withModelHandler(mimetypes.tfjs, loadTensorFlowJS);
 }

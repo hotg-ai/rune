@@ -1,6 +1,5 @@
-import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
 import * as tf from "@tensorflow/tfjs";
-import { InferenceModel, Tensor } from "@tensorflow/tfjs-core";
+import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
 
@@ -8,43 +7,14 @@ import Shape from "../Shape";
 import '@tensorflow/tfjs-backend-cpu';
 import { toTypedArray } from "../helpers";
 
-import { unzip } from 'unzipit';
-import { TensorFlowZipRequest } from "./TensorFlowZipRequest";
-
+/**
+ * A TensorFlow model.
+ */
 export class TensorFlowModel implements Model {
     private model: InferenceModel;
 
     constructor(model: InferenceModel) {
         this.model = model;
-    }
-
-    static async loadTensorFlow(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-
-        let json: ArrayBuffer = new ArrayBuffer(0);
-        let weights = new Map<string, ArrayBuffer>();
-        const { entries } = await unzip(buffer);
-        for (const [name, entry] of Object.entries(entries)) {
-            console.log(name, entry.size);
-            const arrayBuffer = await entries[name].arrayBuffer();
-            console.log(name.split('.').pop());
-            if (name.split('.').pop() == "json") {
-                json = arrayBuffer;
-                const decoder = new TextDecoder("utf-8");
-                let decoded = decoder.decode(arrayBuffer);
-                var jsonResult = JSON.parse(decoded);
-                console.log(jsonResult)
-            } else if (name.split('.').pop() == "bin") {
-                weights.set(name.split('/').pop()!, arrayBuffer);
-            }
-        }
-        const model = await tf.loadGraphModel(new TensorFlowZipRequest(json, weights));
-
-        return new TensorFlowModel(model);
-    }
-
-    static async loadTensorFlowLite(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const model = await loadTFLiteModel(buffer);
-        return new TensorFlowModel(model);
     }
 
     transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
@@ -67,6 +37,14 @@ export class TensorFlowModel implements Model {
                 outputArray[index].set(tensor.dataSync());
             }
         }
+    }
+
+    get inputs(): ModelTensorInfo[] {
+        return this.model.inputs;
+    }
+
+    get outputs(): ModelTensorInfo[] {
+        return this.model.outputs;
     }
 }
 
