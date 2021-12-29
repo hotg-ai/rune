@@ -61,16 +61,37 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     return tensors;
 }
 
-function toShape({ dtype, shape, tfDtype }: ModelTensorInfo): Shape {
+/**
+ * The actual type we receive when given a ModelTensorInfo as part of an
+ * InferenceModel's "inputs" or "outputs" field.
+ */
+type ActualModelTensorInfo = {
+    name?: string;
+    shape?: Array<number | null>;
+    dtype?: ModelTensorInfo["dtype"];
+    tfDtype?: string;
+};
+
+/**
+ * Convert model tensor information to a Shape that Rune can more easily
+ * consume.
+ */
+function toShape({ dtype, shape, tfDtype }: ActualModelTensorInfo): Shape {
+    const cleanedShape = [];
+
+    // As a best effort, we try to filter out the dimensions with unknown
+    // lengths (null or -1) and fall back to the empty array if no shape was
+    // provided at all.
+    if (shape) {
+        for (const dimension of shape) {
+            if (typeof dimension === "number" && dimension >= 0) {
+                cleanedShape.push(dimension);
+            }
+        }
+    }
+
     return new Shape(
-        tfDtype || dtype,
-        // Note: The TypeScript declarations actually lie here. Depending on the
-        // actual model, our "shape" may either be an Array<number> or a
-        // Array<number|null>.
-        //
-        // As a best effort, we try to filter out the dimensions with unknown
-        // lengths (null) and fall back to the empty array if no shape was
-        // provided at all.
-        shape?.filter(s => typeof s === "number") ?? [],
+        tfDtype || dtype || "unknown",
+        cleanedShape,
     );
 }
