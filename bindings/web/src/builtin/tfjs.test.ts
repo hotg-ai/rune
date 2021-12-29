@@ -10,5 +10,5 @@ describe("TensorFlowModel", () => {
 
         expect(model.inputs).toEqual([new Shape("float32", [1])]);
         expect(model.outputs).toEqual([new Shape("float32", [1])]);
-    })
+    });
 });

@@ -588,7 +588,7 @@
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-converter/-/tfjs-converter-3.11.0.tgz#0842269a83599b52fd167a8a05372018a9a1ca6a"
   integrity sha512-rTRIKvBoqL0qdPYpm8UXauZycOiaBHZB2E2v3OoXoHnjvle/Xn/09uZJdrixgGhR+Kahs3Vz27BEEFz6RI5j2w==
 
-"@tensorflow/tfjs-converter@3.12.0":
+"@tensorflow/tfjs-converter@3.12.0", "@tensorflow/tfjs-converter@^3.12.0":
   version "3.12.0"
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-converter/-/tfjs-converter-3.12.0.tgz#2e28c7bf6e92d4614cb6df362a81a55f79432fef"
   integrity sha512-WO6FreEB83CgFwvcyrzyaWG5WshanfyhTI6rOqSbjY86+MlJprTn4fuY9qbnYk/gDLhxEaUpYgubamY4g4L76g==
@@ -640,7 +640,7 @@
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-layers/-/tfjs-layers-3.11.0.tgz#456d8dc3fe93937ced329d5d06310da294d3758c"
   integrity sha512-BtLgLucJZHv5te1K3yjT3iZdHXgMJArrLuOb/oRPOtTp4R2ad5N0V2m5RtuZJ3sI5/ah0h72xtmTWNyTv3/5dw==
 
-"@tensorflow/tfjs-layers@3.12.0":
+"@tensorflow/tfjs-layers@3.12.0", "@tensorflow/tfjs-layers@^3.12.0":
   version "3.12.0"
   resolved "https://registry.yarnpkg.com/@tensorflow/tfjs-layers/-/tfjs-layers-3.12.0.tgz#b90190d1d6950488f3fd5245783384500c832787"
   integrity sha512-GlU9LxDnPg3I3p+MMOYzKgr2NZK2vVmT4/EotwMVIAyhR2WbVFTRP0AXkIrWSoNIJ9v/ryvFEvNNPyNfkXM/xQ==

@@ -19,7 +19,9 @@
   },
   "dependencies": {
     "@tensorflow/tfjs": "^3.11.0",
+    "@tensorflow/tfjs-converter": "^3.11.0",
     "@tensorflow/tfjs-core": "^3.11.0",
+    "@tensorflow/tfjs-layers": "^3.11.0",
     "@tensorflow/tfjs-tflite": "=0.0.1-alpha.7",
     "unzipit": "^1.3.6"
   },
