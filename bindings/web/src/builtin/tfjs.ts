@@ -1,8 +1,9 @@
 import { loadLayersModel } from "@tensorflow/tfjs-layers";
 import { InferenceModel } from "@tensorflow/tfjs-core";
-import { unzip } from 'unzipit';
+import { unzip, ZipEntry } from 'unzipit';
 import type { IOHandler, ModelArtifacts, ModelJSON, SaveResult, WeightsManifestConfig, WeightsManifestEntry } from '@tensorflow/tfjs-core/dist/io/types';
 import { TensorFlowModel } from "./TensorFlowModel";
+import { loadGraphModel } from "@tensorflow/tfjs-converter";
 
 /**
  * Load a TensorFlow model from a tf.js model that has been collected into a
@@ -11,29 +12,64 @@ import { TensorFlowModel } from "./TensorFlowModel";
 export async function loadTensorFlowJS(buffer: ArrayBuffer): Promise<TensorFlowModel> {
   const { entries } = await unzip(buffer);
 
-  if (!("model.json" in entries)) {
-    throw new MissingModelJsonError(Object.keys(entries));
+  const [modelJson, weights] = await extractModelAndWeights(Object.values(entries));
+
+  const io = new ShardedModel(modelJson, weights);
+  const model = await loadModel(modelJson.format, io);
+
+  return new TensorFlowModel(model);
+}
+
+async function extractModelAndWeights(entries: ZipEntry[]): Promise<[ModelJSON, Record<string, ArrayBuffer>]> {
+  // first we need to find the "model.json" file
+  const modelJsonEntry = entries.find(k => k.name.split("/").pop() === "model.json");
+
+  if (!modelJsonEntry) {
+    throw new MissingModelJsonError(entries.map(e => e.name));
   }
 
-  const modelJsonEntry = entries["model.json"];
-  delete entries["model.json"];
+  const model = await modelJsonEntry.json();
 
-  const modelJson = await modelJsonEntry.json();
-
-  if (!isModelJSON(modelJson)) {
+  if (!isModelJSON(model)) {
     throw new Error(`The "model.json" file is malformed`);
   }
 
-  const weights: Record<string, ArrayBuffer> = {};
+  // Note: Sometimes the model might be in a nested directory.
+  //
+  // The "model.json" refers to each model file relative to that directory, so
+  // want to only take weights in that directory and update their filenames
+  // appropriately.
+  const directory = modelJsonEntry.name.replace(/model\.json$/, "");
 
-  for (const [key, value] of Object.entries(entries)) {
-    weights[key] = await value.arrayBuffer();
+  const pendingWeights = entries
+    .filter(e => !e.isDirectory && e.name.startsWith(directory))
+    .map(async (e): Promise<[string, ArrayBuffer]> => {
+      const name = e.name.replace(directory, "");
+      const buffer = await e.arrayBuffer();
+      return [name, buffer];
+    });
+
+  const weights = Object.fromEntries(await Promise.all(pendingWeights));
+
+  return [model, weights];
+}
+
+async function loadModel(format: string | undefined, io: ShardedModel): Promise<InferenceModel> {
+  switch (format) {
+    case "graph-model":
+      return await loadGraphModel(io);
+
+    case "layers-model":
+      // Note: LayersModel actually implements the InferenceModel interface if
+      // you look at the source code, but TypeScript complains because the
+      // implementing methods have a slightly different signature.
+      //
+      // This should be fine, so let's just use a typecast and keep going.
+      return await loadLayersModel(io) as InferenceModel;
+
+    default:
+      throw new Error(`Unknown format: "${format}"`);
   }
-
-  const io = new ShardedModel(modelJson, weights);
-  const model = await loadLayersModel(io);
-
-  return new TensorFlowModel(model as InferenceModel);
 }
 
 class MissingModelJsonError extends Error {
@@ -47,7 +83,6 @@ function isModelJSON(item?: any): item is ModelJSON {
     && typeof item.modelTopology === "object"
     && typeof item.weightsManifest === "object";
 }
-
 
 /**
  * An `IOHandler` loosely based on [the HTTPRequest type][HTTPRequest] from

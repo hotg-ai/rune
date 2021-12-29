@@ -3,12 +3,13 @@ import path from "path";
 
 const projectRoot = path.join(__dirname, "../../../../..");
 
-/**
- * Load a tf.js model which was generated as part of the
- * "directories-are-zipped-when-used-for-models" integration test.
- */
-export function tfjsModel(): ArrayBuffer {
-    const filename = path.join(__dirname, "sine-wave.tfjs.zip");
+export function layersModel(): ArrayBuffer {
+    const filename = path.join(__dirname, "sine-wave.tfjs-layers.zip");
+    return fs.readFileSync(filename);
+}
+
+export function graphModel(): ArrayBuffer {
+    const filename = path.join(__dirname, "sine-wave.tfjs-graph.zip");
     return fs.readFileSync(filename);
 }
 
