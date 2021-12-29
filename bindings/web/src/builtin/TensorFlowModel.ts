@@ -1,35 +1,20 @@
-import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
-import * as tf from "@tensorflow/tfjs";
-import { InferenceModel, Tensor } from "@tensorflow/tfjs-core";
-import * as LZString from "lz-string/libs/lz-string.js";
+import * as tf from "@tensorflow/tfjs-core";
+import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
-
-// Explicitly pull in the CPU backend
-import '@tensorflow/tfjs-backend-cpu';
 import { toTypedArray } from "../helpers";
 
+// Registers the default backends
+import "@tensorflow/tfjs";
+
+/**
+ * A TensorFlow model.
+ */
 export class TensorFlowModel implements Model {
     private model: InferenceModel;
 
     constructor(model: InferenceModel) {
         this.model = model;
-    }
-
-    static async loadTensorFlow(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const decoder = new TextDecoder("utf16");
-        let decoded = decodeURIComponent(escape(decoder.decode(buffer)));
-
-        await modelToIndexedDB(decoded);
-        const model_name = "imagenet_mobilenet_v3";
-        const model = await tf.loadGraphModel('indexeddb://' + model_name);
-
-        return new TensorFlowModel(model);
-    }
-
-    static async loadTensorFlowLite(buffer: ArrayBuffer): Promise<TensorFlowModel> {
-        const model = await loadTFLiteModel(buffer);
-        return new TensorFlowModel(model);
     }
 
     transform(inputArray: Uint8Array[], inputDimensions: Shape[], outputArray: Uint8Array[], outputDimensions: Shape[]): void {
@@ -53,6 +38,14 @@ export class TensorFlowModel implements Model {
             }
         }
     }
+
+    get inputs(): Shape[] {
+        return this.model.inputs.map(toShape);
+    }
+
+    get outputs(): Shape[] {
+        return this.model.outputs.map(toShape);
+    }
 }
 
 function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
@@ -68,37 +61,16 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     return tensors;
 }
 
-
-async function modelToIndexedDB(model_bytes: string) {
-    var data = JSON.parse(LZString.decompressFromUTF16(model_bytes)!);
-    var DBOpenRequest = window.indexedDB.open("tensorflowjs", 1);
-    let successes = 0;
-    DBOpenRequest.onupgradeneeded = function (event) {
-        const db = DBOpenRequest.result;
-        var objectStore = db.createObjectStore("models_store", {
-            "keyPath": "modelPath"
-        });
-        var objectInfoStore = db.createObjectStore("model_info_store", {
-            "keyPath": "modelPath"
-        });
-
-    }
-    DBOpenRequest.onsuccess = function (event) {
-        const db = DBOpenRequest.result;
-        data.models_store.modelArtifacts.weightData = new Uint32Array(data.weightData).buffer;
-        var objectStore = db.transaction("models_store", "readwrite").objectStore("models_store");
-        var objectStoreRequest = objectStore.put(data["models_store"]);
-        objectStoreRequest.onsuccess = function (event) {
-            successes++;
-        }
-        var objectInfoStore = db.transaction("model_info_store", "readwrite").objectStore("model_info_store");
-        var objectInfoStoreRequest = objectInfoStore.put(data["model_info_store"]);
-        objectInfoStoreRequest.onsuccess = function (event) {
-            successes++;
-        }
-    }
-    while (successes < 2) {
-        await new Promise(r => setTimeout(r, 100));
-    }
-    return true;
+function toShape({ dtype, shape, tfDtype }: ModelTensorInfo): Shape {
+    return new Shape(
+        tfDtype || dtype,
+        // Note: The TypeScript declarations actually lie here. Depending on the
+        // actual model, our "shape" may either be an Array<number> or a
+        // Array<number|null>.
+        //
+        // As a best effort, we try to filter out the dimensions with unknown
+        // lengths (null) and fall back to the empty array if no shape was
+        // provided at all.
+        shape?.filter(s => typeof s === "number") ?? [],
+    );
 }

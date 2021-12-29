@@ -38,13 +38,6 @@ export interface Model {
     ): void;
 }
 
-
-type CapabilityInfo = {
-    capabilityType: number,
-    capability: string,
-    parameters: Record<string, number>,
-};
-
 type TensorDescriptor = {
     dimensions: string,
 };
