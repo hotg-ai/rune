@@ -1,6 +1,6 @@
 {
   "name": "@hotg-ai/rune",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Execute Runes inside a JavaScript environment.",
   "repository": "https://github.com/hotg-ai/rune",
   "homepage": "https://hotg.dev/",
@@ -14,7 +14,7 @@
     "watch": "tsc --watch",
     "test": "jest",
     "fmt": "prettier --write .",
-    "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json",
+    "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json && yarn publish",
     "generate-runefile-types": "json2ts ../../crates/compiler/runefile-schema.json --output src/Runefile.ts"
   },
   "dependencies": {
