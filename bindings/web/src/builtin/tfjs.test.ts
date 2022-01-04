@@ -18,7 +18,7 @@ describe("TensorFlowModel", () => {
         const outputs = [new Uint8Array(output.buffer)];
         const shape = [Shape.parse("f32[1]")];
         model.transform(inputs, shape, outputs, shape);
-        expect(output[0]).toBeCloseTo(0.1255441);
+        expect(output[0]).toBeCloseTo(0.13199206);
     });
 
     it("can load a tf.js graph model", async () => {
