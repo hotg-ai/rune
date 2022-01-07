@@ -1,8 +1,0 @@
-{
-    "private": true,
-    "workspaces": [
-        "rune",
-        "tfjs-v3",
-        "tflite"
-    ]
-}

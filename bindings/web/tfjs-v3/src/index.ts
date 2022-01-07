@@ -1,1 +1,1 @@
-export {loadTensorFlowJS } from "./load";
+export { loadTensorFlowJS } from "./load";

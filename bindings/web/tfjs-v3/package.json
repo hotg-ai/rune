@@ -18,7 +18,8 @@
     "@hotg-ai/rune": "^0.11.0",
     "@tensorflow/tfjs-converter": "^3.12.0",
     "@tensorflow/tfjs-core": "^3.12.0",
-    "@tensorflow/tfjs-layers": "^3.12.0"
+    "@tensorflow/tfjs-layers": "^3.12.0",
+    "unzipit": "^1.3.6"
   },
   "devDependencies": {
     "@types/jest": "^27.4.0",
