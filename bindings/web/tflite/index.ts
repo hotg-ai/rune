@@ -1,3 +1,5 @@
+export { TensorFlowModel } from "./TensorFlowModel";
+
 import { loadTFLiteModel } from "@tensorflow/tfjs-tflite";
 import { TensorFlowModel } from "./TensorFlowModel";
 

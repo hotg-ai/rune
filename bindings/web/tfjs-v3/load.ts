@@ -90,7 +90,7 @@ function isModelJSON(item?: any): item is ModelJSON {
  *
  * [HTTPRequest]: https://github.com/tensorflow/tfjs/blob/d95abc0028365da71beaca060064e7b4ad7a1f86/tfjs-core/src/io/http.ts
  */
-export class ShardedModel implements IOHandler {
+class ShardedModel implements IOHandler {
   private readonly json: ModelJSON;
   private readonly weights: Record<string, ArrayBuffer | undefined>;
 
@@ -154,7 +154,7 @@ export class ShardedModel implements IOHandler {
  *     weight manifest entries along with the weights data.
  * @returns A Promise of the `ModelArtifacts`, as described by the JSON file.
  */
-export async function getModelArtifactsForJSON(
+async function getModelArtifactsForJSON(
   modelJSON: ModelJSON,
   loadWeights: (weightsManifest: WeightsManifestConfig) => Promise<[
       /* weightSpecs */ WeightsManifestEntry[], /* weightData */ ArrayBuffer
@@ -194,7 +194,7 @@ export async function getModelArtifactsForJSON(
  * @param buffers A number of array buffers to concatenate.
  * @returns Result of concatenating `buffers` in order.
  */
-export function concatenateArrayBuffers(buffers: ArrayBuffer[]): ArrayBuffer {
+function concatenateArrayBuffers(buffers: ArrayBuffer[]): ArrayBuffer {
   if (buffers.length === 1) {
     return buffers[0];
   }

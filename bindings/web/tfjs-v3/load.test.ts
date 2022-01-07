@@ -1,5 +1,5 @@
-import Shape from "../Shape";
-import { loadTensorFlowJS } from "./tfjs";
+import { Shape } from "@hotg-ai/rune";
+import { loadTensorFlowJS } from "./load";
 import { graphModel, layersModel } from "./__test__";
 
 describe("TensorFlowModel", () => {

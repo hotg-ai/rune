@@ -1,8 +1,5 @@
 export { RandomCapability } from "./RandomCapability";
 export { WebcamCapability } from "./WebcamCapability";
-export { TensorFlowModel } from "./TensorFlowModel";
-export { loadTensorFlowJS } from "./tfjs";
-export { loadTensorFlowLite } from "./tflite";
 
 /**
  * Mimetypes for the model formats known by rune.
