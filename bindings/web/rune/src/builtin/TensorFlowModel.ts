@@ -2,7 +2,7 @@ import * as tf from "@tensorflow/tfjs-core";
 import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
 import { Model } from "../Runtime";
 import Shape from "../Shape";
-import { toTypedArray } from "../helpers";
+import RuneTensor from "../Tensor";
 
 // Registers the default backends
 import "@tensorflow/tfjs";
@@ -29,7 +29,7 @@ export class TensorFlowModel implements Model {
         } else if (output instanceof Tensor) {
             var dest = outputArray[0];
             var out = output.dataSync();
-            dest.set(new Uint8Array(out.buffer).slice(0,dest.length));
+            dest.set(new Uint8Array(out.buffer).slice(0, dest.length));
         } else {
             const namesToIndices: Record<string, number> = {};
             this.model.outputs.forEach((info, i) => namesToIndices[info.name] = i);
@@ -38,7 +38,7 @@ export class TensorFlowModel implements Model {
                 const tensor = output[name];
                 const index = namesToIndices[name];
                 var out = tensor.dataSync();
-                outputArray[index].set(new Uint8Array(out.buffer).slice(0,outputArray[index].length));
+                outputArray[index].set(new Uint8Array(out.buffer).slice(0, outputArray[index].length));
             }
         }
     }
@@ -58,11 +58,51 @@ function toTensors(buffers: Uint8Array[], shapes: Shape[]): Tensor[] {
     for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         const shape = shapes[i];
-        const arr = toTypedArray(shape.type, buffer);
-        tensors.push(tf.tensor(arr, shape.dimensions));
+        const tensor = new RuneTensor(shape, buffer);
+        tensors.push(toTensorFlowTensor(tensor));
     }
 
     return tensors;
+}
+
+function toTensorFlowTensor(tensor: RuneTensor): Tensor {
+    const { elementType, dimensions } = tensor;
+    const dims = [...dimensions];
+
+    switch (elementType) {
+        case "f32":
+            const floats = tensor.asTypedArray(elementType);
+            return tf.tensor(floats, dims, "float32");
+
+        // This is kinda annoying because it's just copy/paste, but we
+        // can't combine them because TypeScript errors with the following:
+        //
+        //   The call would have succeeded against this implementation, but
+        //   implementation signatures of overloads are not externally
+        //   visible.
+
+        case "u8":
+            const u8s = tensor.asTypedArray(elementType);
+            return tf.tensor(Array.from(u8s), dims, "int32");
+        case "u16":
+            const u16s = tensor.asTypedArray(elementType);
+            return tf.tensor(Array.from(u16s), dims, "int32");
+        case "u32":
+            const u32s = tensor.asTypedArray(elementType);
+            return tf.tensor(Array.from(u32s), dims, "int32");
+        case "i8":
+            const i8s = tensor.asTypedArray(elementType);
+            return tf.tensor(Array.from(i8s), dims, "int32");
+        case "i16":
+            const i16s = tensor.asTypedArray(elementType);
+            return tf.tensor(Array.from(i16s), dims, "int32");
+        case "i32":
+            const i32s = tensor.asTypedArray(elementType);
+            return tf.tensor(Array.from(i32s), dims, "int32");
+
+        default:
+            throw new Error(`Unable to convert a ${tensor.shape.toString()} to a tfjs tensor`);
+    }
 }
 
 /**

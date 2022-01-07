@@ -1,6 +1,6 @@
-import { Tensor } from "@tensorflow/tfjs-core";
 import { Capabilities, CapabilityType, Outputs } from ".";
 import { Capability, Imports, Model, Output, Runtime, StructuredLogMessage } from "./Runtime";
+import Tensor from "./Tensor";
 
 type ModelConstructor = (model: ArrayBuffer) => Promise<Model>;
 type Logger = (message: string | StructuredLogMessage) => void;
@@ -14,7 +14,7 @@ export type InputDescription = {
  * A function that returns the desired input, either as a tensor or the raw
  * byte buffer.
  */
-export type ReadInput = (input: InputDescription) => Tensor | Uint8Array;
+export type ReadInput = (input: InputDescription) => Tensor;
 
 /**
  * A function which can be used to evaluate a Rune.
@@ -215,7 +215,7 @@ function isOutputValue(value?: any): value is OutputValue {
 
 class LazyCapability implements Capability {
     type: CapabilityType;
-    value?: Tensor | Uint8Array;
+    value?: Tensor;
     args: Record<string, number> = {};
 
     constructor(type: CapabilityType) {
@@ -234,9 +234,7 @@ class LazyCapability implements Capability {
             throw new Error();
         }
 
-        const tensorData = this.value instanceof Uint8Array ? this.value : this.value.dataSync();
-        const { buffer, byteLength, byteOffset } = tensorData;
-        const bytes = new Uint8Array(buffer.slice(byteOffset, byteOffset + byteLength));
+        const bytes = new Uint8Array(this.value.elements);
 
         dest.set(bytes);
     }

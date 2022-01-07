@@ -1,4 +1,3 @@
-import { toTypedArray } from "./helpers";
 import Shape from "./Shape";
 
 /**
@@ -347,25 +346,28 @@ function deprecated(feature: string, version: string) {
     throw new Error(`This runtime no longer supports Runes using "${feature}". Please rebuild with Rune ${version}`);
 }
 
-function decodeValue(valueType: number, bytes: Uint8Array): number {
+function decodeValue(valueType: number, raw: Uint8Array): number {
+    const { buffer, byteOffset, byteLength } = raw;
+    const bytes = buffer.slice(byteOffset, byteOffset + byteLength);
+
     switch (valueType) {
         case 1:
-            const i32s = toTypedArray("i32", bytes);
+            const i32s = new Int32Array(bytes);
             return i32s[0];
         case 2:
-            const f32s = toTypedArray("f32", bytes);
+            const f32s = new Float32Array(bytes);
             return f32s[0];
         case 5:
-            return bytes[0];
+            return raw[0];
         case 6:
-            const i16s = toTypedArray("i16", bytes);
+            const i16s = new Int16Array(bytes);
             return i16s[0];
         case 7:
-            const i8s = toTypedArray("i8", bytes);
+            const i8s = new Int8Array(bytes);
             return i8s[0];
 
         default:
-            throw new Error(`Unknown value type, ${valueType}, with binary representation, ${bytes}`);
+            throw new Error(`Unknown value type, ${valueType}, with binary representation, ${raw}`);
     }
 }
 
