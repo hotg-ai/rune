@@ -3,9 +3,6 @@ import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
 import { Shape, Tensor as RuneTensor } from "@hotg-ai/rune";
 import { Model } from "@hotg-ai/rune/Runtime";
 
-// Registers the default backends
-import "@tensorflow/tfjs";
-
 /**
  * A TensorFlow model.
  */
