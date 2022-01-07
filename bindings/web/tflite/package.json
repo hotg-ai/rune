@@ -6,6 +6,6 @@
   "author": "The Rune Developers <developer@hotg.ai>",
   "license": "MIT OR Apache-2.0",
   "dependencies": {
-    "@hotg-ai/rune": "workspace:^"
+    "@hotg-ai/rune": "^0.11.0"
   }
 }

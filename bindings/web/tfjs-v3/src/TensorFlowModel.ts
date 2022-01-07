@@ -1,8 +1,6 @@
 import * as tf from "@tensorflow/tfjs-core";
 import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
-import { Model } from "../Runtime";
-import Shape from "../Shape";
-import RuneTensor from "../Tensor";
+import { Shape, Model, Tensor as RuneTensor } from "@hotg-ai/rune";
 
 // Registers the default backends
 import "@tensorflow/tfjs";
