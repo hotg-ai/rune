@@ -1,6 +1,3 @@
-const { Blob } = require("blob-polyfill");
-global.Blob = Blob;
-
 import child_process from "child_process";
 import path from "path";
 import fs from "fs";
