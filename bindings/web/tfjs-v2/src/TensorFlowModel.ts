@@ -41,6 +41,9 @@ export class TensorFlowModel implements Model {
         );
       }
     }
+
+    // We need to dispose of all tensors to avoid memory leaks
+    tf.dispose([inputs, output]);
   }
 
   get inputs(): Shape[] {
