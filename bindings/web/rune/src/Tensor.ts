@@ -19,7 +19,11 @@ export default class Tensor {
 
     constructor(shape: Shape, elements: ArrayBuffer) {
         this.shape = shape;
-        this.elements = elements;
+        // Note: We *need* elements to be an ArrayBuffer so the typed array
+        // conversion creates a view instead of copying the buffer (i.e. if we
+        // pass a Uint8Array to newFloat32Array() it will see a list of numbers
+        // and use each as a 32-bit float).
+        this.elements = ArrayBuffer.isView(elements) ? elements.buffer : elements;
     }
 
     public asTypedArray(elementType: "f64"): Float64Array;
