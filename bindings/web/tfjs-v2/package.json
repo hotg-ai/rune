@@ -1,6 +1,6 @@
 {
   "name": "@hotg-ai/rune-tfjs-v2",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "repository": "https://github.com/hotg-ai/rune",
   "author": "The Rune Developers <developers@hotg.ai>",
   "license": "MIT OR Apache-2.0",
@@ -15,7 +15,7 @@
     "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json && yarn publish"
   },
   "dependencies": {
-    "@hotg-ai/rune": "^0.11.0",
+    "@hotg-ai/rune": "^0.11.2",
     "@tensorflow/tfjs-converter": "^2.0",
     "@tensorflow/tfjs-core": "^2.0",
     "@tensorflow/tfjs-layers": "^2.0",
