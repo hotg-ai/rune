@@ -1,6 +1,6 @@
 {
   "name": "@hotg-ai/rune",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Execute Runes inside a JavaScript environment.",
   "repository": "https://github.com/hotg-ai/rune",
   "homepage": "https://hotg.dev/",
