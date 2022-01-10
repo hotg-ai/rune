@@ -39,7 +39,7 @@ export default class Tensor {
         }
 
         const { buffer, byteOffset, byteLength } = this.elements;
-        const length = byteLength / this.shape.byteSize;
+        const length = byteLength / Shape.ByteSize[this.shape.type];
         const constructor = typedArrays[elementType];
 
         return new constructor(buffer, byteOffset, length);
