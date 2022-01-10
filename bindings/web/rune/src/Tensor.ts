@@ -14,16 +14,12 @@ const typedArrays = {
 } as const;
 
 export default class Tensor {
-    public readonly elements: ArrayBuffer;
+    public readonly elements: Uint8Array;
     public readonly shape: Shape;
 
-    constructor(shape: Shape, elements: ArrayBuffer) {
+    constructor(shape: Shape, elements: Uint8Array) {
         this.shape = shape;
-        // Note: We *need* elements to be an ArrayBuffer so the typed array
-        // conversion creates a view instead of copying the buffer (i.e. if we
-        // pass a Uint8Array to newFloat32Array() it will see a list of numbers
-        // and use each as a 32-bit float).
-        this.elements = ArrayBuffer.isView(elements) ? elements.buffer : elements;
+        this.elements = elements;
     }
 
     public asTypedArray(elementType: "f64"): Float64Array;
@@ -42,8 +38,11 @@ export default class Tensor {
             throw new Error(`Attempting to interpret a ${this.shape.toString()} as a ${elementType} tensor`);
         }
 
+        const { buffer, byteOffset, byteLength } = this.elements;
+        const length = byteLength / this.shape.byteSize;
         const constructor = typedArrays[elementType];
-        return new constructor(this.elements);
+
+        return new constructor(buffer, byteOffset, length);
     }
 
     public get elementType(): string {
