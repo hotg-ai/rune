@@ -18,7 +18,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Value"
+            "$ref": "#/definitions/ResourceOrString"
           }
         },
         "capability": {
@@ -90,7 +90,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "type": "string"
+            "$ref": "#/definitions/ResourceOrString"
           }
         },
         "inputs": {
@@ -130,7 +130,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Value"
+            "$ref": "#/definitions/ResourceOrString"
           }
         },
         "inputs": {
@@ -161,7 +161,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Value"
+            "$ref": "#/definitions/ResourceOrString"
           }
         },
         "inputs": {
@@ -219,6 +219,17 @@
       "format": "string",
       "pattern": "^\\$[_a-zA-Z][_a-zA-Z0-9]*$"
     },
+    "ResourceOrString": {
+      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ResourceName"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "ResourceType": {
       "description": "How the resource should be treated inside the Rune.",
       "type": "string",
@@ -263,28 +274,6 @@
           "type": "string"
         }
       }
-    },
-    "Value": {
-      "description": "A value that may be used as a stage's argument.",
-      "anyOf": [
-        {
-          "type": "integer",
-          "format": "int32"
-        },
-        {
-          "type": "number",
-          "format": "float"
-        },
-        {
-          "type": "string"
-        },
-        {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Value"
-          }
-        }
-      ]
     }
   }
 }

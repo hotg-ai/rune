@@ -1058,19 +1058,6 @@ pipeline:
                     outputs: vec![ty!(i16[16000])],
                     args: map! { hz: "16000".into() },
                 }),
-                output: Stage::Out(OutStage {
-                    out: String::from("SERIAL"),
-                    args: IndexMap::new(),
-                    inputs: vec!["label".parse().unwrap()],
-                }),
-                label: Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
-                    inputs: vec!["model".parse().unwrap()],
-                    outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
-                    args: map! {
-                        labels: "silence\nunknown\nup\ndown\nleft\nright\n".into()
-                    },
-                }),
                 fft: Stage::ProcBlock(ProcBlockStage {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
                     inputs: vec!["audio".parse().unwrap()],
@@ -1082,6 +1069,19 @@ pipeline:
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
                     args: IndexMap::new(),
+                }),
+                label: Stage::ProcBlock(ProcBlockStage {
+                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
+                    inputs: vec!["model".parse().unwrap()],
+                    outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
+                    args: map! {
+                        labels: "silence\nunknown\nup\ndown\nleft\nright".into()
+                    },
+                }),
+                output: Stage::Out(OutStage {
+                    out: String::from("SERIAL"),
+                    args: IndexMap::new(),
+                    inputs: vec!["label".parse().unwrap()],
                 }),
             },
             resources: map![],

@@ -696,38 +696,19 @@ where
 
 fn value_to_tokens<'world, F>(
     value: &ResourceOrString,
-    mut get_name: &mut F,
+    get_name: &mut F,
 ) -> TokenStream
 where
     F: FnMut(Entity) -> Option<&'world Name>,
 {
     match value {
-        ResourceOrString::String(s) => match s.strip_prefix("@") {
-            Some(literal) => todo!(),
-            None => quote!(#s),
-        },
+        ResourceOrString::String(s) => quote!(#s),
         ResourceOrString::Resource(r) => {
             let name = get_name(*r).unwrap();
             let resource_name = Ident::new(&name, Span::call_site());
             quote!(&*crate::resources::#resource_name)
         },
     }
-    // match value {
-    //     Value::Int(i) => i.into_token_stream(),
-    //     Value::Float(f) => f.into_token_stream(),
-    //     Value::String(ResourceOrString::String(s)) if s.starts_with('@') => {
-    //         s[1..].parse().unwrap()
-    //     },
-    //     Value::String(ResourceOrString::String(s)) => s.into_token_stream(),
-    //     Value::String(ResourceOrString::Resource(r)) => {
-    //         let resource_name = Ident::new(r, Span::call_site());
-    //         quote!(&*crate::resources::#resource_name)
-    //     },
-    //     Value::List(list) => {
-    //         let tokens = list.iter().map(value_to_tokens);
-    //         quote! { [ #(#tokens),* ].as_ref() }
-    //     },
-    // }
 }
 
 /// Imports and miscellaneous attributes added to the top of the file.
