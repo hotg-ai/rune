@@ -5,7 +5,7 @@ use crate::{
     Diagnostics,
     lowering::{
         self, Mimetype, Model, ModelFile, NameTable, ProcBlock, Resource, Sink,
-        Source,
+        Source, ResourceData,
     },
     parse::{
         self, CapabilityStage, DocumentV1, ModelStage, OutStage,
@@ -23,16 +23,15 @@ pub(crate) fn run(
     #[resource] doc: &DocumentV1,
     #[resource] names: &NameTable,
     #[resource] diags: &mut Diagnostics,
-    query: &mut Query<&Resource>,
+    resources: &mut Query<(&Resource, Option<&ResourceData>)>,
 ) {
     for (name, stage) in &doc.pipeline {
         let ent = match names.get(name) {
             Some(&e) => e,
             None => continue,
         };
-        let mut get_resource_by_name = |name: &str| names.get(name);
 
-        let args = match translate_args(stage.args()) {
+        let args = match translate_args(stage.args(), names) {
             Ok(a) => a,
             Err(diag) => {
                 diags.push(diag);
@@ -42,7 +41,9 @@ pub(crate) fn run(
 
         match stage {
             parse::Stage::Model(ModelStage { model, .. }) => {
-                match register_model(names, model, &args) {
+                match register_model(names, name, model, &args, |e: Entity| {
+                    resources.get(world, e).ok()
+                }) {
                     Ok((model, mimetype)) => {
                         cmd.add_component(ent, model);
                         cmd.add_component(ent, mimetype);
@@ -109,38 +110,97 @@ fn warn_on_unversioned_proc_block_diagnostic(
 
 fn translate_args(
     args: &IndexMap<String, parse::ResourceOrString>,
+    names: &NameTable,
 ) -> Result<IndexMap<String, lowering::ResourceOrString>, Diagnostic<()>> {
-    todo!()
+    let mut translated = IndexMap::new();
+
+    for (name, value) in args {
+        let value = match value {
+            parse::ResourceOrString::Resource(r) => match names
+                .get(r.as_str())
+                .copied()
+            {
+                Some(entity) => lowering::ResourceOrString::Resource(entity),
+                None => return Err(not_a_resource_diagnostic(r)),
+            },
+            parse::ResourceOrString::String(s) => {
+                lowering::ResourceOrString::String(s.clone())
+            },
+        };
+
+        translated.insert(name.clone(), value);
+    }
+
+    Ok(translated)
 }
 
 fn register_model<'a>(
     names: &NameTable,
+    node_name: &str,
     model: &parse::ResourceOrString,
     args: &IndexMap<String, lowering::ResourceOrString>,
+    mut get_resource: impl FnMut(Entity) -> Option<(&'a Resource, Option<&'a ResourceData>)>
+        + 'a,
 ) -> Result<(Model, Mimetype), Diagnostic<()>> {
-    let (mimetype, args) = model_format_and_args(args)?;
+    let (mimetype, args) = model_format_and_args(node_name, args, |e| {
+        get_resource(e).and_then(|r| r.1).cloned()
+    })?;
 
-    // let model_file = match model {
-    //     lowering::ResourceOrString::Resource(r) => {
-    //         resource_model(r, names, get_resource)?
-    //     },
-    //     lowering::ResourceOrString::String(s) =>
-    // ModelFile::FromDisk(s.into()), };
     let model_file = match model {
-        parse::ResourceOrString::Resource(r) => todo!(),
+        parse::ResourceOrString::Resource(resource_name) => {
+            resource_model(resource_name, names, |e| {
+                get_resource(e).map(|r| r.0)
+            })?
+        },
         parse::ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
     };
+
     Ok((Model { model_file, args }, mimetype))
 }
 
 fn model_format_and_args(
+    node_name: &str,
     args: &IndexMap<String, lowering::ResourceOrString>,
+    get_resource_data: impl FnOnce(Entity) -> Option<ResourceData>,
 ) -> Result<
     (Mimetype, IndexMap<String, lowering::ResourceOrString>),
     Diagnostic<()>,
 > {
     let mut args = args.clone();
 
+    let mimetype = match args.remove("format") {
+        Some(lowering::ResourceOrString::String(format)) => {
+            mimetype_for_known_format(&format)?
+        },
+        Some(lowering::ResourceOrString::Resource(entity)) => {
+            match get_resource_data(entity) {
+                Some(data) => match std::str::from_utf8(&data) {
+                    Ok(format) => mimetype_for_known_format(format)?,
+                    Err(e) => {
+                        return Err(invalid_mimetype_diagnostic(node_name, e))
+                    },
+                },
+                None => {
+                    todo!("Handle unknown resource in the format")
+                },
+            }
+        },
+        None => Mimetype::default(),
+    };
+
+    Ok((mimetype, args))
+}
+
+fn invalid_mimetype_diagnostic(
+    node_name: &str,
+    e: std::str::Utf8Error,
+) -> Diagnostic<()> {
+    let msg = format!("Invalid format for \"{}\": {}", node_name, e);
+
+    Diagnostic::error().with_message(msg)
+}
+
+fn mimetype_for_known_format(format: &str) -> Result<Mimetype, Diagnostic<()>> {
     let known_formats = [
         ("onnx", hotg_rune_core::ONNX_MIMETYPE),
         ("tensorflow", hotg_rune_core::TF_MIMETYPE),
@@ -148,22 +208,16 @@ fn model_format_and_args(
         ("tensorflow-lite", hotg_rune_core::TFLITE_MIMETYPE),
     ];
 
-    let mimetype = match args.remove("format") {
-        Some(lowering::ResourceOrString::String(format)) => known_formats
-            .iter()
-            .find(|(name, _)| *name == format)
-            .map(|(_, mt)| Mimetype::from(*mt))
-            .ok_or_else(|| {
-                unknown_format_diagnostic(
-                    &format,
-                    known_formats.iter().copied().map(|(f, _)| f),
-                )
-            })?,
-        Some(lowering::ResourceOrString::Resource(name)) => todo!(),
-        None => Mimetype::default(),
-    };
-
-    Ok((mimetype, args))
+    known_formats
+        .iter()
+        .find(|(name, _)| *name == format)
+        .map(|(_, mt)| Mimetype::from(*mt))
+        .ok_or_else(|| {
+            unknown_format_diagnostic(
+                &format,
+                known_formats.iter().copied().map(|(f, _)| f),
+            )
+        })
 }
 
 fn unknown_format_diagnostic(

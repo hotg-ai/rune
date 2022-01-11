@@ -51,11 +51,11 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels:
-        - Wing
-        - Ring
-        - Slope
-        - Unknown
+      labels: |
+          Wing
+          Ring
+          Slope
+          Unknown
   serial:
     out: SERIAL
     inputs:

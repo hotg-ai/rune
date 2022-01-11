@@ -510,6 +510,13 @@ impl<'de> Deserialize<'de> for ResourceOrString {
                     Err(e) => Err(E::custom(e)),
                 }
             }
+
+            fn visit_seq<A>(self, _: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                Err(A::Error::custom("lists aren't supported"))
+            }
         }
 
         deserializer.deserialize_any(Visitor)

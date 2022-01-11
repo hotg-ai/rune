@@ -44,10 +44,10 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels:
-        - unknown
-        - person_prob
-        - not_person_prob
+      labels: |
+          unknown
+          person_prob
+          not_person_prob
   serial:
     out: SERIAL
     inputs:

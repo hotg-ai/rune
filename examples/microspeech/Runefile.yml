@@ -57,13 +57,13 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels:
-        - silence
-        - unknown
-        - up
-        - down
-        - left
-        - right
+      labels: |
+          silence
+          unknown
+          up
+          down
+          left
+          right
   serial:
     out: serial
     inputs:

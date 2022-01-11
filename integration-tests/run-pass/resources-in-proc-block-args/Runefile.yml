@@ -57,25 +57,19 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels:
-        - $silence_LABEL
-        - $unknown
-        - up
-        - $down
-        - left
-        - right
+      labels: $LABELS
   serial:
     out: serial
     inputs:
       - label
 
 resources:
-  silence_LABEL:
-    inline: silence
+  LABELS:
     type: string
-  unknown:
-    inline: unknown
-    type: string
-  down:
-    inline: down
-    type: string
+    inline: |
+      silence
+      unknown
+      up
+      down
+      left
+      right
