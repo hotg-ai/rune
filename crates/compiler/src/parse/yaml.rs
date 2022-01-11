@@ -465,16 +465,54 @@ impl<'de> Deserialize<'de> for ResourceOrString {
     where
         D: Deserializer<'de>,
     {
-        let repr = Cow::<str>::deserialize(deserializer)?;
+        struct Visitor;
 
-        if repr.starts_with('$') {
-            match ResourceName::from_str(&repr) {
-                Ok(name) => Ok(ResourceOrString::Resource(name)),
-                Err(e) => Err(D::Error::custom(e)),
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = ResourceOrString;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a number, string, or \"$RESOURCE_NAME\"")
             }
-        } else {
-            Ok(ResourceOrString::String(repr.into_owned()))
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ResourceOrString::String(v.to_string()))
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ResourceOrString::String(v.to_string()))
+            }
+
+            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ResourceOrString::String(v.to_string()))
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let v = v.trim();
+
+                if !v.starts_with('$') {
+                    return Ok(ResourceOrString::String(v.to_string()));
+                }
+
+                match ResourceName::from_str(v) {
+                    Ok(name) => Ok(ResourceOrString::Resource(name)),
+                    Err(e) => Err(E::custom(e)),
+                }
+            }
         }
+
+        deserializer.deserialize_any(Visitor)
     }
 }
 

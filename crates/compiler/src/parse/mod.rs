@@ -40,7 +40,9 @@ fn run(
 }
 
 fn parse_failed_diagnostic(e: serde_yaml::Error) -> Diagnostic<()> {
-    let mut diag = Diagnostic::error().with_message(e.to_string());
+    let msg = format!("Unable to parse the input: {}", e);
+
+    let mut diag = Diagnostic::error().with_message(msg);
     if let Some(location) = e.location() {
         let ix = location.index();
         diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
