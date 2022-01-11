@@ -79,6 +79,7 @@ pub(crate) fn run(
                 ent,
                 Sink {
                     kind: out.as_str().into(),
+                    args,
                 },
             ),
         }
@@ -119,11 +120,15 @@ fn register_model<'a>(
 ) -> Result<(Model, Mimetype), Diagnostic<()>> {
     let (mimetype, args) = model_format_and_args(args)?;
 
+    // let model_file = match model {
+    //     lowering::ResourceOrString::Resource(r) => {
+    //         resource_model(r, names, get_resource)?
+    //     },
+    //     lowering::ResourceOrString::String(s) =>
+    // ModelFile::FromDisk(s.into()), };
     let model_file = match model {
-        lowering::ResourceOrString::Resource(r) => {
-            resource_model(r, names, get_resource)?
-        },
-        lowering::ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
+        parse::ResourceOrString::Resource(r) => todo!(),
+        parse::ResourceOrString::String(s) => ModelFile::FromDisk(s.into()),
     };
     Ok((Model { model_file, args }, mimetype))
 }
@@ -144,7 +149,7 @@ fn model_format_and_args(
     ];
 
     let mimetype = match args.remove("format") {
-        Some(parse::ResourceOrString::String(format)) => known_formats
+        Some(lowering::ResourceOrString::String(format)) => known_formats
             .iter()
             .find(|(name, _)| *name == format)
             .map(|(_, mt)| Mimetype::from(*mt))
@@ -154,7 +159,7 @@ fn model_format_and_args(
                     known_formats.iter().copied().map(|(f, _)| f),
                 )
             })?,
-        Some(parse::ResourceOrString::Resource(name)) => todo!(),
+        Some(lowering::ResourceOrString::Resource(name)) => todo!(),
         None => Mimetype::default(),
     };
 
@@ -406,6 +411,7 @@ mod tests {
             Name::from("serial"),
             Sink {
                 kind: SinkKind::Serial,
+                args: map! {},
             },
         )];
         let got: Vec<_> = <(&Name, &Sink)>::query()

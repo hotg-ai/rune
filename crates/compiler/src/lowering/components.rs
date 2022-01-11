@@ -17,6 +17,7 @@ use crate::parse::{Path, ResourceType};
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Sink {
     pub kind: SinkKind,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// The kind of output.

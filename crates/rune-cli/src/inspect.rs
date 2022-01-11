@@ -5,8 +5,8 @@ use hotg_rune_compiler::{
         CapabilitySummary, ModelSummary, OutputSummary, ProcBlockSummary,
         RuneGraph, RuneVersion, TensorId,
     },
-    lowering::{Name, Resource},
-    parse::{ResourceType, Value},
+    lowering::{Name, Resource, },
+    parse::{ResourceType, ResourceOrString},
 };
 use hotg_rune_core::Shape;
 use strum::VariantNames;
@@ -174,21 +174,12 @@ fn print_tensors(
     }
 }
 
-fn print_args(args: &HashMap<String, Value>) {
+fn print_args(args: &HashMap<String, ResourceOrString>) {
     if !args.is_empty() {
         println!("  Arguments:");
 
         for (arg, value) in args {
-            print!("    {}: ", arg);
-
-            match value {
-                Value::Int(i) => println!("{}", i),
-                Value::Float(f) => println!("{}", f),
-                Value::String(s) => println!("{}", s),
-                Value::List(list) => {
-                    println!("{}", serde_json::to_string(list).unwrap())
-                },
-            }
+            print!("    {}: {}", arg, value);
         }
     }
 }

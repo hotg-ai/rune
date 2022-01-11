@@ -39,6 +39,7 @@ fn person_detection() {
     let mut cmd = Command::cargo_bin("rune").unwrap();
     cmd.arg("build")
         .arg(&runefile)
+        .arg("--colour=never")
         .arg("--output")
         .arg(&rune)
         .arg("--unstable")
@@ -74,6 +75,7 @@ fn build_all_examples() {
         let mut cmd = Command::cargo_bin("rune").unwrap();
         cmd.arg("build")
             .arg(path)
+            .arg("--colour=never")
             .arg("--cache-dir")
             .arg(&cache_dir)
             .arg("--unstable")

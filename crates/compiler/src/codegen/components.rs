@@ -9,8 +9,8 @@ use hotg_rune_core::Shape;
 use serde::Serialize;
 
 use crate::{
-    lowering::{Name, ResourceOrString, Resource, SinkKind, SourceKind},
-    parse::{self, Path},
+    lowering::{Name, Resource, SinkKind, SourceKind},
+    parse::{Path, ResourceOrString},
 };
 
 pub const GRAPH_CUSTOM_SECTION: &str = ".rune_graph";
@@ -133,7 +133,8 @@ pub struct CapabilitySummary {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ModelSummary {
-    pub file: parse::ResourceOrString,
+    pub file: ResourceOrString,
+    pub args: HashMap<String, ResourceOrString>,
     pub inputs: Vec<TensorId>,
     pub outputs: Vec<TensorId>,
 }
@@ -141,7 +142,7 @@ pub struct ModelSummary {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ProcBlockSummary {
     pub path: Path,
-    pub args: HashMap<String, parse::ResourceOrString>,
+    pub args: HashMap<String, ResourceOrString>,
     pub inputs: Vec<TensorId>,
     pub outputs: Vec<TensorId>,
 }
@@ -149,6 +150,7 @@ pub struct ProcBlockSummary {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct OutputSummary {
     pub kind: SinkKind,
+    pub args: HashMap<String, ResourceOrString>,
     pub inputs: Vec<TensorId>,
 }
 
