@@ -203,14 +203,8 @@ async function getModelArtifactsForJSON(
     modelArtifacts.weightSpecs = weightSpecs;
     modelArtifacts.weightData = weightData;
   }
-  if (modelJSON.signature != null) {
-    modelArtifacts.signature = modelJSON.signature;
-  }
   if (modelJSON.userDefinedMetadata != null) {
     modelArtifacts.userDefinedMetadata = modelJSON.userDefinedMetadata;
-  }
-  if (modelJSON.modelInitializer != null) {
-    modelArtifacts.modelInitializer = modelJSON.modelInitializer;
   }
 
   return modelArtifacts;
