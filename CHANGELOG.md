@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Warnings are no longer printed multiple times during `rune build`
   ([#367](https://github.com/hotg-ai/rune/pull/367))
+- Fixed a bug where proc-blocks pulled in via git weren't using the tag
+  mentioned in the version specifier ([#391](https://github.com/hotg-ai/rune/pull/391))
 
 ## [0.10.0] - 2021-10-25
 
