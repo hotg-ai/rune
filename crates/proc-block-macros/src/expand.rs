@@ -153,8 +153,7 @@ impl ToTokens for Setter {
 
             pub fn #method(&mut self, #property: &str) -> Result<(), impl core::fmt::Debug>
             {
-                self.#property = #property.parse()?;
-                Ok(())
+                #property.parse().map(|value| { self.#property = value; })
             }
         };
         tokens.extend(t);
