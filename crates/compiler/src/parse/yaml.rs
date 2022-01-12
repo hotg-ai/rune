@@ -912,6 +912,16 @@ mod tests {
                     "v1.2".to_string(),
                 ),
             ),
+            // Note: GitHub provides these refs that you can use as well as the
+            // normal tags and commits
+            (
+                "hotg-ai/proc-blocks@refs/heads/master#normalize",
+                Path::new(
+                    "hotg-ai/rune",
+                    "proc_blocks/normalize".to_string(),
+                    "v1.2".to_string(),
+                ),
+            ),
         ];
 
         for (src, should_be) in inputs {
