@@ -43,12 +43,17 @@ impl<T: Clone + Default> Capability<T> {
         buffer
     }
 
-    pub fn set_parameter(
-        &mut self,
-        key: &str,
-        value: impl Into<Value>,
-    ) -> &mut Self {
-        let value = value.into();
+    pub fn set_parameter(&mut self, key: &str, value: &str) -> &mut Self {
+        let value = if let Ok(int) = value.parse() {
+            Value::Integer(int)
+        } else if let Ok(float) = value.parse() {
+            Value::Float(float)
+        } else {
+            panic!(
+                "Unable to parse \"{}\" as a number when setting \"{}\"",
+                value, key
+            );
+        };
 
         unsafe {
             let mut buffer = Value::buffer();
