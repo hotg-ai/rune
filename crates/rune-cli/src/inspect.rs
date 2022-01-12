@@ -5,7 +5,7 @@ use hotg_rune_compiler::{
         CapabilitySummary, ModelSummary, OutputSummary, ProcBlockSummary,
         RuneGraph, RuneVersion, TensorId,
     },
-    lowering::{Name, Resource, },
+    lowering::{Name, Resource},
     parse::{ResourceType, ResourceOrString},
 };
 use hotg_rune_core::Shape;

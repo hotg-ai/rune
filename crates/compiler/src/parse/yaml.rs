@@ -917,9 +917,9 @@ mod tests {
             (
                 "hotg-ai/proc-blocks@refs/heads/master#normalize",
                 Path::new(
-                    "hotg-ai/rune",
-                    "proc_blocks/normalize".to_string(),
-                    "v1.2".to_string(),
+                    "hotg-ai/proc-blocks",
+                    "normalize".to_string(),
+                    "refs/heads/master".to_string(),
                 ),
             ),
         ];

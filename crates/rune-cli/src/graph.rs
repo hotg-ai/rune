@@ -114,13 +114,7 @@ fn declare_nodes(w: &mut dyn Write, rune: &RuneGraph) -> Result<(), Error> {
             node.name, colour
         )?;
         let qualifier = node.specifics.qualifier();
-        format_node_label(
-            w,
-            node.name,
-            &qualifier,
-            node.inputs,
-            node.outputs,
-        )?;
+        format_node_label(w, node.name, &qualifier, node.inputs, node.outputs)?;
         writeln!(w, "];")?;
     }
 

@@ -136,9 +136,7 @@ fn check_manifest(info: &CrateInfo) -> Option<Diagnostics> {
     expect.array_field("Authors", authors).to_equal(AUTHORS);
     expect.array_field("Categories", categories).is_not_empty();
     expect.array_field("Keywords", keywords).is_not_empty();
-    expect
-        .array_field("Keywords", keywords)
-        .length_less_than(5);
+    expect.array_field("Keywords", keywords).length_less_than(5);
     expect
         .field("Name", Some(name))
         .starts_with_one_of(NAME_PREFIXES);

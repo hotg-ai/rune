@@ -98,24 +98,23 @@ pub trait Transform<Input>: ProcBlock {
 /// ## Field Attributes
 ///
 /// By default, all fields in a proc block struct will be registered as
-/// "properties" and will get some generated setters.
+/// "properties" and will get some generated setters. These setters accept a
+/// string and use [`core::str::FromStr`] to parse it into the correct type.
 ///
 /// ```rust
 /// use hotg_rune_proc_blocks::ProcBlock;
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// struct Foo {
-///     first: &'static str,
-///     second: u32,
+///     property: f64,
 /// }
 ///
 /// let descriptor = Foo::DESCRIPTOR;
 ///
 /// let mut foo = Foo::default();
 ///
-/// foo.set_first("Hello, World!").set_second(42_u32);
-/// assert_eq!(foo.first, "Hello, World!");
-/// assert_eq!(foo.second, 42);
+/// foo.set_property("42").unwrap();
+/// assert_eq!(foo.property, 42.0);
 /// ```
 ///
 /// A parameter can opt-out of this with the `#[proc_block(skip)]` attribute.
