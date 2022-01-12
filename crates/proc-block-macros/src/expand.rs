@@ -96,7 +96,10 @@ impl ToTokens for SetterAssertion {
         let t = quote! {
             const _: () = {
                 fn #assertion_name(proc_block: &mut #proc_block_type, #property: #property_type) {
-                    proc_block.#setter_name(#property);
+                    fn assert_return_is_result_debug(_: Result<(), impl core::fmt::Debug>) {}
+
+                    let result = proc_block.#setter_name(#property);
+                    assert_return_is_result_debug(result);
                 }
             };
         };
@@ -148,16 +151,9 @@ impl ToTokens for Setter {
         let t = quote! {
             pub fn #property(&self) -> &#property_type { &self.#property }
 
-            pub fn #method<V>(&mut self, #property: V) -> &mut Self
-            where
-                #property_type: core::convert::TryFrom<V>,
-                <#property_type as core::convert::TryFrom<V>>::Error: core::fmt::Display,
+            pub fn #method(&mut self, #property: &str) -> Result<(), impl core::fmt::Display>
             {
-                self.#property = match <#property_type as core::convert::TryFrom<V>>::try_from(#property) {
-                    Ok(#property) => #property,
-                    Err(e) => panic!("Invalid {}: {}", stringify!(#property), e),
-                };
-                self
+                self.#property = #property.parse()?;
             }
 
         };
