@@ -3,7 +3,7 @@ use hotg_rune_core::{Shape, ElementType};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{ToTokens, quote};
-use heck::{CamelCase, SnakeCase};
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use crate::{
     codegen::{CustomSection, File},
     lowering::{
@@ -627,7 +627,7 @@ where
 
 fn proc_block_type(proc_block: &ProcBlock) -> TokenStream {
     let module_name = proc_block.name().to_snake_case();
-    let type_name = module_name.to_camel_case();
+    let type_name = module_name.to_upper_camel_case();
 
     let module_name = Ident::new(&module_name, Span::call_site());
     let type_name = Ident::new(&type_name, Span::call_site());
