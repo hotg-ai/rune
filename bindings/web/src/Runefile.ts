@@ -31,7 +31,7 @@ export type Stage = ModelStage | ProcBlockStage | CapabilityStage | OutStage;
 /**
  * Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).
  */
-export type ResourceOrString = ResourceName;
+export type Argument = ResourceName | number;
 /**
  *
  * A reference to some [`ResourceDeclaration`]. It typically looks like
@@ -85,7 +85,7 @@ export interface DocumentV1 {
  */
 export interface ModelStage {
   args?: {
-    [k: string]: ResourceOrString;
+    [k: string]: Argument;
   };
   /**
    * Tensors to use as input to this model.
@@ -114,7 +114,7 @@ export interface Type {
  */
 export interface ProcBlockStage {
   args?: {
-    [k: string]: ResourceOrString;
+    [k: string]: Argument;
   };
   inputs?: Input[];
   outputs?: Type[];
@@ -129,7 +129,7 @@ export interface ProcBlockStage {
  */
 export interface CapabilityStage {
   args?: {
-    [k: string]: ResourceOrString;
+    [k: string]: Argument;
   };
   /**
    * What type of capability to use ("IMAGE", "SOUND", etc.).
@@ -143,7 +143,7 @@ export interface CapabilityStage {
  */
 export interface OutStage {
   args?: {
-    [k: string]: ResourceOrString;
+    [k: string]: Argument;
   };
   inputs?: Input[];
   /**

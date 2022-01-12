@@ -9,7 +9,9 @@ use std::{
 use schemars::{
     JsonSchema,
     gen::SchemaGenerator,
-    schema::{InstanceType, Schema, SchemaObject, Metadata},
+    schema::{
+        InstanceType, Schema, SchemaObject, Metadata, SubschemaValidation,
+    },
 };
 use indexmap::IndexMap;
 use regex::Regex;
@@ -114,7 +116,7 @@ macro_rules! impl_json_schema_via_regex {
                     ..Default::default()
                 };
 
-                schema.string().pattern = Some($pattern.as_str().to_string());
+                schema.string().pattern = Some($pattern.to_string());
 
                 schema.into()
             }
@@ -316,7 +318,7 @@ pub struct ModelStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, ResourceOrString>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage which executes a procedural block.
@@ -338,7 +340,7 @@ pub struct ProcBlockStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, ResourceOrString>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage which reads inputs from the runtime.
@@ -357,7 +359,7 @@ pub struct CapabilityStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, ResourceOrString>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage which passes outputs back to the runtime.
@@ -376,7 +378,7 @@ pub struct OutStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, ResourceOrString>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage in the Rune's pipeline.
@@ -432,7 +434,7 @@ impl Stage {
         Span::default()
     }
 
-    pub fn args(&self) -> &IndexMap<String, ResourceOrString> {
+    pub fn args(&self) -> &IndexMap<String, Argument> {
         match self {
             Stage::Model(m) => &m.args,
             Stage::ProcBlock(p) => &p.args,
@@ -444,11 +446,33 @@ impl Stage {
 
 /// Something that could be either a reference to a resource (`$resource`)
 /// or a plain string (`./path`).
-#[derive(Debug, Clone, PartialEq, JsonSchema)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ResourceOrString {
     Resource(ResourceName),
     String(String),
+}
+
+impl JsonSchema for ResourceOrString {
+    fn schema_name() -> std::string::String { "ResourceOrString".to_owned() }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        let resource_name = gen.subschema_for::<ResourceName>();
+        let string = gen.subschema_for::<String>();
+
+        let description = "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`)." ;
+
+        Schema::Object(SchemaObject {
+            metadata: Some(Box::new(Metadata {
+                description: Some(description.to_owned()),
+                ..Default::default()
+            })),
+            subschemas: Some(Box::new(SubschemaValidation {
+                any_of: Some(vec![resource_name, string]),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
 }
 
 impl Serialize for ResourceOrString {
@@ -538,6 +562,35 @@ impl<S: Into<String>> From<S> for ResourceOrString {
 
 impl From<ResourceName> for ResourceOrString {
     fn from(name: ResourceName) -> Self { ResourceOrString::Resource(name) }
+}
+
+/// A newtype around [`ResourceOrString`] which is used in each stage's `args`
+/// dictionary.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+pub struct Argument(pub ResourceOrString);
+
+impl JsonSchema for Argument {
+    fn schema_name() -> std::string::String { "Argument".to_owned() }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        let number = gen.subschema_for::<serde_json::Number>();
+
+        let mut schema = ResourceOrString::json_schema(gen).into_object();
+        schema.subschemas().any_of.as_mut().unwrap().push(number);
+
+        schema.into()
+    }
+}
+
+impl<T: Into<ResourceOrString>> From<T> for Argument {
+    fn from(value: T) -> Self { Argument(value.into()) }
+}
+
+impl Deref for Argument {
+    type Target = ResourceOrString;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
 }
 
 /// The element type and dimensions for a particular tensor.
@@ -800,6 +853,8 @@ impl FromStr for Image {
 
 #[cfg(test)]
 mod tests {
+    use jsonschema::JSONSchema;
+
     use super::*;
 
     #[test]
@@ -1125,7 +1180,44 @@ pipeline:
         let schema = schemars::schema_for!(Document);
 
         let schema = serde_json::to_value(&schema).unwrap();
-        assert_eq!(schema, should_be,
-            "The schema is out of sync. You probably need to run \"cargo xtask update-schema\"");
+        assert_eq!(
+            should_be,
+            schema,
+            "The schema is out of sync. You probably need to run \"cargo xtask update-schema\"",
+        );
+    }
+
+    #[track_caller]
+    fn handle_errors<'a>(
+        errors: impl Iterator<Item = jsonschema::ValidationError<'a>>,
+    ) -> ! {
+        for err in errors {
+            println!("{}", err);
+        }
+
+        panic!("Validation failed");
+    }
+
+    #[test]
+    fn argument_schema_is_valid() {
+        let schema = schemars::schema_for!(Argument);
+        let schema_json = serde_json::to_value(&schema).unwrap();
+        let compiled_schema =
+            JSONSchema::options().compile(&schema_json).unwrap();
+
+        let string = serde_json::Value::String("".to_string());
+        compiled_schema
+            .validate(&string)
+            .unwrap_or_else(|e| handle_errors(e));
+
+        let resource = serde_json::Value::String("$resource".to_string());
+        compiled_schema
+            .validate(&resource)
+            .unwrap_or_else(|e| handle_errors(e));
+
+        let number = serde_json::Value::Number(10.into());
+        compiled_schema
+            .validate(&number)
+            .unwrap_or_else(|e| handle_errors(e));
     }
 }

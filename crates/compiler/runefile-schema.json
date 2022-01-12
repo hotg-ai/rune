@@ -8,6 +8,20 @@
     }
   ],
   "definitions": {
+    "Argument": {
+      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ResourceName"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
     "CapabilityStage": {
       "description": "A stage which reads inputs from the runtime.",
       "type": "object",
@@ -18,7 +32,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/ResourceOrString"
+            "$ref": "#/definitions/Argument"
           }
         },
         "capability": {
@@ -90,7 +104,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/ResourceOrString"
+            "$ref": "#/definitions/Argument"
           }
         },
         "inputs": {
@@ -130,7 +144,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/ResourceOrString"
+            "$ref": "#/definitions/Argument"
           }
         },
         "inputs": {
@@ -161,7 +175,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/ResourceOrString"
+            "$ref": "#/definitions/Argument"
           }
         },
         "inputs": {
@@ -218,17 +232,6 @@
       "type": "string",
       "format": "string",
       "pattern": "^\\$[_a-zA-Z][_a-zA-Z0-9]*$"
-    },
-    "ResourceOrString": {
-      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
-      "anyOf": [
-        {
-          "$ref": "#/definitions/ResourceName"
-        },
-        {
-          "type": "string"
-        }
-      ]
     },
     "ResourceType": {
       "description": "How the resource should be treated inside the Rune.",

@@ -109,13 +109,13 @@ fn warn_on_unversioned_proc_block_diagnostic(
 }
 
 fn translate_args(
-    args: &IndexMap<String, parse::ResourceOrString>,
+    args: &IndexMap<String, parse::Argument>,
     names: &NameTable,
 ) -> Result<IndexMap<String, lowering::ResourceOrString>, Diagnostic<()>> {
     let mut translated = IndexMap::new();
 
     for (name, value) in args {
-        let value = match value {
+        let value = match &value.0 {
             parse::ResourceOrString::Resource(r) => match names
                 .get(r.as_str())
                 .copied()
