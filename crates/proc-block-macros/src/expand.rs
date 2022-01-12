@@ -95,7 +95,7 @@ impl ToTokens for SetterAssertion {
 
         let t = quote! {
             const _: () = {
-                fn #assertion_name(proc_block: &mut #proc_block_type, #property: #property_type) {
+                fn #assertion_name(proc_block: &mut #proc_block_type, #property: &str) {
                     fn assert_return_is_result_debug(_: Result<(), impl core::fmt::Debug>) {}
 
                     let result = proc_block.#setter_name(#property);
