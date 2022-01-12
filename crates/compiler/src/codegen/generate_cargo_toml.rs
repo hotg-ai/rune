@@ -166,6 +166,7 @@ fn proc_block_dependency(
 
     DependencyDetail {
         git: Some(repo),
+        rev: path.version.clone(),
         ..empty_dependency_detail()
     }
 }
