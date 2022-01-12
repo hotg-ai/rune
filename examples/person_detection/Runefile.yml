@@ -44,7 +44,7 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels: |
+      wordlist: |
           unknown
           person_prob
           not_person_prob

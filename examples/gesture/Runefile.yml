@@ -51,7 +51,7 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels: |
+      wordlist: |
           Wing
           Ring
           Slope

@@ -57,7 +57,7 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels: |
+      wordlist: |
           silence
           unknown
           up

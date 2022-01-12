@@ -57,7 +57,7 @@ pipeline:
         dimensions:
           - 1
     args:
-      labels: $LABELS
+      wordlist: $LABELS
   serial:
     out: serial
     inputs:
