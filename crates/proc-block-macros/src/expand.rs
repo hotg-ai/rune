@@ -85,7 +85,7 @@ impl ToTokens for SetterAssertion {
         let SetterAssertion {
             proc_block_type,
             property,
-            setter_argument: property_type,
+            ..
         } = self;
 
         let assertion_name = format!("_assert_{}_is_settable", property);
@@ -154,6 +154,7 @@ impl ToTokens for Setter {
             pub fn #method(&mut self, #property: &str) -> Result<(), impl core::fmt::Debug>
             {
                 self.#property = #property.parse()?;
+                Ok(())
             }
         };
         tokens.extend(t);
