@@ -18,7 +18,6 @@ mod wasm3_impl;
 #[cfg(feature = "wasmer-runtime")]
 mod wasmer_impl;
 
-
 mod image;
 mod random;
 

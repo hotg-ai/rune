@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use indexmap::IndexMap;
 use legion::{
     Entity, Query,
     serialize::{Canon, CustomEntitySerializer},
@@ -10,8 +13,8 @@ use crate::{
         ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
     },
     lowering::{
-        Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource, Sink,
-        Source, Tensor,
+        self, Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource,
+        Sink, Source, Tensor,
     },
     parse::{ResourceName, ResourceOrString},
 };
@@ -32,38 +35,38 @@ pub(crate) fn run(
     resources: &mut Query<(&Name, &Resource)>,
 ) {
     let canon = Canon::default();
+    let mut resource_name = |ent: Entity| {
+        resources
+            .get(world, ent)
+            .map(|(name, _)| ResourceName(name.to_string()))
+            .unwrap()
+    };
 
     let graph = RuneGraph {
         rune: rune_summary(ctx),
         capabilities: capabilities
             .iter(world)
-            .map(|(n, s, o)| capability_summary(n, s, o, &canon))
+            .map(|(n, s, o)| {
+                capability_summary(n, s, o, &canon, &mut resource_name)
+            })
             .collect(),
         models: models
             .iter(world)
             .map(|(n, m, i, o)| {
-                model_summary(
-                    n,
-                    m,
-                    i,
-                    o,
-                    |ent| {
-                        resources
-                            .get(world, ent)
-                            .map(|(name, _)| ResourceName(name.to_string()))
-                            .unwrap()
-                    },
-                    &canon,
-                )
+                model_summary(n, m, i, o, &mut resource_name, &canon)
             })
             .collect(),
         proc_blocks: proc_blocks
             .iter(world)
-            .map(|(n, p, i, o)| proc_block_summary(n, p, i, o, &canon))
+            .map(|(n, p, i, o)| {
+                proc_block_summary(n, p, i, o, &canon, &mut resource_name)
+            })
             .collect(),
         outputs: outputs
             .iter(world)
-            .map(|(n, s, i)| output_summary(n, s, i, &canon))
+            .map(|(n, s, i)| {
+                output_summary(n, s, i, &canon, &mut resource_name)
+            })
             .collect(),
         resources: resources
             .iter(world)
@@ -102,10 +105,11 @@ fn capability_summary(
     source: &Source,
     outputs: &Outputs,
     get_tensor: &Canon,
+    mut resource_name: impl FnMut(Entity) -> ResourceName,
 ) -> (Name, CapabilitySummary) {
     let summary = CapabilitySummary {
         kind: source.kind.clone(),
-        args: source.parameters.clone(),
+        args: convert_args(&source.parameters, &mut resource_name),
         outputs: tensor_shapes(&outputs.tensors, get_tensor),
     };
 
@@ -131,6 +135,7 @@ fn model_summary(
 
     let summary = ModelSummary {
         file,
+        args: convert_args(&model.args, resources),
         inputs: tensor_shapes(&inputs.tensors, get_tensor),
         outputs: tensor_shapes(&outputs.tensors, get_tensor),
     };
@@ -144,10 +149,25 @@ fn proc_block_summary(
     inputs: &Inputs,
     outputs: &Outputs,
     get_tensor: &Canon,
+    mut resource_name: impl FnMut(Entity) -> ResourceName,
 ) -> (Name, ProcBlockSummary) {
     let summary = ProcBlockSummary {
         path: proc_block.path.clone(),
-        args: proc_block.parameters.clone(),
+        args: proc_block
+            .parameters
+            .iter()
+            .map(|(key, value)| {
+                let value = match value {
+                    lowering::ResourceOrString::String(s) => {
+                        ResourceOrString::String(s.clone())
+                    },
+                    lowering::ResourceOrString::Resource(ent) => {
+                        ResourceOrString::Resource(resource_name(*ent))
+                    },
+                };
+                (key.clone(), value)
+            })
+            .collect(),
         inputs: tensor_shapes(&inputs.tensors, get_tensor),
         outputs: tensor_shapes(&outputs.tensors, get_tensor),
     };
@@ -160,11 +180,35 @@ fn output_summary(
     sink: &Sink,
     inputs: &Inputs,
     get_tensor: &Canon,
+    mut get_resources: impl FnMut(Entity) -> ResourceName,
 ) -> (Name, OutputSummary) {
     let summary = OutputSummary {
         kind: sink.kind.clone(),
+        args: convert_args(&sink.args, &mut get_resources),
         inputs: tensor_shapes(&inputs.tensors, get_tensor),
     };
 
     (name.clone(), summary)
+}
+
+fn convert_args(
+    args: &IndexMap<String, lowering::ResourceOrString>,
+    mut resources: impl FnMut(Entity) -> ResourceName,
+) -> HashMap<String, ResourceOrString> {
+    let mut converted = HashMap::new();
+
+    for (key, value) in args {
+        let value = match value {
+            lowering::ResourceOrString::String(s) => {
+                ResourceOrString::String(s.clone())
+            },
+            lowering::ResourceOrString::Resource(r) => {
+                ResourceOrString::Resource(resources(*r))
+            },
+        };
+
+        converted.insert(key.clone(), value);
+    }
+
+    converted
 }

@@ -29,13 +29,9 @@ export type Path = string;
  */
 export type Stage = ModelStage | ProcBlockStage | CapabilityStage | OutStage;
 /**
- *
- * The name of a tensor.
- *
- * Typically something like "stage", or "stage.2" if the stage has multiple outputs.
- *
+ * Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).
  */
-export type Input = string;
+export type Argument = ResourceName | number;
 /**
  *
  * A reference to some [`ResourceDeclaration`]. It typically looks like
@@ -44,9 +40,13 @@ export type Input = string;
  */
 export type ResourceName = string;
 /**
- * A value that may be used as a stage's argument.
+ *
+ * The name of a tensor.
+ *
+ * Typically something like "stage", or "stage.2" if the stage has multiple outputs.
+ *
  */
-export type Value = number | string | Value[];
+export type Input = string;
 /**
  * How the resource should be treated inside the Rune.
  */
@@ -85,7 +85,7 @@ export interface DocumentV1 {
  */
 export interface ModelStage {
   args?: {
-    [k: string]: string;
+    [k: string]: Argument;
   };
   /**
    * Tensors to use as input to this model.
@@ -114,7 +114,7 @@ export interface Type {
  */
 export interface ProcBlockStage {
   args?: {
-    [k: string]: Value;
+    [k: string]: Argument;
   };
   inputs?: Input[];
   outputs?: Type[];
@@ -129,7 +129,7 @@ export interface ProcBlockStage {
  */
 export interface CapabilityStage {
   args?: {
-    [k: string]: Value;
+    [k: string]: Argument;
   };
   /**
    * What type of capability to use ("IMAGE", "SOUND", etc.).
@@ -143,7 +143,7 @@ export interface CapabilityStage {
  */
 export interface OutStage {
   args?: {
-    [k: string]: Value;
+    [k: string]: Argument;
   };
   inputs?: Input[];
   /**

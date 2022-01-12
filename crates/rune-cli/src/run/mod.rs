@@ -35,9 +35,8 @@ where
     T: TryFrom<i32>,
     T::Error: std::error::Error + Send + Sync + 'static,
 {
-    let integer: i32 = value
-        .try_into()
-        .map_err(ParameterError::IncorrectType)?;
+    let integer: i32 =
+        value.try_into().map_err(ParameterError::IncorrectType)?;
 
     match T::try_from(integer) {
         Ok(value) => {

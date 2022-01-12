@@ -3,14 +3,15 @@ use hotg_rune_core::{Shape, ElementType};
 use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{ToTokens, quote};
-use heck::{CamelCase, SnakeCase};
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use crate::{
     codegen::{CustomSection, File},
     lowering::{
         Inputs, Mimetype, Model, ModelFile, Name, Outputs, PipelineNode,
         ProcBlock, Resource, ResourceData, Sink, SinkKind, Source, Tensor,
+        ResourceOrString,
     },
-    parse::{ResourceOrString, ResourceType, Value},
+    parse::ResourceType,
 };
 
 /// Generate the entire `lib.rs` file.
@@ -130,8 +131,9 @@ where
     F: FnMut(Entity) -> Option<&'world Name>,
     T: FnMut(Entity) -> Option<&'world Tensor>,
 {
-    let capabilities = initialize_capabilities(capabilities, get_tensor);
-    let proc_blocks = initialize_proc_blocks(proc_blocks);
+    let capabilities =
+        initialize_capabilities(capabilities, get_tensor, get_name);
+    let proc_blocks = initialize_proc_blocks(proc_blocks, get_name);
     let models: TokenStream = models
         .iter()
         .map(|(n, m, mt, i, o)| {
@@ -579,24 +581,41 @@ fn shape_to_tokens(shape: &Shape<'_>) -> TokenStream {
     }
 }
 
-fn initialize_proc_blocks(proc_blocks: &[(&Name, &ProcBlock)]) -> TokenStream {
+fn initialize_proc_blocks<'world, N>(
+    proc_blocks: &[(&Name, &ProcBlock)],
+    get_name: &mut N,
+) -> TokenStream
+where
+    N: FnMut(Entity) -> Option<&'world Name>,
+{
     proc_blocks
         .iter()
         .copied()
-        .map(|(name, proc_block)| initialize_proc_block(name, proc_block))
+        .map(|(name, proc_block)| {
+            initialize_proc_block(name, proc_block, get_name)
+        })
         .collect()
 }
 
-fn initialize_proc_block(name: &Name, proc_block: &ProcBlock) -> TokenStream {
+fn initialize_proc_block<'world, N>(
+    name: &Name,
+    proc_block: &ProcBlock,
+    get_name: &mut N,
+) -> TokenStream
+where
+    N: FnMut(Entity) -> Option<&'world Name>,
+{
     let ty = proc_block_type(proc_block);
 
     let name = Ident::new(name, Span::call_site());
     let setters = proc_block.parameters.iter().map(|(key, value)| {
-        let value = value_to_tokens(value);
+        let value = proc_block_argument_to_tokens(value, get_name);
         let setter = format!("set_{}", key).replace("-", "_");
         let setter = Ident::new(&setter, Span::call_site());
+        let error_message =
+            format!("Unable to set {}'s \"{}\" to {}", name, key, value);
         quote! {
-            #name.#setter(#value);
+            #name.#setter(#value).expect(#error_message);
         }
     });
 
@@ -608,7 +627,7 @@ fn initialize_proc_block(name: &Name, proc_block: &ProcBlock) -> TokenStream {
 
 fn proc_block_type(proc_block: &ProcBlock) -> TokenStream {
     let module_name = proc_block.name().to_snake_case();
-    let type_name = module_name.to_camel_case();
+    let type_name = module_name.to_upper_camel_case();
 
     let module_name = Ident::new(&module_name, Span::call_site());
     let type_name = Ident::new(&type_name, Span::call_site());
@@ -616,30 +635,34 @@ fn proc_block_type(proc_block: &ProcBlock) -> TokenStream {
     quote!(#module_name::#type_name)
 }
 
-fn initialize_capabilities<'world, T>(
+fn initialize_capabilities<'world, T, N>(
     capabilities: &[(&Name, &Source, &Outputs)],
     get_tensor: &mut T,
+    get_name: &mut N,
 ) -> TokenStream
 where
     T: FnMut(Entity) -> Option<&'world Tensor>,
+    N: FnMut(Entity) -> Option<&'world Name>,
 {
     capabilities
         .iter()
         .copied()
         .map(|(name, source, outputs)| {
-            initialize_capability(name, source, outputs, get_tensor)
+            initialize_capability(name, source, outputs, get_tensor, get_name)
         })
         .collect()
 }
 
-fn initialize_capability<'world, T>(
+fn initialize_capability<'world, T, N>(
     name: &Name,
     source: &Source,
     outputs: &Outputs,
     get_tensor: &mut T,
+    get_name: &mut N,
 ) -> TokenStream
 where
     T: FnMut(Entity) -> Option<&'world Tensor>,
+    N: FnMut(Entity) -> Option<&'world Name>,
 {
     let capability_type = match source.kind.as_capability_name() {
         Some(name) => {
@@ -661,7 +684,7 @@ where
     let name = Ident::new(name, Span::call_site());
     let setters = source.parameters.iter().map(|(key, value)| {
         let key = key.replace("-", "_");
-        let value = value_to_tokens(value);
+        let value = capability_argument_to_tokens(value, get_name);
         quote! {
             #name.set_parameter(#key, #value);
         }
@@ -673,21 +696,59 @@ where
     }
 }
 
-fn value_to_tokens(value: &Value) -> TokenStream {
+fn proc_block_argument_to_tokens<'world, F>(
+    value: &ResourceOrString,
+    get_name: &mut F,
+) -> TokenStream
+where
+    F: FnMut(Entity) -> Option<&'world Name>,
+{
     match value {
-        Value::Int(i) => i.into_token_stream(),
-        Value::Float(f) => f.into_token_stream(),
-        Value::String(ResourceOrString::String(s)) if s.starts_with('@') => {
-            s[1..].parse().unwrap()
-        },
-        Value::String(ResourceOrString::String(s)) => s.into_token_stream(),
-        Value::String(ResourceOrString::Resource(r)) => {
-            let resource_name = Ident::new(r, Span::call_site());
+        ResourceOrString::String(s) => quote!(#s),
+        ResourceOrString::Resource(r) => {
+            let name = get_name(*r).unwrap();
+            let resource_name = Ident::new(&name, Span::call_site());
             quote!(&*crate::resources::#resource_name)
         },
-        Value::List(list) => {
-            let tokens = list.iter().map(value_to_tokens);
-            quote! { [ #(#tokens),* ].as_ref() }
+    }
+}
+
+/// Take a [`ResourceOrString`] and turn it into an `impl Into<Value>`
+/// expression so it can be passed to a capability.
+///
+/// Note: this *could* be merged with [`proc_block_argument_to_tokens`] if
+/// capabilities accepted strings and the image capability didn't need our
+/// `hotg_rune_core::ImageFormat` hack wher `@` lets you pass in arbitrary Rust
+/// expressions.
+fn capability_argument_to_tokens<'world, F>(
+    value: &ResourceOrString,
+    get_name: &mut F,
+) -> TokenStream
+where
+    F: FnMut(Entity) -> Option<&'world Name>,
+{
+    match value {
+        ResourceOrString::String(s) => {
+            if let Some(stripped) = s.strip_prefix('@') {
+                stripped.parse::<TokenStream>().unwrap_or_else(|e| {
+                    let msg = format!(
+                        "Unable to parse \"{}\" as a Rust expression: {}",
+                        stripped, e
+                    );
+                    quote!(compile_error!(#msg))
+                })
+            } else {
+                quote! {
+                    #s
+                        .parse::<hotg_rune_core::Value>()
+                        .unwrap_or_else(|_| { panic!( "Unable to parse \"{}\" as a number", #s); })
+                }
+            }
+        },
+        ResourceOrString::Resource(r) => {
+            let name = get_name(*r).unwrap();
+            let resource_name = Ident::new(&name, Span::call_site());
+            quote!(&*crate::resources::#resource_name)
         },
     }
 }

@@ -15,6 +15,7 @@ pub(crate) fn rune_output(
     cmd.arg("build")
         .arg(directory.join("Runefile.yml"))
         .arg("--debug")
+        .arg("--colour=never")
         .arg("--cache-dir")
         .arg(ctx.cache_dir(name))
         .stdout(Stdio::piped())

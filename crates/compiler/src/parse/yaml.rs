@@ -9,7 +9,9 @@ use std::{
 use schemars::{
     JsonSchema,
     gen::SchemaGenerator,
-    schema::{InstanceType, Schema, SchemaObject, Metadata},
+    schema::{
+        InstanceType, Schema, SchemaObject, Metadata, SubschemaValidation,
+    },
 };
 use indexmap::IndexMap;
 use regex::Regex;
@@ -114,7 +116,7 @@ macro_rules! impl_json_schema_via_regex {
                     ..Default::default()
                 };
 
-                schema.string().pattern = Some($pattern.as_str().to_string());
+                schema.string().pattern = Some($pattern.to_string());
 
                 schema.into()
             }
@@ -316,7 +318,7 @@ pub struct ModelStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, String>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage which executes a procedural block.
@@ -338,7 +340,7 @@ pub struct ProcBlockStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, Value>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage which reads inputs from the runtime.
@@ -357,7 +359,7 @@ pub struct CapabilityStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, Value>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage which passes outputs back to the runtime.
@@ -376,7 +378,7 @@ pub struct OutStage {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub args: IndexMap<String, Value>,
+    pub args: IndexMap<String, Argument>,
 }
 
 /// A stage in the Rune's pipeline.
@@ -431,15 +433,46 @@ impl Stage {
         // TODO: Get span from serde_yaml
         Span::default()
     }
+
+    pub fn args(&self) -> &IndexMap<String, Argument> {
+        match self {
+            Stage::Model(m) => &m.args,
+            Stage::ProcBlock(p) => &p.args,
+            Stage::Capability(c) => &c.args,
+            Stage::Out(out) => &out.args,
+        }
+    }
 }
 
 /// Something that could be either a reference to a resource (`$resource`)
 /// or a plain string (`./path`).
-#[derive(Debug, Clone, PartialEq, JsonSchema)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ResourceOrString {
     Resource(ResourceName),
     String(String),
+}
+
+impl JsonSchema for ResourceOrString {
+    fn schema_name() -> std::string::String { "ResourceOrString".to_owned() }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        let resource_name = gen.subschema_for::<ResourceName>();
+        let string = gen.subschema_for::<String>();
+
+        let description = "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`)." ;
+
+        Schema::Object(SchemaObject {
+            metadata: Some(Box::new(Metadata {
+                description: Some(description.to_owned()),
+                ..Default::default()
+            })),
+            subschemas: Some(Box::new(SubschemaValidation {
+                any_of: Some(vec![resource_name, string]),
+                ..Default::default()
+            })),
+            ..Default::default()
+        })
+    }
 }
 
 impl Serialize for ResourceOrString {
@@ -456,16 +489,61 @@ impl<'de> Deserialize<'de> for ResourceOrString {
     where
         D: Deserializer<'de>,
     {
-        let repr = Cow::<str>::deserialize(deserializer)?;
+        struct Visitor;
 
-        if repr.starts_with('$') {
-            match ResourceName::from_str(&repr) {
-                Ok(name) => Ok(ResourceOrString::Resource(name)),
-                Err(e) => Err(D::Error::custom(e)),
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = ResourceOrString;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a number, string, or \"$RESOURCE_NAME\"")
             }
-        } else {
-            Ok(ResourceOrString::String(repr.into_owned()))
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ResourceOrString::String(v.to_string()))
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ResourceOrString::String(v.to_string()))
+            }
+
+            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ResourceOrString::String(v.to_string()))
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let v = v.trim();
+
+                if !v.starts_with('$') {
+                    return Ok(ResourceOrString::String(v.to_string()));
+                }
+
+                match ResourceName::from_str(v) {
+                    Ok(name) => Ok(ResourceOrString::Resource(name)),
+                    Err(e) => Err(E::custom(e)),
+                }
+            }
+
+            fn visit_seq<A>(self, _: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                Err(A::Error::custom("lists aren't supported"))
+            }
         }
+
+        deserializer.deserialize_any(Visitor)
     }
 }
 
@@ -486,6 +564,35 @@ impl From<ResourceName> for ResourceOrString {
     fn from(name: ResourceName) -> Self { ResourceOrString::Resource(name) }
 }
 
+/// A newtype around [`ResourceOrString`] which is used in each stage's `args`
+/// dictionary.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+pub struct Argument(pub ResourceOrString);
+
+impl JsonSchema for Argument {
+    fn schema_name() -> std::string::String { "Argument".to_owned() }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        let number = gen.subschema_for::<serde_json::Number>();
+
+        let mut schema = ResourceOrString::json_schema(gen).into_object();
+        schema.subschemas().any_of.as_mut().unwrap().push(number);
+
+        schema.into()
+    }
+}
+
+impl<T: Into<ResourceOrString>> From<T> for Argument {
+    fn from(value: T) -> Self { Argument(value.into()) }
+}
+
+impl Deref for Argument {
+    type Target = ResourceOrString;
+
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
 /// The element type and dimensions for a particular tensor.
 #[derive(
     Debug,
@@ -502,48 +609,6 @@ pub struct Type {
     pub name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dimensions: Vec<usize>,
-}
-
-/// A value that may be used as a stage's argument.
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
-)]
-#[serde(rename_all = "kebab-case", untagged)]
-pub enum Value {
-    Int(i32),
-    Float(f32),
-    #[schemars(with = "String")]
-    String(ResourceOrString),
-    List(Vec<Value>),
-}
-
-impl From<f32> for Value {
-    fn from(f: f32) -> Value { Value::Float(f) }
-}
-
-impl From<i32> for Value {
-    fn from(i: i32) -> Value { Value::Int(i) }
-}
-
-impl From<String> for Value {
-    fn from(s: String) -> Value { Value::String(s.into()) }
-}
-
-impl<'a> From<&'a str> for Value {
-    fn from(s: &'a str) -> Value { Value::String(s.into()) }
-}
-
-impl From<ResourceName> for Value {
-    fn from(name: ResourceName) -> Value { Value::String(name.into()) }
-}
-
-impl From<Vec<Value>> for Value {
-    fn from(list: Vec<Value>) -> Value { Value::List(list) }
 }
 
 /// The name of a tensor.
@@ -788,6 +853,8 @@ impl FromStr for Image {
 
 #[cfg(test)]
 mod tests {
+    use jsonschema::JSONSchema;
+
     use super::*;
 
     #[test]
@@ -843,6 +910,16 @@ mod tests {
                     "hotg-ai/rune",
                     "proc_blocks/normalize".to_string(),
                     "v1.2".to_string(),
+                ),
+            ),
+            // Note: GitHub provides these refs that you can use as well as the
+            // normal tags and commits
+            (
+                "hotg-ai/proc-blocks@refs/heads/master#normalize",
+                Path::new(
+                    "hotg-ai/proc-blocks",
+                    "normalize".to_string(),
+                    "refs/heads/master".to_string(),
                 ),
             ),
         ];
@@ -974,7 +1051,7 @@ mod tests {
             }],
             args: vec![(
                 "word-list".to_string(),
-                Value::from(ResourceName::from_str("$WORD_LIST").unwrap()),
+                ResourceName::from_str("$WORD_LIST").unwrap().into(),
             )]
             .into_iter()
             .collect(),
@@ -1024,7 +1101,13 @@ pipeline:
     outputs:
     - type: utf8
     args:
-      labels: ["silence", "unknown", "up", "down", "left", "right"]
+      labels: |
+        silence
+        unknown
+        up
+        down
+        left
+        right
 
   output:
     out: SERIAL
@@ -1038,27 +1121,7 @@ pipeline:
                 audio: Stage::Capability(CapabilityStage {
                     capability: String::from("SOUND"),
                     outputs: vec![ty!(i16[16000])],
-                    args: map! { hz: Value::Int(16000) },
-                }),
-                output: Stage::Out(OutStage {
-                    out: String::from("SERIAL"),
-                    args: IndexMap::new(),
-                    inputs: vec!["label".parse().unwrap()],
-                }),
-                label: Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
-                    inputs: vec!["model".parse().unwrap()],
-                    outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
-                    args: map! {
-                        labels: Value::from(vec![
-                            Value::from("silence"),
-                            Value::from("unknown"),
-                            Value::from("up"),
-                            Value::from("down"),
-                            Value::from("left"),
-                            Value::from("right"),
-                        ]),
-                    },
+                    args: map! { hz: "16000".into() },
                 }),
                 fft: Stage::ProcBlock(ProcBlockStage {
                     proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
@@ -1071,6 +1134,19 @@ pipeline:
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
                     args: IndexMap::new(),
+                }),
+                label: Stage::ProcBlock(ProcBlockStage {
+                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
+                    inputs: vec!["model".parse().unwrap()],
+                    outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
+                    args: map! {
+                        labels: "silence\nunknown\nup\ndown\nleft\nright".into()
+                    },
+                }),
+                output: Stage::Out(OutStage {
+                    out: String::from("SERIAL"),
+                    args: IndexMap::new(),
+                    inputs: vec!["label".parse().unwrap()],
                 }),
             },
             resources: map![],
@@ -1097,34 +1173,12 @@ pipeline:
                 name: String::from("i16"),
                 dimensions: vec![16000],
             }],
-            args: map! { hz: Value::Int(16000) },
+            args: map! { hz: "16000".into() },
         });
 
         let got: Stage = serde_yaml::from_str(src).unwrap();
 
         assert_eq!(got, should_be);
-    }
-
-    #[test]
-    fn parse_values() {
-        let inputs = vec![
-            ("42", Value::Int(42)),
-            ("1.4", Value::Float(1.4)),
-            ("\"42\"", Value::String("42".into())),
-            (
-                "[1, 2.0, \"asdf\"]",
-                Value::List(vec![
-                    Value::Int(1),
-                    Value::Float(2.0),
-                    Value::String("asdf".into()),
-                ]),
-            ),
-        ];
-
-        for (src, should_be) in inputs {
-            let got: Value = serde_yaml::from_str(src).unwrap();
-            assert_eq!(got, should_be);
-        }
     }
 
     #[test]
@@ -1136,7 +1190,44 @@ pipeline:
         let schema = schemars::schema_for!(Document);
 
         let schema = serde_json::to_value(&schema).unwrap();
-        assert_eq!(schema, should_be,
-            "The schema is out of sync. You probably need to run \"cargo xtask update-schema\"");
+        assert_eq!(
+            should_be,
+            schema,
+            "The schema is out of sync. You probably need to run \"cargo xtask update-schema\"",
+        );
+    }
+
+    #[track_caller]
+    fn handle_errors<'a>(
+        errors: impl Iterator<Item = jsonschema::ValidationError<'a>>,
+    ) -> ! {
+        for err in errors {
+            println!("{}", err);
+        }
+
+        panic!("Validation failed");
+    }
+
+    #[test]
+    fn argument_schema_is_valid() {
+        let schema = schemars::schema_for!(Argument);
+        let schema_json = serde_json::to_value(&schema).unwrap();
+        let compiled_schema =
+            JSONSchema::options().compile(&schema_json).unwrap();
+
+        let string = serde_json::Value::String("".to_string());
+        compiled_schema
+            .validate(&string)
+            .unwrap_or_else(|e| handle_errors(e));
+
+        let resource = serde_json::Value::String("$resource".to_string());
+        compiled_schema
+            .validate(&resource)
+            .unwrap_or_else(|e| handle_errors(e));
+
+        let number = serde_json::Value::Number(10.into());
+        compiled_schema
+            .validate(&number)
+            .unwrap_or_else(|e| handle_errors(e));
     }
 }

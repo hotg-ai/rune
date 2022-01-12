@@ -2,7 +2,6 @@
 
 use std::{
     borrow::{Borrow, Cow},
-    collections::HashMap,
     fmt::{self, Display, Formatter},
     hash::Hash,
     ops::Deref,
@@ -12,14 +11,13 @@ use std::{
 use hotg_rune_core::Shape;
 use indexmap::IndexMap;
 use legion::Entity;
-use crate::{
-    parse::{Path, ResourceType, Value},
-};
+use crate::parse::{Path, ResourceType};
 
 /// An output.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Sink {
     pub kind: SinkKind,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// The kind of output.
@@ -53,7 +51,7 @@ impl<'a> From<&'a str> for SinkKind {
 #[serde(rename_all = "kebab-case")]
 pub struct Model {
     pub model_file: ModelFile,
-    pub args: IndexMap<String, String>,
+    pub args: IndexMap<String, ResourceOrString>,
 }
 
 /// Where to load a model from.
@@ -70,7 +68,7 @@ pub enum ModelFile {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Source {
     pub kind: SourceKind,
-    pub parameters: HashMap<String, Value>,
+    pub parameters: IndexMap<String, ResourceOrString>,
 }
 
 /// Where should a [`Source`] pull its data from?
@@ -131,7 +129,7 @@ impl Display for SourceKind {
 #[serde(rename_all = "kebab-case")]
 pub struct ProcBlock {
     pub path: Path,
-    pub parameters: HashMap<String, Value>,
+    pub parameters: IndexMap<String, ResourceOrString>,
 }
 
 impl ProcBlock {
@@ -205,7 +203,7 @@ where
 #[derive(
     Debug, Default, PartialEq, Clone, serde::Serialize, serde::Deserialize,
 )]
-pub struct NameTable(HashMap<Name, Entity>);
+pub struct NameTable(IndexMap<Name, Entity>);
 
 impl NameTable {
     pub(crate) fn clear(&mut self) { self.0.clear(); }
@@ -216,13 +214,13 @@ impl NameTable {
 }
 
 impl Deref for NameTable {
-    type Target = HashMap<Name, Entity>;
+    type Target = IndexMap<Name, Entity>;
 
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-impl From<HashMap<Name, Entity>> for NameTable {
-    fn from(m: HashMap<Name, Entity>) -> Self { NameTable(m) }
+impl From<IndexMap<Name, Entity>> for NameTable {
+    fn from(m: IndexMap<Name, Entity>) -> Self { NameTable(m) }
 }
 
 /// A tag component indicating this [`Entity`] is part of the Rune's pipeline.
@@ -327,4 +325,20 @@ impl From<String> for Mimetype {
 
 impl AsRef<str> for Mimetype {
     fn as_ref(&self) -> &str { &self.0 }
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub enum ResourceOrString {
+    String(String),
+    Resource(Entity),
+}
+
+impl<'a> From<&'a str> for ResourceOrString {
+    fn from(s: &'a str) -> Self { ResourceOrString::String(s.into()) }
+}
+
+impl From<String> for ResourceOrString {
+    fn from(s: String) -> Self { ResourceOrString::String(s) }
 }

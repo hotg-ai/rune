@@ -8,6 +8,20 @@
     }
   ],
   "definitions": {
+    "Argument": {
+      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`).",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ResourceName"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
     "CapabilityStage": {
       "description": "A stage which reads inputs from the runtime.",
       "type": "object",
@@ -18,7 +32,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Value"
+            "$ref": "#/definitions/Argument"
           }
         },
         "capability": {
@@ -90,7 +104,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "type": "string"
+            "$ref": "#/definitions/Argument"
           }
         },
         "inputs": {
@@ -130,7 +144,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Value"
+            "$ref": "#/definitions/Argument"
           }
         },
         "inputs": {
@@ -161,7 +175,7 @@
         "args": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/Value"
+            "$ref": "#/definitions/Argument"
           }
         },
         "inputs": {
@@ -263,28 +277,6 @@
           "type": "string"
         }
       }
-    },
-    "Value": {
-      "description": "A value that may be used as a stage's argument.",
-      "anyOf": [
-        {
-          "type": "integer",
-          "format": "int32"
-        },
-        {
-          "type": "number",
-          "format": "float"
-        },
-        {
-          "type": "string"
-        },
-        {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Value"
-          }
-        }
-      ]
     }
   }
 }

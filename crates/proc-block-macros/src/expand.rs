@@ -85,7 +85,7 @@ impl ToTokens for SetterAssertion {
         let SetterAssertion {
             proc_block_type,
             property,
-            setter_argument: property_type,
+            ..
         } = self;
 
         let assertion_name = format!("_assert_{}_is_settable", property);
@@ -95,8 +95,11 @@ impl ToTokens for SetterAssertion {
 
         let t = quote! {
             const _: () = {
-                fn #assertion_name(proc_block: &mut #proc_block_type, #property: #property_type) {
-                    proc_block.#setter_name(#property);
+                fn #assertion_name(proc_block: &mut #proc_block_type, #property: &str) {
+                    fn assert_return_is_result_debug(_: Result<(), impl core::fmt::Debug>) {}
+
+                    let result = proc_block.#setter_name(#property);
+                    assert_return_is_result_debug(result);
                 }
             };
         };
@@ -148,18 +151,10 @@ impl ToTokens for Setter {
         let t = quote! {
             pub fn #property(&self) -> &#property_type { &self.#property }
 
-            pub fn #method<V>(&mut self, #property: V) -> &mut Self
-            where
-                #property_type: core::convert::TryFrom<V>,
-                <#property_type as core::convert::TryFrom<V>>::Error: core::fmt::Display,
+            pub fn #method(&mut self, #property: &str) -> Result<(), impl core::fmt::Debug>
             {
-                self.#property = match <#property_type as core::convert::TryFrom<V>>::try_from(#property) {
-                    Ok(#property) => #property,
-                    Err(e) => panic!("Invalid {}: {}", stringify!(#property), e),
-                };
-                self
+                #property.parse().map(|value| { self.#property = value; })
             }
-
         };
         tokens.extend(t);
     }
@@ -424,8 +419,12 @@ mod tests {
         };
         let should_be = quote! {
             const _: () =  {
-                fn _assert_first_is_settable(proc_block: &mut Proc, first: f32) {
-                    proc_block.set_first(first);
+                fn _assert_first_is_settable(proc_block: &mut Proc, first: &str) {
+                    fn assert_return_is_result_debug(
+                        _: Result<(), impl core::fmt::Debug>,
+                    ) { }
+                    let result = proc_block.set_first(first);
+                    assert_return_is_result_debug(result);
                 }
             };
         };
@@ -462,17 +461,11 @@ mod tests {
         };
         let should_be = quote! {
             pub fn first(&self) -> &f32 { &self.first }
-
-            pub fn set_first<V>(&mut self, first: V) -> &mut Self
-            where
-                f32: core::convert::TryFrom<V>,
-                <f32 as core::convert::TryFrom<V>>::Error: core::fmt::Display,
-            {
-                self.first = match <f32 as core::convert::TryFrom<V>>::try_from(first) {
-                    Ok(first) => first,
-                    Err(e) => panic!("Invalid {}: {}", stringify!(first), e),
-                };
-                self
+            pub fn set_first(
+                &mut self,
+                first: &str,
+            ) -> Result<(), impl core::fmt::Debug> {
+                first.parse().map(|value| { self.first = value; })
             }
         };
 
