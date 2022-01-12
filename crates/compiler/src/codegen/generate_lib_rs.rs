@@ -609,7 +609,7 @@ where
 
     let name = Ident::new(name, Span::call_site());
     let setters = proc_block.parameters.iter().map(|(key, value)| {
-        let value = value_to_tokens(value, get_name);
+        let value = proc_block_argument_to_tokens(value, get_name);
         let setter = format!("set_{}", key).replace("-", "_");
         let setter = Ident::new(&setter, Span::call_site());
         let error_message =
@@ -684,7 +684,7 @@ where
     let name = Ident::new(name, Span::call_site());
     let setters = source.parameters.iter().map(|(key, value)| {
         let key = key.replace("-", "_");
-        let value = value_to_tokens(value, get_name);
+        let value = capability_argument_to_tokens(value, get_name);
         quote! {
             #name.set_parameter(#key, #value);
         }
@@ -696,7 +696,7 @@ where
     }
 }
 
-fn value_to_tokens<'world, F>(
+fn proc_block_argument_to_tokens<'world, F>(
     value: &ResourceOrString,
     get_name: &mut F,
 ) -> TokenStream
@@ -705,6 +705,46 @@ where
 {
     match value {
         ResourceOrString::String(s) => quote!(#s),
+        ResourceOrString::Resource(r) => {
+            let name = get_name(*r).unwrap();
+            let resource_name = Ident::new(&name, Span::call_site());
+            quote!(&*crate::resources::#resource_name)
+        },
+    }
+}
+
+/// Take a [`ResourceOrString`] and turn it into an `impl Into<Value>`
+/// expression so it can be passed to a capability.
+///
+/// Note: this *could* be merged with [`proc_block_argument_to_tokens`] if
+/// capabilities accepted strings and the image capability didn't need our
+/// `hotg_rune_core::ImageFormat` hack wher `@` lets you pass in arbitrary Rust
+/// expressions.
+fn capability_argument_to_tokens<'world, F>(
+    value: &ResourceOrString,
+    get_name: &mut F,
+) -> TokenStream
+where
+    F: FnMut(Entity) -> Option<&'world Name>,
+{
+    match value {
+        ResourceOrString::String(s) => {
+            if let Some(stripped) = s.strip_prefix('@') {
+                stripped.parse::<TokenStream>().unwrap_or_else(|e| {
+                    let msg = format!(
+                        "Unable to parse \"{}\" as a Rust expression: {}",
+                        stripped, e
+                    );
+                    quote!(compile_error!(#msg))
+                })
+            } else {
+                quote! {
+                    #s
+                        .parse::<hotg_rune_core::Value>()
+                        .unwrap_or_else(|_| { panic!( "Unable to parse \"{}\" as a number", #s); })
+                }
+            }
+        },
         ResourceOrString::Resource(r) => {
             let name = get_name(*r).unwrap();
             let resource_name = Ident::new(&name, Span::call_site());

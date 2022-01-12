@@ -1,4 +1,8 @@
-use core::{convert::TryFrom, fmt::Display, fmt, fmt::Formatter};
+use core::{
+    str::FromStr,
+    convert::TryFrom,
+    fmt::{Display, self, Formatter},
+};
 
 /// A dynamically typed value that may be passed back and forth across the
 /// runtime.
@@ -111,6 +115,18 @@ impl Display for Value {
             Value::Short(s) => write!(f, "{}_i16", s),
             Value::Integer(i) => write!(f, "{}_i32", i),
             Value::Float(float) => write!(f, "{:.1}", float),
+        }
+    }
+}
+
+impl FromStr for Value {
+    type Err = core::num::ParseFloatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(integer) = s.parse() {
+            Ok(Value::Integer(integer))
+        } else {
+            s.parse().map(Value::Float)
         }
     }
 }
