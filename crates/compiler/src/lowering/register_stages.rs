@@ -47,13 +47,22 @@ pub(crate) fn run(
                 proc_block,
                 args,
                 ..
-            }) => cmd.add_component(
-                ent,
-                ProcBlock {
-                    path: proc_block.clone(),
-                    parameters: args.clone().into_iter().collect(),
-                },
-            ),
+            }) => {
+                if proc_block.version.is_none() {
+                    let diag = warn_on_unversioned_proc_block_diagnostic(
+                        name, proc_block,
+                    );
+                    diags.push(diag);
+                }
+
+                cmd.add_component(
+                    ent,
+                    ProcBlock {
+                        path: proc_block.clone(),
+                        parameters: args.clone().into_iter().collect(),
+                    },
+                )
+            },
             parse::Stage::Capability(CapabilityStage {
                 capability,
                 args,
@@ -73,6 +82,27 @@ pub(crate) fn run(
             ),
         }
     }
+}
+
+fn warn_on_unversioned_proc_block_diagnostic(
+    name: &str,
+    proc_block: &parse::Path,
+) -> Diagnostic<()> {
+    let msg = format!(
+        "The \"{}\" proc block used by \"{}\" should have a version specifier",
+        proc_block, name
+    );
+    let versioned = parse::Path {
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        ..proc_block.clone()
+    };
+
+    Diagnostic::warning()
+        .with_message(msg)
+        .with_notes(vec![format!(
+            "hint: change it to something like \"{}\"",
+            versioned
+        )])
 }
 
 fn register_model<'a>(
@@ -294,11 +324,14 @@ mod tests {
 
         let diags = res.get::<Diagnostics>().unwrap();
         let diags: Vec<_> = diags.iter().collect();
-        assert_eq!(diags.len(), 3);
-        assert_eq!(diags[0].message, "\"$cap\" is not a resource");
-        assert_eq!(diags[1].message, "No definition for \"$NON_EXISTENT\"");
+        assert_eq!(diags.len(), 4);
+        assert_eq!(diags[0], &Diagnostic::warning()
+            .with_message("The \"my-proc-block\" proc block used by \"transform\" should have a version specifier")
+            .with_notes(vec!["hint: change it to something like \"my-proc-block@0.10.0\"".to_string()]));
+        assert_eq!(diags[1].message, "\"$cap\" is not a resource");
+        assert_eq!(diags[2].message, "No definition for \"$NON_EXISTENT\"");
         assert_eq!(
-            diags[2].message,
+            diags[3].message,
             "\"$STRING_RESOURCE\" should be a binary resource"
         );
 

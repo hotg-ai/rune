@@ -301,10 +301,10 @@ impl Mimetype {
         Mimetype(Cow::Borrowed(hotg_rune_core::ONNX_MIMETYPE));
     pub const TENSORFLOW: Mimetype =
         Mimetype(Cow::Borrowed(hotg_rune_core::TF_MIMETYPE));
-    pub const TENSORFLOW_LITE: Mimetype =
-        Mimetype(Cow::Borrowed(hotg_rune_core::TFLITE_MIMETYPE));
     pub const TENSORFLOW_JS: Mimetype =
         Mimetype(Cow::Borrowed(hotg_rune_core::TFJS_MIMETYPE));
+    pub const TENSORFLOW_LITE: Mimetype =
+        Mimetype(Cow::Borrowed(hotg_rune_core::TFLITE_MIMETYPE));
 }
 
 impl Deref for Mimetype {

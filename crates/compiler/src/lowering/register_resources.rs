@@ -55,7 +55,7 @@ fn path_and_inline_defined_diagnostic(
     span: Span,
 ) -> Diagnostic<()> {
     let msg = format!("The resource \"{}\" can't specify both a \"path\" and \"inline\" default value", name);
-    
+
     Diagnostic::error()
         .with_message(msg)
         .with_labels(vec![Label::primary((), span)])

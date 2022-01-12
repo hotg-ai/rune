@@ -224,11 +224,11 @@ impl Display for Path {
         } = self;
 
         write!(f, "{}", base)?;
-        if let Some(sub) = sub_path {
-            write!(f, "#{}", sub)?;
-        }
         if let Some(version) = version {
             write!(f, "@{}", version)?;
+        }
+        if let Some(sub) = sub_path {
+            write!(f, "#{}", sub)?;
         }
 
         Ok(())
@@ -850,6 +850,8 @@ mod tests {
         for (src, should_be) in inputs {
             let got: Path = src.parse().unwrap();
             assert_eq!(got, should_be, "{}", src);
+            let round_tripped = got.to_string();
+            assert_eq!(round_tripped, src);
         }
     }
 
