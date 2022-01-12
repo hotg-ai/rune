@@ -151,11 +151,10 @@ impl ToTokens for Setter {
         let t = quote! {
             pub fn #property(&self) -> &#property_type { &self.#property }
 
-            pub fn #method(&mut self, #property: &str) -> Result<(), impl core::fmt::Display>
+            pub fn #method(&mut self, #property: &str) -> Result<(), impl core::fmt::Debug>
             {
                 self.#property = #property.parse()?;
             }
-
         };
         tokens.extend(t);
     }
