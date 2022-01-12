@@ -16,9 +16,9 @@ anyhow = "1.0"
 build-info = "0.0.24"
 log = "0.4.14"
 paste = "1.0"
-hotg-rune-core = { path = "../../crates/rune-core", version = "^0.10.0" }
-hotg-rune-runtime = { path = "../../crates/runtime", version = "^0.10.0" }
-hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.10.0", default-features = false }
+hotg-rune-core = { path = "../../crates/rune-core", version = "^0.11.0"}
+hotg-rune-runtime = { path = "../../crates/runtime", version = "^0.11.0"}
+hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.11.0", default-features = false }
 safer-ffi = { version = "0.0.6", features = ["proc_macros"] }
 
 [build-dependencies]
