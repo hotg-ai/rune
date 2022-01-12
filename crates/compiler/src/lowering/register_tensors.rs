@@ -240,7 +240,7 @@ mod tests {
                     args: map! {},
                 }),
                 transform: parse::Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "proc-block".parse().unwrap(),
+                    proc_block: "proc-block@1.0".parse().unwrap(),
                     inputs: vec![
                         "rand".parse().unwrap(),
                     ],

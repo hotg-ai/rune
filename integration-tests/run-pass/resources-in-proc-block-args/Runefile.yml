@@ -12,7 +12,7 @@ pipeline:
       hz: 16000
       sample_duration_ms: 1000
   fft:
-    proc-block: "hotg-ai/proc-blocks#fft"
+    proc-block: "hotg-ai/proc-blocks@v0.10.0#fft"
     inputs:
       - audio
     outputs:
@@ -21,7 +21,7 @@ pipeline:
           - 1
           - 1960
   noise_filtering:
-    proc-block: "hotg-ai/proc-blocks#noise-filtering"
+    proc-block: "hotg-ai/proc-blocks@v0.10.0#noise-filtering"
     inputs:
       - fft
     outputs:
@@ -39,7 +39,7 @@ pipeline:
           - 1
           - 6
   most_confident:
-    proc-block: "hotg-ai/proc-blocks#most_confident_indices"
+    proc-block: "hotg-ai/proc-blocks@v0.10.0#most_confident_indices"
     inputs:
       - model
     outputs:
@@ -49,7 +49,7 @@ pipeline:
     args:
       count: 1
   label:
-    proc-block: "hotg-ai/proc-blocks#label"
+    proc-block: "hotg-ai/proc-blocks@v0.10.0#label"
     inputs:
       - most_confident
     outputs:

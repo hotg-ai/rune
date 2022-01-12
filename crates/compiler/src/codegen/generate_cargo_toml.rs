@@ -166,6 +166,7 @@ fn proc_block_dependency(
 
     DependencyDetail {
         git: Some(repo),
+        rev: path.version.clone(),
         ..empty_dependency_detail()
     }
 }
@@ -326,10 +327,26 @@ mod tests {
     }
 
     #[test]
-    fn external_proc_block() {
+    fn proc_block_from_crates_io() {
         let path = "whatever@1.2".parse().unwrap();
         let should_be = DependencyDetail {
             version: Some("1.2".to_string()),
+            ..empty_dependency_detail()
+        };
+
+        let got = proc_block_dependency(&path, Path::new("."));
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn git_proc_block_with_version() {
+        let path = "organisation/whatever@1.2".parse().unwrap();
+        let should_be = DependencyDetail {
+            git: Some(
+                "https://github.com/organisation/whatever.git".to_string(),
+            ),
+            rev: Some("1.2".to_string()),
             ..empty_dependency_detail()
         };
 
