@@ -612,8 +612,10 @@ where
         let value = value_to_tokens(value, get_name);
         let setter = format!("set_{}", key).replace("-", "_");
         let setter = Ident::new(&setter, Span::call_site());
+        let error_message =
+            format!("Unable to set {}'s \"{}\" to {}", name, key, value);
         quote! {
-            #name.#setter(#value);
+            #name.#setter(#value).expect(#error_message);
         }
     });
 
