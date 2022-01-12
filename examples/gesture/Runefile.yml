@@ -13,7 +13,7 @@ pipeline:
     args:
       n: 128
   normalize:
-    proc-block: "hotg-ai/proc-blocks@master#normalize"
+    proc-block: "hotg-ai/proc-blocks@refs/heads/master#normalize"
     inputs:
       - accelerometer
     outputs:
@@ -33,7 +33,7 @@ pipeline:
           - 1
           - 4
   most_confident_index:
-    proc-block: "hotg-ai/proc-blocks@master#most_confident_indices"
+    proc-block: "hotg-ai/proc-blocks@refs/heads/master#most_confident_indices"
     inputs:
       - gesture
     outputs:
@@ -43,7 +43,7 @@ pipeline:
     args:
       count: 1
   label:
-    proc-block: "hotg-ai/proc-blocks@master#label"
+    proc-block: "hotg-ai/proc-blocks@refs/heads/master#label"
     inputs:
       - most_confident_index
     outputs:
