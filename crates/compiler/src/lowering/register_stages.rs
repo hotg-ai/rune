@@ -396,7 +396,7 @@ mod tests {
         assert_eq!(diags.len(), 4);
         assert_eq!(diags[0], &Diagnostic::warning()
             .with_message("The \"my-proc-block\" proc block used by \"transform\" should have a version specifier")
-            .with_notes(vec!["hint: change it to something like \"my-proc-block@0.10.0\"".to_string()]));
+            .with_notes(vec![format!("hint: change it to something like \"my-proc-block@{}\"", env!("CARGO_PKG_VERSION").to_string()).to_string()]));
         assert_eq!(diags[1].message, "\"$cap\" is not a resource");
         assert_eq!(diags[2].message, "No definition for \"$NON_EXISTENT\"");
         assert_eq!(

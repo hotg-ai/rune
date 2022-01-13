@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.11.0] - 2022-01-13
+
 ### Added
 
 - You can now specify a model's format by setting the `format` field under
@@ -287,6 +289,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-url -->
 [Unreleased]: https://github.com/assert-rs/predicates-rs/compare/{{tag_name}}...HEAD
+[0.11.0]: https://github.com/assert-rs/predicates-rs/compare/{{tag_name}}...{{tag_name}}
 [0.10.0]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.3...{{tag_name}}
 [0.9.3]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.2...hotg-rune-cli-v0.9.3
 [0.9.2]: https://github.com/assert-rs/predicates-rs/compare/hotg-rune-cli-v0.9.1...hotg-rune-cli-v0.9.2

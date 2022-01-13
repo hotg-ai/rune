@@ -1,6 +1,6 @@
 [package]
 name = "hotg-runicos-base-runtime"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2018"
 authors = ["The Rune Developers <developers@hotg.ai>"]
 license = "MIT OR Apache-2.0"
@@ -15,8 +15,8 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.40"
-hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.10.0", features = ["std"] }
-hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.10.0", features = ["builtins", "wasm3"] }
+hotg-rune-core = { path = "../../../crates/rune-core", version = "^0.11.0", features = ["std"] }
+hotg-rune-runtime = { path = "../../../crates/runtime", version = "^0.11.0", features = ["builtins", "wasm3"] }
 hotg-runecoral = { version = "0.3.6", optional = true }
 log = "0.4.14"
 rand = "0.8.4"
