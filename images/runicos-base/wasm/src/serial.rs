@@ -165,4 +165,4 @@ macro_rules! tuple_serial_message {
     ($(,)?) => {};
 }
 
-tuple_serial_message!(A, B, C, D, E, F, G, H, I, J, K);
+tuple_serial_message!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);

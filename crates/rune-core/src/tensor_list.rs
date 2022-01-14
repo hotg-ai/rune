@@ -170,7 +170,7 @@ macro_rules! reflection_type_list {
     ($(,)*) => {};
 }
 
-reflection_type_list!(A, B, C, D, E, F, G, H, I, J, K, L);
+reflection_type_list!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AF, AG, AH);
 
 #[cfg(test)]
 mod tests {
