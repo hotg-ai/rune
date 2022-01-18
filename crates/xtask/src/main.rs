@@ -1,12 +1,8 @@
 mod bulk_copy;
-mod check_manifests;
 mod dist;
 mod update_schema;
 
-use crate::{
-    bulk_copy::BulkCopy, check_manifests::CheckManifests, dist::Dist,
-    update_schema::UpdateSchema,
-};
+use crate::{bulk_copy::BulkCopy, dist::Dist, update_schema::UpdateSchema};
 use std::path::PathBuf;
 use anyhow::{Context, Error};
 use env_logger::Env;
@@ -23,7 +19,6 @@ fn main() -> Result<(), Error> {
 
     match cmd {
         Command::Dist(dist) => dist.run()?,
-        Command::CheckManifests(c) => c.run(&project_root)?,
         Command::UpdateSchema(u) => u.run(&project_root)?,
     }
 
@@ -34,11 +29,6 @@ fn main() -> Result<(), Error> {
 enum Command {
     #[structopt(name = "dist", about = "Generate a release bundle")]
     Dist(Dist),
-    #[structopt(
-        name = "check-manifests",
-        about = "Check all Cargo.toml files are"
-    )]
-    CheckManifests(CheckManifests),
     #[structopt(
         name = "update-schema",
         about = "Update the JSON schema for a Runefile"
