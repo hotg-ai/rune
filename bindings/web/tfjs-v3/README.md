@@ -1,3 +1,3 @@
 # Rune TensorFlow JS Backend
 
-A Rune backend for TensorFlow JS.
+An inference backend for Rune backed by TensorFlow JS.

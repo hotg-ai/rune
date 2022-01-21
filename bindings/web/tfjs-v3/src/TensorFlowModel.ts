@@ -25,7 +25,9 @@ export class TensorFlowModel implements Model {
     if (Array.isArray(output)) {
       output.forEach((tensor, i) => {
         var out = tensor.dataSync();
-        outputArray[i].set(new Uint8Array(out.buffer).slice(0, outputArray[i].length));
+        outputArray[i].set(
+          new Uint8Array(out.buffer).slice(0, outputArray[i].length)
+        );
       });
     } else if (output instanceof Tensor) {
       var dest = outputArray[0];
