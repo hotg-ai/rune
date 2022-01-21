@@ -23,7 +23,10 @@ export class TensorFlowModel implements Model {
     const output = this.model.predict(inputs, {});
 
     if (Array.isArray(output)) {
-      output.forEach((tensor, i) => outputArray[i].set(tensor.dataSync()));
+      output.forEach((tensor, i) => {
+        var out = tensor.dataSync();
+        outputArray[i].set(new Uint8Array(out.buffer).slice(0, outputArray[i].length));
+      });
     } else if (output instanceof Tensor) {
       var dest = outputArray[0];
       var out = output.dataSync();
