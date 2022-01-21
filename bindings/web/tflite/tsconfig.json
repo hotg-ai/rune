@@ -4,9 +4,5 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "exclude": [
-    "jest.config.ts",
-    "dist/*",
-    "node_modules/*"
-  ]
+  "exclude": ["jest.config.ts", "dist/*", "node_modules/*"]
 }
