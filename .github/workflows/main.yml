@@ -13,7 +13,8 @@ jobs:
       matrix:
         os:
           - ubuntu-18.04
-          - macos-latest
+          # HACK: Disabling macos builds due to https://github.com/hotg-ai/librunecoral/issues/43
+          # - macos-latest
           # Note: we need to use pre-compiled TensorFlow Lite binaries on
           # Windows, so ignore the Windows build for now
           #- windows-latest
