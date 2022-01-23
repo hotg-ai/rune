@@ -25,6 +25,7 @@ pub struct Sink {
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum SinkKind {
     Serial,
+    Tensor,
     Other(String),
 }
 
@@ -32,6 +33,7 @@ impl Display for SinkKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             SinkKind::Serial => write!(f, "serial"),
+            SinkKind::Tensor => write!(f, "tensor"),
             SinkKind::Other(s) => write!(f, "{}", s),
         }
     }
@@ -41,6 +43,7 @@ impl<'a> From<&'a str> for SinkKind {
     fn from(s: &'a str) -> SinkKind {
         match s {
             "serial" | "SERIAL" => SinkKind::Serial,
+            "tensor" | "TENSOR" => SinkKind::Tensor,
             _ => SinkKind::Other(s.to_string()),
         }
     }
