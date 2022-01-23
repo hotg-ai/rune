@@ -98,6 +98,7 @@ constants! {
         ACCEL = 3,
         IMAGE = 4,
         RAW = 5,
+        FLOAT_IMAGE = 6,
     }
 }
 

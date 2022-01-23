@@ -83,6 +83,7 @@ pub enum SourceKind {
     Sound,
     Image,
     Raw,
+    FloatImage,
     Other(String),
 }
 
@@ -96,6 +97,7 @@ impl SourceKind {
             SourceKind::Sound => Some(hotg_rune_core::capabilities::SOUND),
             SourceKind::Image => Some(hotg_rune_core::capabilities::IMAGE),
             SourceKind::Raw => Some(hotg_rune_core::capabilities::RAW),
+            SourceKind::FloatImage => Some(hotg_rune_core::capabilities::FLOAT_IMAGE),
             _ => None,
         }
     }
@@ -114,6 +116,7 @@ impl<'a> From<&'a str> for SourceKind {
             "sound" | "SOUND" => SourceKind::Sound,
             "image" | "IMAGE" => SourceKind::Image,
             "raw" | "RAW" => SourceKind::Raw,
+            "float-image" | "FLOAT_IMAGE" => SourceKind::FloatImage,
             _ => SourceKind::Other(s.to_string()),
         }
     }

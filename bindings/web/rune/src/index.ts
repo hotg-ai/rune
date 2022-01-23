@@ -13,6 +13,7 @@ export const Capabilities = {
     "accel": 3,
     "image": 4,
     "raw": 5,
+    "float-image": 6,
 } as const;
 
 /**
