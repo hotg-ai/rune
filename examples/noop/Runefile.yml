@@ -2,7 +2,7 @@ version: 1
 image: runicos/base
 pipeline:
   input:
-    capability: FLOAT_IMAGE
+    capability: RAW
     outputs:
       - type: i32
         dimensions:
