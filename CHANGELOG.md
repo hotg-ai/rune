@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Increased the number of tensors that can be passed to a SERIAL node
   ([#393](https://github.com/hotg-ai/rune/pull/393))
 
+### Removed
+
+- The unused Python package has been removed to reduce maintainance burden
+
 ## [0.11.0] - 2022-01-13
 
 ### Added

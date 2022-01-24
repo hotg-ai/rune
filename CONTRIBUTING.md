@@ -49,8 +49,6 @@ Workspaces][workspaces], with the most important crates being:
 - `bindings/native` - FFI bindings for using the Rust runtime from non-Rust
   programs
 - `bindings/web` - a TypeScript package which can run Runes in the browser
-- `bindings/python` - Python bindings to various proc blocks and Rune
-  functionality
 - `integration-tests` - Our end-to-end test suite
 
 The actual crate names have a `rune_` prefix to signify that they are all part
