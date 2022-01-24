@@ -26,13 +26,13 @@ export class TensorFlowModel implements Model {
       output.forEach((tensor, i) => {
         var out = tensor.dataSync();
         outputArray[i].set(
-          new Uint8Array(out.buffer).slice(0, outputArray[i].length)
+          new Uint8Array(out.buffer,out.byteOffset,out.byteLength).slice(0, outputArray[i].length)
         );
       });
     } else if (output instanceof Tensor) {
       var dest = outputArray[0];
       var out = output.dataSync();
-      dest.set(new Uint8Array(out.buffer).slice(0, dest.length));
+      dest.set(new Uint8Array(out.buffer,out.byteOffset,out.byteLength).slice(0, dest.length));
     } else {
       const namesToIndices: Record<string, number> = {};
       this.model.outputs.forEach((info, i) => (namesToIndices[info.name] = i));
@@ -42,7 +42,7 @@ export class TensorFlowModel implements Model {
         const index = namesToIndices[name];
         var out = tensor.dataSync();
         outputArray[index].set(
-          new Uint8Array(out.buffer).slice(0, outputArray[index].length)
+          new Uint8Array(out.buffer,out.byteOffset,out.byteLength).slice(0, outputArray[index].length)
         );
       }
     }
