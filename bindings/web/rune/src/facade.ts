@@ -1,4 +1,4 @@
-import { Capabilities, CapabilityType, Outputs } from ".";
+import { Capabilities, CapabilityType, Outputs, Shape } from ".";
 import { Capability, Imports, Model, Output, Runtime, StructuredLogMessage } from "./Runtime";
 import Tensor from "./Tensor";
 
@@ -137,30 +137,15 @@ class ImportsObject implements Imports {
     }
 
     createOutput(type: number): Output {
-        if (type != Outputs.serial) {
-            throw new Error(`Unsupported output type: ${type}`);
-        }
-
         const { decoder, outputs } = this;
+        switch (type) {
+            case Outputs.tensor:
+                return tensorOutput(decoder, outputs);
+            case Outputs.serial:
+                return serialOutput(decoder, outputs);
 
-        // We want the end user to receive all outputs as a return value, but
-        // Runes are designed using a callback-based API (it's better for
-        // performance). This will create an output which will stash all
-        // generated values away in a list so they can be returned at the end.
-
-        return {
-            consume(data: Uint8Array) {
-                const json = decoder.decode(data);
-                const deserialized = JSON.parse(json);
-
-                if (isOutputValue(deserialized)) {
-                    outputs.push(deserialized);
-                } else if (Array.isArray(deserialized) && deserialized.every(isOutputValue)) {
-                    outputs.push(...deserialized);
-                } else {
-                    throw new SerialDeserializeError(json, deserialized);
-                }
-            }
+            default:
+                throw new Error(`Unsupported output type: ${type}`);
         }
     }
 
@@ -189,6 +174,80 @@ class ImportsObject implements Imports {
 
     log(message: string | StructuredLogMessage): void {
         this.logger(message);
+    }
+}
+
+function tensorOutput(decoder: TextDecoder, outputs: Array<OutputValue>): Output {
+    return {
+        consume: ({ buffer, byteLength, byteOffset }: Uint8Array) => {
+            const shapeLength = new Uint32Array(buffer, byteOffset, 1)[0];
+            const shapeBytes = new Uint8Array(buffer, byteOffset + 4, shapeLength);
+            const shape = Shape.parse(decoder.decode(shapeBytes));
+            const { type, dimensions } = shape;
+            const elements = new Uint8Array(buffer, byteOffset + 4 + shapeLength, byteLength - 4 - shapeLength);
+            const tensor = new Tensor(shape, elements);
+            outputs.push({
+                channel: -1,
+                dimensions: [...dimensions],
+                type_name: type,
+                elements: tensorAsNumberArray(tensor),
+            })
+        }
+    }
+}
+
+function tensorAsNumberArray(tensor: Tensor): number[] {
+    const { elementType } = tensor;
+
+    switch (elementType) {
+        case "f32":
+            const floats = tensor.asTypedArray(elementType);
+            return Array.from(floats);
+        case "u8":
+            const u8s = tensor.asTypedArray(elementType);
+            return Array.from(u8s);
+        case "u16":
+            const u16s = tensor.asTypedArray(elementType);
+            return Array.from(u16s);
+        case "u32":
+            const u32s = tensor.asTypedArray(elementType);
+            return Array.from(u32s);
+        case "i8":
+            const i8s = tensor.asTypedArray(elementType);
+            return Array.from(i8s);
+        case "i16":
+            const i16s = tensor.asTypedArray(elementType);
+            return Array.from(i16s);
+        case "i32":
+            const i32s = tensor.asTypedArray(elementType);
+            return Array.from(i32s);
+
+        default:
+            throw new Error(
+                `Unable to convert a ${tensor.shape.toString()} to a list of numbers`
+            );
+    }
+}
+
+function serialOutput(decoder: TextDecoder, outputs: Array<OutputValue>): Output {
+    // We want the end user to receive all outputs as a return value, but
+    // Runes are designed using a callback-based API (it's better for
+    // performance). This will create an output which will stash all
+    // generated values away in a list so they can be returned at the end.
+
+    return {
+        consume(data: Uint8Array) {
+            const json = decoder.decode(data);
+            const deserialized = JSON.parse(json);
+
+            if (isOutputValue(deserialized)) {
+                outputs.push(deserialized);
+            } else if (Array.isArray(deserialized) && deserialized.every(isOutputValue)) {
+                outputs.push(...deserialized);
+            } else {
+                throw new SerialDeserializeError(json, deserialized);
+            }
+        }
     }
 }
 
