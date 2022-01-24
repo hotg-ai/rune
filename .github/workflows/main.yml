@@ -142,12 +142,12 @@ jobs:
       - name: check @hotg-ai/rune
         run: yarn install && yarn build && yarn test
         working-directory: bindings/web/rune
-      - name: check @hotg-ai/rune-tfjs-v2
-        run: yarn install && yarn build
-        working-directory: bindings/web/tfjs-v2
       - name: check @hotg-ai/rune-tfjs-v3
         run: yarn install && yarn build && yarn test
         working-directory: bindings/web/tfjs-v3
+      - name: check @hotg-ai/rune-tfjs-v2
+        run: yarn install && yarn build
+        working-directory: bindings/web/tfjs-v2
       - name: check @hotg-ai/rune-tflite
         run: yarn install && yarn build
         working-directory: bindings/web/tflite
