@@ -15,6 +15,7 @@ mod model;
 mod resources;
 pub mod serial;
 mod stats_allocator;
+pub mod tensor_output;
 
 pub use crate::{
     capability::Capability,
@@ -23,6 +24,7 @@ pub use crate::{
     model::Model,
     serial::Serial,
     resources::{Resource, ResourceError},
+    tensor_output::TensorOutput,
     buf_writer::BufWriter,
 };
 

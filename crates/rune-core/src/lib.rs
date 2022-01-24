@@ -108,5 +108,19 @@ constants! {
         BLE = 2,
         PIN = 3,
         WIFI = 4,
+        /// A raw tensor output.
+        ///
+        /// The buffer passed from the Rune to the runtime will be laid out
+        /// as:
+        ///
+        /// | Field     | Length   | Description                                                                   |
+        /// | --------- | -------- | ----------------------------------------------------------------------------- |
+        /// | shape_len | 4        | A little-endian u32 containing the shape field's length                       |
+        /// | shape     | variable | A UTF-8 string encoding the tensor's shape (i.e. element type and dimensions) |
+        /// | elements  | variable | The tensor data itself, in little-endian format                               |
+        ///
+        /// This pattern may be repeated an arbitrary number of times, depending
+        /// on how many tensors are being outputted.
+        TENSOR = 5,
     }
 }

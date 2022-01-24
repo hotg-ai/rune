@@ -487,6 +487,7 @@ fn initialize_output(name: &Name, sink: &Sink) -> TokenStream {
 fn sink_type_name(kind: &SinkKind) -> TokenStream {
     match kind {
         SinkKind::Serial => quote!(hotg_runicos_base_wasm::Serial),
+        SinkKind::Tensor => quote!(hotg_runicos_base_wasm::TensorOutput),
         SinkKind::Other(other) => {
             unimplemented!("Unable to handle \"{}\" outputs", other)
         },
