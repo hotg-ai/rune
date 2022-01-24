@@ -1,20 +1,21 @@
-const ByteSize = {
-    "f64": 8,
-    "i64": 8,
-    "u64": 8,
-    "f32": 4,
-    "i32": 4,
-    "u32": 4,
-    "u16": 2,
-    "i16": 2,
-    "u8": 1,
-    "i8": 1
-} as const;
 
 /**
  * A description of a tensor.
  */
 export default class Shape {
+    static ByteSize = {
+        "f64": 8,
+        "i64": 8,
+        "u64": 8,
+        "f32": 4,
+        "i32": 4,
+        "u32": 4,
+        "u16": 2,
+        "i16": 2,
+        "u8": 1,
+        "i8": 1
+    } as const;
+
     /**
      * The element type.
      */
@@ -22,11 +23,11 @@ export default class Shape {
     /**
      * The tensor's dimensions.
      */
-    readonly dimensions: number[];
+    readonly dimensions: readonly number[];
 
     constructor(type: string, values: number[]) {
         this.type = type;
-        this.dimensions = values;
+        this.dimensions = [...values];
     }
 
     /**
@@ -65,7 +66,7 @@ export default class Shape {
      * The number of bytes used to store this tensor's elements.
      */
     get byteSize(): number {
-        const sizes: Record<string, number | undefined> = ByteSize;
+        const sizes: Record<string, number | undefined> = Shape.ByteSize;
         const elementSize = sizes[this.type] || 1;
         return this.tensorSize * elementSize;
     }
@@ -79,9 +80,9 @@ export default class Shape {
 
 
 function checkElementType(typeName: string, input: string) {
-    const knownElements = Object.keys(ByteSize);
+    const knownElements = Object.keys(Shape.ByteSize);
 
-    if (typeName in ByteSize) {
+    if (typeName in Shape.ByteSize) {
         return;
     }
 

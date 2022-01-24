@@ -143,7 +143,16 @@ jobs:
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Setup Rust
         run: rustup show
-      - name: Install Dependencies
-        run: cd bindings/web && yarn install
-      - name: Run Tests
-        run: cd bindings/web && yarn test
+      - name: check @hotg-ai/rune
+        run: yarn install && yarn build && yarn test
+        working-directory: bindings/web/rune
+      - name: check @hotg-ai/rune-tfjs-v2
+        run: yarn install && yarn build
+        working-directory: bindings/web/tfjs-v2
+      - name: check @hotg-ai/rune-tfjs-v3
+        run: yarn install && yarn build && yarn test
+        working-directory: bindings/web/tfjs-v3
+      - name: check @hotg-ai/rune-tflite
+        run: yarn install && yarn build
+        working-directory: bindings/web/tflite
+

@@ -1,0 +1,25 @@
+{
+  "name": "@hotg-ai/rune-tflite",
+  "version": "0.11.0",
+  "repository": "https://github.com/hotg-ai/rune",
+  "author": "The Rune Developers <developer@hotg.ai>",
+  "license": "MIT OR Apache-2.0",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "fmt": "prettier --write .",
+    "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json && yarn publish"
+  },
+  "dependencies": {
+    "@hotg-ai/rune": "^0.11.3",
+    "@tensorflow/tfjs-core": "^3.13.0",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.8"
+  },
+  "devDependencies": {
+    "prettier": "^2.5.1",
+    "typescript": "^4.5.5"
+  }
+}

@@ -1,7 +1,8 @@
 export { InputDescription, OutputValue, ReadInput, Result, Builder, Evaluate } from "./facade";
+export { default as Shape } from "./Shape";
+export { default as Tensor } from "./Tensor";
 
 import { Builder } from "./facade";
-import { loadTensorFlowJS, loadTensorFlowLite, mimetypes } from "./builtin";
 
 /**
  * A map of capability names to their identifies.
@@ -38,7 +39,5 @@ export type OutputType = keyof typeof Outputs;
  * or want to avoid unnecessary indirection/copies.
  */
 export function builder(): Builder {
-    return new Builder()
-        .withModelHandler(mimetypes.tflite, loadTensorFlowLite)
-        .withModelHandler(mimetypes.tfjs, loadTensorFlowJS);
+    return new Builder();
 }
