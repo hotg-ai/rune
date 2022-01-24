@@ -21,6 +21,7 @@ export const Capabilities = {
  */
 export const Outputs = {
     "serial": 1,
+    "tensor": 5,
 } as const;
 
 /**
