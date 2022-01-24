@@ -2,11 +2,10 @@
 resolver = "2"
 members = [
     "crates/*",
-    "bindings/*",
+    "bindings/native",
     "images/runicos-base/*",
     "integration-tests",
 ]
-exclude = ["bindings/web"]
 
 [patch.crates-io]
 #serde_yaml = { git = "https://github.com/hotg-ai/serde-yaml", branch = "spans" }

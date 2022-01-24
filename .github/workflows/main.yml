@@ -27,7 +27,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-            python/target
           key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Update Rustup
         run: |
@@ -43,9 +42,6 @@ jobs:
         if: runner.os == 'macOS'
         with:
           python-version: "3.6"
-      - name: Install Build Dependencies
-        run: |
-          pip install numpy
       - name: Setup Rust
         run: rustup show
       - name: Type Check
