@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Increased the number of tensors that can be passed to/from a model
   ([#393](https://github.com/hotg-ai/rune/pull/393))
-- Increased the number of tensors that can be passed to a SERIAL node
-  ([#393](https://github.com/hotg-ai/rune/pull/393))
+- Increased the number of tensors that can be given to a SERIAL output to 32
+  ([#396](https://github.com/hotg-ai/rune/pull/396))
 
 ### Removed
 

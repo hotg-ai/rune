@@ -1,1 +1,1 @@
-[{"type_name":"u8","channel":2,"elements":[0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0],"dimensions":[16]},{"type_name":"i32","channel":2,"elements":[0,1,2,3],"dimensions":[4]}]
+[{"channel":2,"dimensions":[16],"elements":[0,0,0,0,1,0,0,0,2,0,0,0,3,0,0,0],"type_name":"u8"},{"channel":2,"dimensions":[4],"elements":[0,1,2,3],"type_name":"i32"}]

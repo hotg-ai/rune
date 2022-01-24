@@ -3,6 +3,7 @@ use crate::intrinsics;
 use serde::ser::{Serialize, Serializer, SerializeMap};
 use core::{fmt::Debug, cell::RefCell};
 use alloc::vec::Vec;
+use serde_json::Value;
 
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
@@ -31,10 +32,7 @@ impl Serial {
         }
     }
 
-    fn consume_serializable<M>(&self, msg: &M)
-    where
-        M: Serialize,
-    {
+    fn consume_serializable(&self, msg: &Value) {
         let mut buffer = self.buffer.borrow_mut();
 
         // Keep resizing our internal buffer until it's big enough to hold the
@@ -75,32 +73,29 @@ impl Default for Serial {
 /// An intermediate trait which lets you convert from some input into a
 /// serializable form suitable for sending back to the Rune runtime.
 pub trait IntoSerialMessage {
-    type Message: Serialize;
-
-    fn into_serial_message(self, channel: u32) -> Self::Message;
+    fn into_serial_message(self, channel: u32) -> Value;
 }
 
 impl<T: Serialize + AsElementType> IntoSerialMessage for Tensor<T> {
-    type Message = TensorMessage<T>;
-
-    fn into_serial_message(self, channel: u32) -> Self::Message {
-        TensorMessage {
+    fn into_serial_message(self, channel: u32) -> Value {
+        let msg = TensorMessage {
             type_name: T::TYPE.rune_name(),
             channel,
             tensor: self,
-        }
+        };
+
+        serde_json::to_value(&msg).expect("Unable to serialize the message")
     }
 }
 
 impl IntoSerialMessage for &'static str {
-    type Message = StringMessage<'static>;
-
-    fn into_serial_message(self, channel: u32) -> Self::Message {
-        StringMessage {
+    fn into_serial_message(self, channel: u32) -> Value {
+        let msg = StringMessage {
             type_name: ElementType::String.rune_name(),
             string: self,
             channel,
-        }
+        };
+        serde_json::to_value(&msg).expect("Unable to serialize the message")
     }
 }
 
@@ -143,19 +138,14 @@ macro_rules! tuple_serial_message {
                 $rest: IntoSerialMessage,
             )*
         {
-            type Message = (
-                <$first as IntoSerialMessage>::Message,
-                $( <$rest as IntoSerialMessage>::Message),*
-            );
-
             #[allow(non_snake_case)]
-            fn into_serial_message(self, channel: u32) -> Self::Message {
+            fn into_serial_message(self, channel: u32) -> Value {
                 let ($first, $($rest),*) = self;
 
-                (
+                Value::Array(alloc::vec![
                     $first.into_serial_message(channel),
                     $($rest.into_serial_message(channel)),*
-                )
+                ])
             }
 
         }
@@ -165,4 +155,7 @@ macro_rules! tuple_serial_message {
     ($(,)?) => {};
 }
 
-tuple_serial_message!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+tuple_serial_message!(
+    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16,
+    T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30,
+);
