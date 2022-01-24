@@ -95,54 +95,6 @@ jobs:
           name: ${{ matrix.asset_name }}
           path: ${{ matrix.artifact_name }}
 
-  python:
-    name: Python Bindings
-    strategy:
-      matrix:
-        os:
-          - ubuntu-18.04
-          - macos-latest
-    runs-on: ${{ matrix.os }}
-    needs: check_date
-    if: ${{ needs.check_date.outputs.should_run != 'false' }}
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Update Rustup
-        run: |
-          # We need to update rustup because the mac version is out of date and
-          # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
-        if: runner.os == 'macOS'
-      - name: Setup Rust
-        run: rustup show
-      - name: Install Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.6'
-      - name: Compile the Wheel
-        run: |
-          pip3 install maturin
-          maturin build --manifest-path bindings/python/Cargo.toml \
-                        --bindings pyo3 \
-                        --manylinux off \
-                        --no-sdist \
-                        --release
-      - name: Sanity Check
-        run: |
-          pip3 install target/wheels/rune_py*.whl
-          python3 -m unittest bindings/python/tests/integration_tests.py
-      - name: Upload Wheels
-        uses: actions/upload-artifact@v2
-        with:
-          name: python-wheel-${{ matrix.os }}
-          path: target/wheels/*.whl
-
   docker:
     name: Publish Docker Image
     runs-on: ubuntu-latest
@@ -299,7 +251,6 @@ jobs:
     needs:
       - check_date
       - build
-      - python
       - rune_native
     if: ${{ needs.check_date.outputs.should_run != 'false' }}
     steps:
