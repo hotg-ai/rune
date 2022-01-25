@@ -19,36 +19,35 @@ export class TensorFlowModel implements Model {
     outputArray: Uint8Array[],
     outputDimensions: Shape[]
   ): void {
-    const inputs = toTensors(inputArray, inputDimensions);
-    const output = this.model.predict(inputs, {});
+    tf.tidy(() => {
+      const inputs = toTensors(inputArray, inputDimensions);
+      const output = this.model.predict(inputs, {});
 
-    if (Array.isArray(output)) {
-      output.forEach((tensor, i) => {
-        var out = tensor.dataSync();
-        outputArray[i].set(
-          new Uint8Array(out.buffer,out.byteOffset,out.byteLength).slice(0, outputArray[i].length)
-        );
-      });
-    } else if (output instanceof Tensor) {
-      var dest = outputArray[0];
-      var out = output.dataSync();
-      dest.set(new Uint8Array(out.buffer,out.byteOffset,out.byteLength).slice(0, dest.length));
-    } else {
-      const namesToIndices: Record<string, number> = {};
-      this.model.outputs.forEach((info, i) => (namesToIndices[info.name] = i));
+      if (Array.isArray(output)) {
+        output.forEach((tensor, i) => {
+          var out = tensor.dataSync();
+          outputArray[i].set(
+            new Uint8Array(out.buffer, out.byteOffset, out.byteLength).slice(0, outputArray[i].length)
+          );
+        });
+      } else if (output instanceof Tensor) {
+        var dest = outputArray[0];
+        var out = output.dataSync();
+        dest.set(new Uint8Array(out.buffer, out.byteOffset, out.byteLength).slice(0, dest.length));
+      } else {
+        const namesToIndices: Record<string, number> = {};
+        this.model.outputs.forEach((info, i) => (namesToIndices[info.name] = i));
 
-      for (const name in output) {
-        const tensor = output[name];
-        const index = namesToIndices[name];
-        var out = tensor.dataSync();
-        outputArray[index].set(
-          new Uint8Array(out.buffer,out.byteOffset,out.byteLength).slice(0, outputArray[index].length)
-        );
+        for (const name in output) {
+          const tensor = output[name];
+          const index = namesToIndices[name];
+          var out = tensor.dataSync();
+          outputArray[index].set(
+            new Uint8Array(out.buffer, out.byteOffset, out.byteLength).slice(0, outputArray[index].length)
+          );
+        }
       }
-    }
-
-    // We need to dispose of all tensors to avoid memory leaks
-    tf.dispose([inputs, output]);
+    });
   }
 
   get inputs(): Shape[] {

@@ -1,6 +1,6 @@
 {
   "name": "@hotg-ai/rune-tflite",
-  "version": "0.11.0",
+  "version": "0.11.2",
   "repository": "https://github.com/hotg-ai/rune",
   "author": "The Rune Developers <developer@hotg.ai>",
   "license": "MIT OR Apache-2.0",
