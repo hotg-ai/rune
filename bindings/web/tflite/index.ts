@@ -14,7 +14,9 @@ export async function loadTensorFlowLite(
   return new TensorFlowModel(model);
 }
 
-export default {
-  mimetype: mimetypes.tflite,
-  load: loadTensorFlowLite,
-} as const;
+export default function backend() {
+  return {
+    mimetype: mimetypes.tflite,
+    load: loadTensorFlowLite,
+  } as const;
+}
