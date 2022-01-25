@@ -21,32 +21,37 @@ export class TensorFlowModel implements Model {
   ): void {
     tf.tidy(() => {
       const inputs = toTensors(inputArray, inputDimensions);
-      const output = this.model.predict(inputs, {});
+      const result = this.model.predict(inputs, {});
 
-      if (Array.isArray(output)) {
-        output.forEach((tensor, i) => {
-          var out = tensor.dataSync();
-          outputArray[i].set(
-            new Uint8Array(out.buffer, out.byteOffset, out.byteLength).slice(0, outputArray[i].length)
-          );
-        });
-      } else if (output instanceof Tensor) {
-        var dest = outputArray[0];
-        var out = output.dataSync();
-        dest.set(new Uint8Array(out.buffer, out.byteOffset, out.byteLength).slice(0, dest.length));
+      let outputs: Tensor[];
+
+      if (Array.isArray(result)) {
+        outputs = result;
+      } else if (result instanceof Tensor) {
+        outputs = [result];
       } else {
-        const namesToIndices: Record<string, number> = {};
-        this.model.outputs.forEach((info, i) => (namesToIndices[info.name] = i));
+        const names = this.model.outputs.map(info => info.name);
+        outputs = [];
 
-        for (const name in output) {
-          const tensor = output[name];
-          const index = namesToIndices[name];
-          var out = tensor.dataSync();
-          outputArray[index].set(
-            new Uint8Array(out.buffer, out.byteOffset, out.byteLength).slice(0, outputArray[index].length)
-          );
+        for (const name of names) {
+          if (name in result) {
+            outputs.push(result[name]);
+          } else {
+            const commaSeparatedNames = Object.keys(result);
+            throw new Error(`Tried to get the \"${name}\" output, but inference returned \"${JSON.stringify(commaSeparatedNames)}\"`);
+          }
         }
       }
+
+      if (outputs.length != outputArray.length) {
+        throw new Error(`The model returned ${outputs.length} tensors, but the Rune expects ${outputArray.length}`);
+      }
+
+      outputs.forEach((tensor, i) => {
+        var out = tensor.dataSync();
+        const bytes = new Uint8Array(out.buffer, out.byteOffset, out.byteLength);
+        outputArray[i].set(bytes);
+      });
     });
   }
 

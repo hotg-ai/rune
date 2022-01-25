@@ -293,9 +293,7 @@ class LazyCapability implements Capability {
             throw new Error();
         }
 
-        const bytes = new Uint8Array(this.value.elements);
-
-        dest.set(bytes);
+        dest.set(this.value.elements);
     }
 
     setParameter(name: string, value: number): void {
