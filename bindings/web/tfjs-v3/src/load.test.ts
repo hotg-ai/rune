@@ -19,7 +19,7 @@ describe("TensorFlowModel", () => {
     const inputs = [new Uint8Array(backingBuffer.buffer, Float32Array.BYTES_PER_ELEMENT * 3, Float32Array.BYTES_PER_ELEMENT)];
     const output = new Float32Array(1);
     const outputs = [new Uint8Array(output.buffer)];
-    const shape = [Shape.parse("f32[1]")];
+    const shape = [Shape.parse("f32[1, 1]")];
     model.transform(inputs, shape, outputs, shape);
     // According to our training notebook, sine(3.0) = 0.1255441.
     expect(output[0]).toBeCloseTo(0.13199206);
