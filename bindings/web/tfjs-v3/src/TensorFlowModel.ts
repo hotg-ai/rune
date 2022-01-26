@@ -1,5 +1,5 @@
 import * as tf from "@tensorflow/tfjs-core";
-import { InferenceModel, ModelTensorInfo, Tensor } from "@tensorflow/tfjs-core";
+import { InferenceModel, ModelTensorInfo, NamedTensorMap, Tensor } from "@tensorflow/tfjs-core";
 import { Shape, Tensor as RuneTensor } from "@hotg-ai/rune";
 import { Model } from "@hotg-ai/rune/Runtime";
 
@@ -31,16 +31,7 @@ export class TensorFlowModel implements Model {
         outputs = [result];
       } else {
         const names = this.model.outputs.map(info => info.name);
-        outputs = [];
-
-        for (const name of names) {
-          if (name in result) {
-            outputs.push(result[name]);
-          } else {
-            const commaSeparatedNames = Object.keys(result);
-            throw new Error(`Tried to get the \"${name}\" output, but inference returned \"${JSON.stringify(commaSeparatedNames)}\"`);
-          }
-        }
+        outputs = namedTensorArray(names, result);
       }
 
       if (outputs.length != outputArray.length) {
@@ -48,6 +39,7 @@ export class TensorFlowModel implements Model {
       }
 
       outputs.forEach((tensor, i) => {
+        assertSameShape(tensor, outputDimensions[i]);
         var out = tensor.dataSync();
         const bytes = new Uint8Array(out.buffer, out.byteOffset, out.byteLength);
         outputArray[i].set(bytes);
@@ -61,6 +53,43 @@ export class TensorFlowModel implements Model {
 
   get outputs(): Shape[] {
     return this.model.outputs.map(toShape);
+  }
+}
+
+function namedTensorArray(names: string[], result: NamedTensorMap): Tensor[] {
+  const outputs = [];
+
+  for (const name of names) {
+    if (name in result) {
+      outputs.push(result[name]);
+    } else {
+      const commaSeparatedNames = Object.keys(result);
+      throw new Error(`Tried to get the \"${name}\" output, but inference returned \"${JSON.stringify(commaSeparatedNames)}\"`);
+    }
+  }
+
+  return outputs;
+}
+
+export function assertSameShape(tensor: Tensor, shape: Shape) {
+  const actualDimensions: number[] = tensor.shape;
+
+  if (actualDimensions.toString() != shape.dimensions.toString()) {
+    throw new Error(`Expected a ${shape}, but found a tensor of ${actualDimensions}`);
+  }
+
+  const m: Partial<Record<Tensor["dtype"], Array<keyof typeof Shape.ByteSize>>> = {
+    float32: ["f32"],
+    int32: ["i32"],
+  };
+  const matchingDataTypes: Partial<Record<string, string[]>> = m;
+  const compatibleShapes = matchingDataTypes[tensor.dtype];
+
+  if (!compatibleShapes) {
+    throw new Error(`Rune is unable to handle ${tensor.dtype} tensors`);
+  }
+  else if (!compatibleShapes.includes(shape.type)) {
+    throw new Error(`A ${tensor.dtype} tensor isn't compatible with ${compatibleShapes.join("or")}`);
   }
 }
 
