@@ -71,6 +71,11 @@ function namedTensorArray(names: string[], result: NamedTensorMap): Tensor[] {
   return outputs;
 }
 
+  const TensorFlowToRustDataTypes: Partial<Record<Tensor["dtype"], Array<keyof typeof Shape.ByteSize>>> = {
+    float32: ["f32"],
+    int32: ["i32", "i16", "i8", "u8"],
+  };
+
 export function assertSameShape(tensor: Tensor, shape: Shape) {
   const actualDimensions: number[] = tensor.shape;
 
@@ -78,18 +83,14 @@ export function assertSameShape(tensor: Tensor, shape: Shape) {
     throw new Error(`Expected a ${shape}, but found a tensor of ${actualDimensions}`);
   }
 
-  const m: Partial<Record<Tensor["dtype"], Array<keyof typeof Shape.ByteSize>>> = {
-    float32: ["f32"],
-    int32: ["i32"],
-  };
-  const matchingDataTypes: Partial<Record<string, string[]>> = m;
+  const matchingDataTypes: Partial<Record<string, string[]>> = TensorFlowToRustDataTypes;
   const compatibleShapes = matchingDataTypes[tensor.dtype];
 
   if (!compatibleShapes) {
     throw new Error(`Rune is unable to handle ${tensor.dtype} tensors`);
   }
   else if (!compatibleShapes.includes(shape.type)) {
-    throw new Error(`A ${tensor.dtype} tensor isn't compatible with ${compatibleShapes.join("or")}`);
+    throw new Error(`A ${shape.type} tensor isn't compatible with ${compatibleShapes.join("or")}`);
   }
 }
 
