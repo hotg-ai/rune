@@ -1001,7 +1001,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-cli"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1039,7 +1039,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-compiler"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "atomic_refcell",
  "cargo_toml",
@@ -1069,7 +1069,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-core"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "log",
  "serde",
@@ -1090,7 +1090,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-block-macros"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "difference",
  "hotg-rune-core",
@@ -1104,7 +1104,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-proc-blocks"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "difference",
  "hotg-rune-core",
@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-rune-runtime"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "anyhow",
  "hotg-rune-core",
@@ -1143,7 +1143,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-runicos-base-runtime"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "anyhow",
  "hotg-rune-core",
@@ -1162,7 +1162,7 @@ dependencies = [
 
 [[package]]
 name = "hotg-runicos-base-wasm"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "dlmalloc",
  "hotg-rune-core",
