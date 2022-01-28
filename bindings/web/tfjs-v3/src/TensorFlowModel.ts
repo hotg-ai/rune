@@ -39,9 +39,10 @@ export class TensorFlowModel implements Model {
       }
 
       outputs.forEach((tensor, i) => {
-        assertSameShape(tensor, outputDimensions[i]);
         var out = tensor.dataSync();
-        const bytes = new Uint8Array(out.buffer, out.byteOffset, out.byteLength);
+        const shape = outputDimensions[i];
+        const typedArray = typedArrayFromTFJS(out, shape);
+        const bytes = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
         outputArray[i].set(bytes);
       });
     });
@@ -71,10 +72,10 @@ function namedTensorArray(names: string[], result: NamedTensorMap): Tensor[] {
   return outputs;
 }
 
-  const TensorFlowToRustDataTypes: Partial<Record<Tensor["dtype"], Array<keyof typeof Shape.ByteSize>>> = {
-    float32: ["f32"],
-    int32: ["i32", "i16", "i8", "u8"],
-  };
+const TensorFlowToRustDataTypes: Partial<Record<Tensor["dtype"], Array<keyof typeof Shape.ByteSize>>> = {
+  float32: ["f32"],
+  int32: ["i32", "i16", "i8", "u8"],
+};
 
 export function assertSameShape(tensor: Tensor, shape: Shape) {
   const actualDimensions: number[] = tensor.shape;
@@ -179,4 +180,47 @@ function toShape({ dtype, shape, tfDtype }: ActualModelTensorInfo): Shape {
   }
 
   return new Shape(tfDtype || dtype || "unknown", cleanedShape);
+}
+
+/**
+ * Convert the array buffer returned by tfjs's tensor.dataSync() into a typed
+ * array with the correct type.
+ * @param tensorData The raw tensor data.
+ * @param shape The shape we expect.
+ * @returns
+ */
+function typedArrayFromTFJS(tensorData: Float32Array | Int32Array | Uint8Array, shape: Shape): ArrayBufferView {
+  switch (shape.type) {
+    case "u8":
+      if (tensorData instanceof Int32Array) {
+        return new Uint8Array(tensorData);
+      }
+      break;
+    case "i8":
+      if (tensorData instanceof Int32Array) {
+        return new Int8Array(tensorData);
+      }
+      break;
+    case "u16":
+      if (tensorData instanceof Int32Array) {
+        return new Uint16Array(tensorData);
+      }
+      break;
+    case "i16":
+      if (tensorData instanceof Int32Array) {
+        return new Int16Array(tensorData);
+      }
+      break;
+    case "u32":
+      throw new Error("TODO: Figure out whether converting a tfjs Int32Array to a tensor of u32s is valid");
+    case "i32":
+      if (tensorData instanceof Int32Array) {
+        return new Int32Array(tensorData);
+      }
+      break;
+    case "f32":
+      return tensorData;
+  }
+
+  throw new Error(`Unable to convert a tfjs tensor of ${tensorData.constructor.name} to a ${shape.toString()}`);
 }
