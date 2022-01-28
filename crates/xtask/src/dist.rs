@@ -91,7 +91,7 @@ pub struct Component {
 
 impl Component {
     pub const POSSIBLE_VALUES: &'static [&'static str] =
-        &["rune", "ffi", "examples", "strip", "docs"];
+        &["rune", "examples", "strip", "docs"];
 
     fn new<I, F>(name: I, execute: F) -> Self
     where
@@ -129,7 +129,6 @@ impl FromStr for Component {
             "strip" => strip_binaries as ComponentFunc,
             "examples" => compile_example_runes as ComponentFunc,
             "rune" => compile_rune_binary as ComponentFunc,
-            "ffi" => generate_ffi_header as ComponentFunc,
             "docs" => copy_docs as ComponentFunc,
             _ => anyhow::bail!(
                 "Expected one of \"{}\" but found \"{}\"",
@@ -223,30 +222,6 @@ fn is_strippable(path: &Path) -> bool {
     let whitelist = &["a", "exe", "dll", "so"];
 
     whitelist.contains(&ext.as_str())
-}
-
-fn generate_ffi_header(ctx: &Context) -> Result<(), Error> {
-    let Context { dist, .. } = ctx;
-    let header = dist.join("rune.h");
-
-    log::debug!("Writing FFI headers to \"{}\"", header.display());
-
-    let mut cmd = Command::new(&ctx.cargo);
-    cmd.arg("test")
-        .arg("--package=hotg-rune-native")
-        .arg("--features=c-headers")
-        .arg("--")
-        .arg("generate_headers")
-        .env("RUNE_HEADER_FILE", &header);
-
-    log::debug!("Executing {:?}", cmd);
-    let status = cmd
-        .status()
-        .context("Unable to run `cargo`. Is it installed?")?;
-
-    anyhow::ensure!(status.success(), "Unable to generate the header file.");
-
-    Ok(())
 }
 
 fn generate_archive(ctx: &Context) -> Result<(), Error> {
@@ -448,7 +423,7 @@ fn compile_rune_binary(ctx: &Context) -> Result<(), Error> {
     log::debug!("Executing {:?}", cmd);
     anyhow::ensure!(status.success(), "`cargo build` failed");
 
-    BulkCopy::new(&["**/rune", "**/rune.exe", "**/*rune_native*"])?
+    BulkCopy::new(&["**/rune", "**/rune.exe"])?
         .with_max_depth(1)
         .with_blacklist(&["*.d"])?
         .copy(target_dir.join("release"), dist)
