@@ -13,8 +13,7 @@ jobs:
       matrix:
         os:
           - ubuntu-18.04
-          # HACK: Disabling macos builds due to https://github.com/hotg-ai/librunecoral/issues/43
-          # - macos-latest
+          - macos-latest
           # Note: we need to use pre-compiled TensorFlow Lite binaries on
           # Windows, so ignore the Windows build for now
           #- windows-latest
@@ -34,6 +33,10 @@ jobs:
           # self-update is disabled. https://github.com/rust-lang/rustup/issues/2766
           curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none -y
         if: runner.os == 'macOS'
+      - name: Setup bazel
+        uses: jwlawson/actions-setup-bazel@v1
+        with:
+          bazel-version: '3.7.2'
       - uses: maxim-lobanov/setup-xcode@v1
         if: runner.os == 'macOS'
         with:
