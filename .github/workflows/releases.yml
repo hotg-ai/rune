@@ -89,6 +89,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           pip install numpy
+          pip3 install numpy
       - name: Build
         run: cargo xtask dist
         env:

@@ -45,6 +45,11 @@ jobs:
         if: runner.os == 'macOS'
         with:
           python-version: "3.6"
+      - name: Install build dependencies
+        if: runner.os == 'macOS'
+        run: |
+          pip install numpy
+          pip3 install numpy
       - name: Setup Rust
         run: rustup show
       - name: Type Check
