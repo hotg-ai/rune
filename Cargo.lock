@@ -1124,6 +1124,7 @@ dependencies = [
  "image",
  "log",
  "rand 0.8.4",
+ "serde_json",
  "tempfile",
  "thiserror",
  "wasm3",

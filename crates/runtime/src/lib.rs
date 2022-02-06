@@ -10,12 +10,20 @@
 
 #![cfg_attr(feature = "unstable_doc_cfg", feature(doc_cfg))]
 
+mod callbacks;
+mod host_functions;
+
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
 #[cfg(feature = "wasm3")]
 pub mod wasm3;
 #[cfg(feature = "wasmer")]
 pub mod wasmer;
+
+pub use crate::{
+    callbacks::{Callbacks, NodeMetadata, RuneGraph},
+    host_functions::HostFunctions,
+};
 
 use anyhow::Error;
 use std::fmt::{self, Debug, Display, Formatter};

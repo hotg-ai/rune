@@ -20,6 +20,7 @@ hound = { version = "3.4.0", optional = true }
 image = { version = "0.23.14", optional = true }
 log = "0.4.14"
 rand = { version = "0.8.3", optional = true }
+serde_json = "1.0.78"
 thiserror = "1.0.24"
 wasm3 = { version = "0.3.1", optional = true }
 wasmer = { version = "=2.0", optional = true }
