@@ -1,7 +1,6 @@
 use std::{
     sync::Arc,
     collections::HashMap,
-    cell::Cell,
     io::{Read, Cursor},
 };
 
@@ -10,7 +9,7 @@ use hotg_rune_core::{Shape, SerializableRecord};
 
 use crate::{
     callbacks::{Callbacks, NodeMetadata},
-    WasmValue, RuneGraph,
+    RuneGraph,
 };
 
 pub struct HostFunctions {
@@ -30,6 +29,10 @@ impl HostFunctions {
             capabilities: &self.capabilities,
             outputs: &self.outputs,
         }
+    }
+
+    pub(crate) fn model_by_id(&mut self, id: u32) -> Option<&mut dyn Model> {
+        self.models.get_mut(&id).map(|m| &mut **m)
     }
 
     fn next_id(&mut self) -> u32 {
@@ -60,7 +63,7 @@ impl HostFunctions {
     pub fn request_capability(
         &mut self,
         capability_type: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<u32, Error> {
         let id = self.next_id();
 
         let capability_name =
@@ -74,17 +77,15 @@ impl HostFunctions {
         };
         self.capabilities.insert(id, meta);
 
-        Ok(())
+        Ok(id)
     }
 
     pub fn request_capability_set_param(
         &mut self,
         capability_id: u32,
         key: &str,
-        value: WasmValue,
+        value: impl Into<String>,
     ) -> Result<(), Error> {
-        let value = value_to_string(value);
-
         let meta =
             self.capabilities.get_mut(&capability_id).with_context(|| {
                 format!(
@@ -92,7 +93,7 @@ impl HostFunctions {
                 key, capability_id
             )
             })?;
-        meta.arguments.insert(key.to_string(), value);
+        meta.arguments.insert(key.to_string(), value.into());
 
         Ok(())
     }
@@ -149,8 +150,19 @@ impl HostFunctions {
         Ok(id)
     }
 
-    pub fn rune_model_infer(&self) -> Result<(), Error> {
-        anyhow::bail!("Not Implemented")
+    pub fn rune_model_infer(
+        &mut self,
+        model_id: u32,
+        inputs: &[&[u8]],
+        outputs: &mut [&mut [u8]],
+    ) -> Result<(), Error> {
+        let model = self.models.get_mut(&model_id).with_context(|| {
+            format!("Tried to access non-existent model with ID {}", model_id)
+        })?;
+
+        model.infer(inputs, outputs)?;
+
+        Ok(())
     }
 
     pub fn request_output(&mut self, output_type: u32) -> Result<u32, Error> {
@@ -236,15 +248,6 @@ impl HostFunctions {
     }
 }
 
-fn value_to_string(value: WasmValue) -> String {
-    match value {
-        WasmValue::F32(f) => f.to_string(),
-        WasmValue::F64(f) => f.to_string(),
-        WasmValue::I32(i) => i.to_string(),
-        WasmValue::I64(i) => i.to_string(),
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 struct ModelParameters<'a> {
@@ -256,17 +259,10 @@ struct ModelParameters<'a> {
 
 pub trait Model: Send + Sync + 'static {
     /// Run inference on the input tensors, writing the results to `outputs`.
-    ///
-    /// # Safety
-    ///
-    /// Implementations can assume that they have unique access to `outputs`
-    /// (i.e. converting the `&[Cell<u8>]` to `&mut [u8]` is valid).
-    ///
-    /// The `inputs` parameter may be aliased.
-    unsafe fn infer(
+    fn infer(
         &mut self,
-        inputs: &[&[Cell<u8>]],
-        outputs: &[&[Cell<u8>]],
+        inputs: &[&[u8]],
+        outputs: &mut [&mut [u8]],
     ) -> Result<(), Error>;
 
     fn input_shapes(&self) -> &[Shape<'_>];
