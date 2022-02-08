@@ -1,9 +1,17 @@
 import Shape from "./Shape";
 
+// Some versions of Safari doesn't support BigUint64Array and friends, and
+// it's not possible to polyfill these types because bigint is a builtin type.
+//
+// This workaround lets us use them when possible and throws an exception at
+// runtime when they aren't.
+const BigUint64ArrayShim = global.BigUint64Array ?? class { constructor() { throw new Error("BigUint64Array is not supported on this device"); } };
+const BigInt64ArrayShim = global.BigInt64Array ?? class { constructor() { throw new Error("BigInt64Array is not supported on this device"); } };
+
 const typedArrays = {
     "f64": Float64Array,
-    "i64": BigInt64Array,
-    "u64": BigUint64Array,
+    "i64": BigInt64ArrayShim,
+    "u64": BigUint64ArrayShim,
     "f32": Float32Array,
     "i32": Int32Array,
     "u32": Uint32Array,
