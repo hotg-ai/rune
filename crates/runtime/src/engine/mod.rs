@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Error;
 use crate::HostFunctions;
 
-pub trait WebAssemblyEngine {
+pub(crate) trait WebAssemblyEngine {
     fn load(
         wasm: &[u8],
         host_functions: Arc<Mutex<HostFunctions>>,
@@ -16,7 +16,9 @@ pub trait WebAssemblyEngine {
     where
         Self: Sized;
 
+    /// Call the `_manifest()` function to initialize the Rune graph.
     fn init(&mut self) -> Result<(), Error>;
 
-    fn call(&mut self) -> Result<(), Error>;
+    /// Call the `_call()` function to run the Rune.
+    fn predict(&mut self) -> Result<(), Error>;
 }

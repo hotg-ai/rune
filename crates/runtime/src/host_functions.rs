@@ -8,7 +8,7 @@ use anyhow::{Error, Context};
 use hotg_rune_core::{Shape, SerializableRecord};
 
 use crate::{
-    callbacks::{Callbacks, NodeMetadata},
+    callbacks::{Callbacks, NodeMetadata, ModelMetadata, Model},
     RuneGraph,
 };
 
@@ -19,11 +19,20 @@ pub struct HostFunctions {
     outputs: HashMap<u32, NodeMetadata>,
     resources: HashMap<u32, Box<dyn Read>>,
     models: HashMap<u32, Box<dyn Model>>,
-    model_handler:
-        Box<dyn Fn(ModelParameters<'_>) -> Result<Box<dyn Model>, Error>>,
 }
 
 impl HostFunctions {
+    pub fn new(callbacks: Arc<dyn Callbacks>) -> Self {
+        HostFunctions {
+            callbacks,
+            next: 1,
+            capabilities: HashMap::new(),
+            outputs: HashMap::new(),
+            resources: HashMap::new(),
+            models: HashMap::new(),
+        }
+    }
+
     pub fn graph(&self) -> RuneGraph<'_> {
         RuneGraph {
             capabilities: &self.capabilities,
@@ -135,14 +144,13 @@ impl HostFunctions {
     ) -> Result<u32, Error> {
         let id = self.next_id();
 
-        let params = ModelParameters {
+        let meta = ModelMetadata {
             mimetype,
-            model,
             inputs,
             outputs,
         };
 
-        let model = (self.model_handler)(params)
+        let model = self.callbacks.load_model(id, &meta, model)
         .with_context(|| format!("Unable to load the \"{}\" model with inputs {:?} and outputs {:?}", mimetype, inputs, outputs))?;
 
         self.models.insert(id, model);
@@ -246,25 +254,4 @@ impl HostFunctions {
 
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
-struct ModelParameters<'a> {
-    pub mimetype: &'a str,
-    pub model: &'a [u8],
-    pub inputs: &'a [Shape<'a>],
-    pub outputs: &'a [Shape<'a>],
-}
-
-pub trait Model: Send + Sync + 'static {
-    /// Run inference on the input tensors, writing the results to `outputs`.
-    fn infer(
-        &mut self,
-        inputs: &[&[u8]],
-        outputs: &mut [&mut [u8]],
-    ) -> Result<(), Error>;
-
-    fn input_shapes(&self) -> &[Shape<'_>];
-    fn output_shapes(&self) -> &[Shape<'_>];
 }

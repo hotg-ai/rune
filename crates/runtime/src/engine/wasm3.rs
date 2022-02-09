@@ -6,13 +6,58 @@ use std::{
 
 use anyhow::{Error, Context};
 use hotg_rune_core::{Value, Shape};
-use wasm3::{Environment, Module, WasmArgs, WasmType, CallContext, error::Trap};
+use wasm3::{
+    Environment, Module, WasmArgs, WasmType, CallContext, error::Trap,
+    Function, error::Error as Wasm3Error,
+};
 
 use crate::{engine::WebAssemblyEngine, HostFunctions};
 
 const STACK_SIZE: u32 = 1024 * 16;
 
-pub struct Wasm3Engine(wasm3::Runtime);
+pub struct Wasm3Engine {
+    runtime: wasm3::Runtime,
+    last_error: Arc<Mutex<Option<Error>>>,
+}
+
+impl Wasm3Engine {
+    /// Find a function in the wasm3 module and try to call it.
+    ///
+    /// Sorry for the generics soup and the whole `apply` thing. The
+    /// `wasm3::Function` type doesn't actually have a single generic `call()`
+    /// method which accepts some arguments, instead they "overload"
+    /// `Function::call()` based on the argument type so you don't need to pass
+    /// in tuples.
+    fn call<Args, Ret>(
+        &mut self,
+        name: &str,
+        args: Args,
+        apply: impl FnOnce(Function<Args, Ret>, Args) -> Result<Ret, Wasm3Error>,
+    ) -> Result<Ret, Error>
+    where
+        Ret: WasmType,
+        Args: WasmArgs,
+    {
+        let function: Function<Args, Ret> =
+            self.runtime.find_function(name).to_anyhow().with_context(
+                || format!("Unable to find the \"{}()\" function", name),
+            )?;
+
+        match apply(function, args) {
+            Ok(ret) => Ok(ret),
+            // We know that host function errors will emit a trap and set
+            // last_error, so we can use that to try and give the user a more
+            // useful error message.
+            Err(Wasm3Error::Wasm3(e)) if e.is_trap(Trap::Abort) => {
+                match self.last_error.lock().unwrap().take() {
+                    Some(e) => Err(e),
+                    None => Err(Wasm3Error::Wasm3(e)).to_anyhow(),
+                }
+            },
+            Err(e) => Err(e).to_anyhow(),
+        }
+    }
+}
 
 impl WebAssemblyEngine for Wasm3Engine {
     fn load(
@@ -32,7 +77,9 @@ impl WebAssemblyEngine for Wasm3Engine {
         log::debug!("Instantiating the WebAssembly module");
         let instance = runtime.parse_and_load_module(wasm).to_anyhow()?;
 
-        Linker::new(instance, &host_functions)
+        let last_error = Arc::new(Mutex::new(None));
+
+        Linker::new(instance, &last_error, &host_functions)
             .link("_debug", debug)?
             .link("request_capability", request_capability)?
             .link("request_capability_set_param", request_capability_set_param)?
@@ -47,26 +94,49 @@ impl WebAssemblyEngine for Wasm3Engine {
             .link("rune_resource_read", rune_resource_read)?
             .link("rune_resource_close", rune_resource_close)?;
 
-        Ok(Wasm3Engine(runtime))
+        Ok(Wasm3Engine {
+            runtime,
+            last_error,
+        })
     }
 
-    fn init(&mut self) -> Result<(), Error> { todo!() }
+    fn init(&mut self) -> Result<(), Error> {
+        let _: i32 = self.call("_manifest", (), |f, _| f.call())?;
+        Ok(())
+    }
 
-    fn call(&mut self) -> Result<(), Error> { todo!() }
+    fn predict(&mut self) -> Result<(), Error> {
+        // Note: these three parameters used to contain the ID for the RAND
+        // capability plus the tensor type sent to the SERIAL output. They are
+        // now redundant because the pipeline nodes are compiled directly into
+        // the Rune.
+        //
+        // We should be able to change the _call function's signature once
+        // hotg-ai/rune#28 lands.
+        let _: i32 =
+            self.call("_call", (0_i32, 0_i32, 0_i32), |f, (a, b, c)| {
+                f.call(a, b, c)
+            })?;
+
+        Ok(())
+    }
 }
 
 struct Linker<'rt> {
     instance: Module<'rt>,
+    last_error: Arc<Mutex<Option<Error>>>,
     host_functions: Arc<Mutex<HostFunctions>>,
 }
 
 impl<'rt> Linker<'rt> {
     fn new(
         instance: Module<'rt>,
+        last_error: &Arc<Mutex<Option<Error>>>,
         host_functions: &Arc<Mutex<HostFunctions>>,
     ) -> Self {
         Self {
             instance,
+            last_error: Arc::clone(last_error),
             host_functions: Arc::clone(host_functions),
         }
     }
@@ -87,6 +157,8 @@ impl<'rt> Linker<'rt> {
             + 'static,
     {
         let host_functions = Arc::clone(&self.host_functions);
+        let error_location = Arc::clone(&self.last_error);
+
         let ret = self.instance.link_closure(
             "env",
             name,
@@ -98,7 +170,9 @@ impl<'rt> Linker<'rt> {
                 match func(cc, &mut *host_functions, args) {
                     Ok(ret) => Ok(ret),
                     Err(e) => {
-                        log::error!("{:?}", e);
+                        *error_location.lock().expect("Lock was poisoned") =
+                            Some(e);
+
                         Err(Trap::Abort)
                     },
                 }
@@ -432,5 +506,123 @@ impl<'a> CallContextExt<'a> for CallContext<'a> {
         );
 
         Ok(items)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        path::{Path, PathBuf},
+        ffi::OsStr,
+    };
+
+    use log::Record;
+
+    use crate::{
+        Callbacks,
+        callbacks::{ModelMetadata, Model},
+    };
+
+    use super::*;
+
+    struct Empty;
+
+    impl Callbacks for Empty {
+        fn read_capability(
+            &self,
+            _id: u32,
+            _meta: &crate::NodeMetadata,
+            _buffer: &mut [u8],
+        ) -> Result<(), Error> {
+            todo!()
+        }
+
+        fn write_output(
+            &self,
+            _id: u32,
+            _meta: &crate::NodeMetadata,
+            _data: &[u8],
+        ) -> Result<(), Error> {
+            todo!()
+        }
+
+        fn load_model(
+            &self,
+            _id: u32,
+            _meta: &ModelMetadata<'_>,
+            _model: &[u8],
+        ) -> Result<Box<dyn Model>, Error> {
+            struct Dummy;
+            impl Model for Dummy {
+                fn infer(
+                    &mut self,
+                    _inputs: &[&[u8]],
+                    _outputs: &mut [&mut [u8]],
+                ) -> Result<(), Error> {
+                    todo!()
+                }
+
+                fn input_shapes(&self) -> &[Shape<'_>] { todo!() }
+
+                fn output_shapes(&self) -> &[Shape<'_>] { todo!() }
+            }
+            Ok(Box::new(Dummy))
+        }
+
+        fn model_infer(
+            &self,
+            _id: u32,
+            _inputs: &[&[u8]],
+            _outputs: &mut [&mut [u8]],
+        ) -> Result<(), Error> {
+            todo!()
+        }
+
+        fn get_resource(&self, _name: &str) -> Option<&[u8]> { Some(&[]) }
+
+        fn log(&self, _record: &Record<'_>) {}
+    }
+
+    #[test]
+    fn load_all_existing_runes() {
+        for rune in all_runes() {
+            let wasm = std::fs::read(&rune).unwrap();
+
+            let callbacks = Arc::new(Empty);
+            let host_functions =
+                Arc::new(Mutex::new(HostFunctions::new(callbacks)));
+            let mut engine = Wasm3Engine::load(&wasm, host_functions).unwrap();
+
+            engine.init().unwrap();
+        }
+    }
+
+    fn all_runes() -> Vec<PathBuf> {
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let project_root = crate_dir.parent().unwrap().parent().unwrap();
+
+        let mut runes = Vec::new();
+        runes.extend(find_runes(project_root.join("examples")));
+        runes.extend(find_runes(project_root.join("integration-tests")));
+
+        runes
+    }
+
+    fn find_runes(root: impl AsRef<Path>) -> Vec<PathBuf> {
+        let root = root.as_ref();
+        let mut runes = Vec::new();
+
+        for entry in root.read_dir().unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+
+            if path.is_file() && path.extension() == Some(OsStr::new("rune")) {
+                runes.push(path);
+            } else if path.is_dir() {
+                runes.extend(find_runes(&path));
+            }
+        }
+
+        runes
     }
 }

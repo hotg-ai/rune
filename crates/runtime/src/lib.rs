@@ -11,6 +11,7 @@
 #![cfg_attr(feature = "unstable_doc_cfg", feature(doc_cfg))]
 
 mod callbacks;
+mod engine;
 mod host_functions;
 
 #[cfg(feature = "builtins")]
@@ -19,7 +20,6 @@ pub mod common_outputs;
 pub mod wasm3;
 #[cfg(feature = "wasmer")]
 pub mod wasmer;
-mod engine;
 
 pub use crate::{
     callbacks::{Callbacks, NodeMetadata, RuneGraph},
