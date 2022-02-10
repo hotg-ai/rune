@@ -3,9 +3,9 @@ use anyhow::Error;
 use hotg_rune_core::Shape;
 use log::Record;
 
-pub trait Callbacks: Send + Sync + 'static {
+pub(crate) trait Callbacks: Send + Sync + 'static {
     /// A callback fired after a Rune is loaded.
-    fn loaded(&self, _rune: &RuneGraph<'_>) -> Result<(), Error> { Ok(()) }
+    fn loaded(&self, _rune: &RuneGraph<'_>) -> Result<(), Error>;
 
     fn read_capability(
         &self,
@@ -52,7 +52,7 @@ pub struct NodeMetadata {
 
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
-pub struct RuneGraph<'a> {
+pub(crate) struct RuneGraph<'a> {
     pub capabilities: &'a HashMap<u32, NodeMetadata>,
     pub outputs: &'a HashMap<u32, NodeMetadata>,
 }

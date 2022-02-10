@@ -1,18 +1,21 @@
+mod host_functions;
+
 #[cfg(feature = "wasm3")]
 mod wasm3;
 
 #[cfg(feature = "wasmer")]
 mod wasmer;
 
-use std::sync::{Arc, Mutex};
-use anyhow::Error;
-use crate::HostFunctions;
+#[cfg(feature = "wasm3")]
+pub use self::wasm3::Wasm3Engine;
 
+use anyhow::Error;
+use std::sync::Arc;
+use crate::callbacks::Callbacks;
+
+/// A WebAssembly virtual machine that links Rune with
 pub(crate) trait WebAssemblyEngine {
-    fn load(
-        wasm: &[u8],
-        host_functions: Arc<Mutex<HostFunctions>>,
-    ) -> Result<Self, Error>
+    fn load(wasm: &[u8], callbacks: Arc<dyn Callbacks>) -> Result<Self, Error>
     where
         Self: Sized;
 

@@ -1,18 +1,19 @@
+#![allow(dead_code)] // triggered when you don't compile with an engine feature
+
 use std::{
     sync::Arc,
     collections::HashMap,
     io::{Read, Cursor},
 };
-
 use anyhow::{Error, Context};
 use hotg_rune_core::{Shape, SerializableRecord};
+use crate::callbacks::{Callbacks, NodeMetadata, ModelMetadata, Model, RuneGraph};
 
-use crate::{
-    callbacks::{Callbacks, NodeMetadata, ModelMetadata, Model},
-    RuneGraph,
-};
-
-pub struct HostFunctions {
+/// An adapter that exposes functionality from [`Callbacks`] via functions that
+/// the WebAssembly expects.
+///
+/// This object also manages any objects that are constructed by the Rune.
+pub(crate) struct HostFunctions {
     next: u32,
     callbacks: Arc<dyn Callbacks>,
     capabilities: HashMap<u32, NodeMetadata>,
@@ -33,7 +34,7 @@ impl HostFunctions {
         }
     }
 
-    pub fn graph(&self) -> RuneGraph<'_> {
+    pub(crate) fn graph(&self) -> RuneGraph<'_> {
         RuneGraph {
             capabilities: &self.capabilities,
             outputs: &self.outputs,

@@ -11,13 +11,18 @@ use wasm3::{
     Function, error::Error as Wasm3Error,
 };
 
-use crate::{engine::WebAssemblyEngine, HostFunctions};
+use crate::{
+    engine::{WebAssemblyEngine, host_functions::HostFunctions},
+    callbacks::Callbacks,
+};
 
 const STACK_SIZE: u32 = 1024 * 16;
 
 pub struct Wasm3Engine {
     runtime: wasm3::Runtime,
+    host_functions: Arc<Mutex<HostFunctions>>,
     last_error: Arc<Mutex<Option<Error>>>,
+    callbacks: Arc<dyn Callbacks>,
 }
 
 impl Wasm3Engine {
@@ -60,14 +65,13 @@ impl Wasm3Engine {
 }
 
 impl WebAssemblyEngine for Wasm3Engine {
-    fn load(
-        wasm: &[u8],
-        host_functions: Arc<Mutex<HostFunctions>>,
-    ) -> Result<Self, Error>
+    fn load(wasm: &[u8], callbacks: Arc<dyn Callbacks>) -> Result<Self, Error>
     where
         Self: Sized,
     {
         let env = Environment::new().to_anyhow()?;
+        let host_functions =
+            Arc::new(Mutex::new(HostFunctions::new(Arc::clone(&callbacks))));
 
         let runtime = env
             .create_runtime(STACK_SIZE)
@@ -97,12 +101,17 @@ impl WebAssemblyEngine for Wasm3Engine {
         Ok(Wasm3Engine {
             runtime,
             last_error,
+            host_functions,
+            callbacks,
         })
     }
 
     fn init(&mut self) -> Result<(), Error> {
         let _: i32 = self.call("_manifest", (), |f, _| f.call())?;
-        Ok(())
+        let host_functions = self.host_functions.lock().unwrap();
+        let graph = host_functions.graph();
+
+        self.callbacks.loaded(&graph)
     }
 
     fn predict(&mut self) -> Result<(), Error> {
@@ -514,20 +523,21 @@ mod tests {
     use std::{
         path::{Path, PathBuf},
         ffi::OsStr,
+        sync::atomic::{AtomicBool, Ordering},
     };
-
     use log::Record;
-
     use crate::{
-        Callbacks,
-        callbacks::{ModelMetadata, Model},
+        callbacks::{ModelMetadata, Model, RuneGraph},
     };
 
     use super::*;
 
-    struct Empty;
+    #[derive(Debug, Default)]
+    struct Spy {
+        loaded: AtomicBool,
+    }
 
-    impl Callbacks for Empty {
+    impl Callbacks for Spy {
         fn read_capability(
             &self,
             _id: u32,
@@ -581,19 +591,25 @@ mod tests {
         fn get_resource(&self, _name: &str) -> Option<&[u8]> { Some(&[]) }
 
         fn log(&self, _record: &Record<'_>) {}
+
+        fn loaded(&self, _rune: &RuneGraph<'_>) -> Result<(), Error> {
+            self.loaded.store(true, Ordering::SeqCst);
+            Ok(())
+        }
     }
 
     #[test]
     fn load_all_existing_runes() {
         for rune in all_runes() {
             let wasm = std::fs::read(&rune).unwrap();
+            let state = Arc::new(Spy::default());
 
-            let callbacks = Arc::new(Empty);
-            let host_functions =
-                Arc::new(Mutex::new(HostFunctions::new(callbacks)));
-            let mut engine = Wasm3Engine::load(&wasm, host_functions).unwrap();
+            let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
+            let mut engine = Wasm3Engine::load(&wasm, callbacks).unwrap();
 
             engine.init().unwrap();
+
+            assert!(state.loaded.load(Ordering::SeqCst));
         }
     }
 

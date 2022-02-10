@@ -12,7 +12,8 @@
 
 mod callbacks;
 mod engine;
-mod host_functions;
+mod runtime;
+mod tensor;
 
 #[cfg(feature = "builtins")]
 pub mod common_outputs;
@@ -22,8 +23,9 @@ pub mod wasm3;
 pub mod wasmer;
 
 pub use crate::{
-    callbacks::{Callbacks, NodeMetadata, RuneGraph},
-    host_functions::HostFunctions,
+    callbacks::NodeMetadata,
+    runtime::Runtime,
+    tensor::{Tensor, ElementType},
 };
 
 use anyhow::Error;
