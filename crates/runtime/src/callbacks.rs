@@ -29,14 +29,6 @@ pub(crate) trait Callbacks: Send + Sync + 'static {
         model: &[u8],
     ) -> Result<Box<dyn Model>, Error>;
 
-    /// Run inference on a model.
-    fn model_infer(
-        &self,
-        id: u32,
-        inputs: &[&[u8]],
-        outputs: &mut [&mut [u8]],
-    ) -> Result<(), Error>;
-
     /// Get the value of a global resource.
     fn get_resource(&self, name: &str) -> Option<&[u8]>;
 

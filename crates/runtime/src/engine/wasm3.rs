@@ -579,15 +579,6 @@ mod tests {
             Ok(Box::new(Dummy))
         }
 
-        fn model_infer(
-            &self,
-            _id: u32,
-            _inputs: &[&[u8]],
-            _outputs: &mut [&mut [u8]],
-        ) -> Result<(), Error> {
-            todo!()
-        }
-
         fn get_resource(&self, _name: &str) -> Option<&[u8]> { Some(&[]) }
 
         fn log(&self, _record: &Record<'_>) {}

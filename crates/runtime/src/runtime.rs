@@ -1,15 +1,11 @@
 use crate::{
-    engine::{WebAssemblyEngine},
-    callbacks::{RuneGraph, Callbacks},
+    engine::WebAssemblyEngine,
+    callbacks::{RuneGraph, Callbacks, Model, ModelMetadata},
     NodeMetadata, Tensor,
 };
-use anyhow::Error;
-use std::{
-    sync::{Arc, Mutex},
-    collections::HashMap,
-    ops::DerefMut,
-};
-use arc_swap::ArcSwap;
+use anyhow::{Error, Context};
+use log::Record;
+use std::{sync::Arc, collections::HashMap, cell::UnsafeCell};
 
 /// A loaded Rune.
 pub struct Runtime {
@@ -21,12 +17,7 @@ impl Runtime {
     /// Load a Rune using WASM3 for executing WebAssembly.
     #[cfg(feature = "wasm3")]
     pub fn wasm3(rune: &[u8]) -> Result<Self, Error> {
-        let state = Arc::new(State {
-            input_tensors: Mutex::default(),
-            output_tensors: Mutex::default(),
-            capabilities: ArcSwap::default(),
-            outputs: ArcSwap::default(),
-        });
+        let state = Arc::new(State::default());
         let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
         let mut engine = crate::engine::Wasm3Engine::load(rune, callbacks)?;
 
@@ -44,92 +35,224 @@ impl Runtime {
     pub fn predict(&mut self) -> Result<(), Error> { self.engine.predict() }
 
     /// Get all input tensors, keyed by capability ID.
-    pub fn get_inputs(
-        &mut self,
-    ) -> impl DerefMut<Target = HashMap<u32, Tensor>> + '_ {
-        self.state.input_tensors.lock().unwrap()
+    pub fn input_tensors(&mut self) -> &mut HashMap<u32, Tensor> {
+        // Safety: See the safety comments on State
+        unsafe { &mut *self.state.input_tensors.get() }
     }
 
     /// Get all output tensors, keyed by output ID.
-    pub fn get_outputs(
-        &mut self,
-    ) -> impl DerefMut<Target = HashMap<u32, Vec<OutputTensor>>> + '_ {
-        self.state.output_tensors.lock().unwrap()
+    pub fn output_tensors(&self) -> &HashMap<u32, Vec<OutputTensor>> {
+        // Safety: See the safety comments on State
+        unsafe { &*self.state.output_tensors.get() }
     }
 
     /// Get a mapping from each capability's ID to its metadata.
-    pub fn capabilities(&self) -> Arc<HashMap<u32, NodeMetadata>> {
-        self.state.capabilities.load_full()
+    pub fn capabilities(&self) -> &HashMap<u32, NodeMetadata> {
+        // Safety: See the safety comments on State
+        unsafe { &*self.state.capabilities.get() }
     }
 
     /// Get a mapping from each output's ID to its metadata.
-    pub fn outputs(&self) -> Arc<HashMap<u32, NodeMetadata>> {
-        self.state.outputs.load_full()
+    pub fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
+        // Safety: See the safety comments on State
+        unsafe { &*self.state.outputs.get() }
+    }
+
+    pub fn set_model_handler<F>(&mut self, load_model: F)
+    where
+        F: Fn(u32, &ModelMetadata<'_>, &[u8]) -> Result<Box<dyn Model>, Error>,
+        F: Sync + Send + 'static,
+    {
+        // Safety: See the safety comments on State
+        unsafe {
+            *self.state.load_model.get() = Box::new(load_model);
+        }
+    }
+
+    pub fn set_logger<L>(&mut self, log: L)
+    where
+        L: Fn(&Record<'_>),
+        L: Send + Sync + 'static,
+    {
+        // Safety: See the safety comments on State
+        unsafe {
+            *self.state.log.get() = Box::new(log);
+        }
+    }
+
+    pub fn resources(&mut self) -> &mut HashMap<String, Vec<u8>> {
+        // Safety: See the safety comments on State
+        unsafe { &mut *self.state.resources.get() }
     }
 }
 
 /// State that is shared between the Runtime and the Rune.
+///
+/// # Safety
+///
+/// Our [`State`] is shared between the [`Runtime`] and the
+/// [`WebAssemblyEngine`] it contains, both of which may try to mutate fields.
+///
+/// We want to simplify the public API by giving the [`Runtime`] methods like
+/// [`Runtime::input_tensors()`] which return `&mut` references to the `HashMap`
+/// if input tensors, but the naive implementation would be incompatible
+/// with this because it'd require wrapping our [`State`]'s fields in
+/// `Arc<Mutex<_>>` and returning a [`std::sync::MutexGuard`].
+///
+/// However, because we are the authors of the [`Runtime`] and all the
+/// [`WebAssemblyEngine`]s, we have complete control over how our [`State`] is
+/// accessed!
+///
+/// By making the public API (essentially just our [`Runtime`] type) use
+/// `&mut self` methods properly, we can leverage the borrow checker to manage
+/// synchronise the access to our [`State`]. No [`std::sync::Mutex`] required.
+///
+/// More concretely, this assumes
+///
+/// - The [`Runtime`] won't try to access its [`State`] while a
+///   [`WebAssemblyEngine`] method is running
+/// - All [`Runtime`] methods and [`WebAssemblyEngine`] implementations are
+///   single-threaded
+///
+/// In the long term I'd *really* like to drop this `unsafe` by changing the API
+/// so all memory is owned by the Rune and lives inside WebAssembly linear
+/// memory.  That way if the caller wants to modify a tensor, they'll need to
+/// call a method on the [`Runtime`] which then asks the Rune for a reference to
+/// the tensor's buffer.
 struct State {
-    input_tensors: Mutex<HashMap<u32, Tensor>>,
-    output_tensors: Mutex<HashMap<u32, Vec<OutputTensor>>>,
-    // Note: we can't hand out references to our capabilities because the Rune
-    // can (theoretically) be re-initialized. The next best thing is to hand
-    // out shared pointers that get swapped whenever the `loaded()` method
-    // is called.
-    capabilities: ArcSwap<HashMap<u32, NodeMetadata>>,
-    outputs: ArcSwap<HashMap<u32, NodeMetadata>>,
+    input_tensors: UnsafeCell<HashMap<u32, Tensor>>,
+    output_tensors: UnsafeCell<HashMap<u32, Vec<OutputTensor>>>,
+    capabilities: UnsafeCell<HashMap<u32, NodeMetadata>>,
+    outputs: UnsafeCell<HashMap<u32, NodeMetadata>>,
+    load_model: UnsafeCell<
+        Box<
+            dyn Fn(
+                    u32,
+                    &ModelMetadata<'_>,
+                    &[u8],
+                ) -> Result<Box<dyn Model>, Error>
+                + Sync
+                + Send,
+        >,
+    >,
+    log: UnsafeCell<Box<dyn Fn(&Record<'_>) + Send + Sync>>,
+    resources: UnsafeCell<HashMap<String, Vec<u8>>>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        State {
+            input_tensors: UnsafeCell::default(),
+            output_tensors: UnsafeCell::default(),
+            capabilities: UnsafeCell::default(),
+            outputs: UnsafeCell::default(),
+            load_model: UnsafeCell::new(Box::new(|_, _, _| todo!())),
+            log: UnsafeCell::new(Box::new(|_| {})),
+            resources: UnsafeCell::default(),
+        }
+    }
 }
 
 impl Callbacks for State {
     fn loaded(&self, rune: &RuneGraph<'_>) -> Result<(), Error> {
-        self.capabilities.store(Arc::new(rune.capabilities.clone()));
-        self.outputs.store(Arc::new(rune.outputs.clone()));
+        // Safety: see the safety comments on State
+        let capabilities = unsafe { &mut *self.capabilities.get() };
+        let outputs = unsafe { &mut *self.outputs.get() };
+
+        *capabilities = rune.capabilities.clone();
+        *outputs = rune.outputs.clone();
 
         Ok(())
     }
 
     fn read_capability(
         &self,
-        _id: u32,
-        _meta: &crate::NodeMetadata,
-        _buffer: &mut [u8],
+        id: u32,
+        meta: &NodeMetadata,
+        buffer: &mut [u8],
     ) -> Result<(), Error> {
-        todo!()
+        // Safety: see the safety comments on State
+        let inputs = unsafe { &*self.input_tensors.get() };
+        let tensor = inputs.get(&id).with_context(|| {
+            format!(
+                "No input tensor provided for the \"{}\" capability with ID {}",
+                meta.kind, id
+            )
+        })?;
+
+        let src = tensor.buffer();
+
+        if src.len() == buffer.len() {
+            anyhow::bail!(
+                "The Rune provided a {} byte buffer, but the input tensor is {} ({} bytes)",
+                buffer.len(),
+                tensor.shape(),
+                src.len(),
+            );
+        }
+
+        buffer.copy_from_slice(src);
+
+        Ok(())
     }
 
     fn write_output(
         &self,
-        _id: u32,
-        _meta: &crate::NodeMetadata,
-        _data: &[u8],
+        id: u32,
+        meta: &NodeMetadata,
+        data: &[u8],
     ) -> Result<(), Error> {
-        todo!()
+        // Safety: see the safety comments on State
+        let outputs = unsafe { &mut *self.output_tensors.get() };
+
+        let parsed = parse_outputs(meta, data).with_context(|| {
+            format!(
+                "Unable to parse the \"{}\" output with ID {}",
+                meta.kind, id
+            )
+        })?;
+
+        outputs.insert(id, parsed);
+
+        Ok(())
     }
 
     fn load_model(
         &self,
-        _id: u32,
-        _meta: &crate::callbacks::ModelMetadata<'_>,
-        _model: &[u8],
+        id: u32,
+        meta: &ModelMetadata<'_>,
+        model: &[u8],
     ) -> Result<Box<dyn crate::callbacks::Model>, Error> {
-        todo!()
+        // Safety: see the safety comments on State
+        let load_model = unsafe { &*self.load_model.get() };
+        load_model(id, meta, model)
     }
 
-    fn model_infer(
-        &self,
-        _id: u32,
-        _inputs: &[&[u8]],
-        _outputs: &mut [&mut [u8]],
-    ) -> Result<(), Error> {
-        todo!()
+    fn get_resource(&self, name: &str) -> Option<&[u8]> {
+        // Safety: see the safety comments on State
+        let resources = unsafe { &*self.resources.get() };
+
+        resources.get(name).map(|s| s.as_slice())
     }
 
-    fn get_resource(&self, _name: &str) -> Option<&[u8]> { todo!() }
-
-    fn log(&self, _record: &log::Record<'_>) { todo!() }
+    fn log(&self, record: &Record<'_>) {
+        // Safety: see the safety comments on State
+        let log = unsafe { &*self.log.get() };
+        log(record);
+    }
 }
+
+// Safety: see comments on the `State` type itself.
+unsafe impl Sync for State {}
 
 #[derive(Debug)]
 pub enum OutputTensor {
     Tensor(Tensor),
+}
+
+fn parse_outputs(
+    _meta: &NodeMetadata,
+    _data: &[u8],
+) -> Result<Vec<OutputTensor>, Error> {
+    todo!()
 }

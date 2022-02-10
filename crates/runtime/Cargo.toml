@@ -15,7 +15,6 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.40"
-arc-swap = "1.5.0"
 hotg-rune-core = { path = "../rune-core", version = "^0.11.0", features = ["std"]  }
 hound = { version = "3.4.0", optional = true }
 image = { version = "0.23.14", optional = true }
