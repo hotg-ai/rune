@@ -5,7 +5,7 @@
 
 **[Nightly Release][nightly] | [API Docs][api-docs] | [Runefile Schema][schema]**
 
-Rune is a technology for deploying TinyML applications.
+Rune is a technology to containerize and deploy EdgeML applications.
 
 To get started, check out [our developer website][dev].
 
