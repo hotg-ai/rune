@@ -1,3 +1,4 @@
+mod proc_block;
 mod rune;
 
 pub(crate) use self::rune::{Metadata, CustomSection, wasm_custom_sections};
@@ -18,13 +19,17 @@ pub struct Inspect {
         parse(try_from_str)
     )]
     format: Format,
-    #[structopt(help = "The File to inspect", parse(from_os_str))]
+    #[structopt(help = "The File to inspect", parse(try_from_str))]
     filename: PathBuf,
 }
 
 impl Inspect {
     pub fn execute(self) -> Result<(), Error> {
         let Inspect { format, filename } = self;
+
+        if filename.is_dir() {
+            return proc_block::inspect(format, &filename);
+        }
 
         match filename.extension().and_then(|s| s.to_str()) {
             Some("rune" | "wasm") => rune::inspect(format, &filename),
