@@ -1,4 +1,8 @@
-use core::{iter::FromIterator, ops::Deref};
+use core::{
+    iter::FromIterator,
+    ops::Deref,
+    fmt::{Display, self, Formatter},
+};
 use alloc::borrow::Cow;
 
 /// A description of everything a particular proc block is capable of.
@@ -62,6 +66,24 @@ pub enum Dimensions<'a> {
     Arbitrary,
 }
 
+impl<'a> Display for Dimensions<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Dimensions::Arbitrary => write!(f, ".."),
+            Dimensions::Finite(dimensions) => {
+                for (i, dimension) in dimensions.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", dimension)?;
+                }
+
+                Ok(())
+            },
+        }
+    }
+}
+
 impl<'a, D: Into<Cow<'a, [Dimension]>>> From<D> for Dimensions<'a> {
     fn from(dims: D) -> Self { Dimensions::Finite(dims.into()) }
 }
@@ -72,4 +94,13 @@ impl<'a, D: Into<Cow<'a, [Dimension]>>> From<D> for Dimensions<'a> {
 pub enum Dimension {
     Any,
     Value(usize),
+}
+
+impl Display for Dimension {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Dimension::Any => write!(f, "_"),
+            Dimension::Value(dim) => write!(f, "{}", dim),
+        }
+    }
 }

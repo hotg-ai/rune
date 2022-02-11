@@ -140,7 +140,7 @@ static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."));
 
-    cache_dir.join("runes").to_string_lossy().into_owned()
+    cache_dir.join("rune").join("runes").to_string_lossy().into_owned()
 });
 
 #[derive(Debug)]

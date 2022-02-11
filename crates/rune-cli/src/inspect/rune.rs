@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::Path};
 use anyhow::{Context, Error};
 use hotg_rune_compiler::{
     codegen::{
@@ -9,44 +9,25 @@ use hotg_rune_compiler::{
     parse::{ResourceType, ResourceOrString},
 };
 use hotg_rune_core::Shape;
-use strum::VariantNames;
 use wasmparser::{BinaryReaderError, Parser, Payload};
 use crate::Format;
 
-#[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
-pub struct Inspect {
-    #[structopt(
-        short,
-        long,
-        help = "The format to use when printing output",
-        default_value = "text",
-        possible_values = Format::VARIANTS,
-        parse(try_from_str)
-    )]
-    format: Format,
-    #[structopt(help = "The Rune to inspect", parse(from_os_str))]
-    rune: PathBuf,
-}
+pub fn inspect(format: Format, rune: &Path) -> Result<(), Error> {
+    let wasm = std::fs::read(rune)
+        .with_context(|| format!("Unable to read \"{}\"", rune.display()))?;
+    let meta = Metadata::from_wasm_binary(&wasm)
+        .context("Unable to parse metadata from the WebAssembly module")?;
 
-impl Inspect {
-    pub fn execute(self) -> Result<(), Error> {
-        let wasm = std::fs::read(&self.rune).with_context(|| {
-            format!("Unable to read \"{}\"", self.rune.display())
-        })?;
-        let meta = Metadata::from_wasm_binary(&wasm)
-            .context("Unable to parse metadata from the WebAssembly module")?;
-
-        match self.format {
-            Format::Json => {
-                let s = serde_json::to_string_pretty(&meta)
-                    .context("Unable to format the metadata as JSON")?;
-                println!("{}", s);
-            },
-            Format::Text => print_meta(&meta),
-        }
-
-        Ok(())
+    match format {
+        Format::Json => {
+            let s = serde_json::to_string_pretty(&meta)
+                .context("Unable to format the metadata as JSON")?;
+            println!("{}", s);
+        },
+        Format::Text => print_meta(&meta),
     }
+
+    Ok(())
 }
 
 fn print_meta(meta: &Metadata) {
@@ -149,7 +130,7 @@ fn print_capabilities(
     capabilities: &HashMap<Name, CapabilitySummary>,
     tensors: &HashMap<TensorId, Shape<'static>>,
 ) {
-    if !capabilities.is_empty() {
+    if capabilities.is_empty() {
         return;
     }
 
@@ -179,7 +160,7 @@ fn print_args(args: &HashMap<String, ResourceOrString>) {
         println!("  Arguments:");
 
         for (arg, value) in args {
-            print!("    {}: {}", arg, value);
+            println!("    {}: {}", arg, value);
         }
     }
 }

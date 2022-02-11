@@ -1015,6 +1015,7 @@ dependencies = [
  "env_logger",
  "hotg-rune-compiler",
  "hotg-rune-core",
+ "hotg-rune-proc-blocks",
  "hotg-rune-runtime",
  "hotg-runecoral",
  "hotg-runicos-base-runtime",
