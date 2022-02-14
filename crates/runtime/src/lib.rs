@@ -16,6 +16,9 @@ mod runtime;
 mod tensor;
 
 #[cfg(feature = "builtins")]
+pub mod builtins;
+
+#[cfg(feature = "builtins")]
 pub mod common_outputs;
 #[cfg(feature = "wasm3")]
 pub mod wasm3;
@@ -25,7 +28,7 @@ pub mod wasmer;
 pub use crate::{
     callbacks::NodeMetadata,
     runtime::Runtime,
-    tensor::{Tensor, ElementType},
+    tensor::{Tensor, ElementType, TensorElement},
 };
 
 use anyhow::Error;

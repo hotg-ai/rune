@@ -1119,6 +1119,7 @@ name = "hotg-rune-runtime"
 version = "0.11.3"
 dependencies = [
  "anyhow",
+ "csv",
  "hotg-rune-core",
  "hound",
  "image",
