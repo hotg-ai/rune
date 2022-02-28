@@ -146,7 +146,7 @@ impl Run {
     pub(crate) fn load_runtime(&self, rune: &[u8]) -> Result<Runtime, Error> {
         match self.engine {
             Engine::Wasm3 => Runtime::wasm3(rune),
-            Engine::Wasmer => todo!(),
+            Engine::Wasmer => Runtime::wasmer(rune),
         }
     }
 }

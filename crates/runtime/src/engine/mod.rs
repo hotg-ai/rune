@@ -1,8 +1,6 @@
 mod host_functions;
-
 #[cfg(feature = "wasm3")]
 mod wasm3;
-
 #[cfg(feature = "wasmer")]
 mod wasmer;
 
@@ -12,11 +10,15 @@ use anyhow::Error;
 
 #[cfg(feature = "wasm3")]
 pub(crate) use self::wasm3::Wasm3Engine;
-use crate::callbacks::Callbacks;
+#[cfg(feature = "wasmer")]
+pub(crate) use self::wasmer::WasmerEngine;
 
 /// A WebAssembly virtual machine that links Rune with
 pub(crate) trait WebAssemblyEngine {
-    fn load(wasm: &[u8], callbacks: Arc<dyn Callbacks>) -> Result<Self, Error>
+    fn load(
+        wasm: &[u8],
+        callbacks: Arc<dyn crate::callbacks::Callbacks>,
+    ) -> Result<Self, Error>
     where
         Self: Sized;
 

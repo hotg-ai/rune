@@ -22,7 +22,7 @@ pub(crate) struct HostFunctions {
     callbacks: Arc<dyn Callbacks>,
     capabilities: HashMap<u32, NodeMetadata>,
     outputs: HashMap<u32, NodeMetadata>,
-    resources: HashMap<u32, Box<dyn Read>>,
+    resources: HashMap<u32, Box<dyn Read + Send + Sync>>,
     models: HashMap<u32, Box<dyn Model>>,
 }
 
@@ -117,7 +117,7 @@ impl HostFunctions {
         &self,
         capability_id: u32,
         buffer: &mut [u8],
-    ) -> Result<(), Error> {
+    ) -> Result<u32, Error> {
         let meta =
             self.capabilities.get(&capability_id).with_context(|| {
                 format!(
@@ -126,11 +126,12 @@ impl HostFunctions {
                 )
             })?;
 
-        self.callbacks
+        let bytes_written = self
+            .callbacks
             .read_capability(capability_id, meta, buffer)
             .context("Unable to read from the capability")?;
 
-        Ok(())
+        Ok(bytes_written as u32)
     }
 
     pub fn tfm_model_invoke(&self) -> Result<(), Error> {

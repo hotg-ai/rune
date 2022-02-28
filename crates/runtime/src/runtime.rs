@@ -19,9 +19,21 @@ impl Runtime {
     /// Load a Rune using WASM3 for executing WebAssembly.
     #[cfg(feature = "wasm3")]
     pub fn wasm3(rune: &[u8]) -> Result<Self, Error> {
+        Runtime::load::<crate::engine::Wasm3Engine>(rune)
+    }
+
+    #[cfg(feature = "wasmer")]
+    pub fn wasmer(rune: &[u8]) -> Result<Self, Error> {
+        Runtime::load::<crate::engine::WasmerEngine>(rune)
+    }
+
+    fn load<E>(rune: &[u8]) -> Result<Self, Error>
+    where
+        E: WebAssemblyEngine + 'static,
+    {
         let state = Arc::new(State::default());
         let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
-        let mut engine = crate::engine::Wasm3Engine::load(rune, callbacks)?;
+        let mut engine = E::load(rune, callbacks)?;
 
         engine.init()?;
 
@@ -174,7 +186,7 @@ impl Callbacks for State {
         id: u32,
         meta: &NodeMetadata,
         buffer: &mut [u8],
-    ) -> Result<(), Error> {
+    ) -> Result<usize, Error> {
         // Safety: see the safety comments on State
         let inputs = unsafe { &*self.input_tensors.get() };
         let tensor = inputs.get(&id).with_context(|| {
@@ -198,7 +210,7 @@ impl Callbacks for State {
 
         buffer.copy_from_slice(src);
 
-        Ok(())
+        Ok(src.len())
     }
 
     fn write_output(

@@ -13,7 +13,7 @@ pub(crate) trait Callbacks: Send + Sync + 'static {
         id: u32,
         meta: &NodeMetadata,
         buffer: &mut [u8],
-    ) -> Result<(), Error>;
+    ) -> Result<usize, Error>;
 
     fn write_output(
         &self,

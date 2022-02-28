@@ -262,9 +262,7 @@ fn request_provider_response(
     (buffer, len, capability_id): (u32, u32, u32),
 ) -> Result<u32, Error> {
     let buffer = unsafe { cc.array_mut(buffer, len)? };
-    host.request_provider_response(capability_id, buffer)?;
-
-    Ok(buffer.len() as u32)
+    host.request_provider_response(capability_id, buffer)
 }
 
 fn tfm_model_invoke(
