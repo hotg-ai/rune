@@ -1,13 +1,17 @@
 #![allow(dead_code)] // triggered when you don't compile with an engine feature
 
 use std::{
-    sync::Arc,
     collections::HashMap,
-    io::{Read, Cursor},
+    io::{Cursor, Read},
+    sync::Arc,
 };
-use anyhow::{Error, Context};
-use hotg_rune_core::{Shape, SerializableRecord};
-use crate::callbacks::{Callbacks, NodeMetadata, ModelMetadata, Model, RuneGraph};
+
+use anyhow::{Context, Error};
+use hotg_rune_core::{SerializableRecord, Shape};
+
+use crate::callbacks::{
+    Callbacks, Model, ModelMetadata, NodeMetadata, RuneGraph,
+};
 
 /// An adapter that exposes functionality from [`Callbacks`] via functions that
 /// the WebAssembly expects.
@@ -99,9 +103,10 @@ impl HostFunctions {
         let meta =
             self.capabilities.get_mut(&capability_id).with_context(|| {
                 format!(
-                "Trying to set \"{}\" on non-existent capability with ID {}",
-                key, capability_id
-            )
+                    "Trying to set \"{}\" on non-existent capability with ID \
+                     {}",
+                    key, capability_id
+                )
             })?;
         meta.arguments.insert(key.to_string(), value.into());
 
@@ -151,8 +156,16 @@ impl HostFunctions {
             outputs,
         };
 
-        let model = self.callbacks.load_model(id, &meta, model)
-        .with_context(|| format!("Unable to load the \"{}\" model with inputs {:?} and outputs {:?}", mimetype, inputs, outputs))?;
+        let model =
+            self.callbacks
+                .load_model(id, &meta, model)
+                .with_context(|| {
+                    format!(
+                        "Unable to load the \"{}\" model with inputs {:?} and \
+                         outputs {:?}",
+                        mimetype, inputs, outputs
+                    )
+                })?;
 
         self.models.insert(id, model);
 

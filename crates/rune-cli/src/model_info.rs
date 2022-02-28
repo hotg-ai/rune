@@ -1,9 +1,10 @@
 use std::{io::Write, path::PathBuf};
-use strum::VariantNames;
-use anyhow::{Error, Context};
+
+use anyhow::{Context, Error};
 use hotg_runecoral::{
     mimetype, AccelerationBackend, InferenceContext, TensorDescriptor,
 };
+use strum::VariantNames;
 
 use crate::Format;
 

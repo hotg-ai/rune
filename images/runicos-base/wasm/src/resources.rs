@@ -1,10 +1,11 @@
 use alloc::vec::Vec;
-use crate::intrinsics;
 use core::{
-    mem::MaybeUninit,
     convert::TryInto,
-    fmt::{self, Formatter, Display},
+    fmt::{self, Display, Formatter},
+    mem::MaybeUninit,
 };
+
+use crate::intrinsics;
 
 pub struct Resource {
     id: u32,

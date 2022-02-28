@@ -1,11 +1,13 @@
-use std::{sync::Mutex, ffi::CStr, borrow::Cow, convert::TryInto};
-use anyhow::{Error, Context};
-use hotg_rune_core::{Shape, TFLITE_MIMETYPE, ElementType as RuneElementType};
+use std::{borrow::Cow, convert::TryInto, ffi::CStr, sync::Mutex};
+
+use anyhow::{Context, Error};
+use hotg_rune_core::{ElementType as RuneElementType, Shape, TFLITE_MIMETYPE};
 use hotg_runecoral::{
-    TensorDescriptor, AccelerationBackend, InferenceContext, ElementType,
-    Tensor, TensorMut,
+    AccelerationBackend, ElementType, InferenceContext, Tensor,
+    TensorDescriptor, TensorMut,
 };
-use crate::{callbacks::Model};
+
+use crate::callbacks::Model;
 
 /// Create a new [`Model`] backed by [`hotg_runecoral`].
 pub fn load_tflite(
@@ -152,8 +154,9 @@ fn ensure_shapes_equal(
     }
 
     anyhow::bail!(
-            "The Rune said tensors would be {}, but the model said they would be {}",
-            pretty_shapes(from_rune),
-            pretty_shapes(from_model),
-        );
+        "The Rune said tensors would be {}, but the model said they would be \
+         {}",
+        pretty_shapes(from_rune),
+        pretty_shapes(from_model),
+    );
 }

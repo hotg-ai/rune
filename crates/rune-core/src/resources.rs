@@ -1,4 +1,4 @@
-use core::fmt::{self, Formatter, Debug};
+use core::fmt::{self, Debug, Formatter};
 
 /// Read an [`InlineResource`]'s data from its binary form in memory.
 ///

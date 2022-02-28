@@ -1,12 +1,12 @@
-use hotg_rune_compiler::{
-    codegen::{
-        CapabilitySummary, ModelSummary, OutputSummary, ProcBlockSummary,
-        RuneGraph, TensorId,
-    },
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
+
+use anyhow::{Context, Error};
+use hotg_rune_compiler::codegen::{
+    CapabilitySummary, ModelSummary, OutputSummary, ProcBlockSummary,
+    RuneGraph, TensorId,
 };
 use hotg_rune_core::Shape;
-use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
-use anyhow::{Context, Error};
+
 use crate::inspect::Metadata;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]

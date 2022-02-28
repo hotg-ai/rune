@@ -1,13 +1,14 @@
+use alloc::{sync::Arc, vec::Vec};
 use core::{
     convert::TryInto,
-    fmt::{self, Formatter, Display},
+    fmt::{self, Display, Formatter},
     iter::FromIterator,
     ops::{Index, IndexMut},
 };
-use alloc::{sync::Arc, vec::Vec};
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{Shape, element_type::AsElementType};
+use crate::{element_type::AsElementType, Shape};
 
 /// A multidimensional array with copy-on-write semantics.
 #[derive(Debug, Clone, PartialEq)]
@@ -482,9 +483,27 @@ enum IndexError {
 impl Display for IndexError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            IndexError::MismatchedRank { dimension_length, indices_length } => write!(f, "Unable to index into a {}-dimension tensor with a {}-dimension index", dimension_length, indices_length),
-            IndexError::IndexTooLarge { dimension, max_value, found } => write!(f, "Index {} should be less than {}, but found {}", dimension, max_value, found),
-            IndexError::ZeroVector => write!(f, "Unable to index into the zero vector"),
+            IndexError::MismatchedRank {
+                dimension_length,
+                indices_length,
+            } => write!(
+                f,
+                "Unable to index into a {}-dimension tensor with a \
+                 {}-dimension index",
+                dimension_length, indices_length
+            ),
+            IndexError::IndexTooLarge {
+                dimension,
+                max_value,
+                found,
+            } => write!(
+                f,
+                "Index {} should be less than {}, but found {}",
+                dimension, max_value, found
+            ),
+            IndexError::ZeroVector => {
+                write!(f, "Unable to index into the zero vector")
+            },
         }
     }
 }
@@ -730,8 +749,9 @@ impl<'a> Counter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::prelude::v1::*;
+
+    use super::*;
 
     #[test]
     fn indices_for_2d_view() {
@@ -779,9 +799,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Index 0 should be less than 2, but found 2 (index: [2, 0], dimensions: [2, 3])"
-    )]
+    #[should_panic(expected = "Index 0 should be less than 2, but found 2 \
+                               (index: [2, 0], dimensions: [2, 3])")]
     fn index_out_of_bounds() {
         let tensor: Tensor<u32> = Tensor::zeroed(vec![2_usize, 3]);
         let view = tensor.view::<2>().unwrap();

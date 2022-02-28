@@ -1,5 +1,6 @@
 use legion::systems::CommandBuffer;
-use crate::{BuildContext, codegen::CustomSection};
+
+use crate::{codegen::CustomSection, BuildContext};
 
 /// Embed a [`crate::codegen::RuneVersion`] in the Rune as a [`CustomSection`].
 #[legion::system]

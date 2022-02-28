@@ -1,9 +1,9 @@
+use alloc::borrow::Cow;
 use core::{
+    fmt::{self, Display, Formatter},
     iter::FromIterator,
     ops::Deref,
-    fmt::{Display, self, Formatter},
 };
-use alloc::borrow::Cow;
 
 /// A description of everything a particular proc block is capable of.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

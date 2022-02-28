@@ -1,5 +1,6 @@
-use anyhow::{Error, Context};
 use std::{collections::HashMap, str::FromStr};
+
+use anyhow::{Context, Error};
 
 /// Helper methods for reading arguments.
 #[derive(Debug, Clone, PartialEq)]

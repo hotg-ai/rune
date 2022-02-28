@@ -1,15 +1,17 @@
 use std::collections::{HashMap, HashSet};
-use hotg_rune_core::{Shape, ElementType};
-use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
-use proc_macro2::{Ident, Literal, Span, TokenStream};
-use quote::{ToTokens, quote};
+
 use heck::{ToSnakeCase, ToUpperCamelCase};
+use hotg_rune_core::{ElementType, Shape};
+use legion::{systems::CommandBuffer, world::SubWorld, Entity, Query};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
+use quote::{quote, ToTokens};
+
 use crate::{
     codegen::{CustomSection, File},
     lowering::{
         Inputs, Mimetype, Model, ModelFile, Name, Outputs, PipelineNode,
-        ProcBlock, Resource, ResourceData, Sink, SinkKind, Source, Tensor,
-        ResourceOrString,
+        ProcBlock, Resource, ResourceData, ResourceOrString, Sink, SinkKind,
+        Source, Tensor,
     },
     parse::ResourceType,
 };
@@ -960,10 +962,11 @@ where
 #[cfg(test)]
 mod tests {
     use std::{
-        io::{Write, Read},
+        io::{Read, Write},
         process::{Command, Stdio},
     };
-    use legion::{Resources, World, IntoQuery};
+
+    use legion::{IntoQuery, Resources, World};
 
     use super::*;
 

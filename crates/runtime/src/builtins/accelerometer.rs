@@ -1,14 +1,14 @@
 use std::{
-    path::{Path, PathBuf},
     fs::File,
     io::Read,
     num::ParseFloatError,
     ops::Deref,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
 use anyhow::Error;
-use csv::{StringRecord, Position};
+use csv::{Position, StringRecord};
 
 use crate::{builtins::Arguments, Tensor};
 

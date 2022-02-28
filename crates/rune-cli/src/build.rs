@@ -1,19 +1,23 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::{Context, Error};
 use codespan_reporting::{
     diagnostic::{Diagnostic, Severity},
     files::SimpleFile,
-    term::{termcolor::StandardStream, Config, termcolor::ColorChoice},
+    term::{
+        termcolor::{ColorChoice, StandardStream},
+        Config,
+    },
 };
 use hotg_rune_compiler::{
-    BuildContext, Verbosity,
     codegen::RuneVersion,
     compile::{CompilationResult, CompiledBinary},
     hooks::{
         AfterCodegenContext, AfterLoweringContext, AfterParseContext,
         AfterTypeCheckingContext, Continuation,
     },
+    BuildContext, Verbosity,
 };
-use std::path::{Path, PathBuf};
 use once_cell::sync::Lazy;
 
 use crate::Unstable;
@@ -140,7 +144,11 @@ static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."));
 
-    cache_dir.join("rune").join("runes").to_string_lossy().into_owned()
+    cache_dir
+        .join("rune")
+        .join("runes")
+        .to_string_lossy()
+        .into_owned()
 });
 
 #[derive(Debug)]

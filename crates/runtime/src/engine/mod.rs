@@ -6,11 +6,12 @@ mod wasm3;
 #[cfg(feature = "wasmer")]
 mod wasmer;
 
-#[cfg(feature = "wasm3")]
-pub(crate) use self::wasm3::Wasm3Engine;
+use std::sync::Arc;
 
 use anyhow::Error;
-use std::sync::Arc;
+
+#[cfg(feature = "wasm3")]
+pub(crate) use self::wasm3::Wasm3Engine;
 use crate::callbacks::Callbacks;
 
 /// A WebAssembly virtual machine that links Rune with

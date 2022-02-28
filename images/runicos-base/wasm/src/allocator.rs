@@ -3,6 +3,7 @@ use core::{
     alloc::Layout,
     ops::{Deref, DerefMut},
 };
+
 use crate::stats_allocator::StatsAllocator;
 
 #[derive(Debug, Default)]

@@ -1,14 +1,15 @@
-use log::LevelFilter;
-use regex::Regex;
-use anyhow::{Context, Error};
-use hotg_rune_integration_tests::{Callbacks, FullName, TestContext};
-use once_cell::sync::Lazy;
-use structopt::StructOpt;
 use std::{
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
 };
+
+use anyhow::{Context, Error};
 use env_logger::Env;
+use hotg_rune_integration_tests::{Callbacks, FullName, TestContext};
+use log::LevelFilter;
+use once_cell::sync::Lazy;
+use regex::Regex;
+use structopt::StructOpt;
 
 fn main() -> Result<(), Error> {
     let env = Env::new().default_filter_or("info");

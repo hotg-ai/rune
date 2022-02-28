@@ -1,6 +1,6 @@
 use std::{
+    fmt::{self, Debug, Display, Formatter},
     num::NonZeroUsize,
-    fmt::{Debug, Formatter, self, Display},
 };
 
 /// A n-dimension array of numbers.

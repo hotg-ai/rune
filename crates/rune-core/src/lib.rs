@@ -26,14 +26,14 @@ mod tensor_list;
 mod value;
 
 pub use crate::{
-    tensor::{Tensor, TensorView, TensorViewMut},
-    value::{Value, Type, AsType, InvalidConversionError},
-    pixel_format::{PixelFormat, PixelFormatConversionError},
-    logging::SerializableRecord,
-    shape::Shape,
-    tensor_list::{TensorList, TensorListMut},
-    resources::{InlineResource, decode_inline_resource},
     element_type::{AsElementType, ElementType, UnknownElementType},
+    logging::SerializableRecord,
+    pixel_format::{PixelFormat, PixelFormatConversionError},
+    resources::{decode_inline_resource, InlineResource},
+    shape::Shape,
+    tensor::{Tensor, TensorView, TensorViewMut},
+    tensor_list::{TensorList, TensorListMut},
+    value::{AsType, InvalidConversionError, Type, Value},
 };
 
 /// The mimetype used for a TensorFlow Lite model.

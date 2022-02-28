@@ -1,19 +1,19 @@
 use std::{
-    sync::{Arc, Mutex},
-    convert::TryInto,
     alloc::Layout,
+    convert::TryInto,
+    sync::{Arc, Mutex},
 };
 
-use anyhow::{Error, Context};
-use hotg_rune_core::{Value, Shape};
+use anyhow::{Context, Error};
+use hotg_rune_core::{Shape, Value};
 use wasm3::{
-    Environment, Module, WasmArgs, WasmType, CallContext, error::Trap,
-    Function, error::Error as Wasm3Error,
+    error::{Error as Wasm3Error, Trap},
+    CallContext, Environment, Function, Module, WasmArgs, WasmType,
 };
 
 use crate::{
-    engine::{WebAssemblyEngine, host_functions::HostFunctions},
     callbacks::Callbacks,
+    engine::{host_functions::HostFunctions, WebAssemblyEngine},
 };
 
 const STACK_SIZE: u32 = 1024 * 16;
@@ -521,16 +521,15 @@ impl<'a> CallContextExt<'a> for CallContext<'a> {
 #[cfg(test)]
 mod tests {
     use std::{
-        path::{Path, PathBuf},
         ffi::OsStr,
+        path::{Path, PathBuf},
         sync::atomic::{AtomicBool, Ordering},
     };
+
     use log::Record;
-    use crate::{
-        callbacks::{ModelMetadata, Model, RuneGraph},
-    };
 
     use super::*;
+    use crate::callbacks::{Model, ModelMetadata, RuneGraph};
 
     #[derive(Debug, Default)]
     struct Spy {

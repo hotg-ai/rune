@@ -7,7 +7,7 @@
 //!
 //! I apologise in advance for all the generic gymnastics.
 
-use crate::{Shape, Tensor, element_type::AsElementType};
+use crate::{element_type::AsElementType, Shape, Tensor};
 
 /// A helper trait which lets us get the shape from a tuple of different
 /// tensors.
@@ -177,10 +177,10 @@ reflection_type_list!(
 
 #[cfg(test)]
 mod tests {
-    use crate::element_type::ElementType;
+    use std::prelude::v1::*;
 
     use super::*;
-    use std::prelude::v1::*;
+    use crate::element_type::ElementType;
 
     #[test]
     fn count_idents() {
@@ -212,7 +212,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Expected a shape with 3 elements, found [Shape { element_type: F32, dimensions: [1] }]"]
+    #[should_panic = "Expected a shape with 3 elements, found [Shape { \
+                      element_type: F32, dimensions: [1] }]"]
     fn incorrect_shape_list_length() {
         let shapes = [Shape::new(ElementType::F32, [1_usize].as_ref())];
 

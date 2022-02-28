@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{Entity, Query, world::SubWorld};
+use legion::{world::SubWorld, Entity, Query};
+
 use crate::{
-    Diagnostics,
     lowering::{Name, NameTable},
+    Diagnostics,
 };
 
 /// Update the [`NameTable`] resource so we can track all the named items in a

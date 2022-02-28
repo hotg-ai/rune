@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use anyhow::Error;
 use hotg_rune_core::Shape;
 use log::Record;

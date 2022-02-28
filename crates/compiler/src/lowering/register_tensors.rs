@@ -1,12 +1,13 @@
 use std::collections::HashMap;
+
 use codespan_reporting::diagnostic::Diagnostic;
-use hotg_rune_core::{Shape, ElementType};
-use legion::{Entity, systems::CommandBuffer};
+use hotg_rune_core::{ElementType, Shape};
+use legion::{systems::CommandBuffer, Entity};
 
 use crate::{
-    Diagnostics,
     lowering::{Inputs, NameTable, Outputs, Tensor},
     parse::{self, DocumentV1},
+    Diagnostics,
 };
 
 /// Register all [`Tensor`]s and associate them as node [`Inputs`] or
@@ -219,13 +220,14 @@ mod tests {
     use std::str::FromStr;
 
     use legion::{IntoQuery, Resources, World};
+
+    use super::*;
     use crate::{
-        BuildContext,
         lowering::{self, PipelineNode},
         parse::{CapabilityStage, OutStage, ProcBlockStage},
         phases::Phase,
+        BuildContext,
     };
-    use super::*;
 
     fn doc() -> DocumentV1 {
         DocumentV1 {

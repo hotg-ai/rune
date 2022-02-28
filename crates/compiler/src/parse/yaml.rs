@@ -2,25 +2,26 @@
 
 use std::{
     borrow::Cow,
-    fmt::{self, Formatter, Display},
+    fmt::{self, Display, Formatter},
     ops::Deref,
     str::FromStr,
 };
+
+use codespan::Span;
+use indexmap::IndexMap;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use schemars::{
-    JsonSchema,
     gen::SchemaGenerator,
     schema::{
-        InstanceType, Schema, SchemaObject, Metadata, SubschemaValidation,
+        InstanceType, Metadata, Schema, SchemaObject, SubschemaValidation,
     },
+    JsonSchema,
 };
-use indexmap::IndexMap;
-use regex::Regex;
-use once_cell::sync::Lazy;
 use serde::{
     de::{Deserialize, Deserializer, Error as _},
     ser::{Serialize, Serializer},
 };
-use codespan::Span;
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -459,7 +460,9 @@ impl JsonSchema for ResourceOrString {
         let resource_name = gen.subschema_for::<ResourceName>();
         let string = gen.subschema_for::<String>();
 
-        let description = "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`)." ;
+        let description = "Something that could be either a reference to a \
+                           resource (`$resource`) or a plain string \
+                           (`./path`).";
 
         Schema::Object(SchemaObject {
             metadata: Some(Box::new(Metadata {
@@ -1191,9 +1194,9 @@ pipeline:
 
         let schema = serde_json::to_value(&schema).unwrap();
         assert_eq!(
-            should_be,
-            schema,
-            "The schema is out of sync. You probably need to run \"cargo xtask update-schema\"",
+            should_be, schema,
+            "The schema is out of sync. You probably need to run \"cargo \
+             xtask update-schema\"",
         );
     }
 

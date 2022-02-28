@@ -1,4 +1,5 @@
 use std::error::Error;
+
 use hotg_rune_compiler::parse::Document;
 use jsonschema::JSONSchema;
 use serde_json::Value;

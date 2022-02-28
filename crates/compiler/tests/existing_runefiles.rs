@@ -2,17 +2,16 @@ use codespan_reporting::{
     files::SimpleFile,
     term::{termcolor::Buffer, Config},
 };
-use serde_json::Value;
-use jsonschema::JSONSchema;
 use hotg_rune_compiler::{
-    Diagnostics,
-    parse::Document,
-    hooks::{
-        Hooks, AfterTypeCheckingContext, AfterCodegenContext, Continuation,
-    },
     codegen::RuneVersion,
-    BuildContext, Verbosity, FeatureFlags,
+    hooks::{
+        AfterCodegenContext, AfterTypeCheckingContext, Continuation, Hooks,
+    },
+    parse::Document,
+    BuildContext, Diagnostics, FeatureFlags, Verbosity,
 };
+use jsonschema::JSONSchema;
+use serde_json::Value;
 
 macro_rules! parse_and_analyse {
     ($example:ident) => {

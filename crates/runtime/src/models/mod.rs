@@ -3,13 +3,12 @@
 #[cfg(feature = "tflite")]
 mod tflite;
 
-use crate::callbacks::{ModelMetadata, Model};
+use anyhow::Error;
+pub use hotg_rune_core::{TFJS_MIMETYPE, TFLITE_MIMETYPE, TF_MIMETYPE};
 
 #[cfg(feature = "tflite")]
 pub use self::tflite::load_tflite;
-
-use anyhow::Error;
-pub use hotg_rune_core::{TFJS_MIMETYPE, TF_MIMETYPE, TFLITE_MIMETYPE};
+use crate::callbacks::{Model, ModelMetadata};
 
 pub fn default_model_handler(
     _id: u32,

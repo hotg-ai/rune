@@ -1,10 +1,10 @@
-use anyhow::Error;
-use build_info::{
-    chrono::{DateTime, NaiveDate, Utc},
-};
-use structopt::StructOpt;
 use std::{borrow::Cow, io::Write, path::Path};
+
+use anyhow::Error;
+use build_info::chrono::{DateTime, NaiveDate, Utc};
+use structopt::StructOpt;
 use strum::VariantNames;
+
 use crate::Format;
 
 build_info::build_info!(pub fn version);

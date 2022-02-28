@@ -7,19 +7,19 @@ mod random;
 mod raw;
 mod sound;
 
-pub use self::{
-    arguments::Arguments,
-    accelerometer::{
-        AccelerometerSample, AccelerometerSamples, accelerometer,
-        AccelerometerParseError,
-    },
-    image::{image, UnknownPixelFormat},
-    sound::{AudioClip, sound},
-    raw::raw,
-    random::{random, seeded_random},
-};
+use anyhow::Error;
 
-use anyhow::{Error};
+pub use self::{
+    accelerometer::{
+        accelerometer, AccelerometerParseError, AccelerometerSample,
+        AccelerometerSamples,
+    },
+    arguments::Arguments,
+    image::{image, UnknownPixelFormat},
+    random::{random, seeded_random},
+    raw::raw,
+    sound::{sound, AudioClip},
+};
 
 /// Use the `"source"` argument to figure out which input to read.
 pub fn source<'src, T>(
@@ -30,9 +30,13 @@ pub fn source<'src, T>(
 
     match sources.get(index) {
         Some(source) => Ok(source),
-        None if sources.len() == 0 => anyhow::bail!("The user asked for source {}, but no sources were provided", index),
+        None if sources.len() == 0 => anyhow::bail!(
+            "The user asked for source {}, but no sources were provided",
+            index
+        ),
         None => anyhow::bail!(
-            "The user asked for source {}, but there are only {} sources available",
+            "The user asked for source {}, but there are only {} sources \
+             available",
             index,
             sources.len(),
         ),

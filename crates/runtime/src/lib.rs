@@ -22,7 +22,7 @@ mod tensor;
 pub mod builtins;
 
 pub use crate::{
-    callbacks::{NodeMetadata, ModelMetadata, Model},
+    callbacks::{Model, ModelMetadata, NodeMetadata},
     runtime::Runtime,
-    tensor::{Tensor, ElementType, TensorElement},
+    tensor::{ElementType, Tensor, TensorElement},
 };

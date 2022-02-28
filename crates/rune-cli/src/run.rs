@@ -1,14 +1,14 @@
-use std::{path::PathBuf, str::FromStr, collections::HashMap};
-use anyhow::{Error, Context};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
+
+use anyhow::{Context, Error};
 use hotg_rune_runtime::{
-    Runtime,
     builtins::{self, Arguments, AudioClip},
-    NodeMetadata,
+    NodeMetadata, Runtime,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
 use structopt::StructOpt;
-use strum::{VariantNames};
+use strum::VariantNames;
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct Run {
@@ -35,7 +35,8 @@ pub struct Run {
     #[structopt(
         long,
         parse(from_os_str),
-        help = "A file who's bytes will be returned as-is by the RAW capability"
+        help = "A file who's bytes will be returned as-is by the RAW \
+                capability"
     )]
     raw: Vec<PathBuf>,
     #[structopt(

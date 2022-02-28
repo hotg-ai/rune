@@ -17,20 +17,21 @@ pub mod serial;
 mod stats_allocator;
 pub mod tensor_output;
 
+use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
+
+use dlmalloc::GlobalDlmalloc;
+
+use crate::allocator::Allocator;
 pub use crate::{
+    buf_writer::BufWriter,
     capability::Capability,
-    guards::{SetupGuard, PipelineGuard},
+    guards::{PipelineGuard, SetupGuard},
     logging::Logger,
     model::Model,
-    serial::Serial,
     resources::{Resource, ResourceError},
+    serial::Serial,
     tensor_output::TensorOutput,
-    buf_writer::BufWriter,
 };
-
-use core::{alloc::Layout, fmt::Write, panic::PanicInfo};
-use crate::allocator::Allocator;
-use dlmalloc::GlobalDlmalloc;
 
 #[global_allocator]
 pub static ALLOCATOR: Allocator<GlobalDlmalloc> =

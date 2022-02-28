@@ -1,11 +1,13 @@
+use std::{cell::UnsafeCell, collections::HashMap, sync::Arc};
+
+use anyhow::{Context, Error};
+use log::Record;
+
 use crate::{
+    callbacks::{Callbacks, Model, ModelMetadata, RuneGraph},
     engine::WebAssemblyEngine,
-    callbacks::{RuneGraph, Callbacks, Model, ModelMetadata},
     NodeMetadata, Tensor,
 };
-use anyhow::{Error, Context};
-use log::Record;
-use std::{sync::Arc, collections::HashMap, cell::UnsafeCell};
 
 /// A loaded Rune.
 pub struct Runtime {
@@ -186,7 +188,8 @@ impl Callbacks for State {
 
         if src.len() != buffer.len() {
             anyhow::bail!(
-                "The Rune provided a {} byte buffer, but the input tensor is {} ({} bytes)",
+                "The Rune provided a {} byte buffer, but the input tensor is \
+                 {} ({} bytes)",
                 buffer.len(),
                 tensor.shape(),
                 src.len(),

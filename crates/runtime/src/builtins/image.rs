@@ -1,7 +1,9 @@
-use std::{str::FromStr, num::NonZeroUsize};
+use std::{num::NonZeroUsize, str::FromStr};
+
 use anyhow::Error;
-use image::{DynamicImage, imageops::FilterType};
-use crate::{builtins::Arguments, Tensor, ElementType};
+use image::{imageops::FilterType, DynamicImage};
+
+use crate::{builtins::Arguments, ElementType, Tensor};
 
 /// Load an input tensor from an image, applying any transformations requested
 /// by the Rune.

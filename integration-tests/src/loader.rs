@@ -8,10 +8,10 @@ use std::{
 use anyhow::{Context, Error};
 
 use crate::{
-    Outcome, TestContext,
     assertions::{
         Assertion, ExitSuccessfully, ExitUnsuccessfully, MatchStdioStream,
     },
+    Outcome, TestContext,
 };
 
 pub fn load(test_root: &Path) -> Result<Vec<Test>, Error> {
@@ -90,7 +90,12 @@ impl Test {
             "compile-fail" => (Category::Compile, false),
             "run-pass" => (Category::Run, true),
             "run-fail" => (Category::Run, false),
-            _ => anyhow::bail!("Unable to determine the family, expected one of compile-pass, compile-fail, run-pass, or run-fail, but found \"{}\"", parent),
+            _ => anyhow::bail!(
+                "Unable to determine the family, expected one of \
+                 compile-pass, compile-fail, run-pass, or run-fail, but found \
+                 \"{}\"",
+                parent
+            ),
         };
 
         let expected_output = load_stderr_files(&directory)

@@ -1,7 +1,7 @@
 use anyhow::Error;
 use rand::{Rng, SeedableRng};
 
-use crate::{Tensor, builtins::Arguments};
+use crate::{builtins::Arguments, Tensor};
 
 pub fn random(args: &Arguments) -> Result<Tensor, Error> {
     let count: usize = args.parse_or_default("amount", 1)?;

@@ -3,14 +3,15 @@ mod compile;
 mod loader;
 mod run;
 
-pub use crate::loader::{Category, Test, ExitCondition, FullName};
-
 use std::{
     fmt::{self, Debug, Display, Formatter},
     path::{Path, PathBuf},
     process::{Command, Output},
 };
+
 use anyhow::{Context, Error};
+
+pub use crate::loader::{Category, ExitCondition, FullName, Test};
 
 pub fn discover(test_directory: impl AsRef<Path>) -> Result<TestSuite, Error> {
     log::info!("Looking for tests");

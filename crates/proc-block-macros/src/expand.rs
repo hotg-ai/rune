@@ -1,11 +1,12 @@
+use hotg_rune_core::ElementType;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{Generics, LitByteStr, Path, Type};
-use hotg_rune_core::ElementType;
+
 use crate::{
     descriptor::{
-        ProcBlockDescriptor, TransformDescriptor, TensorDescriptor, Dimensions,
-        Dimension,
+        Dimension, Dimensions, ProcBlockDescriptor, TensorDescriptor,
+        TransformDescriptor,
     },
     types::{
         Assertions, CustomSection, DeriveOutput, ProcBlockImpl, Setter,
@@ -172,7 +173,8 @@ impl ToTokens for TransformAssertions {
             return;
         }
 
-        let assertions = assertions.iter()
+        let assertions = assertions
+            .iter()
             .map(|TransformAssertion { inputs, outputs }| {
                 let inputs = transform_assertion_type(inputs);
                 let outputs = transform_assertion_type(outputs);
@@ -358,12 +360,13 @@ mod tests {
         io::Write,
         process::{Command, Output, Stdio},
     };
+
     use syn::Generics;
 
+    use super::*;
     use crate::types::{
         ProcBlockImpl, Setter, TransformAssertion, TransformAssertions,
     };
-    use super::*;
 
     fn rustfmt(tokens: TokenStream) -> String {
         let mut child = Command::new("rustfmt")

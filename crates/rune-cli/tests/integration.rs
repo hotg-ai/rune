@@ -1,6 +1,7 @@
+use std::path::{Path, PathBuf};
+
 use assert_cmd::Command;
 use walkdir::WalkDir;
-use std::path::{Path, PathBuf};
 
 fn project_root() -> PathBuf {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"))

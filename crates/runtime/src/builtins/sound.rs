@@ -1,15 +1,16 @@
 use std::{
-    path::Path,
+    convert::TryFrom,
+    fmt::{self, Debug, Formatter},
     fs::File,
     io::Read,
-    fmt::{Formatter, self, Debug},
+    path::Path,
     time::Duration,
-    convert::TryFrom,
 };
-use anyhow::{Error, Context};
-use hound::{WavSpec, WavReader};
 
-use crate::{Tensor, builtins::Arguments};
+use anyhow::{Context, Error};
+use hound::{WavReader, WavSpec};
+
+use crate::{builtins::Arguments, Tensor};
 
 /// Load an input from a sound clip, applying any transformations requested by
 /// the Rune.
@@ -37,7 +38,8 @@ fn transform_samples(
 
     if samples.len() < required_samples {
         anyhow::bail!(
-            "At least {} samples are required to generate this input, but only {} were provided",
+            "At least {} samples are required to generate this input, but \
+             only {} were provided",
             required_samples,
             samples.len(),
         );

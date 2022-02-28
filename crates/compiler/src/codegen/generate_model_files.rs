@@ -1,5 +1,7 @@
 use std::{path::Path, sync::Arc};
+
 use legion::systems::CommandBuffer;
+
 use crate::{
     codegen::File,
     lowering::{ModelData, Name},

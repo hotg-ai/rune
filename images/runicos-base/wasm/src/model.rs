@@ -1,9 +1,11 @@
-use hotg_rune_core::{Shape, TensorList, TensorListMut};
 use alloc::{
-    vec::Vec,
     string::{String, ToString},
+    vec::Vec,
 };
 use core::marker::PhantomData;
+
+use hotg_rune_core::{Shape, TensorList, TensorListMut};
+
 use crate::intrinsics::StringRef;
 
 #[derive(Debug, Clone, PartialEq)]

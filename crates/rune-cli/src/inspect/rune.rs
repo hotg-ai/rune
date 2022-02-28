@@ -1,4 +1,5 @@
 use std::{collections::HashMap, path::Path};
+
 use anyhow::{Context, Error};
 use hotg_rune_compiler::{
     codegen::{
@@ -6,10 +7,11 @@ use hotg_rune_compiler::{
         RuneGraph, RuneVersion, TensorId,
     },
     lowering::{Name, Resource},
-    parse::{ResourceType, ResourceOrString},
+    parse::{ResourceOrString, ResourceType},
 };
 use hotg_rune_core::Shape;
 use wasmparser::{BinaryReaderError, Parser, Payload};
+
 use crate::Format;
 
 pub fn inspect(format: Format, rune: &Path) -> Result<(), Error> {

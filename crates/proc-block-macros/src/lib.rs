@@ -1,5 +1,5 @@
-extern crate proc_macro;
 extern crate alloc;
+extern crate proc_macro;
 
 #[cfg(test)]
 #[macro_use]

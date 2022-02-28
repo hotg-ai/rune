@@ -4,8 +4,8 @@ use atomic_refcell::{AtomicRef, AtomicRefMut};
 use legion::{Resources, World};
 
 use crate::{
-    BuildContext, Diagnostics, FeatureFlags, compile::CompilationResult,
-    lowering::NameTable, parse::DocumentV1,
+    compile::CompilationResult, lowering::NameTable, parse::DocumentV1,
+    BuildContext, Diagnostics, FeatureFlags,
 };
 
 /// Callbacks that are fired at different points in the compilation process.

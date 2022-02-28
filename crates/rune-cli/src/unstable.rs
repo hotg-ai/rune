@@ -11,6 +11,7 @@
 //!   after explicitly opting in.
 
 use std::path::PathBuf;
+
 use hotg_rune_compiler::FeatureFlags;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]

@@ -42,8 +42,8 @@ mod toolchain;
 pub mod type_check;
 
 pub use crate::{
-    phases::{build, build_with_hooks, Phase},
+    build_context::{BuildContext, FeatureFlags, Verbosity},
     diagnostics::Diagnostics,
-    build_context::{BuildContext, Verbosity, FeatureFlags},
+    phases::{build, build_with_hooks, Phase},
     toolchain::rust_toolchain,
 };

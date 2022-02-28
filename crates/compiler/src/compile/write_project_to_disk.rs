@@ -1,4 +1,4 @@
-use crate::{BuildContext, codegen::File};
+use crate::{codegen::File, BuildContext};
 
 #[legion::system(for_each)]
 pub(crate) fn run(File { path, data }: &File, #[resource] ctx: &BuildContext) {

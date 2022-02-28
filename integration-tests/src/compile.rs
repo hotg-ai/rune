@@ -2,7 +2,9 @@ use std::{
     path::Path,
     process::{Output, Stdio},
 };
+
 use anyhow::{Context, Error};
+
 use crate::{FullName, TestContext};
 
 pub(crate) fn rune_output(

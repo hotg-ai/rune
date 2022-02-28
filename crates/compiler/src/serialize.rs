@@ -1,9 +1,9 @@
 use legion::{
-    Registry, World,
     serialize::{Canon, DeserializeNewWorld},
     storage::Component,
+    Registry, World,
 };
-use serde::{Deserializer, Serialize, Serializer, de::DeserializeSeed};
+use serde::{de::DeserializeSeed, Deserializer, Serialize, Serializer};
 
 pub(crate) trait RegistryExt {
     fn register_with_type_name<C>(&mut self) -> &mut Self
