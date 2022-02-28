@@ -18,8 +18,7 @@ mod tensor;
 #[cfg(feature = "builtins")]
 pub mod builtins;
 
-#[cfg(feature = "builtins")]
-pub mod common_outputs;
+pub mod models;
 #[cfg(feature = "wasm3")]
 pub mod wasm3;
 #[cfg(feature = "wasmer")]

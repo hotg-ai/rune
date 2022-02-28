@@ -184,7 +184,7 @@ impl HostFunctions {
             kind: output_name.to_string(),
             arguments: HashMap::new(),
         };
-        self.capabilities.insert(id, meta);
+        self.outputs.insert(id, meta);
 
         Ok(id)
     }

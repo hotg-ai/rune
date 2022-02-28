@@ -317,7 +317,7 @@ fn rune_model_infer(
 
     host.rune_model_infer(model_id, &inputs, &mut outputs)?;
 
-    todo!()
+    Ok(0)
 }
 
 fn rune_model_load(

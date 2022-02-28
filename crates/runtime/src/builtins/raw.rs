@@ -13,6 +13,6 @@ pub fn raw(args: &Arguments, text: &str) -> Result<Tensor, Error> {
         );
     }
 
-    let bytes = &text.as_bytes()[..length];
-    Ok(Tensor::new(bytes, &[1, length]))
+    let bytes = text.as_bytes();
+    Ok(Tensor::new(&bytes[..length], &[1, length]))
 }

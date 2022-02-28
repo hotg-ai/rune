@@ -19,7 +19,7 @@ pub use self::{
     random::{random, seeded_random},
 };
 
-use anyhow::{Error, Context};
+use anyhow::{Error};
 
 /// Use the `"source"` argument to figure out which input to read.
 pub fn source<'src, T>(
@@ -28,10 +28,13 @@ pub fn source<'src, T>(
 ) -> Result<&'src T, Error> {
     let index: usize = args.parse_or_default("source", 0)?;
 
-    sources.get(index)
-        .with_context(|| format!(
+    match sources.get(index) {
+        Some(source) => Ok(source),
+        None if sources.len() == 0 => anyhow::bail!("The user asked for source {}, but no sources were provided", index),
+        None => anyhow::bail!(
             "The user asked for source {}, but there are only {} sources available",
             index,
             sources.len(),
-        ))
+        ),
+    }
 }

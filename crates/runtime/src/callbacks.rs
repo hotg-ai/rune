@@ -22,6 +22,9 @@ pub(crate) trait Callbacks: Send + Sync + 'static {
     ) -> Result<(), Error>;
 
     /// Set up any necessary internal bookkeeping to load a model.
+    ///
+    /// This callback should also validate that all input and output types match
+    /// up.
     fn load_model(
         &self,
         id: u32,

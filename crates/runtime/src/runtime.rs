@@ -146,7 +146,9 @@ impl Default for State {
             output_tensors: UnsafeCell::default(),
             capabilities: UnsafeCell::default(),
             outputs: UnsafeCell::default(),
-            load_model: UnsafeCell::new(Box::new(|_, _, _| todo!())),
+            load_model: UnsafeCell::new(Box::new(
+                crate::models::default_model_handler,
+            )),
             log: UnsafeCell::new(Box::new(|_| {})),
             resources: UnsafeCell::default(),
         }
@@ -182,7 +184,7 @@ impl Callbacks for State {
 
         let src = tensor.buffer();
 
-        if src.len() == buffer.len() {
+        if src.len() != buffer.len() {
             anyhow::bail!(
                 "The Rune provided a {} byte buffer, but the input tensor is {} ({} bytes)",
                 buffer.len(),
@@ -250,9 +252,138 @@ pub enum OutputTensor {
     Tensor(Tensor),
 }
 
+impl From<Tensor> for OutputTensor {
+    fn from(t: Tensor) -> OutputTensor { OutputTensor::Tensor(t) }
+}
+
 fn parse_outputs(
-    _meta: &NodeMetadata,
-    _data: &[u8],
+    meta: &NodeMetadata,
+    data: &[u8],
 ) -> Result<Vec<OutputTensor>, Error> {
-    todo!()
+    match meta.kind.as_str() {
+        "SERIAL" => parse_serial_output(data),
+        _ => anyhow::bail!("Unknown output type"),
+    }
+}
+
+fn parse_serial_output(data: &[u8]) -> Result<Vec<OutputTensor>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        Many(Vec<SerializedOutputTensor>),
+        One(SerializedOutputTensor),
+    }
+
+    if let Ok(s) = std::str::from_utf8(data) {
+        log::debug!("{}", s);
+    }
+
+    let deserialized: OneOrMany = serde_json::from_slice(data)
+        .context("Deserializing from JSON failed")?;
+
+    let items = match deserialized {
+        OneOrMany::Many(many) => many,
+        OneOrMany::One(one) => vec![one],
+    };
+
+    Ok(items.into_iter().map(|s| s.tensor()).collect())
+}
+
+#[derive(serde::Deserialize)]
+#[serde(tag = "type_name")]
+#[allow(non_camel_case_types)]
+enum SerializedOutputTensor {
+    u8 {
+        dimensions: Vec<usize>,
+        elements: Vec<u8>,
+    },
+    i8 {
+        dimensions: Vec<usize>,
+        elements: Vec<i8>,
+    },
+    u16 {
+        dimensions: Vec<usize>,
+        elements: Vec<u16>,
+    },
+    i16 {
+        dimensions: Vec<usize>,
+        elements: Vec<i16>,
+    },
+    u32 {
+        dimensions: Vec<usize>,
+        elements: Vec<u32>,
+    },
+    i32 {
+        dimensions: Vec<usize>,
+        elements: Vec<i32>,
+    },
+    f32 {
+        dimensions: Vec<usize>,
+        elements: Vec<f32>,
+    },
+    u64 {
+        dimensions: Vec<usize>,
+        elements: Vec<u64>,
+    },
+    i64 {
+        dimensions: Vec<usize>,
+        elements: Vec<i64>,
+    },
+    f64 {
+        dimensions: Vec<usize>,
+        elements: Vec<f64>,
+    },
+    #[allow(dead_code)]
+    Utf8 {
+        dimensions: Vec<usize>,
+        elements: Vec<String>,
+    },
+}
+
+impl SerializedOutputTensor {
+    fn tensor(&self) -> OutputTensor {
+        match self {
+            SerializedOutputTensor::u8 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::i8 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::u16 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::i16 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::u32 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::i32 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::f32 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::u64 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::i64 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            SerializedOutputTensor::f64 {
+                dimensions,
+                elements,
+            } => Tensor::new(elements, dimensions).into(),
+            Self::Utf8 { .. } => todo!(),
+        }
+    }
 }

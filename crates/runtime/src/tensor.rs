@@ -103,6 +103,8 @@ impl Display for Shape<'_> {
             write!(f, "{}", dimension)?;
         }
 
+        write!(f, "]")?;
+
         Ok(())
     }
 }

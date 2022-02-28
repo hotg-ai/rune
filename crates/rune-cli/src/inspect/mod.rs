@@ -1,7 +1,7 @@
 mod proc_block;
 mod rune;
 
-pub(crate) use self::rune::{Metadata, CustomSection, wasm_custom_sections};
+pub(crate) use self::rune::{Metadata, wasm_custom_sections};
 
 use std::path::PathBuf;
 use anyhow::Error;

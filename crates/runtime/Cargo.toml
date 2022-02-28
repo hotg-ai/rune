@@ -17,18 +17,21 @@ readme = "README.md"
 anyhow = "1.0.40"
 csv = { version = "1.1.6", optional = true }
 hotg-rune-core = { path = "../rune-core", version = "^0.11.0", features = ["std"]  }
+hotg-runecoral = { version = "0.3.6", optional = true }
 hound = { version = "3.4.0", optional = true }
 image = { version = "0.23.14", optional = true }
 log = "0.4.14"
 rand = { version = "0.8.3", optional = true }
-serde_json = "1.0.78"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = { version = "1.0.79" }
 thiserror = "1.0.24"
 wasm3 = { version = "0.3.1", optional = true }
 wasmer = { version = "=2.0", optional = true }
 
 [features]
-default = ["builtins"]
+default = ["builtins", "tflite"]
 builtins = ["hound", "image", "rand", "rand/small_rng", "csv"]
+tflite = ["hotg-runecoral"]
 # Enable rustdoc's "This is supported on crate feature XXX only" annotations
 # (requires nightly)
 unstable_doc_cfg = []
