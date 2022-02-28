@@ -7,7 +7,7 @@ mod wasm3;
 mod wasmer;
 
 #[cfg(feature = "wasm3")]
-pub use self::wasm3::Wasm3Engine;
+pub(crate) use self::wasm3::Wasm3Engine;
 
 use anyhow::Error;
 use std::sync::Arc;

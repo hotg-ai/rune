@@ -38,9 +38,14 @@ pub(crate) trait Callbacks: Send + Sync + 'static {
     fn log(&self, _record: &Record<'_>);
 }
 
+/// Metadata for a node in the ML pipeline, typically an input or output.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct NodeMetadata {
+    /// The standard name for this node.
+    ///
+    /// See [`hotg_rune_core::capabilities`] and [`hotg_rune_core::outputs`]
+    /// for well-known kinds of nodes.
     pub kind: String,
     pub arguments: HashMap<String, String>,
 }
@@ -52,14 +57,22 @@ pub(crate) struct RuneGraph<'a> {
     pub outputs: &'a HashMap<u32, NodeMetadata>,
 }
 
+/// Metadata for a model node.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct ModelMetadata<'a> {
+    /// The type of model this is.
+    ///
+    /// See [`hotg_rune_core::TFLITE_MIMETYPE`] and friends for some well-known
+    /// mimetypes.
     pub mimetype: &'a str,
+    /// The input tensors Rune says this model accepts.
     pub inputs: &'a [Shape<'a>],
+    /// The output tensors Rune says this model generates.
     pub outputs: &'a [Shape<'a>],
 }
 
+/// An object that can do inference.
 pub trait Model: Send + Sync + 'static {
     /// Run inference on the input tensors, writing the results to `outputs`.
     fn infer(

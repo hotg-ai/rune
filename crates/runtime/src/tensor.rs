@@ -124,6 +124,7 @@ impl Debug for Tensor {
     }
 }
 
+/// The type of value that may be stored in a [`Tensor`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum ElementType {

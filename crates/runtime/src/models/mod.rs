@@ -1,3 +1,5 @@
+//! Functions for handling various "well-known" model formats.
+
 #[cfg(feature = "tflite")]
 mod tflite;
 

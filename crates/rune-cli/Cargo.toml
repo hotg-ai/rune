@@ -29,7 +29,6 @@ hotg-rune-core = { path = "../rune-core", version = "^0.11.0"}
 hotg-rune-proc-blocks = { version = "0.11.3", path = "../proc-blocks" }
 hotg-rune-runtime = { path = "../runtime", version = "^0.11.0", features = ["builtins", "wasm3", "wasmer"] }
 hotg-runecoral = "0.3.6"
-# hotg-runicos-base-runtime = { path = "../../images/runicos-base/runtime", version = "^0.11.0", features = ["wasm3-runtime"] }
 hound = "3.4.0"
 human-panic = "1.0.3"
 image = "0.23.14"
