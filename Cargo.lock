@@ -1146,25 +1146,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotg-runicos-base-runtime"
-version = "0.11.3"
-dependencies = [
- "anyhow",
- "hotg-rune-core",
- "hotg-rune-runtime",
- "hotg-runecoral",
- "log",
- "rand 0.8.4",
- "serde_json",
- "syn",
- "wasm3",
- "wasmer",
- "wasmer-derive",
- "wasmer-types",
- "wasmer-vm",
-]
-
-[[package]]
 name = "hotg-runicos-base-wasm"
 version = "0.11.3"
 dependencies = [
