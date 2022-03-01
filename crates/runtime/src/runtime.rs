@@ -1,3 +1,43 @@
+//! Glue code for linking a Rune with the outside world.
+//!
+//! # Safety
+//!
+//! This module contains some non-trivial (but sound) `unsafe` code. In general,
+//! if you see an `unsafe` block you should refer to this comment to understand
+//! the invariants that need to be maintained. Please message @Michael-F-Bryan
+//! if you have any questions.
+//!
+//! The primary source of `unsafe` comes from the fact that our [`State`] is
+//! shared between the [`Runtime`] and the [`WebAssemblyEngine`] it contains
+//! and both may need to mutate fields at different points in time.
+//!
+//! We want to simplify the public API by giving the [`Runtime`] methods like
+//! [`Runtime::input_tensors()`] which return `&mut` references to the `HashMap`
+//! if input tensors, but the naive implementation would be incompatible
+//! with this because it'd require wrapping our [`State`]'s fields in
+//! `Arc<Mutex<_>>` and returning a [`std::sync::MutexGuard`].
+//!
+//! However, because we are the authors of the [`Runtime`] and all
+//! [`WebAssemblyEngine`] implementations, we have complete control over how our
+//! [`State`] is accessed!
+//!
+//! By making the public API (essentially just our [`Runtime`] type) use
+//! `&mut self` methods properly, we can leverage the borrow checker to manage
+//! synchronise the access to our [`State`]. No [`std::sync::Mutex`] required.
+//!
+//! More concretely, this assumes
+//!
+//! - The [`Runtime`] won't try to access its [`State`] while a
+//!   [`WebAssemblyEngine`] method is running
+//! - All [`Runtime`] methods and [`WebAssemblyEngine`] implementations are
+//!   single-threaded and not re-entrant
+//!
+//! In the long term I'd *really* like to drop this `unsafe` by changing the API
+//! so all memory is owned by the Rune and lives inside WebAssembly linear
+//! memory. That way if the caller wants to modify a tensor, they'll need to
+//! call a method on the [`Runtime`] which then asks the Rune for a reference to
+//! the tensor's buffer.
+
 use std::{cell::UnsafeCell, collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Error};
@@ -53,22 +93,22 @@ impl Runtime {
 
     /// Get all input tensors, keyed by capability ID.
     pub fn input_tensors(&mut self) -> &mut HashMap<u32, Tensor> {
-        self.state.input_tensors()
+        unsafe { self.state.input_tensors() }
     }
 
     /// Get all output tensors, keyed by output ID.
     pub fn output_tensors(&self) -> &HashMap<u32, Vec<OutputTensor>> {
-        self.state.output_tensors()
+        unsafe { self.state.output_tensors() }
     }
 
     /// Get a mapping from each capability's ID to its metadata.
     pub fn capabilities(&self) -> &HashMap<u32, NodeMetadata> {
-        self.state.capabilities()
+        unsafe { self.state.capabilities() }
     }
 
     /// Get a mapping from each output's ID to its metadata.
     pub fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
-        self.state.outputs()
+        unsafe { self.state.outputs() }
     }
 
     pub fn set_model_handler<F>(&mut self, load_model: F)
@@ -76,7 +116,7 @@ impl Runtime {
         F: Fn(u32, &ModelMetadata<'_>, &[u8]) -> Result<Box<dyn Model>, Error>,
         F: Sync + Send + 'static,
     {
-        self.state.set_model_handler(load_model)
+        unsafe { self.state.set_model_handler(load_model) }
     }
 
     pub fn set_logger<L>(&mut self, log: L)
@@ -84,47 +124,15 @@ impl Runtime {
         L: Fn(&Record<'_>),
         L: Send + Sync + 'static,
     {
-        self.state.set_logger(log)
+        unsafe { self.state.set_logger(log) }
     }
 
     pub fn resources(&mut self) -> &mut HashMap<String, Vec<u8>> {
-        self.state.resources()
+        unsafe { self.state.resources() }
     }
 }
 
 /// State that is shared between the Runtime and the Rune.
-///
-/// # Safety
-///
-/// Our [`State`] is shared between the [`Runtime`] and the
-/// [`WebAssemblyEngine`] it contains, both of which may try to mutate fields.
-///
-/// We want to simplify the public API by giving the [`Runtime`] methods like
-/// [`Runtime::input_tensors()`] which return `&mut` references to the `HashMap`
-/// if input tensors, but the naive implementation would be incompatible
-/// with this because it'd require wrapping our [`State`]'s fields in
-/// `Arc<Mutex<_>>` and returning a [`std::sync::MutexGuard`].
-///
-/// However, because we are the authors of the [`Runtime`] and all the
-/// [`WebAssemblyEngine`]s, we have complete control over how our [`State`] is
-/// accessed!
-///
-/// By making the public API (essentially just our [`Runtime`] type) use
-/// `&mut self` methods properly, we can leverage the borrow checker to manage
-/// synchronise the access to our [`State`]. No [`std::sync::Mutex`] required.
-///
-/// More concretely, this assumes
-///
-/// - The [`Runtime`] won't try to access its [`State`] while a
-///   [`WebAssemblyEngine`] method is running
-/// - All [`Runtime`] methods and [`WebAssemblyEngine`] implementations are
-///   single-threaded
-///
-/// In the long term I'd *really* like to drop this `unsafe` by changing the API
-/// so all memory is owned by the Rune and lives inside WebAssembly linear
-/// memory.  That way if the caller wants to modify a tensor, they'll need to
-/// call a method on the [`Runtime`] which then asks the Rune for a reference to
-/// the tensor's buffer.
 struct State {
     input_tensors: UnsafeCell<HashMap<u32, Tensor>>,
     output_tensors: UnsafeCell<HashMap<u32, Vec<OutputTensor>>>,
@@ -168,51 +176,40 @@ impl State {
         Ok(s)
     }
 
-    fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
-        // Safety: See the safety comments on State
-        unsafe { &*self.outputs.get() }
+    unsafe fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
+        &*self.outputs.get()
     }
 
-    fn capabilities(&self) -> &HashMap<u32, NodeMetadata> {
-        // Safety: See the safety comments on State
-        unsafe { &*self.capabilities.get() }
+    unsafe fn capabilities(&self) -> &HashMap<u32, NodeMetadata> {
+        &*self.capabilities.get()
     }
 
-    fn output_tensors(&self) -> &HashMap<u32, Vec<OutputTensor>> {
-        // Safety: See the safety comments on State
-        unsafe { &*self.output_tensors.get() }
+    unsafe fn output_tensors(&self) -> &HashMap<u32, Vec<OutputTensor>> {
+        &*self.output_tensors.get()
     }
 
-    fn input_tensors(&self) -> &mut HashMap<u32, Tensor> {
-        // Safety: See the safety comments on State
-        unsafe { &mut *self.input_tensors.get() }
+    unsafe fn input_tensors(&self) -> &mut HashMap<u32, Tensor> {
+        &mut *self.input_tensors.get()
     }
 
-    fn resources(&self) -> &mut HashMap<String, Vec<u8>> {
-        // Safety: See the safety comments on State
-        unsafe { &mut *self.resources.get() }
+    unsafe fn resources(&self) -> &mut HashMap<String, Vec<u8>> {
+        &mut *self.resources.get()
     }
 
-    fn set_logger<L>(&self, log: L)
+    unsafe fn set_logger<L>(&self, log: L)
     where
         L: Fn(&Record<'_>),
         L: Send + Sync + 'static,
     {
-        // Safety: See the safety comments on State
-        unsafe {
-            *self.log.get() = Box::new(log);
-        }
+        *self.log.get() = Box::new(log);
     }
 
-    fn set_model_handler<F>(&self, load_model: F)
+    unsafe fn set_model_handler<F>(&self, load_model: F)
     where
         F: Fn(u32, &ModelMetadata<'_>, &[u8]) -> Result<Box<dyn Model>, Error>,
         F: Sync + Send + 'static,
     {
-        // Safety: See the safety comments on State
-        unsafe {
-            *self.load_model.get() = Box::new(load_model);
-        }
+        *self.load_model.get() = Box::new(load_model);
     }
 }
 

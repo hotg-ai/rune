@@ -1,7 +1,7 @@
 macro_rules! map {
     // map-like
     ($($k:ident : $v:expr),* $(,)?) => {
-        std::iter::Iterator::collect(std::array::IntoIter::new([
+        std::iter::Iterator::collect(IntoIterator::into_iter([
             $(
                 (String::from(stringify!($k)), $v)
             ),*

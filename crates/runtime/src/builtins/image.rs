@@ -76,8 +76,8 @@ impl FromStr for PixelFormat {
             "RGB8" => Ok(PixelFormat::RGB8),
             // Legacy
             "@PixelFormat::RGB" | "0" => Ok(PixelFormat::RGB8),
-            "@PixelFormat::BGR" | "2" => Ok(PixelFormat::BGR8),
-            "@PixelFormat::GrayScale" | "3" => Ok(PixelFormat::GrayScale),
+            "@PixelFormat::BGR" | "1" => Ok(PixelFormat::BGR8),
+            "@PixelFormat::GrayScale" | "2" => Ok(PixelFormat::GrayScale),
             _ => Err(UnknownPixelFormat),
         }
     }

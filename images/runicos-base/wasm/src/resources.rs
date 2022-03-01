@@ -21,17 +21,9 @@ impl Resource {
         loop {
             dest.reserve(BLOCK_SIZE);
             let previous_length = dest.len();
-            let capacity = dest.capacity();
 
             unsafe {
-                // TODO: replace with dest.spare_capacity_mut() when it is
-                // stable
-                let uninitialized_bytes = core::slice::from_raw_parts_mut(
-                    dest.as_mut_ptr().add(previous_length)
-                        as *mut MaybeUninit<u8>,
-                    capacity - previous_length,
-                );
-
+                let uninitialized_bytes = dest.spare_capacity_mut();
                 let bytes_read = resource.read(uninitialized_bytes)?;
                 dest.set_len(previous_length + bytes_read);
 

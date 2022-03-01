@@ -49,21 +49,24 @@ extern "C" {
     /// describes a tensor's shape (i.e. element type and dimensions).
     ///
     /// ```rust,no_run
-    /// let inputs = [StringRef::from("i16[1920]"), StringRef::from("u8[3, 256, 256]")];
+    /// let inputs = [
+    ///     StringRef::from("i16[1920]"),
+    ///     StringRef::from("u8[3, 256, 256]"),
+    /// ];
     /// let outputs = [StringRef::from("f32[1]")];
     /// let model = b"...";
     /// let mimetype = "application/tensorflow-lite";
     ///
     /// # unsafe {
     /// rune_model_load(
-    ///    mimetype.as_ptr(),
-    ///    mimetype.len() as u32,
-    ///    model.as_ptr(),
-    ///    model.len() as u32,
-    ///    inputs.as_ptr(),
-    ///    inputs.len() as u32,
-    ///    outputs.as_ptr(),
-    ///    outputs.len() as u32,
+    ///     mimetype.as_ptr(),
+    ///     mimetype.len() as u32,
+    ///     model.as_ptr(),
+    ///     model.len() as u32,
+    ///     inputs.as_ptr(),
+    ///     inputs.len() as u32,
+    ///     outputs.as_ptr(),
+    ///     outputs.len() as u32,
     /// );
     /// # }
     /// ```

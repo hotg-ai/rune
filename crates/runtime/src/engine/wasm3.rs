@@ -439,8 +439,8 @@ trait LinkResultExt {
 impl LinkResultExt for Result<(), wasm3::error::Error> {
     fn ignore_missing_functions(self) -> Result<(), Error> {
         match self {
-            Ok(_) => Ok(()),
-            Err(_) => todo!(),
+            Ok(_) | Err(wasm3::error::Error::FunctionNotFound) => Ok(()),
+            Err(e) => Err(Error::msg(e.to_string())),
         }
     }
 }
@@ -541,7 +541,7 @@ mod tests {
             _meta: &crate::NodeMetadata,
             _buffer: &mut [u8],
         ) -> Result<usize, Error> {
-            todo!()
+            unimplemented!()
         }
 
         fn write_output(
@@ -550,7 +550,7 @@ mod tests {
             _meta: &crate::NodeMetadata,
             _data: &[u8],
         ) -> Result<(), Error> {
-            todo!()
+            unimplemented!()
         }
 
         fn load_model(
@@ -566,12 +566,12 @@ mod tests {
                     _inputs: &[&[u8]],
                     _outputs: &mut [&mut [u8]],
                 ) -> Result<(), Error> {
-                    todo!()
+                    unimplemented!()
                 }
 
-                fn input_shapes(&self) -> &[Shape<'_>] { todo!() }
+                fn input_shapes(&self) -> &[Shape<'_>] { unimplemented!() }
 
-                fn output_shapes(&self) -> &[Shape<'_>] { todo!() }
+                fn output_shapes(&self) -> &[Shape<'_>] { unimplemented!() }
             }
             Ok(Box::new(Dummy))
         }

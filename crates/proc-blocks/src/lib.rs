@@ -51,7 +51,9 @@ pub trait Transform<Input>: ProcBlock {
 /// impl Transform<Tensor<f32>> for Foo {
 ///     type Output = Tensor<f32>;
 ///
-///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output { todo!() }
+///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output {
+///         unimplemented!()
+///     }
 /// }
 /// ```
 ///
@@ -89,7 +91,9 @@ pub trait Transform<Input>: ProcBlock {
 /// impl Transform<Tensor<f32>> for Foo {
 ///     type Output = Tensor<u8>;
 ///
-///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output { todo!() }
+///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output {
+///         unimplemented!()
+///     }
 /// }
 /// impl Transform<Tensor<Cow<'static, str>>> for Foo {
 ///     type Output = Tensor<i16>;
@@ -98,7 +102,7 @@ pub trait Transform<Input>: ProcBlock {
 ///         &mut self,
 ///         _input: Tensor<Cow<'static, str>>,
 ///     ) -> Self::Output {
-///         todo!()
+///         unimplemented!()
 ///     }
 /// }
 /// ```
