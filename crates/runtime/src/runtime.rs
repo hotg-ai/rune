@@ -349,7 +349,7 @@ impl Serialize for OutputTensor {
         }
 
         match self {
-            OutputTensor::Tensor(t) => t.serialize(serializer),
+            OutputTensor::Tensor(t) => t.serializable().serialize(serializer),
             OutputTensor::StringTensor {
                 dimensions,
                 strings,

@@ -25,12 +25,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_directory,
         rune_project_dir,
         filters,
+        engine,
     } = Args::from_args();
 
     let tests = hotg_rune_integration_tests::discover(&test_directory)
         .context("Unable to discover tests")?;
 
-    let ctx = TestContext::build(&rune_project_dir)
+    let ctx = TestContext::build(&rune_project_dir, engine)
         .context("Unable to establish the test context")?;
 
     let mut printer = Printer {
@@ -61,9 +62,11 @@ pub struct Args {
     #[structopt(long = "rune-root",
     help = "The Rune repository's root directory",
     default_value = &*RUNE_PROJECT_DIR)]
-    pub rune_project_dir: PathBuf,
+    rune_project_dir: PathBuf,
     #[structopt(short, long = "filter", parse(try_from_str))]
     filters: Vec<Regex>,
+    #[structopt(short, long, default_value = "wasmer")]
+    engine: String,
 }
 
 static RUNE_PROJECT_DIR: Lazy<String> = Lazy::new(|| {

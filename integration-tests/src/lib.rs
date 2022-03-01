@@ -72,15 +72,24 @@ pub struct TestContext {
     pub rune_binary: PathBuf,
     pub rune_project_dir: PathBuf,
     pub target_dir: PathBuf,
+    pub engine: String,
 }
 
 impl TestContext {
-    pub fn build(rune_project_dir: impl Into<PathBuf>) -> Result<Self, Error> {
-        TestContext::build_inner(rune_project_dir, cfg!(debug_assertions))
+    pub fn build(
+        rune_project_dir: impl Into<PathBuf>,
+        engine: String,
+    ) -> Result<Self, Error> {
+        TestContext::build_inner(
+            rune_project_dir,
+            engine,
+            cfg!(debug_assertions),
+        )
     }
 
     fn build_inner(
         rune_project_dir: impl Into<PathBuf>,
+        engine: String,
         debug: bool,
     ) -> Result<Self, Error> {
         let rune_project_dir = rune_project_dir.into();
@@ -112,6 +121,7 @@ impl TestContext {
         );
 
         Ok(TestContext {
+            engine,
             cache_dir,
             rune_binary,
             rune_project_dir,

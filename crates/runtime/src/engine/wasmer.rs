@@ -203,14 +203,16 @@ fn rune_resource_read(
         .rune_resource_read(id, &mut buffer)
         .map_err(runtime_error)?;
 
-    let len = std::cmp::min(len, bytes_written);
+    if bytes_written == 0 {
+        return Ok(0);
+    }
 
     let view = memory.view::<u8>();
     // Safety: Function isn't re-entrant so we don't need to worry about
     // concurrent mutations.
     unsafe {
-        view.subarray(dest.offset(), dest.offset() + len)
-            .copy_from(&buffer[..len as usize]);
+        view.subarray(dest.offset(), dest.offset() + bytes_written)
+            .copy_from(&buffer[..bytes_written as usize]);
     }
 
     Ok(bytes_written)

@@ -3,8 +3,10 @@ use std::{
     num::NonZeroUsize,
 };
 
+use serde::ser::{Serialize, SerializeStruct};
+
 /// A n-dimension array of numbers.
-#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq)]
 pub struct Tensor {
     element_type: ElementType,
     dimensions: Vec<NonZeroUsize>,
@@ -70,6 +72,19 @@ impl Tensor {
     pub fn shape(&self) -> impl Display + '_ {
         Shape::new(self.element_type(), self.dimensions())
     }
+
+    pub fn serializable(&self) -> impl Serialize + '_ { Serializable(self) }
+
+    pub fn elements<E>(&self) -> Option<&[E]>
+    where
+        E: TensorElement,
+    {
+        if self.element_type != E::ELEMENT_TYPE {
+            return None;
+        }
+
+        E::from_bytes(&self.buffer)
+    }
 }
 
 #[derive(Debug)]
@@ -121,6 +136,50 @@ impl Debug for Tensor {
             .field("element_type", element_type)
             .field("dimensions", dimensions)
             .finish()
+    }
+}
+
+struct Serializable<'a>(&'a Tensor);
+
+impl Serialize for Serializable<'_> {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut ser = ser.serialize_struct("Tensor", 3)?;
+
+        let Tensor {
+            element_type,
+            dimensions,
+            ..
+        } = self.0;
+
+        ser.serialize_field("element-type", element_type)?;
+        ser.serialize_field("dimensions", dimensions)?;
+
+        macro_rules! serialize {
+            ($s:expr, $self:expr, $ty:ty) => {{
+                $s.serialize_field(
+                    "elements",
+                    $self.0.elements::<$ty>().unwrap(),
+                )?;
+            }};
+        }
+
+        match element_type {
+            ElementType::U8 => serialize!(ser, self, u8),
+            ElementType::I8 => serialize!(ser, self, i8),
+            ElementType::U16 => serialize!(ser, self, u16),
+            ElementType::I16 => serialize!(ser, self, i16),
+            ElementType::U32 => serialize!(ser, self, u32),
+            ElementType::I32 => serialize!(ser, self, i32),
+            ElementType::F32 => serialize!(ser, self, f32),
+            ElementType::U64 => serialize!(ser, self, u64),
+            ElementType::I64 => serialize!(ser, self, i64),
+            ElementType::F64 => serialize!(ser, self, f64),
+        }
+
+        ser.end()
     }
 }
 

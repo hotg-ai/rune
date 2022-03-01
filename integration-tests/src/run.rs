@@ -47,6 +47,8 @@ pub(crate) fn rune_output(
         cmd.arg(argument).arg(filename);
     }
 
+    cmd.arg("--engine").arg(&ctx.engine);
+
     log::debug!("Executing {:?}", cmd);
 
     cmd.current_dir(directory)
