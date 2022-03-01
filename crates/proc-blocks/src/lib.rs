@@ -14,9 +14,8 @@ extern crate alloc;
 
 mod descriptor;
 
-pub use hotg_rune_core::Tensor;
 pub use descriptor::*;
-
+pub use hotg_rune_core::Tensor;
 #[cfg(feature = "derive")]
 pub use hotg_rune_proc_block_macros::ProcBlock;
 
@@ -42,16 +41,19 @@ pub trait Transform<Input>: ProcBlock {
 /// 1D `Tensor<T>`.
 ///
 /// ```rust
-/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
 /// use hotg_rune_core::Tensor;
+/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// #[transform(inputs = f32, outputs = f32)]
-/// struct Foo { }
+/// struct Foo {}
 ///
 /// impl Transform<Tensor<f32>> for Foo {
 ///     type Output = Tensor<f32>;
-///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output { todo!() }
+///
+///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output {
+///         unimplemented!()
+///     }
 /// }
 /// ```
 ///
@@ -76,22 +78,32 @@ pub trait Transform<Input>: ProcBlock {
 /// `_` indicates the transformation works with *any* number of dimensions.
 ///
 /// ```rust
-/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
-/// use hotg_rune_core::Tensor;
 /// use std::borrow::Cow;
+///
+/// use hotg_rune_core::Tensor;
+/// use hotg_rune_proc_blocks::{ProcBlock, Transform};
 ///
 /// #[derive(Default, hotg_rune_proc_block_macros::ProcBlock)]
 /// #[transform(inputs = [f32; _], outputs = [u8; 1920])]
 /// #[transform(inputs = utf8, outputs = [i16; 2])]
-/// struct Foo { }
+/// struct Foo {}
 ///
 /// impl Transform<Tensor<f32>> for Foo {
 ///     type Output = Tensor<u8>;
-///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output { todo!() }
+///
+///     fn transform(&mut self, _input: Tensor<f32>) -> Self::Output {
+///         unimplemented!()
+///     }
 /// }
 /// impl Transform<Tensor<Cow<'static, str>>> for Foo {
 ///     type Output = Tensor<i16>;
-///     fn transform(&mut self, _input: Tensor<Cow<'static, str>>) -> Self::Output { todo!() }
+///
+///     fn transform(
+///         &mut self,
+///         _input: Tensor<Cow<'static, str>>,
+///     ) -> Self::Output {
+///         unimplemented!()
+///     }
 /// }
 /// ```
 ///
@@ -142,7 +154,9 @@ pub trait ProcBlock: Default + 'static {
 /// so it has access to all the types it will need.
 #[doc(hidden)]
 pub mod internal {
-    pub use crate::{ProcBlock, Transform, descriptor::*};
     pub use alloc::borrow::Cow;
+
     pub use hotg_rune_core::{ElementType, Tensor};
+
+    pub use crate::{descriptor::*, ProcBlock, Transform};
 }

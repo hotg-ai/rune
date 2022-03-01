@@ -3,7 +3,6 @@ mod components;
 mod write_project_to_disk;
 
 pub use self::components::*;
-
 use crate::Phase;
 
 pub fn phase() -> Phase {

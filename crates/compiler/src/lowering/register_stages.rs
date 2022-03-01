@@ -1,16 +1,17 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
-use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
+use legion::{systems::CommandBuffer, world::SubWorld, Entity, Query};
+
 use crate::{
-    Diagnostics,
     lowering::{
-        self, Mimetype, Model, ModelFile, NameTable, ProcBlock, Resource, Sink,
-        Source, ResourceData,
+        self, Mimetype, Model, ModelFile, NameTable, ProcBlock, Resource,
+        ResourceData, Sink, Source,
     },
     parse::{
         self, CapabilityStage, DocumentV1, ModelStage, OutStage,
         ProcBlockStage, ResourceName, ResourceType,
     },
+    Diagnostics,
 };
 
 /// Attach [`Model`], [`ProcBlock`], [`Sink`], and [`Source`] components to
@@ -297,13 +298,14 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
 mod tests {
     use indexmap::IndexMap;
     use legion::{IntoQuery, Resources, World};
+
+    use super::*;
     use crate::{
-        BuildContext,
         lowering::{self, Name, SinkKind, SourceKind},
         parse::{ResourceDeclaration, ResourceType, Stage},
         phases::Phase,
+        BuildContext,
     };
-    use super::*;
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
@@ -394,9 +396,19 @@ mod tests {
         let diags = res.get::<Diagnostics>().unwrap();
         let diags: Vec<_> = diags.iter().collect();
         assert_eq!(diags.len(), 4);
-        assert_eq!(diags[0], &Diagnostic::warning()
-            .with_message("The \"my-proc-block\" proc block used by \"transform\" should have a version specifier")
-            .with_notes(vec![format!("hint: change it to something like \"my-proc-block@{}\"", env!("CARGO_PKG_VERSION").to_string()).to_string()]));
+        assert_eq!(
+            diags[0],
+            &Diagnostic::warning()
+                .with_message(
+                    "The \"my-proc-block\" proc block used by \"transform\" \
+                     should have a version specifier"
+                )
+                .with_notes(vec![format!(
+                    "hint: change it to something like \"my-proc-block@{}\"",
+                    env!("CARGO_PKG_VERSION").to_string()
+                )
+                .to_string()])
+        );
         assert_eq!(diags[1].message, "\"$cap\" is not a resource");
         assert_eq!(diags[2].message, "No definition for \"$NON_EXISTENT\"");
         assert_eq!(

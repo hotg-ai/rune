@@ -1,5 +1,6 @@
 use proc_macro2::Ident;
 use syn::{Generics, Path, Type};
+
 use crate::descriptor::ProcBlockDescriptor;
 
 #[derive(Debug)]

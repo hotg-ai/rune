@@ -1,8 +1,9 @@
-use legion::{Resources, World, systems::Runnable};
+use legion::{systems::Runnable, Resources, World};
+
 use crate::{
-    BuildContext, FeatureFlags, codegen, compile,
+    codegen, compile,
     hooks::{Continuation, Ctx, Hooks},
-    lowering, parse, type_check,
+    lowering, parse, type_check, BuildContext, FeatureFlags,
 };
 
 /// Execute the `rune build` process.
@@ -184,6 +185,7 @@ fn c<'world, 'res>(
 #[cfg(never)]
 mod tests {
     use indexmap::IndexMap;
+
     use super::*;
 
     #[test]

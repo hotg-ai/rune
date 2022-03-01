@@ -4,10 +4,11 @@ use alloc::{
     vec::Vec,
 };
 use core::{
-    fmt::{self, Formatter, Display},
+    fmt::{self, Display, Formatter},
     num::ParseIntError,
     str::FromStr,
 };
+
 use crate::element_type::ElementType;
 
 /// A tensor's shape.
@@ -146,8 +147,9 @@ impl std::error::Error for FormatError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::prelude::v1::*;
+
+    use super::*;
 
     const SHAPES: &[(Shape, &str)] = &[
         (

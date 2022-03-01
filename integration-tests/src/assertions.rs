@@ -3,6 +3,7 @@ use std::{
     path::Path,
     process::Output,
 };
+
 use anyhow::{Context, Error};
 
 pub trait Assertion: Debug {

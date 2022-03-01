@@ -2,12 +2,14 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-use anyhow::{Error, Context};
+
+use anyhow::{Context, Error};
 use hotg_rune_proc_blocks::{
-    ProcBlockDescriptor, TransformDescriptor, TensorDescriptors,
-    TensorDescriptor,
+    ProcBlockDescriptor, TensorDescriptor, TensorDescriptors,
+    TransformDescriptor,
 };
-use crate::{Format, inspect::wasm_custom_sections};
+
+use crate::{inspect::wasm_custom_sections, Format};
 
 pub fn inspect(format: Format, proc_block_dir: &Path) -> Result<(), Error> {
     log::info!("Inspecting \"{}\"", proc_block_dir.display());

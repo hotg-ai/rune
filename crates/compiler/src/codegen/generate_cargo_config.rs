@@ -1,5 +1,6 @@
 use legion::systems::CommandBuffer;
-use crate::{BuildContext, codegen::File};
+
+use crate::{codegen::File, BuildContext};
 
 /// Generate a `.cargo/config.toml` file.
 #[legion::system]

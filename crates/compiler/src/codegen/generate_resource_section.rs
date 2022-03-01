@@ -1,5 +1,7 @@
-use legion::{Entity, Query, systems::CommandBuffer, world::SubWorld};
 use std::convert::TryFrom;
+
+use legion::{systems::CommandBuffer, world::SubWorld, Entity, Query};
+
 use crate::{
     codegen::{CustomSection, RESOURCE_CUSTOM_SECTION},
     lowering::{Name, ResourceData},

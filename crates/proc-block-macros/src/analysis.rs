@@ -1,13 +1,14 @@
 use std::str::FromStr;
-use proc_macro2::{Ident, Group};
+
 use hotg_rune_core::ElementType;
+use proc_macro2::{Group, Ident};
 use quote::quote;
 use syn::{
-    Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,
-    TypeArray, TypePath, TypeReference,
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     spanned::Spanned,
+    Attribute, DeriveInput, Error, ExprLit, Lit, LitStr, Path, Token,
+    TypeArray, TypePath, TypeReference,
 };
 
 use crate::{
@@ -438,8 +439,8 @@ fn export_path(_attrs: &[syn::Attribute]) -> Result<Path, Error> {
 mod tests {
     use syn::Generics;
 
-    use crate::types::{Setter, SetterAssertion, TransformAssertion};
     use super::*;
+    use crate::types::{Setter, SetterAssertion, TransformAssertion};
 
     #[test]
     fn struct_attributes() {

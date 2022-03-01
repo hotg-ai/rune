@@ -1,11 +1,12 @@
 mod proc_block;
 mod rune;
 
-pub(crate) use self::rune::{Metadata, CustomSection, wasm_custom_sections};
-
 use std::path::PathBuf;
+
 use anyhow::Error;
 use strum::VariantNames;
+
+pub(crate) use self::rune::{wasm_custom_sections, Metadata};
 use crate::Format;
 
 #[derive(Debug, Clone, PartialEq, structopt::StructOpt)]

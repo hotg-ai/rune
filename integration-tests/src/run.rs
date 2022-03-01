@@ -1,5 +1,7 @@
 use std::{path::Path, process::Output};
+
 use anyhow::{Context, Error};
+
 use crate::{CommandOutput, FullName, TestContext};
 
 pub(crate) fn rune_output(
@@ -44,6 +46,8 @@ pub(crate) fn rune_output(
 
         cmd.arg(argument).arg(filename);
     }
+
+    cmd.arg("--engine").arg(&ctx.engine);
 
     log::debug!("Executing {:?}", cmd);
 

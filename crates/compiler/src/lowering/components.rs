@@ -8,9 +8,11 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
+
 use hotg_rune_core::Shape;
 use indexmap::IndexMap;
 use legion::Entity;
+
 use crate::parse::{Path, ResourceType};
 
 /// An output.
@@ -97,7 +99,9 @@ impl SourceKind {
             SourceKind::Sound => Some(hotg_rune_core::capabilities::SOUND),
             SourceKind::Image => Some(hotg_rune_core::capabilities::IMAGE),
             SourceKind::Raw => Some(hotg_rune_core::capabilities::RAW),
-            SourceKind::FloatImage => Some(hotg_rune_core::capabilities::FLOAT_IMAGE),
+            SourceKind::FloatImage => {
+                Some(hotg_rune_core::capabilities::FLOAT_IMAGE)
+            },
             _ => None,
         }
     }

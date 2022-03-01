@@ -1,11 +1,15 @@
 use std::{collections::BTreeMap, path::Path};
+
 use cargo_toml::{
     Badges, Dependency, DependencyDetail, DepsSet, Edition, FeatureSet,
     Manifest, Package, PatchSet, Product, Profiles, Publish, Resolver,
     TargetDepsSet, Workspace,
 };
-use legion::{Query, systems::CommandBuffer, world::SubWorld};
-use crate::{BuildContext, FeatureFlags, codegen::File, lowering::ProcBlock, parse};
+use legion::{systems::CommandBuffer, world::SubWorld, Query};
+
+use crate::{
+    codegen::File, lowering::ProcBlock, parse, BuildContext, FeatureFlags,
+};
 
 /// Generate a `Cargo.toml` file which includes all the relevant dependencies
 /// for this crate.
@@ -25,7 +29,8 @@ pub(crate) fn run(
             It looks like you are using a development version of \"rune\", but
             haven't specified a \"rune_repo_dir\". Internal crates are resolved
             using the \"$CORE_VERSION\" version from crates.io and builtin
-            proc-blocks are found using the \"v$CORE_VERSION\" tag from the Rune
+            proc-blocks are found using the \"v$CORE_VERSION\" tag from the \
+             Rune
             repo, so there is a good chance you'll get compile errors about
             unresolved dependencies. Specify the \"rune_repo_dir\" to resolve
             this.

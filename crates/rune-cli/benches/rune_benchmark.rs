@@ -1,24 +1,27 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use tempdir::TempDir;
 use std::path::{Path, PathBuf};
-use anyhow::Context;
-use hotg_rune_cli::run::{
-    Image, image::ImageSource, Sound, sound::AudioClip, new_capability_switcher,
-};
 
+use anyhow::Context;
+use criterion::{criterion_group, criterion_main, Criterion};
+use hotg_rune_cli::run::{
+    image::ImageSource, new_capability_switcher, sound::AudioClip, Image, Sound,
+};
+use hotg_rune_codegen::{
+    Compilation, DefaultEnvironment, RuneProject, Verbosity,
+};
+use hotg_rune_compiler::{hir::Rune, yaml::Document, Diagnostics};
+use hotg_rune_core::capabilities;
 use hotg_rune_wasmer_runtime::Runtime;
 use hotg_runicos_base_runtime::BaseImage;
-use hotg_rune_core::capabilities;
-
-use hotg_rune_codegen::{Compilation, DefaultEnvironment, RuneProject, Verbosity};
-
-use hotg_rune_compiler::{hir::Rune, yaml::Document, Diagnostics};
+use tempdir::TempDir;
 
 pub fn project_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .find(|path| path.join(".git").exists())
-        .expect("Unable to determine the project's root directory. Where is \".git/\"?")
+        .expect(
+            "Unable to determine the project's root directory. Where is \
+             \".git/\"?",
+        )
         .to_path_buf()
 }
 

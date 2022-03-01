@@ -1,22 +1,20 @@
+use std::{borrow::Cow, convert::TryInto, ffi::CStr, sync::Mutex};
+
 use anyhow::{Context, Error};
 use hotg_rune_core::{ElementType as RuneElementType, Shape, TFLITE_MIMETYPE};
-use std::{borrow::Cow, cell::Cell, convert::TryInto, ffi::CStr, sync::Mutex};
 use hotg_runecoral::{
-    ElementType, InferenceContext, Tensor, TensorDescriptor, TensorMut,
-    AccelerationBackend,
+    AccelerationBackend, ElementType, InferenceContext, Tensor,
+    TensorDescriptor, TensorMut,
 };
 
-use crate::Model;
+use crate::callbacks::Model;
 
 /// Create a new [`Model`] backed by [`hotg_runecoral`].
-pub fn new_model(
-    model_bytes: &[u8],
-    inputs: Option<&[Shape<'_>]>,
-    outputs: Option<&[Shape<'_>]>,
+pub fn load_tflite(
+    model: &[u8],
+    inputs: &[Shape<'_>],
+    outputs: &[Shape<'_>],
 ) -> Result<Box<dyn Model>, Error> {
-    let inputs = inputs.context("The input shapes must be provided")?;
-    let outputs = outputs.context("The output shapes must be provided")?;
-
     let input_descriptors = inputs
         .iter()
         .map(descriptor)
@@ -30,7 +28,7 @@ pub fn new_model(
 
     let ctx = InferenceContext::create_context(
         TFLITE_MIMETYPE,
-        model_bytes,
+        model,
         AccelerationBackend::NONE,
     )
     .context("Unable to create the inference context")?;
@@ -70,6 +68,47 @@ struct RuneCoralModel {
     input_descriptors: Vec<TensorDescriptor<'static>>,
     outputs: Vec<Shape<'static>>,
     output_descriptors: Vec<TensorDescriptor<'static>>,
+}
+
+impl Model for RuneCoralModel {
+    fn infer(
+        &mut self,
+        inputs: &[&[u8]],
+        outputs: &mut [&mut [u8]],
+    ) -> Result<(), Error> {
+        let mut ctx = self.ctx.lock().expect("Lock was poisoned");
+
+        let inputs: Vec<Tensor<'_>> = self
+            .input_descriptors
+            .iter()
+            .zip(inputs)
+            .map(|(desc, data)| Tensor {
+                element_type: desc.element_type,
+                shape: Cow::Borrowed(&desc.shape),
+                buffer: *data,
+            })
+            .collect();
+
+        let mut outputs: Vec<TensorMut<'_>> = self
+            .output_descriptors
+            .iter()
+            .zip(outputs)
+            .map(|(desc, data)| TensorMut {
+                element_type: desc.element_type,
+                shape: Cow::Borrowed(&desc.shape),
+                buffer: *data,
+            })
+            .collect();
+
+        ctx.infer(&inputs, &mut outputs)
+            .context("Inference failed")?;
+
+        Ok(())
+    }
+
+    fn input_shapes(&self) -> &[Shape<'_>] { &self.inputs }
+
+    fn output_shapes(&self) -> &[Shape<'_>] { &self.outputs }
 }
 
 fn element_type(rune_type: RuneElementType) -> Result<ElementType, Error> {
@@ -115,60 +154,9 @@ fn ensure_shapes_equal(
     }
 
     anyhow::bail!(
-            "The Rune said tensors would be {}, but the model said they would be {}",
-            pretty_shapes(from_rune),
-            pretty_shapes(from_model),
-        );
-}
-
-impl super::Model for RuneCoralModel {
-    unsafe fn infer(
-        &mut self,
-        inputs: &[&[Cell<u8>]],
-        outputs: &[&[Cell<u8>]],
-    ) -> Result<(), Error> {
-        let mut ctx = self.ctx.lock().expect("Lock was poisoned");
-
-        let inputs: Vec<Tensor<'_>> = self
-            .input_descriptors
-            .iter()
-            .zip(inputs)
-            .map(|(desc, data)| Tensor {
-                element_type: desc.element_type,
-                shape: Cow::Borrowed(&desc.shape),
-                // Safety:
-                buffer: unsafe {
-                    std::slice::from_raw_parts(
-                        data.as_ptr() as *const u8,
-                        data.len(),
-                    )
-                },
-            })
-            .collect();
-
-        let mut outputs: Vec<TensorMut<'_>> = self
-            .output_descriptors
-            .iter()
-            .zip(outputs)
-            .map(|(desc, data)| TensorMut {
-                element_type: desc.element_type,
-                shape: Cow::Borrowed(&desc.shape),
-                buffer: unsafe {
-                    std::slice::from_raw_parts_mut(
-                        data.as_ptr() as *const Cell<u8> as *mut u8,
-                        data.len(),
-                    )
-                },
-            })
-            .collect();
-
-        ctx.infer(&inputs, &mut outputs)
-            .context("Inference failed")?;
-
-        Ok(())
-    }
-
-    fn input_shapes(&self) -> &[Shape<'_>] { &self.inputs }
-
-    fn output_shapes(&self) -> &[Shape<'_>] { &self.outputs }
+        "The Rune said tensors would be {}, but the model said they would be \
+         {}",
+        pretty_shapes(from_rune),
+        pretty_shapes(from_model),
+    );
 }

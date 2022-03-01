@@ -5,12 +5,12 @@
 
 mod yaml;
 
-pub use self::yaml::*;
-
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{Registry, systems::CommandBuffer};
-use crate::{BuildContext, Diagnostics, phases::Phase, serialize::RegistryExt};
+use legion::{systems::CommandBuffer, Registry};
+
+pub use self::yaml::*;
+use crate::{phases::Phase, serialize::RegistryExt, BuildContext, Diagnostics};
 
 pub fn phase() -> Phase {
     Phase::with_setup(|res| {

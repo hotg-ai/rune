@@ -1,9 +1,9 @@
 use codespan::Span;
-use legion::{Entity, systems::CommandBuffer};
+use legion::{systems::CommandBuffer, Entity};
 
 use crate::{
-    BuildContext, Diagnostics,
     lowering::{Model, ModelData, ModelFile, Name},
+    BuildContext, Diagnostics,
 };
 
 #[legion::system(for_each)]

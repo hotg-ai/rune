@@ -2,6 +2,7 @@ use core::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
 };
+
 use crate::{InvalidConversionError, Value};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

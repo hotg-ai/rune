@@ -5,8 +5,8 @@ mod components;
 mod model_args_are_consumed;
 
 pub use components::*;
-
 use legion::Registry;
+
 use crate::phases::Phase;
 
 pub fn phase() -> Phase {

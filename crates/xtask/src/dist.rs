@@ -1,6 +1,3 @@
-use crate::BulkCopy;
-use anyhow::{Context as _, Error};
-use walkdir::{DirEntry, WalkDir};
 use std::{
     ffi::{OsStr, OsString},
     fmt::{self, Debug, Formatter},
@@ -10,7 +7,12 @@ use std::{
     process::{Command, Stdio},
     str::FromStr,
 };
-use zip::write::{ZipWriter, FileOptions};
+
+use anyhow::{Context as _, Error};
+use walkdir::{DirEntry, WalkDir};
+use zip::write::{FileOptions, ZipWriter};
+
+use crate::BulkCopy;
 
 #[derive(Debug, structopt::StructOpt)]
 pub struct Dist {

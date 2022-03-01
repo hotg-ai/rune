@@ -1,10 +1,11 @@
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::systems::CommandBuffer;
+
 use crate::{
-    Diagnostics,
     lowering::{NameTable, Resource, ResourceSource},
     parse::DocumentV1,
+    Diagnostics,
 };
 
 /// Register all the [`Resource`]s in a [`DocumentV1`].
@@ -54,7 +55,11 @@ fn path_and_inline_defined_diagnostic(
     name: &str,
     span: Span,
 ) -> Diagnostic<()> {
-    let msg = format!("The resource \"{}\" can't specify both a \"path\" and \"inline\" default value", name);
+    let msg = format!(
+        "The resource \"{}\" can't specify both a \"path\" and \"inline\" \
+         default value",
+        name
+    );
 
     Diagnostic::error()
         .with_message(msg)
@@ -64,14 +69,15 @@ fn path_and_inline_defined_diagnostic(
 #[cfg(test)]
 mod tests {
     use legion::{IntoQuery, Resources, World};
-    use crate::{
-        BuildContext,
-        lowering::Name,
-        phases::Phase,
-        lowering,
-        parse::{ResourceDeclaration, ResourceType},
-    };
+
     use super::*;
+    use crate::{
+        lowering,
+        lowering::Name,
+        parse::{ResourceDeclaration, ResourceType},
+        phases::Phase,
+        BuildContext,
+    };
 
     fn doc() -> DocumentV1 {
         DocumentV1 {
@@ -154,7 +160,8 @@ mod tests {
         assert_eq!(diags.len(), 1);
         assert_eq!(
             diags[0].message,
-            "The resource \"error\" can't specify both a \"path\" and \"inline\" default value",
+            "The resource \"error\" can't specify both a \"path\" and \
+             \"inline\" default value",
         );
     }
 }

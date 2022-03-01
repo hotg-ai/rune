@@ -1,12 +1,12 @@
 use anyhow::Error;
 use env_logger::Env;
-use log::LevelFilter;
-use structopt::{clap::AppSettings, StructOpt};
-use strum::VariantNames;
 use hotg_rune_cli::{
     Build, ColorChoice, Format, Graph, Inspect, ModelInfo, Run, Unstable,
     Version,
 };
+use log::LevelFilter;
+use structopt::{clap::AppSettings, StructOpt};
+use strum::VariantNames;
 
 fn main() -> Result<(), Error> {
     let _ = dotenv::dotenv();

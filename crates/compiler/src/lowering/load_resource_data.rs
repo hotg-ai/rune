@@ -1,15 +1,17 @@
 use std::{
-    path::Path,
-    io::{Cursor, Write, Seek, ErrorKind},
     fs::{DirEntry, File},
+    io::{Cursor, ErrorKind, Seek, Write},
+    path::Path,
 };
+
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{Entity, systems::CommandBuffer};
-use zip::{ZipWriter, write::FileOptions};
+use legion::{systems::CommandBuffer, Entity};
+use zip::{write::FileOptions, ZipWriter};
+
 use crate::{
-    BuildContext, Diagnostics,
     lowering::{Name, Resource, ResourceData, ResourceSource},
+    BuildContext, Diagnostics,
 };
 
 #[legion::system(for_each)]

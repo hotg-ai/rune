@@ -1,4 +1,4 @@
-use super::{ALLOCATOR, stats_allocator::Stats, Logger};
+use super::{stats_allocator::Stats, Logger, ALLOCATOR};
 
 #[derive(Debug, Clone, PartialEq)]
 struct AllocationLogger {

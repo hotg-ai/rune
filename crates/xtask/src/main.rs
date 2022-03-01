@@ -2,11 +2,13 @@ mod bulk_copy;
 mod dist;
 mod update_schema;
 
-use crate::{bulk_copy::BulkCopy, dist::Dist, update_schema::UpdateSchema};
 use std::path::PathBuf;
+
 use anyhow::{Context, Error};
 use env_logger::Env;
 use structopt::StructOpt;
+
+use crate::{bulk_copy::BulkCopy, dist::Dist, update_schema::UpdateSchema};
 
 fn main() -> Result<(), Error> {
     let env = Env::new().default_filter_or("info,cbindgen=warn,globset=info");

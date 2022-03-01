@@ -1,16 +1,17 @@
-use log::LevelFilter;
-use regex::Regex;
-use anyhow::{Context, Error};
-use hotg_rune_integration_tests::{Callbacks, FullName, TestContext};
-use once_cell::sync::Lazy;
-use structopt::StructOpt;
 use std::{
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
 };
-use env_logger::Env;
 
-fn main() -> Result<(), Error> {
+use anyhow::{Context, Error};
+use env_logger::Env;
+use hotg_rune_integration_tests::{Callbacks, FullName, TestContext};
+use log::LevelFilter;
+use once_cell::sync::Lazy;
+use regex::Regex;
+use structopt::StructOpt;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let env = Env::new().default_filter_or("info");
     env_logger::builder()
         .parse_env(env)
@@ -24,12 +25,13 @@ fn main() -> Result<(), Error> {
         test_directory,
         rune_project_dir,
         filters,
+        engine,
     } = Args::from_args();
 
     let tests = hotg_rune_integration_tests::discover(&test_directory)
         .context("Unable to discover tests")?;
 
-    let ctx = TestContext::build(&rune_project_dir)
+    let ctx = TestContext::build(&rune_project_dir, engine)
         .context("Unable to establish the test context")?;
 
     let mut printer = Printer {
@@ -60,9 +62,11 @@ pub struct Args {
     #[structopt(long = "rune-root",
     help = "The Rune repository's root directory",
     default_value = &*RUNE_PROJECT_DIR)]
-    pub rune_project_dir: PathBuf,
+    rune_project_dir: PathBuf,
     #[structopt(short, long = "filter", parse(try_from_str))]
     filters: Vec<Regex>,
+    #[structopt(short, long, default_value = "wasmer")]
+    engine: String,
 }
 
 static RUNE_PROJECT_DIR: Lazy<String> = Lazy::new(|| {
@@ -110,11 +114,11 @@ pub struct Printer {
 }
 
 impl Printer {
-    fn exit_code(self) -> Result<(), Error> {
+    fn exit_code(self) -> Result<(), Box<dyn std::error::Error>> {
         if self.fail == 0 && self.bug == 0 {
             Ok(())
         } else {
-            Err(Error::msg("Test suite failed"))
+            Err("Test suite failed".into())
         }
     }
 }

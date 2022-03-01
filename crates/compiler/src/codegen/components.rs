@@ -2,9 +2,10 @@ use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
     ops::Deref,
-    path::{PathBuf},
+    path::PathBuf,
     sync::Arc,
 };
+
 use hotg_rune_core::Shape;
 use serde::Serialize;
 

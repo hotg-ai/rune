@@ -1,9 +1,10 @@
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{Query, world::SubWorld};
+use legion::{world::SubWorld, Query};
+
 use crate::{
-    Diagnostics,
     lowering::{Model, Name},
+    Diagnostics,
 };
 
 /// Check that all model arguments were consumed during the lowering process,

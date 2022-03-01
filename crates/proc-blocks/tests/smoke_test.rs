@@ -1,12 +1,13 @@
 #[macro_use]
 extern crate pretty_assertions;
 
+use std::marker::PhantomData;
+
+use hotg_rune_core::{ElementType, Tensor};
 use hotg_rune_proc_blocks::{
     Dimension, Dimensions, ProcBlock, ProcBlockDescriptor, TensorDescriptor,
     Transform, TransformDescriptor,
 };
-use std::marker::PhantomData;
-use hotg_rune_core::{Tensor, ElementType};
 
 /// A dummy proc block.
 ///
@@ -51,9 +52,9 @@ impl<T> Default for Generic<T> {
 fn generate_expected_descriptor() {
     let should_be = ProcBlockDescriptor {
         type_name: "Foo".into(),
-        description:
-            "A dummy proc block.\n\nCan it handle multiple lines of input?"
-                .into(),
+        description: "A dummy proc block.\n\nCan it handle multiple lines of \
+                      input?"
+            .into(),
         available_transforms: vec![
             TransformDescriptor {
                 inputs: TensorDescriptor {

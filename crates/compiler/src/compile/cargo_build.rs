@@ -3,10 +3,12 @@ use std::{
     process::{Command, Output, Stdio},
     sync::Mutex,
 };
+
 use legion::systems::CommandBuffer;
+
 use crate::{
-    BuildContext, Verbosity,
     compile::{CompilationResult, CompileError, CompiledBinary},
+    BuildContext, Verbosity,
 };
 
 #[legion::system]

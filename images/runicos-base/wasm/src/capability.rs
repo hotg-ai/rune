@@ -1,6 +1,8 @@
-use hotg_rune_core::{Tensor, Value, Shape};
-use crate::intrinsics;
 use core::marker::PhantomData;
+
+use hotg_rune_core::{Shape, Tensor, Value};
+
+use crate::intrinsics;
 
 #[derive(Debug, PartialEq)]
 pub struct Capability<T> {

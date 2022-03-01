@@ -1,8 +1,10 @@
-use log::{Log, Metadata, Record};
-use hotg_rune_core::SerializableRecord;
-use crate::{BufWriter, intrinsics};
 use alloc::borrow::Cow;
 use core::fmt::{Display, Write};
+
+use hotg_rune_core::SerializableRecord;
+use log::{Log, Metadata, Record};
+
+use crate::{intrinsics, BufWriter};
 
 /// An implementation of [`Log`] which uses [`intrinsics::_debug()`] to send
 /// log messages to the runtime.

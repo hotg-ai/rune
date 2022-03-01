@@ -1,4 +1,5 @@
 use alloc::borrow::Cow;
+
 use log::{Level, Record};
 
 /// A serializable version of [`log::Record`].

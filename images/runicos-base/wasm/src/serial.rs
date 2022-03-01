@@ -1,9 +1,11 @@
-use hotg_rune_core::{outputs, Tensor, ElementType, AsElementType};
-use crate::intrinsics;
-use serde::ser::{Serialize, Serializer, SerializeMap};
-use core::{fmt::Debug, cell::RefCell};
 use alloc::vec::Vec;
+use core::{cell::RefCell, fmt::Debug};
+
+use hotg_rune_core::{outputs, AsElementType, ElementType, Tensor};
+use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
+
+use crate::intrinsics;
 
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]

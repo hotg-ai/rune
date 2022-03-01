@@ -1,7 +1,7 @@
 use core::{
-    str::FromStr,
     convert::TryFrom,
-    fmt::{Display, self, Formatter},
+    fmt::{self, Display, Formatter},
+    str::FromStr,
 };
 
 /// A dynamically typed value that may be passed back and forth across the

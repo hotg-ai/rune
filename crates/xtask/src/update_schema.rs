@@ -1,9 +1,10 @@
 use std::{
     fs::File,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-use anyhow::{Error, Context};
-use std::path::{PathBuf, Path};
+
+use anyhow::{Context, Error};
 use structopt::StructOpt;
 
 #[derive(Debug, Clone, StructOpt)]
@@ -45,7 +46,11 @@ impl UpdateSchema {
             .status()
             .context("unable to start \"yarn\", is it installed?")?;
 
-        anyhow::ensure!(status.success(), "Unable to generate TypeScript types. Do you need to run \"yarn install\" in the web bindings folder?");
+        anyhow::ensure!(
+            status.success(),
+            "Unable to generate TypeScript types. Do you need to run \"yarn \
+             install\" in the web bindings folder?"
+        );
 
         Ok(())
     }

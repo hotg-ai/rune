@@ -11,18 +11,19 @@
 //! 3. Print out some any diagnostics at the end so we can see the effects from
 //!    step 1.
 
+use std::{fmt::Write as _, path::Path};
+
 use codespan_reporting::diagnostic::{Diagnostic, Severity};
+use env_logger::Env;
 use hotg_rune_compiler::{
-    BuildContext, Diagnostics, FeatureFlags,
     hooks::{
         AfterCodegenContext, AfterLoweringContext, AfterTypeCheckingContext,
         Continuation, Hooks,
     },
     lowering::{Model, Name, Resource, ResourceData},
+    BuildContext, Diagnostics, FeatureFlags,
 };
-use legion::{Entity, IntoQuery, component, systems::CommandBuffer};
-use std::{fmt::Write as _, path::Path};
-use env_logger::Env;
+use legion::{component, systems::CommandBuffer, Entity, IntoQuery};
 
 fn main() {
     env_logger::init_from_env(Env::new().default_filter_or("debug"));

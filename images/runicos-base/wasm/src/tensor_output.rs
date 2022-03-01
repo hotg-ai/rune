@@ -1,5 +1,6 @@
-use hotg_rune_core::{outputs, Tensor, AsElementType};
 use alloc::{string::ToString, vec::Vec};
+
+use hotg_rune_core::{outputs, AsElementType, Tensor};
 
 pub struct TensorOutput {
     id: u32,

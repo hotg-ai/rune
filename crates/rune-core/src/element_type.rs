@@ -1,7 +1,7 @@
 use core::{
-    str::FromStr,
-    fmt::{self, Display, Formatter},
     convert::TryFrom,
+    fmt::{self, Display, Formatter},
+    str::FromStr,
 };
 
 /// A type that is associated with an [`ElementType`].

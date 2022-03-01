@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use legion::{
-    Entity, Query,
     serialize::{Canon, CustomEntitySerializer},
     systems::CommandBuffer,
     world::SubWorld,
+    Entity, Query,
 };
+
+use super::{CapabilitySummary, RuneSummary};
 use crate::{
-    BuildContext,
     codegen::{
         ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
     },
@@ -17,9 +18,8 @@ use crate::{
         Sink, Source, Tensor,
     },
     parse::{ResourceName, ResourceOrString},
+    BuildContext,
 };
-
-use super::{CapabilitySummary, RuneSummary};
 
 /// Generate an abbreviated [`RuneGraph`].
 #[legion::system]
