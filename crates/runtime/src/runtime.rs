@@ -2,6 +2,8 @@ use std::{cell::UnsafeCell, collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Error};
 use log::Record;
+use serde::Serialize;
+use wasmparser::{Parser, Payload};
 
 use crate::{
     callbacks::{Callbacks, Model, ModelMetadata, RuneGraph},
@@ -31,7 +33,8 @@ impl Runtime {
     where
         E: WebAssemblyEngine + 'static,
     {
-        let state = Arc::new(State::default());
+        let state = State::with_embedded_resources(rune)?;
+        let state = Arc::new(state);
         let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
         let mut engine = E::load(rune, callbacks)?;
 
@@ -50,26 +53,22 @@ impl Runtime {
 
     /// Get all input tensors, keyed by capability ID.
     pub fn input_tensors(&mut self) -> &mut HashMap<u32, Tensor> {
-        // Safety: See the safety comments on State
-        unsafe { &mut *self.state.input_tensors.get() }
+        self.state.input_tensors()
     }
 
     /// Get all output tensors, keyed by output ID.
     pub fn output_tensors(&self) -> &HashMap<u32, Vec<OutputTensor>> {
-        // Safety: See the safety comments on State
-        unsafe { &*self.state.output_tensors.get() }
+        self.state.output_tensors()
     }
 
     /// Get a mapping from each capability's ID to its metadata.
     pub fn capabilities(&self) -> &HashMap<u32, NodeMetadata> {
-        // Safety: See the safety comments on State
-        unsafe { &*self.state.capabilities.get() }
+        self.state.capabilities()
     }
 
     /// Get a mapping from each output's ID to its metadata.
     pub fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
-        // Safety: See the safety comments on State
-        unsafe { &*self.state.outputs.get() }
+        self.state.outputs()
     }
 
     pub fn set_model_handler<F>(&mut self, load_model: F)
@@ -77,10 +76,7 @@ impl Runtime {
         F: Fn(u32, &ModelMetadata<'_>, &[u8]) -> Result<Box<dyn Model>, Error>,
         F: Sync + Send + 'static,
     {
-        // Safety: See the safety comments on State
-        unsafe {
-            *self.state.load_model.get() = Box::new(load_model);
-        }
+        self.state.set_model_handler(load_model)
     }
 
     pub fn set_logger<L>(&mut self, log: L)
@@ -88,15 +84,11 @@ impl Runtime {
         L: Fn(&Record<'_>),
         L: Send + Sync + 'static,
     {
-        // Safety: See the safety comments on State
-        unsafe {
-            *self.state.log.get() = Box::new(log);
-        }
+        self.state.set_logger(log)
     }
 
     pub fn resources(&mut self) -> &mut HashMap<String, Vec<u8>> {
-        // Safety: See the safety comments on State
-        unsafe { &mut *self.state.resources.get() }
+        self.state.resources()
     }
 }
 
@@ -153,6 +145,77 @@ struct State {
     resources: UnsafeCell<HashMap<String, Vec<u8>>>,
 }
 
+impl State {
+    fn with_embedded_resources(wasm: &[u8]) -> Result<Self, Error> {
+        let s = State::default();
+
+        for payload in Parser::default().parse_all(wasm) {
+            if let Payload::CustomSection { name, mut data, .. } = payload? {
+                if name != ".rune_resource" {
+                    continue;
+                }
+
+                while let Some((resource_name, value, rest)) =
+                    hotg_rune_core::decode_inline_resource(data)
+                {
+                    let resources = unsafe { &mut *s.resources.get() };
+                    resources.insert(resource_name.to_string(), value.to_vec());
+                    data = rest;
+                }
+            }
+        }
+
+        Ok(s)
+    }
+
+    fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
+        // Safety: See the safety comments on State
+        unsafe { &*self.outputs.get() }
+    }
+
+    fn capabilities(&self) -> &HashMap<u32, NodeMetadata> {
+        // Safety: See the safety comments on State
+        unsafe { &*self.capabilities.get() }
+    }
+
+    fn output_tensors(&self) -> &HashMap<u32, Vec<OutputTensor>> {
+        // Safety: See the safety comments on State
+        unsafe { &*self.output_tensors.get() }
+    }
+
+    fn input_tensors(&self) -> &mut HashMap<u32, Tensor> {
+        // Safety: See the safety comments on State
+        unsafe { &mut *self.input_tensors.get() }
+    }
+
+    fn resources(&self) -> &mut HashMap<String, Vec<u8>> {
+        // Safety: See the safety comments on State
+        unsafe { &mut *self.resources.get() }
+    }
+
+    fn set_logger<L>(&self, log: L)
+    where
+        L: Fn(&Record<'_>),
+        L: Send + Sync + 'static,
+    {
+        // Safety: See the safety comments on State
+        unsafe {
+            *self.log.get() = Box::new(log);
+        }
+    }
+
+    fn set_model_handler<F>(&self, load_model: F)
+    where
+        F: Fn(u32, &ModelMetadata<'_>, &[u8]) -> Result<Box<dyn Model>, Error>,
+        F: Sync + Send + 'static,
+    {
+        // Safety: See the safety comments on State
+        unsafe {
+            *self.load_model.get() = Box::new(load_model);
+        }
+    }
+}
+
 impl Default for State {
     fn default() -> Self {
         State {
@@ -171,6 +234,8 @@ impl Default for State {
 
 impl Callbacks for State {
     fn loaded(&self, rune: &RuneGraph<'_>) -> Result<(), Error> {
+        log::debug!("Loaded {:?}", rune);
+
         // Safety: see the safety comments on State
         let capabilities = unsafe { &mut *self.capabilities.get() };
         let outputs = unsafe { &mut *self.outputs.get() };
@@ -265,6 +330,37 @@ unsafe impl Sync for State {}
 #[derive(Debug)]
 pub enum OutputTensor {
     Tensor(Tensor),
+    StringTensor {
+        dimensions: Vec<usize>,
+        strings: Vec<String>,
+    },
+}
+
+impl Serialize for OutputTensor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct SerializedStringTensor<'a> {
+            element_type: &'a str,
+            dimensions: &'a [usize],
+            elements: &'a [String],
+        }
+
+        match self {
+            OutputTensor::Tensor(t) => t.serialize(serializer),
+            OutputTensor::StringTensor {
+                dimensions,
+                strings,
+            } => SerializedStringTensor {
+                element_type: "utf8",
+                dimensions,
+                elements: strings,
+            }
+            .serialize(serializer),
+        }
+    }
 }
 
 impl From<Tensor> for OutputTensor {
@@ -276,129 +372,7 @@ fn parse_outputs(
     data: &[u8],
 ) -> Result<Vec<OutputTensor>, Error> {
     match meta.kind.as_str() {
-        "SERIAL" => parse_serial_output(data),
+        "SERIAL" => crate::outputs::parse_serial(data),
         _ => anyhow::bail!("Unknown output type"),
-    }
-}
-
-fn parse_serial_output(data: &[u8]) -> Result<Vec<OutputTensor>, Error> {
-    #[derive(serde::Deserialize)]
-    #[serde(untagged)]
-    enum OneOrMany {
-        Many(Vec<SerializedOutputTensor>),
-        One(SerializedOutputTensor),
-    }
-
-    if let Ok(s) = std::str::from_utf8(data) {
-        log::debug!("{}", s);
-    }
-
-    let deserialized: OneOrMany = serde_json::from_slice(data)
-        .context("Deserializing from JSON failed")?;
-
-    let items = match deserialized {
-        OneOrMany::Many(many) => many,
-        OneOrMany::One(one) => vec![one],
-    };
-
-    Ok(items.into_iter().map(|s| s.tensor()).collect())
-}
-
-#[derive(serde::Deserialize)]
-#[serde(tag = "type_name")]
-#[allow(non_camel_case_types)]
-enum SerializedOutputTensor {
-    u8 {
-        dimensions: Vec<usize>,
-        elements: Vec<u8>,
-    },
-    i8 {
-        dimensions: Vec<usize>,
-        elements: Vec<i8>,
-    },
-    u16 {
-        dimensions: Vec<usize>,
-        elements: Vec<u16>,
-    },
-    i16 {
-        dimensions: Vec<usize>,
-        elements: Vec<i16>,
-    },
-    u32 {
-        dimensions: Vec<usize>,
-        elements: Vec<u32>,
-    },
-    i32 {
-        dimensions: Vec<usize>,
-        elements: Vec<i32>,
-    },
-    f32 {
-        dimensions: Vec<usize>,
-        elements: Vec<f32>,
-    },
-    u64 {
-        dimensions: Vec<usize>,
-        elements: Vec<u64>,
-    },
-    i64 {
-        dimensions: Vec<usize>,
-        elements: Vec<i64>,
-    },
-    f64 {
-        dimensions: Vec<usize>,
-        elements: Vec<f64>,
-    },
-    #[allow(dead_code)]
-    Utf8 {
-        dimensions: Vec<usize>,
-        elements: Vec<String>,
-    },
-}
-
-impl SerializedOutputTensor {
-    fn tensor(&self) -> OutputTensor {
-        match self {
-            SerializedOutputTensor::u8 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::i8 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::u16 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::i16 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::u32 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::i32 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::f32 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::u64 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::i64 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            SerializedOutputTensor::f64 {
-                dimensions,
-                elements,
-            } => Tensor::new(elements, dimensions).into(),
-            Self::Utf8 { .. } => todo!(),
-        }
     }
 }

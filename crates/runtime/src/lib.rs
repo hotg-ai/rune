@@ -20,6 +20,7 @@ mod tensor;
 
 #[cfg(feature = "builtins")]
 pub mod builtins;
+mod outputs;
 
 pub use crate::{
     callbacks::{Model, ModelMetadata, NodeMetadata},

@@ -42,9 +42,9 @@ pub fn accelerometer(
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct AccelerometerSample {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,7 +70,9 @@ impl AccelerometerSamples {
     ) -> Result<AccelerometerSamples, AccelerometerParseError> {
         let mut samples = Vec::new();
 
-        let mut reader = csv::Reader::from_reader(reader);
+        let mut reader = csv::ReaderBuilder::default()
+            .has_headers(false)
+            .from_reader(reader);
         let mut record = StringRecord::new();
 
         while reader.read_record(&mut record)? {
@@ -120,7 +122,7 @@ fn parse_sample(
     Ok(AccelerometerSample { x, y, z })
 }
 
-fn parse_field(value: &str, line: u64) -> Result<f64, AccelerometerParseError> {
+fn parse_field(value: &str, line: u64) -> Result<f32, AccelerometerParseError> {
     value
         .parse()
         .map_err(|reason| AccelerometerParseError::InvalidSample {

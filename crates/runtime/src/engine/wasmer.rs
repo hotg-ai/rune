@@ -18,6 +18,8 @@ use crate::{
 
 pub struct WasmerEngine {
     instance: Instance,
+    host_functions: Arc<Mutex<HostFunctions>>,
+    callbacks: Arc<dyn Callbacks>,
 }
 
 impl WebAssemblyEngine for WasmerEngine {
@@ -29,10 +31,11 @@ impl WebAssemblyEngine for WasmerEngine {
         let module = Module::from_binary(&store, wasm)
             .context("Unable to load the WebAssembly binary")?;
 
-        let host_functions = HostFunctions::new(callbacks);
+        let host_functions =
+            Arc::new(Mutex::new(HostFunctions::new(callbacks.clone())));
         let env = Env {
             memory: LazyInit::new(),
-            host_functions: Arc::new(Mutex::new(host_functions)),
+            host_functions: Arc::clone(&host_functions),
         };
 
         let imports = wasmer::imports! {
@@ -56,7 +59,11 @@ impl WebAssemblyEngine for WasmerEngine {
         let instance = Instance::new(&module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
-        Ok(WasmerEngine { instance })
+        Ok(WasmerEngine {
+            instance,
+            host_functions,
+            callbacks,
+        })
     }
 
     fn init(&mut self) -> Result<(), Error> {
@@ -71,10 +78,24 @@ impl WebAssemblyEngine for WasmerEngine {
             .map_err(unwrap_anyhow_error)
             .context("Call failed")?;
 
-        Ok(())
+        let host_functions = self.host_functions.lock().unwrap();
+        let graph = host_functions.graph();
+        self.callbacks.loaded(&graph)
     }
 
-    fn predict(&mut self) -> Result<(), Error> { todo!() }
+    fn predict(&mut self) -> Result<(), Error> {
+        let call: NativeFunc<(i32, i32, i32), i32> = self
+            .instance
+            .exports
+            .get_native_function("_call")
+            .context("Unable to get the \"_call\" function")?;
+
+        call.call(0, 0, 0)
+            .map_err(unwrap_anyhow_error)
+            .context("Call failed")?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -89,7 +110,7 @@ impl Display for Shim {
 }
 
 fn runtime_error(e: Error) -> RuntimeError {
-    dbg!(RuntimeError::user(Box::new(Shim(e))))
+    RuntimeError::user(Box::new(Shim(e)))
 }
 
 fn unwrap_anyhow_error(e: RuntimeError) -> Error {
@@ -182,12 +203,14 @@ fn rune_resource_read(
         .rune_resource_read(id, &mut buffer)
         .map_err(runtime_error)?;
 
+    let len = std::cmp::min(len, bytes_written);
+
     let view = memory.view::<u8>();
     // Safety: Function isn't re-entrant so we don't need to worry about
     // concurrent mutations.
     unsafe {
         view.subarray(dest.offset(), dest.offset() + len)
-            .copy_from(&buffer[..bytes_written as usize]);
+            .copy_from(&buffer[..len as usize]);
     }
 
     Ok(bytes_written)
@@ -245,10 +268,8 @@ fn request_capability_set_param(
             .context("Unable to read the value")
             .map_err(runtime_error)?;
 
-        // Safety: this is sound when there are no concurrent modifications
-        let value: &[u8] =
-            std::slice::from_raw_parts(value.as_ptr().cast(), value.len());
-        let value = hotg_rune_core::Value::from_le_bytes(ty, value)
+        let value: Vec<u8> = value.into_iter().map(|c| c.get()).collect();
+        let value = hotg_rune_core::Value::from_le_bytes(ty, &value)
             .context("Unable to deserialize the value")
             .map_err(runtime_error)?;
 
@@ -461,7 +482,7 @@ fn rune_model_load(
         .map_err(runtime_error)?;
 
     // Safety: This function isn't reentrant so there are no concurrent
-    // modifications. That also means it's safe to transmute [Cell<T>] to [T].
+    // modifications.
     let (mimetype, model) = unsafe {
         let mimetype = mimetype
             .get_utf8_str(memory, mimetype_len)
@@ -472,10 +493,8 @@ fn rune_model_load(
             .deref(memory, 0, model_len)
             .context("Invalid model")
             .map_err(runtime_error)?;
-        let model = std::slice::from_raw_parts(
-            model.as_ptr() as *const u8,
-            model.len(),
-        );
+
+        let model: Vec<u8> = model.into_iter().map(|v| v.get()).collect();
 
         (mimetype, model)
     };
@@ -494,7 +513,7 @@ fn rune_model_load(
     env.host_functions
         .lock()
         .unwrap()
-        .rune_model_load(mimetype, model, &inputs, &outputs)
+        .rune_model_load(mimetype, &model, &inputs, &outputs)
         .map_err(runtime_error)
 }
 
@@ -514,7 +533,6 @@ fn tfm_preload_model(
     Ok(0)
 }
 
-/// # Safety
 unsafe fn shape_from_descriptors(
     memory: &Memory,
     descriptors: WasmPtr<StringRef, Array>,
@@ -567,14 +585,12 @@ fn consume_output(
 
     // Safety: This function isn't reentrant so there are no concurrent
     // modifications. That also means it's safe to transmute [Cell<T>] to [T].
-    let buffer = unsafe {
-        std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len())
-    };
+    let buffer: Vec<u8> = buffer.into_iter().map(|c| c.get()).collect();
 
     env.host_functions
         .lock()
         .unwrap()
-        .consume_output(output_id, buffer)
+        .consume_output(output_id, &buffer)
         .map_err(runtime_error)?;
 
     Ok(len)

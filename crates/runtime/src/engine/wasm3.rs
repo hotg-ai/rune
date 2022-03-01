@@ -540,7 +540,7 @@ mod tests {
             _id: u32,
             _meta: &crate::NodeMetadata,
             _buffer: &mut [u8],
-        ) -> Result<(), Error> {
+        ) -> Result<usize, Error> {
             todo!()
         }
 

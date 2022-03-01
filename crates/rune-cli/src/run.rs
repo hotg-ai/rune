@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use anyhow::{Context, Error};
 use hotg_rune_runtime::{
-    builtins::{self, Arguments, AudioClip},
+    builtins::{self, AccelerometerSamples, Arguments, AudioClip},
     NodeMetadata, Runtime,
 };
 use once_cell::sync::Lazy;
@@ -80,13 +80,19 @@ impl Run {
             .load_runtime(&rune)
             .context("Unable to load the Runtime")?;
 
+        self.load_resources(runtime.resources())?;
+
         let caps = runtime.capabilities().clone();
-        *runtime.input_tensors() = self.load_inputs(caps)?;
+        log::debug!("Loading capabilities {:?}", caps);
+        runtime.input_tensors().extend(self.load_inputs(caps)?);
 
         runtime.predict().context("Prediction failed")?;
 
         let outputs = runtime.output_tensors();
-        dbg!(outputs);
+
+        let serialized = serde_json::to_string(outputs)
+            .context("Unable to serialize the output tensors to JSON")?;
+        println!("{}", serialized);
 
         Ok(())
     }
@@ -98,6 +104,7 @@ impl Run {
         let mut inputs = HashMap::new();
 
         for (id, metadata) in caps {
+            log::debug!("Loading {:?}", metadata);
             let NodeMetadata {
                 kind, arguments, ..
             } = metadata;
@@ -131,13 +138,28 @@ impl Run {
                 .and_then(|path| AudioClip::from_wav_file(path))
                 .and_then(|audio| builtins::sound(args, &audio)),
 
-            "RAW" => builtins::source(&self.raw, args)
+            "ACCEL" => builtins::source(&self.accelerometer, args)
                 .and_then(|path| {
-                    std::fs::read_to_string(path).with_context(|| {
+                    AccelerometerSamples::from_file(path).with_context(|| {
                         format!("Unable to read \"{}\"", path.display())
                     })
                 })
-                .and_then(|audio| builtins::raw(args, &audio)),
+                .and_then(|samples| {
+                    builtins::accelerometer(args, dbg!(&samples))
+                }),
+
+            "RAW" => builtins::source(&self.raw, args)
+                .and_then(|path| {
+                    std::fs::read(path).with_context(|| {
+                        format!("Unable to read \"{}\"", path.display())
+                    })
+                })
+                .and_then(|data| builtins::raw(args, &data)),
+
+            "RAND" => match self.random {
+                Some(seed) => builtins::seeded_random(args, seed),
+                None => builtins::random(args),
+            },
 
             _ => anyhow::bail!("Unknown input type, \"{}\"", kind),
         }
@@ -148,6 +170,24 @@ impl Run {
             Engine::Wasm3 => Runtime::wasm3(rune),
             Engine::Wasmer => Runtime::wasmer(rune),
         }
+    }
+
+    pub(crate) fn load_resources(
+        &self,
+        resources: &mut HashMap<String, Vec<u8>>,
+    ) -> Result<(), Error> {
+        for s in &self.string_resources {
+            resources.insert(s.name.clone(), s.value.as_bytes().to_vec());
+        }
+
+        for f in &self.file_resources {
+            let value = std::fs::read(&f.path).with_context(|| {
+                format!("Unable to read \"{}\"", f.path.display())
+            })?;
+            resources.insert(f.name.clone(), value);
+        }
+
+        Ok(())
     }
 }
 

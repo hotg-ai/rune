@@ -126,7 +126,7 @@ impl TestContext {
             .arg("--rune-repo-dir")
             .arg(&self.rune_project_dir);
 
-        cmd.env("RUST_LOG", "debug");
+        cmd.env("RUST_LOG", "debug,wasmer_compiler_cranelift=warn");
         cmd
     }
 

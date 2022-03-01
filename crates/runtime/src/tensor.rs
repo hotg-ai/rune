@@ -4,7 +4,7 @@ use std::{
 };
 
 /// A n-dimension array of numbers.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Tensor {
     element_type: ElementType,
     dimensions: Vec<NonZeroUsize>,
@@ -125,8 +125,18 @@ impl Debug for Tensor {
 }
 
 /// The type of value that may be stored in a [`Tensor`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[repr(u32)]
+#[serde(rename_all = "kebab-case")]
 pub enum ElementType {
     U8,
     I8,

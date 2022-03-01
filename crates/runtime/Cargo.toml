@@ -27,6 +27,7 @@ serde_json = { version = "1.0.79" }
 thiserror = "1.0.24"
 wasm3 = { version = "0.3.1", optional = true }
 wasmer = { version = "2.2.0-rc2", optional = true }
+wasmparser = "0.83.0"
 
 [features]
 default = ["builtins", "tflite"]

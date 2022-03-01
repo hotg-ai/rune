@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use structopt::StructOpt;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let env = Env::new().default_filter_or("info");
     env_logger::builder()
         .parse_env(env)
@@ -111,11 +111,11 @@ pub struct Printer {
 }
 
 impl Printer {
-    fn exit_code(self) -> Result<(), Error> {
+    fn exit_code(self) -> Result<(), Box<dyn std::error::Error>> {
         if self.fail == 0 && self.bug == 0 {
             Ok(())
         } else {
-            Err(Error::msg("Test suite failed"))
+            Err("Test suite failed".into())
         }
     }
 }
