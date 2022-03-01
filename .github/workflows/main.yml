@@ -26,7 +26,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}
       - name: Update Rustup
         run: |
           # We need to update rustup because the mac version is out of date and
@@ -83,7 +83,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
@@ -144,7 +144,7 @@ jobs:
             ~/.cargo/git
             target
             bindings/web/node_modules
-          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.workflow }}-${{ github.job }}
       - name: Setup Rust
         run: rustup show
       - name: check @hotg-ai/rune
