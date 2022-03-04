@@ -1,10 +1,11 @@
 #[macro_use]
 mod macros;
 
-mod metadata;
 mod error;
+mod metadata;
 mod runtime;
+mod input_tensors;
 mod utils;
 
 pub(crate) use crate::utils::*;
-pub use crate::{metadata::*, error::*, runtime::*};
+pub use crate::{error::*, metadata::*, runtime::*, input_tensors::*};

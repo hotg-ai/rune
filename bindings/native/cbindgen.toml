@@ -2,7 +2,11 @@ language = "C"
 include_version = true
 pragma_once = true
 cpp_compat = true
+namespace = "rune"
 
-[defines]
-"feature = wasm3" = "RUNE_WASM3_ENGINE"
-"feature = wasmer" = "RUNE_WASMER_ENGINE"
+[fn]
+must_use = "__attribute__((warn_unused_result))"
+
+[parse]
+parse_deps = true
+include = ["hotg-rune-runtime"]

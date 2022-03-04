@@ -1,18 +1,26 @@
-use std::{os::raw::c_int, ptr, slice};
+use std::{
+    ops::{Deref, DerefMut},
+    os::raw::c_int,
+    ptr, slice,
+};
 
 use hotg_rune_runtime::Runtime as RustRuntime;
 
-use crate::{Error, Metadata};
+use crate::{Error, InputTensors, Metadata};
 
 /// A loaded Rune.
 pub struct Runtime {
     inner: RustRuntime,
 }
 
-impl std::ops::Deref for Runtime {
+impl Deref for Runtime {
     type Target = RustRuntime;
 
     fn deref(&self) -> &Self::Target { &self.inner }
+}
+
+impl DerefMut for Runtime {
+    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.inner }
 }
 
 pub struct Config {
@@ -30,7 +38,10 @@ pub unsafe extern "C" fn rune_runtime_free(runtime: *mut Runtime) {
     let _ = Box::from_raw(runtime);
 }
 
+/// Execute the rune, reading from the input tensors that were provided and
+/// writing to the output tensors.
 #[no_mangle]
+#[must_use]
 pub unsafe extern "C" fn rune_runtime_predict(
     runtime: *mut Runtime,
 ) -> *mut Error {
@@ -43,7 +54,9 @@ pub unsafe extern "C" fn rune_runtime_predict(
     }
 }
 
+/// Get a set of all the input nodes in this Rune.
 #[no_mangle]
+#[must_use]
 pub unsafe extern "C" fn rune_runtime_inputs(
     runtime: *const Runtime,
     metadata_out: *mut *mut Metadata,
@@ -59,7 +72,9 @@ pub unsafe extern "C" fn rune_runtime_inputs(
     ptr::null_mut()
 }
 
+/// Get a set of all the output nodes in this Rune.
 #[no_mangle]
+#[must_use]
 pub unsafe extern "C" fn rune_runtime_outputs(
     runtime: *const Runtime,
     metadata_out: *mut *mut Metadata,
@@ -75,6 +90,22 @@ pub unsafe extern "C" fn rune_runtime_outputs(
 }
 
 #[no_mangle]
+#[must_use]
+pub unsafe extern "C" fn rune_runtime_input_tensors(
+    runtime: *mut Runtime,
+    tensors_out: *mut *mut InputTensors,
+) -> *mut Error {
+    expect!(!runtime.is_null());
+    expect!(!tensors_out.is_null());
+    let runtime = &mut *runtime;
+
+    tensors_out.write(Box::into_raw(Box::new(runtime.input_tensors().into())));
+
+    ptr::null_mut()
+}
+
+#[no_mangle]
+#[must_use]
 pub unsafe extern "C" fn rune_runtime_load(
     cfg: &Config,
     runtime_out: *mut *mut Runtime,

@@ -4,8 +4,10 @@ use std::{
     path::Path,
     process::Command,
     ptr::{self, NonNull},
+    slice,
 };
 
+use hotg_rune_runtime::ElementType;
 use once_cell::sync::Lazy;
 use rune_native::*;
 
@@ -96,6 +98,75 @@ fn set_inputs() {
         let error = rune_runtime_load(&cfg, &mut runtime);
         assert!(error.is_null());
 
+        let mut tensors: *mut InputTensors = ptr::null_mut();
+        let error = rune_runtime_input_tensors(runtime, &mut tensors);
+        assert!(error.is_null());
+        assert!(!tensors.is_null());
+        let tensors = NonNull::new(tensors);
+
+        assert_eq!(rune_input_tensor_count(tensors), 0);
+
+        let dims = [1, 4];
+        let tensor = rune_input_tensors_insert(
+            tensors,
+            1,
+            ElementType::U8,
+            dims.as_ptr(),
+            2,
+        );
+        assert!(!tensor.is_null());
+        let tensor = NonNull::new(tensor);
+        assert_eq!(rune_tensor_rank(tensor), 2);
+        assert_eq!(rune_tensor_element_type(tensor), ElementType::U8);
+        assert_eq!(rune_tensor_buffer_len(tensor), 4);
+
+        let buffer = rune_tensor_buffer(tensor);
+        assert!(!buffer.is_null());
+        let buffer = slice::from_raw_parts_mut(
+            buffer,
+            rune_tensor_buffer_len(tensor) as usize,
+        );
+        buffer.fill(42);
+
+        rune_input_tensors_free(
+            tensors.map(|p| p.as_ptr()).unwrap_or(ptr::null_mut()),
+        );
+        rune_runtime_free(runtime);
+    }
+}
+
+#[test]
+fn inspect_outputs() {
+    unsafe {
+        let mut runtime: *mut Runtime = ptr::null_mut();
+        let cfg = Config {
+            wasm: SINE_RUNE.as_ptr(),
+            wasm_len: SINE_RUNE.len() as c_int,
+            engine: Engine::Wasm3,
+        };
+
+        let error = rune_runtime_load(&cfg, &mut runtime);
+        assert!(error.is_null());
+
+        let mut outputs: *mut Metadata = ptr::null_mut();
+
+        let error = rune_runtime_outputs(runtime, &mut outputs);
+        assert!(error.is_null());
+        let outputs = NonNull::new(outputs);
+
+        let num_outputs = rune_metadata_node_count(outputs);
+        assert_eq!(1, num_outputs);
+
+        let node = rune_metadata_get_node(outputs, 0);
+        assert!(node.is_some());
+
+        assert_eq!(3, rune_node_id(node));
+        let kind = rune_node_kind(node);
+        assert_eq!(CStr::from_ptr(kind).to_string_lossy(), "SERIAL");
+
+        assert_eq!(0, rune_node_argument_count(node));
+
+        rune_metadata_free(outputs.unwrap().as_ptr());
         rune_runtime_free(runtime);
     }
 }
