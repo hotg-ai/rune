@@ -35,7 +35,8 @@ pub unsafe extern "C" fn rune_runtime_free(runtime: *mut Runtime) {
         return;
     }
 
-    let _ = Box::from_raw(runtime);
+    let rt = Box::from_raw(runtime);
+    drop(rt);
 }
 
 /// Execute the rune, reading from the input tensors that were provided and

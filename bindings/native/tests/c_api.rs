@@ -46,7 +46,36 @@ fn load_the_sine_rune() {
 }
 
 #[test]
-fn inspect_inputs() {
+fn run_prediction_with_missing_input() {
+    unsafe {
+        let mut runtime: *mut Runtime = ptr::null_mut();
+        let cfg = Config {
+            wasm: SINE_RUNE.as_ptr(),
+            wasm_len: SINE_RUNE.len() as c_int,
+            engine: Engine::Wasm3,
+        };
+
+        let error = rune_runtime_load(&cfg, &mut runtime);
+        assert!(error.is_null());
+        assert!(!runtime.is_null());
+
+        let error = rune_runtime_predict(runtime);
+        assert!(!error.is_null());
+
+        let msg = rune_error_to_string(error);
+        assert_eq!(
+            CStr::from_ptr(msg).to_str(),
+            Ok("Unable to read the input")
+        );
+        libc::free(msg.cast());
+
+        rune_error_free(error);
+        rune_runtime_free(runtime);
+    }
+}
+
+#[test]
+fn inspect_input_metadata() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
@@ -136,7 +165,7 @@ fn set_inputs() {
 }
 
 #[test]
-fn inspect_outputs() {
+fn inspect_output_metadata() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
@@ -167,6 +196,45 @@ fn inspect_outputs() {
         assert_eq!(0, rune_node_argument_count(node));
 
         rune_metadata_free(outputs.unwrap().as_ptr());
+        rune_runtime_free(runtime);
+    }
+}
+
+#[test]
+fn run_the_sine_rune() {
+    unsafe {
+        let mut runtime: *mut Runtime = ptr::null_mut();
+        let cfg = Config {
+            wasm: SINE_RUNE.as_ptr(),
+            wasm_len: SINE_RUNE.len() as c_int,
+            engine: Engine::Wasm3,
+        };
+
+        let _ = rune_runtime_load(&cfg, &mut runtime);
+
+        let mut tensors = ptr::null_mut();
+        let _ = rune_runtime_input_tensors(runtime, &mut tensors);
+
+        let dims = [1, 4];
+        let tensor = rune_input_tensors_insert(
+            NonNull::new(tensors),
+            1,
+            ElementType::U8,
+            dims.as_ptr(),
+            2,
+        );
+        let data = [1_u8, 2, 3, 4];
+        std::ptr::copy_nonoverlapping(
+            data.as_ptr(),
+            rune_tensor_buffer(NonNull::new(tensor)),
+            data.len(),
+        );
+        rune_input_tensors_free(tensors);
+
+        let error = rune_runtime_predict(runtime);
+        assert!(error.is_null());
+
+        rune_error_free(error);
         rune_runtime_free(runtime);
     }
 }
