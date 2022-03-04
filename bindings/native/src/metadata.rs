@@ -5,23 +5,23 @@ use std::{
     ptr::{self, NonNull},
 };
 
-use hotg_rune_runtime::NodeMetadata as RustNodeMetadata;
+use hotg_rune_runtime::NodeMetadata;
 
 /// Metadata for a set of nodes in the ML pipeline.
-pub struct Metadata(Vec<NodeMetadata>);
+pub struct Metadata(Vec<Node>);
 
 impl std::ops::Deref for Metadata {
-    type Target = [NodeMetadata];
+    type Target = [Node];
 
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-impl From<&'_ HashMap<u32, RustNodeMetadata>> for Metadata {
-    fn from(node_metadata: &'_ HashMap<u32, RustNodeMetadata>) -> Metadata {
+impl From<&'_ HashMap<u32, NodeMetadata>> for Metadata {
+    fn from(node_metadata: &'_ HashMap<u32, NodeMetadata>) -> Metadata {
         let mut meta = Vec::new();
 
         for (&id, m) in node_metadata {
-            let RustNodeMetadata {
+            let NodeMetadata {
                 kind, arguments, ..
             } = m;
             let kind = CString::new(kind.as_str()).unwrap();
@@ -33,7 +33,7 @@ impl From<&'_ HashMap<u32, RustNodeMetadata>> for Metadata {
                 args.push((key, value));
             }
 
-            meta.push(NodeMetadata {
+            meta.push(Node {
                 id,
                 kind,
                 arguments: args,
@@ -64,7 +64,7 @@ pub unsafe extern "C" fn rune_metadata_free(meta: *mut Metadata) {
 pub unsafe extern "C" fn rune_metadata_get_node(
     meta: Option<NonNull<Metadata>>,
     index: c_int,
-) -> Option<NonNull<NodeMetadata>> {
+) -> Option<NonNull<Node>> {
     match meta?.as_ref().get(index as usize) {
         Some(n) => Some(n.into()),
         None => None,
@@ -83,7 +83,7 @@ pub unsafe extern "C" fn rune_metadata_node_count(
 }
 
 /// Metadata for a single node.
-pub struct NodeMetadata {
+pub struct Node {
     id: u32,
     kind: CString,
     arguments: Vec<(CString, CString)>,
@@ -91,9 +91,7 @@ pub struct NodeMetadata {
 
 /// Get the ID for this particular node.
 #[no_mangle]
-pub unsafe extern "C" fn rune_node_metadata_id(
-    node: Option<NonNull<NodeMetadata>>,
-) -> u32 {
+pub unsafe extern "C" fn rune_node_id(node: Option<NonNull<Node>>) -> u32 {
     match node {
         Some(node) => node.as_ref().id,
         None => u32::MAX,
@@ -108,8 +106,8 @@ pub unsafe extern "C" fn rune_node_metadata_id(
 ///
 /// The returned pointer can't outlive the `Metadata` it came from.
 #[no_mangle]
-pub unsafe extern "C" fn rune_node_metadata_kind(
-    node: Option<NonNull<NodeMetadata>>,
+pub unsafe extern "C" fn rune_node_kind(
+    node: Option<NonNull<Node>>,
 ) -> *const c_char {
     match node {
         Some(node) => node.as_ref().kind.as_ptr(),
@@ -119,8 +117,8 @@ pub unsafe extern "C" fn rune_node_metadata_kind(
 
 /// How many arguments have been passed to this node?
 #[no_mangle]
-pub unsafe extern "C" fn rune_node_metadata_num_arguments(
-    node: Option<NonNull<NodeMetadata>>,
+pub unsafe extern "C" fn rune_node_argument_count(
+    node: Option<NonNull<Node>>,
 ) -> c_int {
     match node {
         Some(node) => node.as_ref().arguments.len() as c_int,
@@ -131,8 +129,8 @@ pub unsafe extern "C" fn rune_node_metadata_num_arguments(
 /// Get the name for a particular argument, or `null` if that argument doesn't
 /// exist.
 #[no_mangle]
-pub extern "C" fn rune_node_metadata_get_argument_name(
-    node: Option<NonNull<NodeMetadata>>,
+pub extern "C" fn rune_node_get_argument_name(
+    node: Option<NonNull<Node>>,
     index: c_int,
 ) -> *const c_char {
     let node = match node {
@@ -149,8 +147,8 @@ pub extern "C" fn rune_node_metadata_get_argument_name(
 /// Get the value for a particular argument, or `null` if that argument doesn't
 /// exist.
 #[no_mangle]
-pub extern "C" fn rune_node_metadata_get_argument_value(
-    node: Option<NonNull<NodeMetadata>>,
+pub extern "C" fn rune_node_get_argument_value(
+    node: Option<NonNull<Node>>,
     index: c_int,
 ) -> *const c_char {
     let node = match node {

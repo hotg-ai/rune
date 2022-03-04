@@ -68,14 +68,14 @@ fn inspect_inputs() {
         let node = rune_metadata_get_node(inputs, 0);
         assert!(node.is_some());
 
-        assert_eq!(1, rune_node_metadata_id(node));
-        let kind = rune_node_metadata_kind(node);
+        assert_eq!(1, rune_node_id(node));
+        let kind = rune_node_kind(node);
         assert_eq!(CStr::from_ptr(kind).to_string_lossy(), "RAW");
 
-        assert_eq!(1, rune_node_metadata_num_arguments(node));
-        let arg_name = rune_node_metadata_get_argument_name(node, 0);
+        assert_eq!(1, rune_node_argument_count(node));
+        let arg_name = rune_node_get_argument_name(node, 0);
         assert_eq!(CStr::from_ptr(arg_name).to_string_lossy(), "length");
-        let arg_value = rune_node_metadata_get_argument_value(node, 0);
+        let arg_value = rune_node_get_argument_value(node, 0);
         assert_eq!(CStr::from_ptr(arg_value).to_string_lossy(), "4");
 
         rune_metadata_free(inputs.unwrap().as_ptr());

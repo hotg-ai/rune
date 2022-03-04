@@ -2,7 +2,7 @@ use std::{os::raw::c_int, ptr, slice};
 
 use hotg_rune_runtime::Runtime as RustRuntime;
 
-use crate::{Metadata, Error};
+use crate::{Error, Metadata};
 
 /// A loaded Rune.
 pub struct Runtime {
@@ -46,15 +46,30 @@ pub unsafe extern "C" fn rune_runtime_predict(
 #[no_mangle]
 pub unsafe extern "C" fn rune_runtime_inputs(
     runtime: *const Runtime,
-    caps_out: *mut *mut Metadata,
+    metadata_out: *mut *mut Metadata,
 ) -> *mut Error {
     expect!(!runtime.is_null());
-    expect!(!caps_out.is_null());
+    expect!(!metadata_out.is_null());
     let runtime = &*runtime;
 
-    caps_out.write(Box::into_raw(Box::new(Metadata::from(
+    metadata_out.write(Box::into_raw(Box::new(Metadata::from(
         runtime.capabilities(),
     ))));
+
+    ptr::null_mut()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rune_runtime_outputs(
+    runtime: *const Runtime,
+    metadata_out: *mut *mut Metadata,
+) -> *mut Error {
+    expect!(!runtime.is_null());
+    expect!(!metadata_out.is_null());
+    let runtime = &*runtime;
+
+    metadata_out
+        .write(Box::into_raw(Box::new(Metadata::from(runtime.outputs()))));
 
     ptr::null_mut()
 }

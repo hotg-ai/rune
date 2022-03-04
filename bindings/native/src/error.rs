@@ -4,6 +4,37 @@ use std::{
 };
 
 /// An error that may be returned by the Rune native library.
+///
+/// # Error Handling
+///
+/// Fallible functions will return a `*mut Error` which *must* be checked before
+/// continuing.
+///
+/// This might look like...
+///
+/// ```cpp
+/// Runtime *runtime;
+/// Config cfg = {...};
+///
+/// Error *error = rune_runtime_load(&cfg, &runtime);
+///
+/// if (error) {
+///     const char *msg = rune_error_to_string(error);
+///
+///     printf("Unable to load the Rune: %s\n", msg);
+///
+///     free(msg);
+///     rune_error_free(error);
+///     exit(1);
+/// }
+/// ```
+///
+/// Additional "return" values are returned via output parameters (typically
+/// named `xxx_out`). If an error occurs, the state of the output parameter is
+/// unspecified, otherwise it is guaranteed to be in a valid state.
+///
+/// If an error is present, it is the caller's responsibility to free it
+/// afterwards.
 pub struct Error(anyhow::Error);
 
 impl Error {
