@@ -1,0 +1,8 @@
+language = "C"
+include_version = true
+pragma_once = true
+cpp_compat = true
+
+[defines]
+"feature = wasm3" = "RUNE_WASM3_ENGINE"
+"feature = wasmer" = "RUNE_WASMER_ENGINE"
