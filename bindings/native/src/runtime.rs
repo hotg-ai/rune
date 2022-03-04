@@ -23,9 +23,11 @@ impl DerefMut for Runtime {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.inner }
 }
 
+/// Data used when loading a Rune.
+#[repr(C)]
 pub struct Config {
-    pub wasm: *const u8,
-    pub wasm_len: c_int,
+    pub rune: *const u8,
+    pub rune_len: c_int,
     pub engine: Engine,
 }
 
@@ -111,11 +113,11 @@ pub unsafe extern "C" fn rune_runtime_load(
     cfg: &Config,
     runtime_out: *mut *mut Runtime,
 ) -> *mut Error {
-    expect!(!cfg.wasm.is_null());
-    expect!(cfg.wasm_len > 0);
+    expect!(!cfg.rune.is_null());
+    expect!(cfg.rune_len > 0);
     expect!(!runtime_out.is_null());
 
-    let wasm = slice::from_raw_parts(cfg.wasm, cfg.wasm_len as usize);
+    let wasm = slice::from_raw_parts(cfg.rune, cfg.rune_len as usize);
 
     let load_result = match cfg.engine {
         Engine::Wasm3 => load_wasm3(wasm),

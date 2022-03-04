@@ -17,7 +17,7 @@ harness = false
 [dependencies]
 anyhow = "1.0.55"
 cfg-if = "1.0.0"
-hotg-rune-runtime = { version = "0.11.3", path = "../../crates/runtime" }
+hotg-rune-runtime = { version = "0.11.3", path = "../../crates/runtime", default-features = false }
 
 [dev-dependencies]
 cbindgen = "0.20.0"
@@ -29,6 +29,7 @@ tracing = { version = "0.1.31", features = ["tracing-attributes"] }
 tracing-subscriber = { version = "0.3.9", features = ["env-filter"] }
 
 [features]
-default = ["wasm3"]
+default = ["wasm3", "tflite"]
 wasm3 = ["hotg-rune-runtime/wasm3"]
 wasmer = ["hotg-rune-runtime/wasmer"]
+tflite = ["hotg-rune-runtime/tflite"]

@@ -32,8 +32,8 @@ fn load_the_sine_rune() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
-            wasm: SINE_RUNE.as_ptr(),
-            wasm_len: SINE_RUNE.len() as c_int,
+            rune: SINE_RUNE.as_ptr(),
+            rune_len: SINE_RUNE.len() as c_int,
             engine: Engine::Wasm3,
         };
 
@@ -50,8 +50,8 @@ fn run_prediction_with_missing_input() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
-            wasm: SINE_RUNE.as_ptr(),
-            wasm_len: SINE_RUNE.len() as c_int,
+            rune: SINE_RUNE.as_ptr(),
+            rune_len: SINE_RUNE.len() as c_int,
             engine: Engine::Wasm3,
         };
 
@@ -79,8 +79,8 @@ fn inspect_input_metadata() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
-            wasm: SINE_RUNE.as_ptr(),
-            wasm_len: SINE_RUNE.len() as c_int,
+            rune: SINE_RUNE.as_ptr(),
+            rune_len: SINE_RUNE.len() as c_int,
             engine: Engine::Wasm3,
         };
 
@@ -119,8 +119,8 @@ fn set_inputs() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
-            wasm: SINE_RUNE.as_ptr(),
-            wasm_len: SINE_RUNE.len() as c_int,
+            rune: SINE_RUNE.as_ptr(),
+            rune_len: SINE_RUNE.len() as c_int,
             engine: Engine::Wasm3,
         };
 
@@ -169,8 +169,8 @@ fn inspect_output_metadata() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
-            wasm: SINE_RUNE.as_ptr(),
-            wasm_len: SINE_RUNE.len() as c_int,
+            rune: SINE_RUNE.as_ptr(),
+            rune_len: SINE_RUNE.len() as c_int,
             engine: Engine::Wasm3,
         };
 
@@ -205,15 +205,17 @@ fn run_the_sine_rune() {
     unsafe {
         let mut runtime: *mut Runtime = ptr::null_mut();
         let cfg = Config {
-            wasm: SINE_RUNE.as_ptr(),
-            wasm_len: SINE_RUNE.len() as c_int,
+            rune: SINE_RUNE.as_ptr(),
+            rune_len: SINE_RUNE.len() as c_int,
             engine: Engine::Wasm3,
         };
 
-        let _ = rune_runtime_load(&cfg, &mut runtime);
+        let error = rune_runtime_load(&cfg, &mut runtime);
+        assert!(error.is_null());
 
         let mut tensors = ptr::null_mut();
-        let _ = rune_runtime_input_tensors(runtime, &mut tensors);
+        let error = rune_runtime_input_tensors(runtime, &mut tensors);
+        assert!(error.is_null());
 
         let dims = [1, 4];
         let tensor = rune_input_tensors_insert(
