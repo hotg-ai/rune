@@ -1,0 +1,37 @@
+{
+	"tags":
+	{
+		"allowUnknownTags" : true
+	},
+	"plugins":[
+		 "plugins/markdown"
+		,"/Users/kartikthakore/.npm/_npx/39334eb8977a914a/node_modules/tsdoc/template/plugins/TSDoc.js"
+	],
+	"opts":
+	{
+		"template"	:"/Users/kartikthakore/.npm/_npx/39334eb8977a914a/node_modules/tsdoc/template",
+		"recurse"	:"true"
+	},
+	"templates" : {
+		"cleverLinks"     : false,
+		"monospaceLinks"  : false
+	},
+	"source":
+	{
+		"includePattern": "(\\.d)?\\.ts$"
+	},
+	"markdown"  : {
+		"parser"   : "gfm",
+		"hardwrap" : true
+	},
+	"tsdoc":{
+		"source"		:"/Users/kartikthakore/Documents/Hammer/Rune/rune/bindings/web/rune/src/",
+		"destination"	:"/Users/kartikthakore/Documents/Hammer/Rune/rune/bindings/web/rune/docs",
+		"tutorials"		:"",
+		"systemName"	: "rune",
+		"footer"		: "",
+		"copyright"		: "rune Copyright © 2022 kartikthakore.",
+		"outputSourceFiles" : true,
+		"commentsOnly": true
+	}
+}
