@@ -11,6 +11,7 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "fmt": "prettier --write .",
+    "docs": "typedoc --plugin typedoc-plugin-markdown --out docs src/index.ts --disableSources",
     "release": "tsc && cd dist && cp ../*.md . && sed 's/\"private\": true,/\"private\": false,/g' ../package.json > package.json && yarn publish"
   },
   "dependencies": {
