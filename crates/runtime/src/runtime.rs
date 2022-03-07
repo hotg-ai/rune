@@ -42,12 +42,12 @@ use std::{cell::UnsafeCell, collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Error};
 use log::Record;
-use serde::Serialize;
 use wasmparser::{Parser, Payload};
 
 use crate::{
     callbacks::{Callbacks, Model, ModelMetadata, RuneGraph},
     engine::WebAssemblyEngine,
+    outputs::{parse_outputs, OutputTensor},
     NodeMetadata, Tensor,
 };
 
@@ -323,53 +323,3 @@ impl Callbacks for State {
 
 // Safety: see comments on the `State` type itself.
 unsafe impl Sync for State {}
-
-#[derive(Debug)]
-pub enum OutputTensor {
-    Tensor(Tensor),
-    StringTensor {
-        dimensions: Vec<usize>,
-        strings: Vec<String>,
-    },
-}
-
-impl Serialize for OutputTensor {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct SerializedStringTensor<'a> {
-            element_type: &'a str,
-            dimensions: &'a [usize],
-            elements: &'a [String],
-        }
-
-        match self {
-            OutputTensor::Tensor(t) => t.serializable().serialize(serializer),
-            OutputTensor::StringTensor {
-                dimensions,
-                strings,
-            } => SerializedStringTensor {
-                element_type: "utf8",
-                dimensions,
-                elements: strings,
-            }
-            .serialize(serializer),
-        }
-    }
-}
-
-impl From<Tensor> for OutputTensor {
-    fn from(t: Tensor) -> OutputTensor { OutputTensor::Tensor(t) }
-}
-
-fn parse_outputs(
-    meta: &NodeMetadata,
-    data: &[u8],
-) -> Result<Vec<OutputTensor>, Error> {
-    match meta.kind.as_str() {
-        "SERIAL" => crate::outputs::parse_serial(data),
-        _ => anyhow::bail!("Unknown output type"),
-    }
-}

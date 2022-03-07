@@ -156,3 +156,16 @@ pub unsafe extern "C" fn rune_tensor_buffer(
         .map(|t| t.buffer_mut().as_mut_ptr())
         .unwrap_or(ptr::null_mut())
 }
+
+/// Get a readonly reference to this `Tensor`'s buffer.
+#[no_mangle]
+pub unsafe extern "C" fn rune_tensor_buffer_readonly(
+    tensor: *const Tensor,
+) -> *const u8 {
+    if tensor.is_null() {
+        return ptr::null();
+    }
+
+    let tensor = &*tensor;
+    tensor.buffer().as_ptr()
+}

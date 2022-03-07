@@ -1,8 +1,17 @@
 use anyhow::{Context, Error};
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{runtime::OutputTensor, Tensor, TensorElement};
+use crate::{NodeMetadata, Tensor, TensorElement};
+
+#[derive(Debug)]
+pub enum OutputTensor {
+    Tensor(Tensor),
+    StringTensor {
+        dimensions: Vec<usize>,
+        strings: Vec<String>,
+    },
+}
 
 pub(crate) fn parse_serial(data: &[u8]) -> Result<Vec<OutputTensor>, Error> {
     if let Ok(s) = std::str::from_utf8(data) {
@@ -95,4 +104,45 @@ where
 enum OneOrMany {
     Many(Vec<Map<String, Value>>),
     One(Map<String, Value>),
+}
+
+impl Serialize for OutputTensor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct SerializedStringTensor<'a> {
+            element_type: &'a str,
+            dimensions: &'a [usize],
+            elements: &'a [String],
+        }
+
+        match self {
+            OutputTensor::Tensor(t) => t.serializable().serialize(serializer),
+            OutputTensor::StringTensor {
+                dimensions,
+                strings,
+            } => SerializedStringTensor {
+                element_type: "utf8",
+                dimensions,
+                elements: strings,
+            }
+            .serialize(serializer),
+        }
+    }
+}
+
+impl From<Tensor> for OutputTensor {
+    fn from(t: Tensor) -> OutputTensor { OutputTensor::Tensor(t) }
+}
+
+pub(crate) fn parse_outputs(
+    meta: &NodeMetadata,
+    data: &[u8],
+) -> Result<Vec<OutputTensor>, Error> {
+    match meta.kind.as_str() {
+        "SERIAL" => crate::outputs::parse_serial(data),
+        _ => anyhow::bail!("Unknown output type"),
+    }
 }

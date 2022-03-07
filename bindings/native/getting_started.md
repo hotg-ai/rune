@@ -73,6 +73,8 @@ if (error) {
 }
 ```
 
+## Specifying Inputs
+
 After loading the runtime you will need to find out which inputs have been
 requested and any arguments they require.
 
@@ -144,7 +146,7 @@ Compiling the program is fairly simple. You should be able to link with the
 `librune_native.a` binary.
 
 ```console
-$ clang -o main main.c librune.a -lm -Wall -Wpedantic
+$ clang -o main main.c librune.a -lm -Wall -Wpedantic -L$RUNECORAL_DIST_DIR/lib/linux/x86_64 -lrunecoral -lstdc++
 ```
 
 ... and then run it
@@ -191,7 +193,7 @@ int read_file(const char *filename, uint8_t **buffer) {
     int length = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    *buffer = calloc(length, sizeof(uint8_t));
+    *buffer = (uint8_t*)calloc(length, sizeof(uint8_t));
     return fread(*buffer, sizeof(uint8_t), length, f);
 }
 ```

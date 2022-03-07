@@ -2,10 +2,13 @@
 mod macros;
 
 mod error;
-mod metadata;
-mod runtime;
 mod input_tensors;
+mod metadata;
+mod output_tensors;
+mod runtime;
 mod utils;
 
 pub(crate) use crate::utils::*;
-pub use crate::{error::*, metadata::*, runtime::*, input_tensors::*};
+pub use crate::{
+    error::*, input_tensors::*, metadata::*, output_tensors::*, runtime::*,
+};

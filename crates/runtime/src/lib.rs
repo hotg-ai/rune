@@ -24,6 +24,7 @@ mod outputs;
 
 pub use crate::{
     callbacks::{Model, ModelMetadata, NodeMetadata},
+    outputs::OutputTensor,
     runtime::Runtime,
     tensor::{ElementType, Tensor, TensorElement},
 };

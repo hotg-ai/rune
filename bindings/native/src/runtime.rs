@@ -6,7 +6,7 @@ use std::{
 
 use hotg_rune_runtime::Runtime as RustRuntime;
 
-use crate::{Error, InputTensors, Metadata};
+use crate::{Error, InputTensors, Metadata, OutputTensors};
 
 /// A loaded Rune.
 pub struct Runtime {
@@ -105,6 +105,29 @@ pub unsafe extern "C" fn rune_runtime_input_tensors(
     tensors_out.write(Box::into_raw(Box::new(runtime.input_tensors().into())));
 
     ptr::null_mut()
+}
+
+/// Get a reference to the tensors associated with each output node.
+///
+/// This will return `null` if `runtime` is `null`.
+///
+/// # Safety
+///
+/// This reference points directly into the runtime's internals, so any use of
+/// the runtime while this reference is alive may invalidate it.
+#[no_mangle]
+#[must_use]
+pub unsafe extern "C" fn rune_runtime_output_tensors<'rt>(
+    runtime: *mut Runtime,
+) -> *mut OutputTensors<'rt> {
+    if runtime.is_null() {
+        return ptr::null_mut();
+    }
+
+    let runtime = &*runtime;
+    let output_tensors = OutputTensors::from(runtime.output_tensors());
+
+    Box::into_raw(Box::new(output_tensors))
 }
 
 #[no_mangle]
