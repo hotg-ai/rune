@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     ffi::CString,
     os::raw::{c_char, c_int},
-    ptr::{self, NonNull},
+    ptr::{self},
 };
 
 use hotg_rune_runtime::NodeMetadata;
@@ -62,24 +62,29 @@ pub unsafe extern "C" fn rune_metadata_free(meta: *mut Metadata) {
 /// The returned pointer can't outlive the `Metadata` it came from.
 #[no_mangle]
 pub unsafe extern "C" fn rune_metadata_get_node(
-    meta: Option<NonNull<Metadata>>,
+    meta: *const Metadata,
     index: c_int,
-) -> Option<NonNull<Node>> {
-    match meta?.as_ref().get(index as usize) {
-        Some(n) => Some(n.into()),
-        None => None,
+) -> *const Node {
+    if meta.is_null() {
+        return ptr::null();
+    }
+
+    match (&*meta).get(index as usize) {
+        Some(n) => n,
+        None => ptr::null(),
     }
 }
 
 /// How many nodes does this set of `Metadata` contain?
 #[no_mangle]
 pub unsafe extern "C" fn rune_metadata_node_count(
-    meta: Option<NonNull<Metadata>>,
+    meta: *const Metadata,
 ) -> c_int {
-    match meta {
-        Some(m) => m.as_ref().len() as c_int,
-        None => 0,
+    if meta.is_null() {
+        return 0;
     }
+
+    (&*meta).len() as c_int
 }
 
 /// Metadata for a single node.
@@ -91,11 +96,12 @@ pub struct Node {
 
 /// Get the ID for this particular node.
 #[no_mangle]
-pub unsafe extern "C" fn rune_node_id(node: Option<NonNull<Node>>) -> u32 {
-    match node {
-        Some(node) => node.as_ref().id,
-        None => u32::MAX,
+pub unsafe extern "C" fn rune_node_id(node: *const Node) -> u32 {
+    if node.is_null() {
+        return u32::MAX;
     }
+
+    (&*node).id
 }
 
 /// Which kind of node is this?
@@ -106,58 +112,54 @@ pub unsafe extern "C" fn rune_node_id(node: Option<NonNull<Node>>) -> u32 {
 ///
 /// The returned pointer can't outlive the `Metadata` it came from.
 #[no_mangle]
-pub unsafe extern "C" fn rune_node_kind(
-    node: Option<NonNull<Node>>,
-) -> *const c_char {
-    match node {
-        Some(node) => node.as_ref().kind.as_ptr(),
-        None => ptr::null(),
+pub unsafe extern "C" fn rune_node_kind(node: *const Node) -> *const c_char {
+    if node.is_null() {
+        return ptr::null();
     }
+
+    (&*node).kind.as_ptr()
 }
 
 /// How many arguments have been passed to this node?
 #[no_mangle]
-pub unsafe extern "C" fn rune_node_argument_count(
-    node: Option<NonNull<Node>>,
-) -> c_int {
-    match node {
-        Some(node) => node.as_ref().arguments.len() as c_int,
-        None => 0,
+pub unsafe extern "C" fn rune_node_argument_count(node: *const Node) -> c_int {
+    if node.is_null() {
+        return 0;
     }
+
+    (&*node).arguments.len() as c_int
 }
 
 /// Get the name for a particular argument, or `null` if that argument doesn't
 /// exist.
 #[no_mangle]
-pub extern "C" fn rune_node_get_argument_name(
-    node: Option<NonNull<Node>>,
+pub unsafe extern "C" fn rune_node_get_argument_name(
+    node: *const Node,
     index: c_int,
 ) -> *const c_char {
-    let node = match node {
-        Some(n) => unsafe { n.as_ref() },
-        None => return ptr::null(),
-    };
+    if node.is_null() {
+        return ptr::null();
+    }
 
-    node.arguments
-        .get(index as usize)
-        .map(|(key, _)| key.as_ptr())
-        .unwrap_or_else(ptr::null)
+    match (&*node).arguments.get(index as usize) {
+        Some((key, _)) => key.as_ptr(),
+        None => ptr::null(),
+    }
 }
 
 /// Get the value for a particular argument, or `null` if that argument doesn't
 /// exist.
 #[no_mangle]
-pub extern "C" fn rune_node_get_argument_value(
-    node: Option<NonNull<Node>>,
+pub unsafe extern "C" fn rune_node_get_argument_value(
+    node: *const Node,
     index: c_int,
 ) -> *const c_char {
-    let node = match node {
-        Some(n) => unsafe { n.as_ref() },
-        None => return ptr::null(),
-    };
+    if node.is_null() || index < 0 {
+        return ptr::null();
+    }
 
-    node.arguments
-        .get(index as usize)
-        .map(|(_, value)| value.as_ptr())
-        .unwrap_or_else(ptr::null)
+    match (&*node).arguments.get(index as usize) {
+        Some((_, value)) => value.as_ptr(),
+        None => ptr::null(),
+    }
 }

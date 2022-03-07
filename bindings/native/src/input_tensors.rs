@@ -46,23 +46,28 @@ pub unsafe extern "C" fn rune_input_tensors_free(tensors: *mut InputTensors) {
 
 #[no_mangle]
 pub unsafe extern "C" fn rune_input_tensor_count(
-    tensors: Option<NonNull<InputTensors>>,
+    tensors: *const InputTensors,
 ) -> c_int {
-    match tensors {
-        Some(t) => t.as_ref().len() as c_int,
-        None => 0,
+    if tensors.is_null() {
+        return 0;
     }
+
+    (&*tensors).len() as c_int
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn rune_input_tensors_get(
-    tensors: Option<NonNull<InputTensors>>,
+    tensors: *mut InputTensors,
     node_id: u32,
-) -> Option<NonNull<Tensor>> {
-    tensors
-        .map(|mut ptr| ptr.as_mut())
-        .and_then(|tensors| tensors.get_mut(&node_id))
-        .map(NonNull::from)
+) -> *mut Tensor {
+    if tensors.is_null() {
+        return ptr::null_mut();
+    }
+
+    match (&mut *tensors).get_mut(&node_id) {
+        Some(t) => t,
+        None => ptr::null_mut(),
+    }
 }
 
 /// Add a new tensor to this set of input tensors, returning a pointer to the
@@ -74,16 +79,17 @@ pub unsafe extern "C" fn rune_input_tensors_get(
 /// `tensors` is a null pointer.
 #[no_mangle]
 pub unsafe extern "C" fn rune_input_tensors_insert(
-    tensors: Option<NonNull<InputTensors>>,
+    tensors: *mut InputTensors,
     node_id: u32,
     element_type: ElementType,
     dimensions: *const usize,
     rank: c_int,
 ) -> *mut Tensor {
-    let tensors = match tensors {
-        Some(mut t) => t.as_mut(),
-        None => return ptr::null_mut(),
-    };
+    if tensors.is_null() {
+        return ptr::null_mut();
+    }
+
+    let tensors = &mut *tensors;
 
     if rank <= 0 {
         return ptr::null_mut();
@@ -108,53 +114,54 @@ pub unsafe extern "C" fn rune_input_tensors_insert(
 
 #[no_mangle]
 pub unsafe extern "C" fn rune_tensor_element_type(
-    tensor: Option<NonNull<Tensor>>,
+    tensor: *const Tensor,
 ) -> ElementType {
-    match tensor {
-        Some(t) => t.as_ref().element_type(),
-        None => ElementType::U8,
+    if tensor.is_null() {
+        return ElementType::U8;
     }
+
+    (&*tensor).element_type()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rune_tensor_rank(
-    tensor: Option<NonNull<Tensor>>,
-) -> c_int {
-    match tensor {
-        Some(t) => t.as_ref().dimensions().len() as c_int,
-        None => 0,
+pub unsafe extern "C" fn rune_tensor_rank(tensor: *const Tensor) -> c_int {
+    if tensor.is_null() {
+        return 0;
     }
+
+    (&*tensor).dimensions().len() as c_int
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn rune_tensor_dimensions(
-    tensor: Option<NonNull<Tensor>>,
+    tensor: *const Tensor,
 ) -> *const usize {
-    // Note: It's fine to cast *const NonZeroUsize to *const usize.
-    match tensor {
-        Some(t) => t.as_ref().dimensions().as_ptr().cast(),
-        None => ptr::null(),
+    if tensor.is_null() {
+        return ptr::null();
     }
+
+    // Note: It's fine to cast *const NonZeroUsize to *const usize.
+    (&*tensor).dimensions().as_ptr().cast()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn rune_tensor_buffer_len(
-    tensor: Option<NonNull<Tensor>>,
+    tensor: *const Tensor,
 ) -> c_int {
-    tensor
-        .map(|t| t.as_ref())
-        .map(|t| t.buffer().len())
-        .unwrap_or(0) as c_int
+    if tensor.is_null() {
+        return 0;
+    }
+
+    (&*tensor).buffer().len() as c_int
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rune_tensor_buffer(
-    tensor: Option<NonNull<Tensor>>,
-) -> *mut u8 {
-    tensor
-        .map(|mut t| t.as_mut())
-        .map(|t| t.buffer_mut().as_mut_ptr())
-        .unwrap_or(ptr::null_mut())
+pub unsafe extern "C" fn rune_tensor_buffer(tensor: *mut Tensor) -> *mut u8 {
+    if tensor.is_null() {
+        return ptr::null_mut();
+    }
+
+    (&mut *tensor).buffer_mut().as_mut_ptr()
 }
 
 /// Get a readonly reference to this `Tensor`'s buffer.

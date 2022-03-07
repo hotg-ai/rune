@@ -58,12 +58,13 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    /// Load a Rune using WASM3 for executing WebAssembly.
+    /// Load a Rune, using WASM3 for executing WebAssembly.
     #[cfg(feature = "wasm3")]
     pub fn wasm3(rune: &[u8]) -> Result<Self, Error> {
         Runtime::load::<crate::engine::Wasm3Engine>(rune)
     }
 
+    /// Load a Rune, using Wasmer for executing WebAssembly.
     #[cfg(feature = "wasmer")]
     pub fn wasmer(rune: &[u8]) -> Result<Self, Error> {
         Runtime::load::<crate::engine::WasmerEngine>(rune)

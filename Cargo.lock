@@ -2319,10 +2319,13 @@ dependencies = [
  "cbindgen",
  "cfg-if",
  "cmake",
+ "hotg-rune-core",
  "hotg-rune-runtime",
  "libc",
+ "log",
  "once_cell",
  "pulldown-cmark",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
 ]

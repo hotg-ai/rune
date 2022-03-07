@@ -92,6 +92,11 @@ fn copy_across_native_library(ctx: &Context) -> Result<(), Error> {
         .join("librune_native.a");
     let dest = ctx.build_dir.join("librune.a");
 
+    tracing::debug!(
+        library = %library.display(),
+        dest = %dest.display(),
+        "Copying across the library",
+    );
     std::fs::copy(&library, dest)?;
 
     Ok(())

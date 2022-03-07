@@ -1,10 +1,12 @@
 use std::{
     ops::{Deref, DerefMut},
-    os::raw::c_int,
+    os::raw::{c_char, c_int, c_void},
     ptr, slice,
 };
 
+use hotg_rune_core::SerializableRecord;
 use hotg_rune_runtime::Runtime as RustRuntime;
+use log::Record;
 
 use crate::{Error, InputTensors, Metadata, OutputTensors};
 
@@ -96,15 +98,13 @@ pub unsafe extern "C" fn rune_runtime_outputs(
 #[must_use]
 pub unsafe extern "C" fn rune_runtime_input_tensors(
     runtime: *mut Runtime,
-    tensors_out: *mut *mut InputTensors,
-) -> *mut Error {
-    expect!(!runtime.is_null());
-    expect!(!tensors_out.is_null());
+) -> *mut InputTensors {
+    if runtime.is_null() {
+        return ptr::null_mut();
+    }
     let runtime = &mut *runtime;
 
-    tensors_out.write(Box::into_raw(Box::new(runtime.input_tensors().into())));
-
-    ptr::null_mut()
+    Box::into_raw(Box::new(runtime.input_tensors().into()))
 }
 
 /// Get a reference to the tensors associated with each output node.
@@ -176,6 +176,66 @@ fn load_wasmer(wasm: &[u8]) -> Result<RustRuntime, anyhow::Error> {
             unsupported_engine(Engine::Wasmer)
         }
     }
+}
+
+pub type Logger = unsafe extern "C" fn(*mut c_void, *const c_char, c_int);
+type Destructor = unsafe extern "C" fn(*mut c_void);
+
+#[no_mangle]
+pub unsafe extern "C" fn rune_runtime_set_logger(
+    runtime: *mut Runtime,
+    logger: Logger,
+    user_data: *mut c_void,
+    destructor: Option<unsafe extern "C" fn(*mut c_void)>,
+) {
+    struct LogThunk {
+        logger: Logger,
+        user_data: *mut c_void,
+        destructor: Option<Destructor>,
+    }
+
+    impl LogThunk {
+        fn log(&self, record: &Record<'_>) {
+            let record = SerializableRecord::from(record);
+
+            if let Ok(serialized) = serde_json::to_string(&record) {
+                unsafe {
+                    (self.logger)(
+                        self.user_data,
+                        serialized.as_ptr().cast(),
+                        serialized.len() as c_int,
+                    );
+                }
+            }
+        }
+    }
+
+    impl Drop for LogThunk {
+        fn drop(&mut self) {
+            if let Some(destructor) = self.destructor {
+                unsafe {
+                    destructor(self.user_data);
+                }
+            }
+        }
+    }
+
+    // Safey: Ensured by the caller.
+    unsafe impl Send for LogThunk {}
+    unsafe impl Sync for LogThunk {}
+
+    if runtime.is_null() {
+        return;
+    }
+
+    let runtime = &mut *runtime;
+    let thunk = LogThunk {
+        logger,
+        user_data,
+        destructor,
+    };
+
+    runtime.set_logger(move |r| thunk.log(r));
 }
 
 /// The WebAssembly edngine to use when running a Rune.

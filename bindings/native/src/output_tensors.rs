@@ -68,7 +68,7 @@ pub unsafe extern "C" fn rune_output_tensors_next(
 /// added condition that you must not mutate the tensor's data through this
 /// pointer.
 #[no_mangle]
-unsafe extern "C" fn rune_output_tensor_as_fixed(
+pub unsafe extern "C" fn rune_output_tensor_as_fixed(
     tensor: *const OutputTensor,
 ) -> *const Tensor {
     if tensor.is_null() {
@@ -82,7 +82,7 @@ unsafe extern "C" fn rune_output_tensor_as_fixed(
 }
 
 #[no_mangle]
-unsafe extern "C" fn rune_output_tensor_as_string_tensor<'tensor>(
+pub unsafe extern "C" fn rune_output_tensor_as_string_tensor<'tensor>(
     tensor: *const OutputTensor,
 ) -> *const StringTensor<'tensor> {
     if tensor.is_null() {

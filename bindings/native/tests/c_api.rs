@@ -3,7 +3,7 @@ use std::{
     os::raw::c_int,
     path::Path,
     process::Command,
-    ptr::{self, NonNull},
+    ptr::{self},
     slice,
 };
 
@@ -91,13 +91,12 @@ fn inspect_input_metadata() {
 
         let error = rune_runtime_inputs(runtime, &mut inputs);
         assert!(error.is_null());
-        let inputs = NonNull::new(inputs);
 
         let num_inputs = rune_metadata_node_count(inputs);
         assert_eq!(1, num_inputs);
 
         let node = rune_metadata_get_node(inputs, 0);
-        assert!(node.is_some());
+        assert!(!node.is_null());
 
         assert_eq!(1, rune_node_id(node));
         let kind = rune_node_kind(node);
@@ -109,7 +108,7 @@ fn inspect_input_metadata() {
         let arg_value = rune_node_get_argument_value(node, 0);
         assert_eq!(CStr::from_ptr(arg_value).to_string_lossy(), "4");
 
-        rune_metadata_free(inputs.unwrap().as_ptr());
+        rune_metadata_free(inputs);
         rune_runtime_free(runtime);
     }
 }
@@ -127,11 +126,8 @@ fn set_inputs() {
         let error = rune_runtime_load(&cfg, &mut runtime);
         assert!(error.is_null());
 
-        let mut tensors: *mut InputTensors = ptr::null_mut();
-        let error = rune_runtime_input_tensors(runtime, &mut tensors);
-        assert!(error.is_null());
+        let tensors = rune_runtime_input_tensors(runtime);
         assert!(!tensors.is_null());
-        let tensors = NonNull::new(tensors);
 
         assert_eq!(rune_input_tensor_count(tensors), 0);
 
@@ -144,7 +140,6 @@ fn set_inputs() {
             2,
         );
         assert!(!tensor.is_null());
-        let tensor = NonNull::new(tensor);
         assert_eq!(rune_tensor_rank(tensor), 2);
         assert_eq!(rune_tensor_element_type(tensor), ElementType::U8);
         assert_eq!(rune_tensor_buffer_len(tensor), 4);
@@ -157,9 +152,7 @@ fn set_inputs() {
         );
         buffer.fill(42);
 
-        rune_input_tensors_free(
-            tensors.map(|p| p.as_ptr()).unwrap_or(ptr::null_mut()),
-        );
+        rune_input_tensors_free(tensors);
         rune_runtime_free(runtime);
     }
 }
@@ -181,13 +174,12 @@ fn inspect_output_metadata() {
 
         let error = rune_runtime_outputs(runtime, &mut outputs);
         assert!(error.is_null());
-        let outputs = NonNull::new(outputs);
 
         let num_outputs = rune_metadata_node_count(outputs);
         assert_eq!(1, num_outputs);
 
         let node = rune_metadata_get_node(outputs, 0);
-        assert!(node.is_some());
+        assert!(!node.is_null());
 
         assert_eq!(3, rune_node_id(node));
         let kind = rune_node_kind(node);
@@ -195,7 +187,7 @@ fn inspect_output_metadata() {
 
         assert_eq!(0, rune_node_argument_count(node));
 
-        rune_metadata_free(outputs.unwrap().as_ptr());
+        rune_metadata_free(outputs);
         rune_runtime_free(runtime);
     }
 }
@@ -213,13 +205,12 @@ fn run_the_sine_rune() {
         let error = rune_runtime_load(&cfg, &mut runtime);
         assert!(error.is_null());
 
-        let mut tensors = ptr::null_mut();
-        let error = rune_runtime_input_tensors(runtime, &mut tensors);
-        assert!(error.is_null());
+        let tensors = rune_runtime_input_tensors(runtime);
+        assert!(!tensors.is_null());
 
         let dims = [1, 4];
         let tensor = rune_input_tensors_insert(
-            NonNull::new(tensors),
+            tensors,
             1,
             ElementType::U8,
             dims.as_ptr(),
@@ -228,7 +219,7 @@ fn run_the_sine_rune() {
         let data = [1_u8, 2, 3, 4];
         std::ptr::copy_nonoverlapping(
             data.as_ptr(),
-            rune_tensor_buffer(NonNull::new(tensor)),
+            rune_tensor_buffer(tensor),
             data.len(),
         );
         rune_input_tensors_free(tensors);
