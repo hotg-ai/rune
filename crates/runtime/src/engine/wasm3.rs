@@ -13,7 +13,7 @@ use wasm3::{
 
 use crate::{
     callbacks::Callbacks,
-    engine::{host_functions::HostFunctions, WebAssemblyEngine},
+    engine::{host_functions::HostFunctions, LoadError, WebAssemblyEngine},
 };
 
 const STACK_SIZE: u32 = 1024 * 16;
@@ -65,7 +65,10 @@ impl Wasm3Engine {
 }
 
 impl WebAssemblyEngine for Wasm3Engine {
-    fn load(wasm: &[u8], callbacks: Arc<dyn Callbacks>) -> Result<Self, Error>
+    fn load(
+        wasm: &[u8],
+        callbacks: Arc<dyn Callbacks>,
+    ) -> Result<Self, LoadError>
     where
         Self: Sized,
     {

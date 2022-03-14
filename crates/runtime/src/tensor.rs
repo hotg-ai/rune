@@ -57,6 +57,16 @@ impl Tensor {
         }
     }
 
+    pub fn zeroed(
+        element_type: ElementType,
+        dimensions: Vec<NonZeroUsize>,
+    ) -> Self {
+        let num_elements: usize = dimensions.iter().map(|d| d.get()).product();
+        let expected_length = num_elements * element_type.byte_size();
+
+        Tensor::new_raw(element_type, dimensions, vec![0; expected_length])
+    }
+
     /// The tensor's element type.
     pub fn element_type(&self) -> ElementType { self.element_type }
 

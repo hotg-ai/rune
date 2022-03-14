@@ -4,6 +4,7 @@ members = [
     "crates/*",
     "images/runicos-base/*",
     "integration-tests",
+    "bindings/native",
 ]
 
 [patch.crates-io]

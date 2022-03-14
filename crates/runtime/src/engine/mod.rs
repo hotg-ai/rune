@@ -18,7 +18,7 @@ pub(crate) trait WebAssemblyEngine {
     fn load(
         wasm: &[u8],
         callbacks: Arc<dyn crate::callbacks::Callbacks>,
-    ) -> Result<Self, Error>
+    ) -> Result<Self, LoadError>
     where
         Self: Sized;
 
@@ -27,4 +27,17 @@ pub(crate) trait WebAssemblyEngine {
 
     /// Call the `_call()` function to run the Rune.
     fn predict(&mut self) -> Result<(), Error>;
+}
+
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum LoadError {
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+    #[error(transparent)]
+    #[cfg(feature = "wasmer")]
+    WasmerInstantiation(#[from] ::wasmer::InstantiationError),
+    #[error(transparent)]
+    #[cfg(feature = "wasmer")]
+    WasmerCompile(#[from] ::wasmer::CompileError),
 }

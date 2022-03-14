@@ -129,7 +129,7 @@ impl HostFunctions {
         let bytes_written = self
             .callbacks
             .read_capability(capability_id, meta, buffer)
-            .context("Unable to read from the capability")?;
+            .context("Unable to read the input")?;
 
         Ok(bytes_written as u32)
     }

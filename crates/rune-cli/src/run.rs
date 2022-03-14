@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use anyhow::{Context, Error};
 use hotg_rune_runtime::{
     builtins::{self, AccelerometerSamples, Arguments, AudioClip},
-    NodeMetadata, Runtime,
+    LoadError, NodeMetadata, Runtime,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -165,7 +165,10 @@ impl Run {
         }
     }
 
-    pub(crate) fn load_runtime(&self, rune: &[u8]) -> Result<Runtime, Error> {
+    pub(crate) fn load_runtime(
+        &self,
+        rune: &[u8],
+    ) -> Result<Runtime, LoadError> {
         match self.engine {
             Engine::Wasm3 => Runtime::wasm3(rune),
             Engine::Wasmer => Runtime::wasmer(rune),

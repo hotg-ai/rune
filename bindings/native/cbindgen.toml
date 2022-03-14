@@ -1,0 +1,12 @@
+language = "C"
+include_version = true
+pragma_once = true
+cpp_compat = true
+namespace = "rune"
+
+[fn]
+must_use = "__attribute__((warn_unused_result))"
+
+[parse]
+parse_deps = true
+include = ["hotg-rune-runtime"]

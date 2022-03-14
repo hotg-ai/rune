@@ -42,12 +42,12 @@ use std::{cell::UnsafeCell, collections::HashMap, sync::Arc};
 
 use anyhow::{Context, Error};
 use log::Record;
-use serde::Serialize;
 use wasmparser::{Parser, Payload};
 
 use crate::{
     callbacks::{Callbacks, Model, ModelMetadata, RuneGraph},
-    engine::WebAssemblyEngine,
+    engine::{LoadError, WebAssemblyEngine},
+    outputs::{parse_outputs, OutputTensor},
     NodeMetadata, Tensor,
 };
 
@@ -58,22 +58,23 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    /// Load a Rune using WASM3 for executing WebAssembly.
+    /// Load a Rune, using WASM3 for executing WebAssembly.
     #[cfg(feature = "wasm3")]
-    pub fn wasm3(rune: &[u8]) -> Result<Self, Error> {
+    pub fn wasm3(rune: &[u8]) -> Result<Self, LoadError> {
         Runtime::load::<crate::engine::Wasm3Engine>(rune)
     }
 
+    /// Load a Rune, using Wasmer for executing WebAssembly.
     #[cfg(feature = "wasmer")]
-    pub fn wasmer(rune: &[u8]) -> Result<Self, Error> {
+    pub fn wasmer(rune: &[u8]) -> Result<Self, LoadError> {
         Runtime::load::<crate::engine::WasmerEngine>(rune)
     }
 
-    fn load<E>(rune: &[u8]) -> Result<Self, Error>
+    fn load<E>(rune: &[u8]) -> Result<Self, LoadError>
     where
         E: WebAssemblyEngine + 'static,
     {
-        let state = State::with_embedded_resources(rune)?;
+        let state = State::with_embedded_resources(rune);
         let state = Arc::new(state);
         let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
         let mut engine = E::load(rune, callbacks)?;
@@ -154,11 +155,11 @@ struct State {
 }
 
 impl State {
-    fn with_embedded_resources(wasm: &[u8]) -> Result<Self, Error> {
+    fn with_embedded_resources(wasm: &[u8]) -> Self {
         let s = State::default();
 
         for payload in Parser::default().parse_all(wasm) {
-            if let Payload::CustomSection { name, mut data, .. } = payload? {
+            if let Ok(Payload::CustomSection { name, mut data, .. }) = payload {
                 if name != ".rune_resource" {
                     continue;
                 }
@@ -166,14 +167,16 @@ impl State {
                 while let Some((resource_name, value, rest)) =
                     hotg_rune_core::decode_inline_resource(data)
                 {
-                    let resources = unsafe { &mut *s.resources.get() };
+                    // Safety: fine because we are the only ones with access to
+                    // State at the moment.
+                    let resources = unsafe { s.resources() };
                     resources.insert(resource_name.to_string(), value.to_vec());
                     data = rest;
                 }
             }
         }
 
-        Ok(s)
+        s
     }
 
     unsafe fn outputs(&self) -> &HashMap<u32, NodeMetadata> {
@@ -323,53 +326,3 @@ impl Callbacks for State {
 
 // Safety: see comments on the `State` type itself.
 unsafe impl Sync for State {}
-
-#[derive(Debug)]
-pub enum OutputTensor {
-    Tensor(Tensor),
-    StringTensor {
-        dimensions: Vec<usize>,
-        strings: Vec<String>,
-    },
-}
-
-impl Serialize for OutputTensor {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct SerializedStringTensor<'a> {
-            element_type: &'a str,
-            dimensions: &'a [usize],
-            elements: &'a [String],
-        }
-
-        match self {
-            OutputTensor::Tensor(t) => t.serializable().serialize(serializer),
-            OutputTensor::StringTensor {
-                dimensions,
-                strings,
-            } => SerializedStringTensor {
-                element_type: "utf8",
-                dimensions,
-                elements: strings,
-            }
-            .serialize(serializer),
-        }
-    }
-}
-
-impl From<Tensor> for OutputTensor {
-    fn from(t: Tensor) -> OutputTensor { OutputTensor::Tensor(t) }
-}
-
-fn parse_outputs(
-    meta: &NodeMetadata,
-    data: &[u8],
-) -> Result<Vec<OutputTensor>, Error> {
-    match meta.kind.as_str() {
-        "SERIAL" => crate::outputs::parse_serial(data),
-        _ => anyhow::bail!("Unknown output type"),
-    }
-}
