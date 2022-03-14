@@ -74,10 +74,7 @@ impl WebAssemblyEngine for WasmerEngine {
             .get_native_function("_manifest")
             .context("Unable to get the \"_manifest\" function")?;
 
-        manifest
-            .call()
-            .map_err(unwrap_anyhow_error)
-            .context("Call failed")?;
+        manifest.call().map_err(unwrap_anyhow_error)?;
 
         let host_functions = self.host_functions.lock().unwrap();
         let graph = host_functions.graph();
@@ -91,9 +88,7 @@ impl WebAssemblyEngine for WasmerEngine {
             .get_native_function("_call")
             .context("Unable to get the \"_call\" function")?;
 
-        call.call(0, 0, 0)
-            .map_err(unwrap_anyhow_error)
-            .context("Call failed")?;
+        call.call(0, 0, 0).map_err(unwrap_anyhow_error)?;
 
         Ok(())
     }
