@@ -3,6 +3,26 @@ use std::{
     os::raw::{c_char, c_int},
 };
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(u32)]
+#[non_exhaustive]
+pub enum ErrorKind {
+    /// An unidentified error.
+    Other = 0,
+    /// The WebAssembly isn't valid.
+    ///
+    /// This typically happens when the WebAssembly failed validation or isn't
+    /// actually WebAssembly.
+    InvalidWebAssembly = 1,
+    /// There was an issue resolving imports.
+    ///
+    /// This typically occurs when the Rune is expecting different host
+    /// functions or some of those functions have different signatures.
+    BadImports = 2,
+    /// The call into WebAssembly raised an error.
+    CallFailed = 3,
+}
+
 /// An error that may be returned by the Rune native library.
 ///
 /// # Error Handling
@@ -107,6 +127,101 @@ pub unsafe extern "C" fn rune_error_free(e: *mut Error) {
     }
 
     let _ = Box::from_raw(e);
+}
+
+/// Programmatically find out what kind of error this is.
+#[no_mangle]
+pub unsafe extern "C" fn rune_error_kind(e: *const Error) -> ErrorKind {
+    if e.is_null() {
+        return ErrorKind::Other;
+    }
+
+    error_kind_for_anyhow(&*e)
+}
+
+fn error_kind_for_anyhow(error: &anyhow::Error) -> ErrorKind {
+    for error in error.chain() {
+        if let Some(error_kind) = specific_error_kind(error) {
+            return error_kind;
+        }
+    }
+
+    ErrorKind::Other
+}
+
+fn specific_error_kind(
+    e: &(dyn std::error::Error + 'static),
+) -> Option<ErrorKind> {
+    if let Some(load_error) = e.downcast_ref::<hotg_rune_runtime::LoadError>() {
+        if let Some(kind) = rune_load_error(load_error) {
+            return Some(kind);
+        }
+    }
+
+    #[cfg(feature = "wasmer")]
+    if let Some(runtime_error) =
+        e.downcast_ref::<hotg_rune_runtime::wasmer::RuntimeError>()
+    {
+        return Some(wasmer_runtime_error(runtime_error));
+    }
+
+    None
+}
+
+fn rune_load_error(
+    load_error: &hotg_rune_runtime::LoadError,
+) -> Option<ErrorKind> {
+    match load_error {
+        hotg_rune_runtime::LoadError::Other(anyhow) => {
+            Some(error_kind_for_anyhow(anyhow))
+        },
+        #[cfg(feature = "wasmer")]
+        hotg_rune_runtime::LoadError::WasmerInstantiation(e) => {
+            Some(wasmer_instantiation_error(e))
+        },
+        #[cfg(feature = "wasmer")]
+        hotg_rune_runtime::LoadError::WasmerCompile(e) => {
+            Some(wasmer_compile_error(e))
+        },
+        _ => None,
+    }
+}
+
+#[cfg(feature = "wasmer")]
+fn wasmer_instantiation_error(
+    error: &hotg_rune_runtime::wasmer::InstantiationError,
+) -> ErrorKind {
+    use hotg_rune_runtime::wasmer::{InstantiationError, LinkError};
+
+    match error {
+        InstantiationError::Link(LinkError::Import(..)) => {
+            ErrorKind::BadImports
+        },
+        InstantiationError::Start(error) => wasmer_runtime_error(error),
+        _ => ErrorKind::Other,
+    }
+}
+
+#[cfg(feature = "wasmer")]
+fn wasmer_runtime_error(
+    _error: &hotg_rune_runtime::wasmer::RuntimeError,
+) -> ErrorKind {
+    // TODO: We need to add a bunch of downcasts here if we want more precise
+    // error kinds.
+    ErrorKind::CallFailed
+}
+
+#[cfg(feature = "wasmer")]
+fn wasmer_compile_error(
+    error: &hotg_rune_runtime::wasmer::CompileError,
+) -> ErrorKind {
+    use hotg_rune_runtime::wasmer::{CompileError, WasmError};
+
+    match error {
+        CompileError::Wasm(WasmError::InvalidWebAssembly { .. })
+        | CompileError::Validate(_) => ErrorKind::InvalidWebAssembly,
+        _ => ErrorKind::Other,
+    }
 }
 
 #[cfg(test)]

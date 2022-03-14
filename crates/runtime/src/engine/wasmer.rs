@@ -13,7 +13,7 @@ use wasmer::{
 
 use crate::{
     callbacks::Callbacks,
-    engine::{host_functions::HostFunctions, WebAssemblyEngine},
+    engine::{host_functions::HostFunctions, LoadError, WebAssemblyEngine},
 };
 
 pub struct WasmerEngine {
@@ -23,13 +23,15 @@ pub struct WasmerEngine {
 }
 
 impl WebAssemblyEngine for WasmerEngine {
-    fn load(wasm: &[u8], callbacks: Arc<dyn Callbacks>) -> Result<Self, Error>
+    fn load(
+        wasm: &[u8],
+        callbacks: Arc<dyn Callbacks>,
+    ) -> Result<Self, LoadError>
     where
         Self: Sized,
     {
         let store = Store::default();
-        let module = Module::from_binary(&store, wasm)
-            .context("Unable to load the WebAssembly binary")?;
+        let module = Module::from_binary(&store, wasm)?;
 
         let host_functions =
             Arc::new(Mutex::new(HostFunctions::new(callbacks.clone())));
@@ -56,8 +58,7 @@ impl WebAssemblyEngine for WasmerEngine {
             }
         };
 
-        let instance = Instance::new(&module, &imports)
-            .context("Unable to instantiate the WebAssembly module")?;
+        let instance = Instance::new(&module, &imports)?;
 
         Ok(WasmerEngine {
             instance,

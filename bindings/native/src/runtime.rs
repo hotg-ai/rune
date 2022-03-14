@@ -5,7 +5,7 @@ use std::{
 };
 
 use hotg_rune_core::SerializableRecord;
-use hotg_rune_runtime::Runtime as RustRuntime;
+use hotg_rune_runtime::{LoadError, Runtime as RustRuntime};
 use log::Record;
 
 use crate::{Error, InputTensors, Metadata, OutputTensors};
@@ -30,7 +30,6 @@ impl DerefMut for Runtime {
 pub struct Config {
     pub rune: *const u8,
     pub rune_len: c_int,
-    pub engine: Engine,
 }
 
 #[no_mangle]
@@ -142,12 +141,7 @@ pub unsafe extern "C" fn rune_runtime_load(
 
     let wasm = slice::from_raw_parts(cfg.rune, cfg.rune_len as usize);
 
-    let load_result = match cfg.engine {
-        Engine::Wasm3 => load_wasm3(wasm),
-        Engine::Wasmer => load_wasmer(wasm),
-    };
-
-    match load_result {
+    match load(wasm) {
         Ok(inner) => {
             runtime_out.write(Box::into_raw(Box::new(Runtime { inner })));
             std::ptr::null_mut()
@@ -156,24 +150,15 @@ pub unsafe extern "C" fn rune_runtime_load(
     }
 }
 
-fn load_wasm3(wasm: &[u8]) -> Result<RustRuntime, anyhow::Error> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "wasm3")] {
-            RustRuntime::wasm3(wasm)
-        } else {
-            let _ = wasm;
-            unsupported_engine(Engine::Wasm3)
-        }
-    }
-}
-
-fn load_wasmer(wasm: &[u8]) -> Result<RustRuntime, anyhow::Error> {
+fn load(wasm: &[u8]) -> Result<RustRuntime, LoadError> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "wasmer")] {
-            RustRuntime::wasmer(wasm)
+            return RustRuntime::wasmer(wasm);
+        } else if #[cfg(feature = "wasm3")] {
+            return RustRuntime::wasm3(wasm);
         } else {
             let _ = wasm;
-            unsupported_engine(Engine::Wasmer)
+            return Err(LoadError::Other(anyhow::Error::msg("")));
         }
     }
 }
@@ -244,12 +229,4 @@ pub unsafe extern "C" fn rune_runtime_set_logger(
 pub enum Engine {
     Wasm3 = 0,
     Wasmer = 1,
-}
-
-#[allow(dead_code)]
-fn unsupported_engine(engine: Engine) -> Result<RustRuntime, anyhow::Error> {
-    Err(anyhow::anyhow!(
-        "Not compiled with support for the {:?} engine",
-        engine
-    ))
 }

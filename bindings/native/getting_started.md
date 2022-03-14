@@ -62,7 +62,6 @@ machines and so on.
 struct Config cfg = {
     .rune = rune,
     .rune_len = bytes_read,
-    .engine = Wasm3,
 };
 ```
 

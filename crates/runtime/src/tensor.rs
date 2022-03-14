@@ -311,4 +311,3 @@ impl_tensor_element!(f32 => ElementType::F32);
 impl_tensor_element!(u64 => ElementType::U64);
 impl_tensor_element!(i64 => ElementType::I64);
 impl_tensor_element!(f64 => ElementType::F64);
-

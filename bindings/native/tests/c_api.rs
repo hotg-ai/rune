@@ -1,10 +1,5 @@
 use std::{
-    ffi::CStr,
-    os::raw::c_int,
-    path::Path,
-    process::Command,
-    ptr::{self},
-    slice,
+    ffi::CStr, os::raw::c_int, path::Path, process::Command, ptr, slice,
 };
 
 use hotg_rune_runtime::ElementType;
@@ -34,7 +29,6 @@ fn load_the_sine_rune() {
         let cfg = Config {
             rune: SINE_RUNE.as_ptr(),
             rune_len: SINE_RUNE.len() as c_int,
-            engine: Engine::Wasm3,
         };
 
         let error = rune_runtime_load(&cfg, &mut runtime);
@@ -52,7 +46,6 @@ fn run_prediction_with_missing_input() {
         let cfg = Config {
             rune: SINE_RUNE.as_ptr(),
             rune_len: SINE_RUNE.len() as c_int,
-            engine: Engine::Wasm3,
         };
 
         let error = rune_runtime_load(&cfg, &mut runtime);
@@ -81,7 +74,6 @@ fn inspect_input_metadata() {
         let cfg = Config {
             rune: SINE_RUNE.as_ptr(),
             rune_len: SINE_RUNE.len() as c_int,
-            engine: Engine::Wasm3,
         };
 
         let error = rune_runtime_load(&cfg, &mut runtime);
@@ -120,7 +112,6 @@ fn set_inputs() {
         let cfg = Config {
             rune: SINE_RUNE.as_ptr(),
             rune_len: SINE_RUNE.len() as c_int,
-            engine: Engine::Wasm3,
         };
 
         let error = rune_runtime_load(&cfg, &mut runtime);
@@ -164,7 +155,6 @@ fn inspect_output_metadata() {
         let cfg = Config {
             rune: SINE_RUNE.as_ptr(),
             rune_len: SINE_RUNE.len() as c_int,
-            engine: Engine::Wasm3,
         };
 
         let error = rune_runtime_load(&cfg, &mut runtime);
@@ -199,7 +189,6 @@ fn run_the_sine_rune() {
         let cfg = Config {
             rune: SINE_RUNE.as_ptr(),
             rune_len: SINE_RUNE.len() as c_int,
-            engine: Engine::Wasm3,
         };
 
         let error = rune_runtime_load(&cfg, &mut runtime);

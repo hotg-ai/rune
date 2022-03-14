@@ -24,7 +24,7 @@ log = "0.4.14"
 rand = { version = "0.8.3", optional = true }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = { version = "1.0.79" }
-thiserror = "1.0.24"
+thiserror = "1.0.30"
 wasm3 = { version = "0.3.1", optional = true }
 wasmer = { version = "2.2.0-rc2", optional = true }
 wasmparser = "0.83.0"
