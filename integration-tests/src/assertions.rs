@@ -4,6 +4,8 @@ use std::{
     process::Output,
 };
 
+use regex::Regex;
+
 use anyhow::{Context, Error};
 
 pub trait Assertion: Debug {
@@ -57,7 +59,8 @@ impl Assertion for MatchStdioStream {
         let output = std::str::from_utf8(raw)
             .context("Unable to parse output as UTF-8")?;
 
-        if !output.contains(&self.expected) {
+        use super::*;
+        if !reduce_precision(output).contains(&reduce_precision(&self.expected)) {
             return Err(Error::from(MismatchedStdio {
                 expected: self.expected.clone(),
                 actual: output.to_string(),
@@ -168,5 +171,38 @@ impl Assertion for ExitUnsuccessfully {
         );
 
         Ok(())
+    }
+}
+
+fn reduce_precision(s: &str) -> String {
+    let re = Regex::new(r"(\d*\.\d+)").unwrap();
+    let mut result = s.to_string();
+    let precision = 5;
+
+    for m in re.find_iter(s) {
+        let m = m.as_str();
+        let decimal_at = m.chars().position(|c| c == '.').unwrap();
+        let number_of_decimals = m.len() - decimal_at - 1;
+
+        if number_of_decimals > precision {
+            result = result.replace(m, m.split_at(decimal_at + precision + 1).0);
+        }
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reduce_precision() {
+        assert_eq!(reduce_precision("5"), "5");
+        assert_eq!(reduce_precision("abcdef.abcdef"), "abcdef.abcdef");
+        assert_eq!(reduce_precision("5.12345678"), "5.12345");
+        assert_eq!(reduce_precision("5.12345678 6.12345678"), "5.12345 6.12345");
+        assert_eq!(reduce_precision("5.12345678 6.12345678 7.1234567"), "5.12345 6.12345 7.12345");
+        assert_eq!(reduce_precision("abcdef 5.12345678 6.12345678"), "abcdef 5.12345 6.12345")
     }
 }
