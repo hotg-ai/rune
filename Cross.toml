@@ -15,3 +15,6 @@ image = "tinyverseml/runecoral-cross-android-aarch64"
 
 [target.x86_64-linux-android]
 image = "tinyverseml/runecoral-cross-android-x86_64"
+
+[target.armv7-unknown-linux-gnueabi]
+image = "tinyverseml/runecoral-cross-linux-armv7"

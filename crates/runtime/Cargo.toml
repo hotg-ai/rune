@@ -17,7 +17,7 @@ readme = "README.md"
 anyhow = "1.0.40"
 csv = { version = "1.1.6", optional = true }
 hotg-rune-core = { path = "../rune-core", version = "^0.11.0", features = ["std"]  }
-hotg-runecoral = { version = "0.3.6", optional = true }
+hotg-runecoral = { version = "0.3.11", optional = true }
 hound = { version = "3.4.0", optional = true }
 image = { version = "0.23.14", optional = true }
 log = "0.4.14"
@@ -25,7 +25,7 @@ rand = { version = "0.8.3", optional = true }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = { version = "1.0.79" }
 thiserror = "1.0.30"
-wasm3 = { version = "0.3.1", optional = true }
+wasm3 = { git = "https://github.com/wasm3/wasm3-rs", optional = true }
 wasmer = { version = "2.2.0-rc2", optional = true }
 wasmparser = "0.83.0"
 
