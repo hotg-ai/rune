@@ -1226,9 +1226,9 @@ dependencies = [
 
 [[package]]
 name = "hotg-runecoral"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bd9952c9bf774d21e52450285fd53041f57b7f728490af71daa905e67875a38"
+checksum = "0005a9686a51972724e64da4ace8e9599a5bae4c4e3a4852b5bcf4d2112c4464"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -3033,9 +3033,8 @@ checksum = "3d958d035c4438e28c70e4321a2911302f10135ce78a9c7834c0cab4123d06a2"
 
 [[package]]
 name = "wasm3"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd7dde97449e99be474a432bbb0b1ab40b8f7ce3e97aa7ac640e9ecd018bbf88"
+version = "0.5.0"
+source = "git+https://github.com/wasm3/wasm3-rs#df74c2a17ed8831595de43db98c406da4633e32a"
 dependencies = [
  "cty",
  "wasm3-sys",
@@ -3043,9 +3042,8 @@ dependencies = [
 
 [[package]]
 name = "wasm3-sys"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a4e5d10bf1ffe7753275d4bbae3dc135dd2d2decd90e615accf9fef8bc52bab"
+version = "0.5.0"
+source = "git+https://github.com/wasm3/wasm3-rs#df74c2a17ed8831595de43db98c406da4633e32a"
 dependencies = [
  "cc",
  "cty",
