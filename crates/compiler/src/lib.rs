@@ -40,6 +40,7 @@ mod phases;
 pub mod serialize;
 mod toolchain;
 pub mod type_check;
+mod inputs;
 
 pub use crate::{
     build_context::{BuildContext, FeatureFlags, Verbosity},

@@ -37,7 +37,9 @@ impl File {
 }
 
 /// A WebAssembly custom section to be embedded in the Rune.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct CustomSection {
     pub section_name: String,
     pub value: Arc<[u8]>,

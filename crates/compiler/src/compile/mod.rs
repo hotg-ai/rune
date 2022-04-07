@@ -4,23 +4,11 @@ mod write_project_to_disk;
 
 use std::sync::Arc;
 
-use im::Vector;
-
 pub use self::components::*;
-use crate::{codegen::File, BuildContext, FeatureFlags};
-
-#[salsa::query_group(InputsGroup)]
-pub trait Inputs {
-    #[salsa::input]
-    fn build_context(&self) -> Arc<BuildContext>;
-    #[salsa::input]
-    fn feature_flags(&self) -> FeatureFlags;
-    #[salsa::input]
-    fn files(&self) -> Vector<File>;
-}
+use crate::{inputs::Inputs, BuildContext, codegen::Codegen};
 
 #[salsa::query_group(CompileGroup)]
-pub trait Compile: Inputs {
+pub trait Compile: Inputs + Codegen {
     #[salsa::dependencies]
     fn build(&self) -> Result<CompiledBinary, Arc<CompileError>>;
 }

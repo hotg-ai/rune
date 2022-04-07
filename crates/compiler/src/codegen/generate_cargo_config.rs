@@ -9,7 +9,7 @@ pub(crate) fn run(cmd: &mut CommandBuffer, #[resource] ctx: &BuildContext) {
     cmd.push((config,));
 }
 
-fn generate_config(optimized: bool) -> File {
+pub(crate) fn generate_config(optimized: bool) -> File {
     let target = if optimized {
         Some(Targets {
             wasm32_unknown_unknown: Target {

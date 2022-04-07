@@ -21,6 +21,17 @@ pub(crate) fn run(
     #[resource] features: &FeatureFlags,
     query: &mut Query<&ProcBlock>,
 ) {
+    let proc_blocks: Vec<_> = query.iter(world).collect();
+
+    let file = generate(features, proc_blocks.iter().map(|&p| p), ctx);
+    cmd.push((file,));
+}
+
+pub(crate) fn generate<'a>(
+    features: &FeatureFlags,
+    proc_blocks: impl Iterator<Item = &'a ProcBlock> + 'a,
+    ctx: &BuildContext,
+) -> File {
     let core_version = hotg_rune_core::VERSION;
 
     if core_version.contains("-dev") && features.rune_repo_dir.is_none() {
@@ -43,7 +54,6 @@ pub(crate) fn run(
         );
     }
 
-    let proc_blocks = query.iter(world);
     let mut manifest =
         generate_manifest(proc_blocks, &ctx.name, &ctx.current_directory);
 
@@ -53,8 +63,8 @@ pub(crate) fn run(
 
     let manifest = toml::to_string_pretty(&manifest)
         .expect("Serializing to a string should never fail");
-    let file = File::new("Cargo.toml", manifest.into_bytes());
-    cmd.push((file,));
+
+    File::new("Cargo.toml", manifest.into_bytes())
 }
 
 // Generate the `Cargo.toml` manifest.

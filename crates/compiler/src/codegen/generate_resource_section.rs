@@ -20,7 +20,10 @@ pub(crate) fn run(
     });
 }
 
-fn inline_resource(name: &Name, data: &ResourceData) -> CustomSection {
+pub(crate) fn inline_resource(
+    name: &Name,
+    data: &ResourceData,
+) -> CustomSection {
     let name_len = u32::try_from(name.len()).unwrap();
     let data_len = u32::try_from(data.len()).unwrap();
     let buffer_length = std::mem::size_of_val(&name_len)

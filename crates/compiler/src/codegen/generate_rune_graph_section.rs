@@ -11,7 +11,8 @@ use legion::{
 use super::{CapabilitySummary, RuneSummary};
 use crate::{
     codegen::{
-        ModelSummary, OutputSummary, ProcBlockSummary, RuneGraph, TensorId,
+        Codegen, CustomSection, ModelSummary, OutputSummary, ProcBlockSummary,
+        RuneGraph, TensorId,
     },
     lowering::{
         self, Inputs, Model, ModelFile, Name, Outputs, ProcBlock, Resource,
@@ -20,6 +21,8 @@ use crate::{
     parse::{ResourceName, ResourceOrString},
     BuildContext,
 };
+
+pub(crate) fn rune_graph_section(_db: &dyn Codegen) -> CustomSection { todo!() }
 
 /// Generate an abbreviated [`RuneGraph`].
 #[legion::system]

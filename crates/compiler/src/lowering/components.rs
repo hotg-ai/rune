@@ -135,7 +135,7 @@ impl Display for SourceKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ProcBlock {
     pub path: Path,
@@ -149,6 +149,14 @@ impl ProcBlock {
         let start_of_name = full_name.rfind('/').map(|ix| ix + 1).unwrap_or(0);
 
         &full_name[start_of_name..]
+    }
+}
+
+// TODO: remove this
+impl Hash for ProcBlock {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.path.hash(state);
+        self.parameters.iter().for_each(|pair| pair.hash(state));
     }
 }
 
@@ -265,13 +273,22 @@ pub struct Outputs {
 
 /// The list of [`Tensor`]s that may be the inputs to a [`PipelineNode`].
 #[derive(
-    Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+    Debug,
+    Default,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 pub struct Inputs {
     pub tensors: Vec<Entity>,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct ResourceData(pub Arc<[u8]>);
 
 impl<T: Into<Arc<[u8]>>> From<T> for ResourceData {
@@ -288,7 +305,9 @@ impl Deref for ResourceData {
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct ModelData(pub Arc<[u8]>);
 
 impl<A: Into<Arc<[u8]>>> From<A> for ModelData {

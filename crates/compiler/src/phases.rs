@@ -1,10 +1,15 @@
-use legion::{systems::Runnable, Resources, World};
+use std::sync::Arc;
+
+use im::Vector;
+use legion::{systems::Runnable, IntoQuery, Resources, World};
 
 use crate::{
-    codegen,
+    codegen::{self, Codegen},
     compile::{CompilationResult, Compile},
     hooks::{Continuation, Ctx, Hooks},
-    lowering, parse, type_check, BuildContext, FeatureFlags,
+    inputs::Inputs,
+    lowering::{self, Model, Name, Outputs, ProcBlock},
+    parse, type_check, BuildContext, FeatureFlags,
 };
 
 /// Execute the `rune build` process.
@@ -22,7 +27,9 @@ pub fn build_with_hooks(
     features: FeatureFlags,
     hooks: &mut dyn Hooks,
 ) -> (World, Resources) {
-    let db = Database::default();
+    let mut db = Database::default();
+    db.set_build_context(Arc::new(ctx.clone()));
+    db.set_feature_flags(features.clone());
 
     let mut world = World::default();
     let mut res = Resources::default();
@@ -63,7 +70,10 @@ pub fn build_with_hooks(
     }
 
     log::debug!("Beginning the \"codegen\" phase");
-    codegen::phase().run(&mut world, &mut res);
+
+    update_db_before_codegen(&world, &mut db);
+
+    let _files = db.files();
 
     if hooks.after_codegen(&mut c(&mut world, &mut res))
         != Continuation::Continue
@@ -83,13 +93,52 @@ pub fn build_with_hooks(
     (world, res)
 }
 
+fn update_db_before_codegen(world: &World, db: &mut Database) {
+    let mut pb_names = Vector::new();
+    <(
+        &Name,
+        &crate::lowering::ProcBlock,
+        &crate::lowering::Inputs,
+        &crate::lowering::Outputs,
+    )>::query()
+    .for_each(world, |(n, p, i, o)| {
+        pb_names.push_back(n.clone());
+        db.set_node_inputs(n.clone(), i.clone());
+        db.set_node_outputs(n.clone(), o.clone());
+        db.set_proc_block_info(n.clone(), p.clone());
+    });
+    db.set_proc_block_names(pb_names);
+
+    let mut model_names = Vector::new();
+    <(
+        &Name,
+        &crate::lowering::Model,
+        &crate::lowering::ModelData,
+        &crate::lowering::Inputs,
+        &crate::lowering::Outputs,
+    )>::query()
+    .for_each(world, |(n, m, d, i, o)| {
+        model_names.push_back(n.clone());
+        db.set_node_inputs(n.clone(), i.clone());
+        db.set_node_outputs(n.clone(), o.clone());
+        db.set_model_info(n.clone(), m.clone());
+        db.set_model_data(n.clone(), d.clone());
+    });
+    db.set_model_names(model_names);
+}
+
 #[derive(Default)]
-#[salsa::database(crate::compile::CompileGroup, crate::compile::InputsGroup)]
+#[salsa::database(
+    crate::codegen::CodegenGroup,
+    crate::compile::CompileGroup,
+    crate::inputs::InputsGroup
+)]
 struct Database {
     storage: salsa::Storage<Self>,
 }
 
 impl salsa::Database for Database {}
+impl crate::inputs::FileSystem for Database {}
 
 /// A group of operations which make up a single "phase" in the build process.
 pub struct Phase(legion::systems::Builder);

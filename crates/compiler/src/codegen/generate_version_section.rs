@@ -10,7 +10,7 @@ pub(crate) fn run(cmd: &mut CommandBuffer, #[resource] ctx: &BuildContext) {
     }
 }
 
-fn version_section(ctx: &BuildContext) -> Option<CustomSection> {
+pub(crate) fn version_section(ctx: &BuildContext) -> Option<CustomSection> {
     ctx.rune_version.as_ref().map(|version| {
         version
             .as_custom_section()
