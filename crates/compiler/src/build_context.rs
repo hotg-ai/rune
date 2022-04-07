@@ -6,7 +6,9 @@ use std::{
 use crate::codegen::RuneVersion;
 
 /// Inputs used during the compilation process.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct BuildContext {
     /// The name of the Rune being compiled.
     pub name: String,
@@ -76,7 +78,14 @@ impl BuildContext {
 }
 
 #[derive(
-    Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 pub enum Verbosity {
     Quiet,
@@ -109,7 +118,7 @@ impl Verbosity {
 }
 
 /// Feature flags and other knobs that can be used during development.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FeatureFlags {
     pub(crate) rune_repo_dir: Option<PathBuf>,
 }

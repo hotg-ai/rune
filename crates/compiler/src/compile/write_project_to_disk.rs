@@ -1,7 +1,6 @@
 use crate::{codegen::File, BuildContext};
 
-#[legion::system(for_each)]
-pub(crate) fn run(File { path, data }: &File, #[resource] ctx: &BuildContext) {
+pub(crate) fn run(File { path, data }: &File, ctx: &BuildContext) {
     let full_path = ctx.working_directory.join(path);
 
     if let Some(parent) = full_path.parent() {

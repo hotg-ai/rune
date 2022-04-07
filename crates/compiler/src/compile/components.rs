@@ -26,7 +26,7 @@ impl Deref for CompiledBinary {
 
 /// The result from compiling... Essentially a newtype'd `Result`.
 #[derive(Debug)]
-pub struct CompilationResult(pub Result<CompiledBinary, CompileError>);
+pub struct CompilationResult(pub Result<CompiledBinary, Arc<CompileError>>);
 
 #[derive(Debug)]
 pub enum CompileError {

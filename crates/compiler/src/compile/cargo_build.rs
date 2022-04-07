@@ -1,45 +1,21 @@
 use std::{
     path::Path,
     process::{Command, Output, Stdio},
-    sync::Mutex,
 };
-
-use legion::systems::CommandBuffer;
 
 use crate::{
-    compile::{CompilationResult, CompileError, CompiledBinary},
-    BuildContext, Verbosity,
+    compile::{CompileError, CompiledBinary},
+    Verbosity,
 };
 
-#[legion::system]
-pub(crate) fn run(cmd: &mut CommandBuffer, #[resource] ctx: &BuildContext) {
-    let BuildContext {
-        working_directory,
-        optimized,
-        verbosity,
-        name,
-        ..
-    } = ctx;
-
-    rustfmt(working_directory);
-
-    let result = build(name, working_directory, *optimized, *verbosity);
-
-    // Note: the exec_mut() method takes a Fn() closure and not a FnOnce(), so
-    // we need to use a Mutex<Option<_>> to move the result.
-    let result = Mutex::new(Some(result));
-    cmd.exec_mut(move |_, res| {
-        let result = result.lock().unwrap().take().unwrap();
-        res.insert(CompilationResult(result));
-    })
-}
-
-fn build(
+pub fn build(
     name: &str,
     working_directory: &Path,
     optimized: bool,
     verbosity: Verbosity,
 ) -> Result<CompiledBinary, CompileError> {
+    rustfmt(working_directory);
+
     let mut cmd = Command::new("cargo");
     cmd.arg("build")
         .arg("--manifest-path")

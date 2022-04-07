@@ -19,7 +19,9 @@ pub const VERSION_CUSTOM_SECTION: &str = ".rune_version";
 pub const RESOURCE_CUSTOM_SECTION: &str = ".rune_resource";
 
 /// A file that will be written to the Rune's build directory.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct File {
     pub path: PathBuf,
     pub data: Arc<[u8]>,
@@ -72,7 +74,9 @@ impl CustomSection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct RuneVersion {
     /// The version of the tool generating a Rune, typically what you'd see
     /// when running `rune --version`.

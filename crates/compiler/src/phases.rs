@@ -1,7 +1,8 @@
 use legion::{systems::Runnable, Resources, World};
 
 use crate::{
-    codegen, compile,
+    codegen,
+    compile::{CompilationResult, Compile},
     hooks::{Continuation, Ctx, Hooks},
     lowering, parse, type_check, BuildContext, FeatureFlags,
 };
@@ -21,6 +22,8 @@ pub fn build_with_hooks(
     features: FeatureFlags,
     hooks: &mut dyn Hooks,
 ) -> (World, Resources) {
+    let db = Database::default();
+
     let mut world = World::default();
     let mut res = Resources::default();
 
@@ -68,7 +71,8 @@ pub fn build_with_hooks(
         return (world, res);
     }
 
-    compile::phase().run(&mut world, &mut res);
+    let result = db.build();
+    res.insert(CompilationResult(result));
 
     if hooks.after_compile(&mut c(&mut world, &mut res))
         != Continuation::Continue
@@ -78,6 +82,14 @@ pub fn build_with_hooks(
 
     (world, res)
 }
+
+#[derive(Default)]
+#[salsa::database(crate::compile::CompileGroup, crate::compile::InputsGroup)]
+struct Database {
+    storage: salsa::Storage<Self>,
+}
+
+impl salsa::Database for Database {}
 
 /// A group of operations which make up a single "phase" in the build process.
 pub struct Phase(legion::systems::Builder);
