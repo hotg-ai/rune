@@ -13,6 +13,7 @@ mod generate_resource_section;
 mod generate_rune_graph_section;
 mod generate_rust_toolchain_toml;
 mod generate_version_section;
+pub(crate) mod inputs;
 
 use std::{path::Path, sync::Arc};
 
@@ -21,8 +22,9 @@ use im::Vector;
 use legion::Registry;
 
 use crate::{
-    codegen::generate_rune_graph_section::rune_graph_section,
-    inputs::Inputs,
+    codegen::{
+        generate_rune_graph_section::rune_graph_section, inputs::CodegenInputs,
+    },
     lowering::{Name, ResourceData},
     phases::Phase,
     serialize::RegistryExt,
@@ -50,7 +52,7 @@ pub(crate) fn register_components(registry: &mut Registry<String>) {
 }
 
 #[salsa::query_group(CodegenGroup)]
-pub trait Codegen: Inputs {
+pub trait Codegen: CodegenInputs {
     fn rust_toolchain_toml(&self) -> File;
     fn cargo_config(&self) -> File;
     fn cargo_toml(&self) -> File;
@@ -121,7 +123,7 @@ fn version_section(db: &dyn Codegen) -> Option<CustomSection> {
     generate_version_section::version_section(&ctx)
 }
 
-fn lib_rs(db: &dyn Codegen) -> File { todo!() }
+fn lib_rs(_db: &dyn Codegen) -> File { todo!() }
 
 fn custom_sections(db: &dyn Codegen) -> Vector<CustomSection> {
     let mut sections = Vector::new();

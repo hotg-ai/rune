@@ -4,12 +4,13 @@ use im::Vector;
 use legion::{systems::Runnable, IntoQuery, Resources, World};
 
 use crate::{
-    codegen::{self, Codegen},
+    codegen::{inputs::CodegenInputs, Codegen},
     compile::{CompilationResult, Compile},
     hooks::{Continuation, Ctx, Hooks},
     inputs::Inputs,
-    lowering::{self, Model, Name, Outputs, ProcBlock},
-    parse, type_check, BuildContext, FeatureFlags,
+    lowering::{self, Name},
+    parse::Parse,
+    type_check, BuildContext, Diagnostics, FeatureFlags,
 };
 
 /// Execute the `rune build` process.
@@ -36,6 +37,7 @@ pub fn build_with_hooks(
 
     res.insert(ctx);
     res.insert(features);
+    res.insert(Diagnostics::default());
 
     if hooks.before_parse(&mut c(&mut world, &mut res))
         != Continuation::Continue
@@ -44,7 +46,14 @@ pub fn build_with_hooks(
     }
 
     log::debug!("Beginning the \"parse\" phase");
-    parse::phase().run(&mut world, &mut res);
+    match db.parse() {
+        Ok(d) => {
+            res.insert(d.clone().to_v1());
+        },
+        Err(e) => {
+            res.get_mut_or_default::<Diagnostics>().push(e);
+        },
+    }
 
     if hooks.after_parse(&mut c(&mut world, &mut res)) != Continuation::Continue
     {
@@ -129,6 +138,8 @@ fn update_db_before_codegen(world: &World, db: &mut Database) {
 
 #[derive(Default)]
 #[salsa::database(
+    crate::parse::ParseGroup,
+    crate::codegen::inputs::CodegenInputsGroup,
     crate::codegen::CodegenGroup,
     crate::compile::CompileGroup,
     crate::inputs::InputsGroup

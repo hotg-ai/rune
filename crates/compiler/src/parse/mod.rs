@@ -10,13 +10,22 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use legion::{systems::CommandBuffer, Registry};
 
 pub use self::yaml::*;
-use crate::{phases::Phase, serialize::RegistryExt, BuildContext, Diagnostics};
+use crate::{
+    inputs::Inputs, phases::Phase, serialize::RegistryExt, BuildContext,
+    Diagnostics,
+};
 
 pub fn phase() -> Phase {
     Phase::with_setup(|res| {
         res.insert(Diagnostics::new());
     })
     .and_then(run_system)
+}
+
+#[salsa::query_group(ParseGroup)]
+pub trait Parse: Inputs {
+    #[salsa::dependencies]
+    fn parse(&self) -> Result<Document, Diagnostic<()>>;
 }
 
 #[legion::system]
@@ -37,6 +46,11 @@ fn run(
             diags.push(parse_failed_diagnostic(e));
         },
     }
+}
+
+fn parse(db: &dyn Parse) -> Result<Document, Diagnostic<()>> {
+    let ctx = db.build_context();
+    Document::parse(&ctx.runefile).map_err(parse_failed_diagnostic)
 }
 
 fn parse_failed_diagnostic(e: serde_yaml::Error) -> Diagnostic<()> {
