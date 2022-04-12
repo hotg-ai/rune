@@ -46,10 +46,12 @@ use wasmparser::{Parser, Payload};
 
 use crate::{
     callbacks::{Callbacks, Model, ModelMetadata, RuneGraph},
-    engine::{LoadError, WebAssemblyEngine},
+    engine::{WebAssemblyEngine},
     outputs::{parse_outputs, OutputTensor},
     NodeMetadata, Tensor,
 };
+#[allow(unused_imports)] // used with the "wasm3" or "wasmer" features
+use crate::engine::LoadError;
 
 /// A loaded Rune.
 pub struct Runtime {
@@ -92,8 +94,8 @@ impl Runtime {
 
     #[cfg(feature = "wasmer")]
     pub fn wasmer_from_module(
-        store: wasmer::Store,
-        module: wasmer::Module,
+        store: &wasmer::Store,
+        module: &wasmer::Module,
     ) -> Result<Self, LoadError> {
         let resource_sections = module.custom_sections(".rune_resource");
         let state = State::new(resource_sections);
@@ -177,6 +179,7 @@ struct State {
     resources: UnsafeCell<HashMap<String, Vec<u8>>>,
 }
 
+#[allow(dead_code)] // used with the "wasmer" and/or "wasm3" feature flags
 impl State {
     /// Construct the `State` by extracting resources from a WebAssembly
     /// binary's custom sections.
