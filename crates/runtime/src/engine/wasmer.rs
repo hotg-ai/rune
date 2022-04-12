@@ -22,17 +22,22 @@ pub struct WasmerEngine {
     callbacks: Arc<dyn Callbacks>,
 }
 
-impl WebAssemblyEngine for WasmerEngine {
-    fn load(
+impl WasmerEngine {
+    pub(crate) fn load(
         wasm: &[u8],
         callbacks: Arc<dyn Callbacks>,
-    ) -> Result<Self, LoadError>
-    where
-        Self: Sized,
-    {
+    ) -> Result<Self, LoadError> {
         let store = Store::default();
         let module = Module::from_binary(&store, wasm)?;
+        WasmerEngine::from_module(store, module, callbacks)
+    }
 
+    /// Create a new `WasmerEngine` instance with an existing preloaded module
+    pub(crate) fn from_module(
+        store: Store,
+        module: Module,
+        callbacks: Arc<dyn Callbacks>,
+    ) -> Result<Self, LoadError> {
         let host_functions =
             Arc::new(Mutex::new(HostFunctions::new(callbacks.clone())));
         let env = Env {
@@ -66,7 +71,9 @@ impl WebAssemblyEngine for WasmerEngine {
             callbacks,
         })
     }
+}
 
+impl WebAssemblyEngine for WasmerEngine {
     fn init(&mut self) -> Result<(), Error> {
         let manifest: NativeFunc<(), i32> = self
             .instance

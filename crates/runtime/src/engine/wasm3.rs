@@ -26,6 +26,47 @@ pub struct Wasm3Engine {
 }
 
 impl Wasm3Engine {
+    pub(crate) fn load(
+        wasm: &[u8],
+        callbacks: Arc<dyn Callbacks>,
+    ) -> Result<Self, LoadError> {
+        let env = Environment::new().to_anyhow()?;
+        let host_functions =
+            Arc::new(Mutex::new(HostFunctions::new(Arc::clone(&callbacks))));
+
+        let runtime = env
+            .create_runtime(STACK_SIZE)
+            .to_anyhow()
+            .context("Unable to create the runtime")?;
+
+        log::debug!("Instantiating the WebAssembly module");
+        let instance = runtime.parse_and_load_module(wasm).to_anyhow()?;
+
+        let last_error = Arc::new(Mutex::new(None));
+
+        Linker::new(instance, &last_error, &host_functions)
+            .link("_debug", debug)?
+            .link("request_capability", request_capability)?
+            .link("request_capability_set_param", request_capability_set_param)?
+            .link("request_provider_response", request_provider_response)?
+            .link("tfm_model_invoke", tfm_model_invoke)?
+            .link("tfm_preload_model", tfm_preload_model)?
+            .link("rune_model_load", rune_model_load)?
+            .link("rune_model_infer", rune_model_infer)?
+            .link("request_output", request_output)?
+            .link("consume_output", consume_output)?
+            .link("rune_resource_open", rune_resource_open)?
+            .link("rune_resource_read", rune_resource_read)?
+            .link("rune_resource_close", rune_resource_close)?;
+
+        Ok(Wasm3Engine {
+            runtime,
+            last_error,
+            host_functions,
+            callbacks,
+        })
+    }
+
     /// Find a function in the wasm3 module and try to call it.
     ///
     /// Sorry for the generics soup and the whole `apply` thing. The
@@ -65,50 +106,6 @@ impl Wasm3Engine {
 }
 
 impl WebAssemblyEngine for Wasm3Engine {
-    fn load(
-        wasm: &[u8],
-        callbacks: Arc<dyn Callbacks>,
-    ) -> Result<Self, LoadError>
-    where
-        Self: Sized,
-    {
-        let env = Environment::new().to_anyhow()?;
-        let host_functions =
-            Arc::new(Mutex::new(HostFunctions::new(Arc::clone(&callbacks))));
-
-        let runtime = env
-            .create_runtime(STACK_SIZE)
-            .to_anyhow()
-            .context("Unable to create the runtime")?;
-
-        log::debug!("Instantiating the WebAssembly module");
-        let instance = runtime.parse_and_load_module(wasm).to_anyhow()?;
-
-        let last_error = Arc::new(Mutex::new(None));
-
-        Linker::new(instance, &last_error, &host_functions)
-            .link("_debug", debug)?
-            .link("request_capability", request_capability)?
-            .link("request_capability_set_param", request_capability_set_param)?
-            .link("request_provider_response", request_provider_response)?
-            .link("tfm_model_invoke", tfm_model_invoke)?
-            .link("tfm_preload_model", tfm_preload_model)?
-            .link("rune_model_load", rune_model_load)?
-            .link("rune_model_infer", rune_model_infer)?
-            .link("request_output", request_output)?
-            .link("consume_output", consume_output)?
-            .link("rune_resource_open", rune_resource_open)?
-            .link("rune_resource_read", rune_resource_read)?
-            .link("rune_resource_close", rune_resource_close)?;
-
-        Ok(Wasm3Engine {
-            runtime,
-            last_error,
-            host_functions,
-            callbacks,
-        })
-    }
-
     fn init(&mut self) -> Result<(), Error> {
         let _: i32 = self.call("_manifest", (), |f, _| f.call())?;
         let host_functions = self.host_functions.lock().unwrap();
