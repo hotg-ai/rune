@@ -1,12 +1,12 @@
 use std::{path::Path, sync::Arc};
 
-use im::Vector;
+use bytes::Bytes;
 
 use crate::{BuildContext, FeatureFlags};
 
 pub trait FileSystem {
-    fn read_file(&self, path: &Path) -> Result<Vector<u8>, std::io::Error> {
-        std::fs::read(path).map(Vector::from)
+    fn read_file(&self, path: &Path) -> Result<Bytes, std::io::Error> {
+        std::fs::read(path).map(Bytes::from)
     }
 }
 

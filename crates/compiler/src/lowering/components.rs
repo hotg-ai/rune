@@ -6,9 +6,9 @@ use std::{
     hash::Hash,
     ops::Deref,
     path::PathBuf,
-    sync::Arc,
 };
 
+use bytes::Bytes;
 use hotg_rune_core::Shape;
 use indexmap::IndexMap;
 use legion::Entity;
@@ -289,9 +289,9 @@ pub struct Inputs {
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
-pub struct ResourceData(pub Arc<[u8]>);
+pub struct ResourceData(pub Bytes);
 
-impl<T: Into<Arc<[u8]>>> From<T> for ResourceData {
+impl<T: Into<Bytes>> From<T> for ResourceData {
     fn from(data: T) -> Self { ResourceData(data.into()) }
 }
 
@@ -308,9 +308,9 @@ impl Deref for ResourceData {
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
-pub struct ModelData(pub Arc<[u8]>);
+pub struct ModelData(pub Bytes);
 
-impl<A: Into<Arc<[u8]>>> From<A> for ModelData {
+impl<A: Into<Bytes>> From<A> for ModelData {
     fn from(data: A) -> Self { ModelData(data.into()) }
 }
 

@@ -15,7 +15,7 @@ mod generate_rust_toolchain_toml;
 mod generate_version_section;
 pub(crate) mod inputs;
 
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 pub use components::*;
 use im::Vector;
@@ -96,7 +96,7 @@ fn model_files(db: &dyn Codegen) -> Vector<File> {
 
     for (name, data) in db.all_model_data() {
         let path = Path::new("models").join(name.as_str());
-        let file = File::new(path, Arc::clone(&data.0));
+        let file = File::new(path, data.0.clone());
         files.push_back(file);
     }
 

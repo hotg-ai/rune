@@ -15,6 +15,7 @@ readme = "README.md"
 
 [dependencies]
 atomic_refcell = "0.1.8"
+bytes = { version = "1.1.0", features = ["serde"] }
 cargo_toml = "0.10.3"
 codespan = { version = "0.11.1", features = ["serialization"] }
 codespan-reporting = "0.11.1"

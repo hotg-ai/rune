@@ -34,7 +34,7 @@ pub(crate) fn run(
             }
         },
         Some(ResourceSource::Inline(data)) => {
-            cmd.add_component(entity, ResourceData::from(data.as_bytes()));
+            cmd.add_component(entity, ResourceData::from(data.clone()));
         },
         None => {},
     }

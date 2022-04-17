@@ -3,9 +3,9 @@ use std::{
     fmt::{self, Display, Formatter},
     ops::Deref,
     path::PathBuf,
-    sync::Arc,
 };
 
+use bytes::Bytes;
 use hotg_rune_core::Shape;
 use serde::Serialize;
 
@@ -24,11 +24,11 @@ pub const RESOURCE_CUSTOM_SECTION: &str = ".rune_resource";
 )]
 pub struct File {
     pub path: PathBuf,
-    pub data: Arc<[u8]>,
+    pub data: Bytes,
 }
 
 impl File {
-    pub fn new(path: impl Into<PathBuf>, data: impl Into<Arc<[u8]>>) -> Self {
+    pub fn new(path: impl Into<PathBuf>, data: impl Into<Bytes>) -> Self {
         File {
             path: path.into(),
             data: data.into(),
@@ -42,11 +42,11 @@ impl File {
 )]
 pub struct CustomSection {
     pub section_name: String,
-    pub value: Arc<[u8]>,
+    pub value: Bytes,
 }
 
 impl CustomSection {
-    pub fn new(name: impl Into<String>, value: impl Into<Arc<[u8]>>) -> Self {
+    pub fn new(name: impl Into<String>, value: impl Into<Bytes>) -> Self {
         let section_name = name.into();
         let value = value.into();
 

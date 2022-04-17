@@ -7,8 +7,10 @@ use std::{
     sync::Arc,
 };
 
+use bytes::Bytes;
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct CompiledBinary(pub Arc<[u8]>);
+pub struct CompiledBinary(pub Bytes);
 
 impl From<Vec<u8>> for CompiledBinary {
     fn from(bytes: Vec<u8>) -> Self { CompiledBinary(bytes.into()) }
@@ -19,7 +21,7 @@ impl AsRef<[u8]> for CompiledBinary {
 }
 
 impl Deref for CompiledBinary {
-    type Target = Arc<[u8]>;
+    type Target = Bytes;
 
     fn deref(&self) -> &Self::Target { &self.0 }
 }
