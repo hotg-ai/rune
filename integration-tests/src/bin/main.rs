@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use anyhow::{Context, Error};
@@ -42,10 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::info!(
         "Test results... pass: {}, skip: {}, fail: {}, bugs: {}",
-        printer.pass,
-        printer.skip,
-        printer.fail,
-        printer.bug
+        printer.pass.load(Ordering::SeqCst),
+        printer.skip.load(Ordering::SeqCst),
+        printer.fail.load(Ordering::SeqCst),
+        printer.bug.load(Ordering::SeqCst),
     );
 
     printer.exit_code()
@@ -106,16 +107,18 @@ static DEFAULT_TEST_DIRECTORY: Lazy<String> = Lazy::new(|| {
 
 #[derive(Debug, Default)]
 pub struct Printer {
-    pass: usize,
-    skip: usize,
-    fail: usize,
-    bug: usize,
+    pass: AtomicUsize,
+    skip: AtomicUsize,
+    fail: AtomicUsize,
+    bug: AtomicUsize,
     filters: Vec<Regex>,
 }
 
 impl Printer {
     fn exit_code(self) -> Result<(), Box<dyn std::error::Error>> {
-        if self.fail == 0 && self.bug == 0 {
+        if self.fail.load(Ordering::SeqCst) == 0
+            && self.bug.load(Ordering::SeqCst) == 0
+        {
             Ok(())
         } else {
             Err("Test suite failed".into())
@@ -124,7 +127,7 @@ impl Printer {
 }
 
 impl Callbacks for Printer {
-    fn should_run(&mut self, name: &FullName) -> bool {
+    fn should_run(&self, name: &FullName) -> bool {
         if self.filters.is_empty() {
             return true;
         }
@@ -134,29 +137,24 @@ impl Callbacks for Printer {
         self.filters.iter().any(|pattern| pattern.is_match(&name))
     }
 
-    fn on_pass(&mut self, name: &FullName) {
-        self.pass += 1;
+    fn on_pass(&self, name: &FullName) {
+        self.pass.fetch_add(1, Ordering::SeqCst);
         log::info!("{} ... ✓", name);
     }
 
-    fn on_skip(&mut self, name: &FullName) {
-        self.skip += 1;
+    fn on_skip(&self, name: &FullName) {
+        self.skip.fetch_add(1, Ordering::SeqCst);
         log::info!("{} ... (skip)", name);
     }
 
-    fn on_bug(&mut self, name: &FullName, error: Error) {
-        self.bug += 1;
+    fn on_bug(&self, name: &FullName, error: Error) {
+        self.bug.fetch_add(1, Ordering::SeqCst);
         log::error!("{} ... 🐛", name);
         log::error!("Bug: {:?}", error);
     }
 
-    fn on_fail(
-        &mut self,
-        name: &FullName,
-        errors: Vec<Error>,
-        _output: Output,
-    ) {
-        self.fail += 1;
+    fn on_fail(&self, name: &FullName, errors: Vec<Error>, _output: Output) {
+        self.fail.fetch_add(1, Ordering::SeqCst);
         log::error!("{} ... ✗", name);
 
         for error in &errors {

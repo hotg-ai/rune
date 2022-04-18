@@ -10,6 +10,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use rayon::prelude::*;
 
 pub use crate::loader::{Category, ExitCondition, FullName, Test};
 
@@ -28,13 +29,13 @@ pub struct TestSuite {
 }
 
 impl TestSuite {
-    pub fn run(&self, ctx: &TestContext, cb: &mut dyn Callbacks) {
-        for test in &self.tests {
+    pub fn run(&self, ctx: &TestContext, cb: &dyn Callbacks) {
+        self.tests.par_iter().for_each(|test| {
             let name = &test.name;
 
             if !cb.should_run(name) {
                 cb.on_skip(name);
-                continue;
+                return;
             }
 
             match test.run(ctx) {
@@ -45,17 +46,17 @@ impl TestSuite {
                 },
                 Outcome::Bug(error) => cb.on_bug(name, error),
             }
-        }
+        });
     }
 }
 
-pub trait Callbacks {
-    fn on_pass(&mut self, name: &FullName);
-    fn on_skip(&mut self, name: &FullName);
-    fn on_bug(&mut self, name: &FullName, error: Error);
-    fn on_fail(&mut self, name: &FullName, errors: Vec<Error>, output: Output);
+pub trait Callbacks: Sync {
+    fn on_pass(&self, name: &FullName);
+    fn on_skip(&self, name: &FullName);
+    fn on_bug(&self, name: &FullName, error: Error);
+    fn on_fail(&self, name: &FullName, errors: Vec<Error>, output: Output);
     /// Should this test be executed?
-    fn should_run(&mut self, _name: &FullName) -> bool { true }
+    fn should_run(&self, _name: &FullName) -> bool { true }
 }
 
 #[derive(Debug)]
