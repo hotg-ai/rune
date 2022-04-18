@@ -215,7 +215,7 @@ fn unknown_element_type_diagnostic(name: &str) -> Diagnostic<()> {
         .with_message(format!("Unknown element type, \"{}\"", name))
 }
 
-#[cfg(test)]
+#[cfg(never)]
 mod tests {
     use std::str::FromStr;
 

@@ -66,7 +66,7 @@ fn path_and_inline_defined_diagnostic(
         .with_labels(vec![Label::primary((), span)])
 }
 
-#[cfg(test)]
+#[cfg(never)]
 mod tests {
     use legion::{IntoQuery, Resources, World};
 

@@ -3,15 +3,16 @@
 mod components;
 mod load_model_data;
 mod load_resource_data;
+pub mod query;
 mod register_names;
 mod register_resources;
 mod register_stages;
 mod register_tensors;
 mod update_nametable;
 
-pub use components::*;
 use legion::Registry;
 
+pub use self::components::*;
 use crate::{phases::Phase, serialize::RegistryExt};
 
 pub fn phase() -> Phase {

@@ -1,72 +1,32 @@
-//! The parsing phase.
-//!
-//! This is a simple phase which just calls [`Document::parse()`] and stores
-//! the resulting [`DocumentV1`] in the global [`legion::Resources`].
-
 mod yaml;
 
-use codespan::Span;
+use std::sync::Arc;
+
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{systems::CommandBuffer, Registry};
 
 pub use self::yaml::*;
-use crate::{
-    inputs::Inputs, phases::Phase, serialize::RegistryExt, BuildContext,
-    Diagnostics,
-};
 
-pub fn phase() -> Phase {
-    Phase::with_setup(|res| {
-        res.insert(Diagnostics::new());
-    })
-    .and_then(run_system)
+#[tracing::instrument(skip(src), err)]
+pub fn parse(src: &str) -> Result<Document, ParseFailedDiagnostic> {
+    Document::parse(src)
+        .map_err(|e| ParseFailedDiagnostic { inner: Arc::new(e) })
 }
 
-#[salsa::query_group(ParseGroup)]
-pub trait Parse: Inputs {
-    #[salsa::dependencies]
-    fn parse(&self) -> Result<Document, Diagnostic<()>>;
+#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
+#[error("Unable to parse the Runefile: {}", inner)]
+#[diagnostic(code("P001"))]
+pub struct ParseFailedDiagnostic {
+    #[source]
+    inner: Arc<serde_yaml::Error>,
 }
 
-#[legion::system]
-fn run(
-    cmd: &mut CommandBuffer,
-    #[resource] build_context: &BuildContext,
-    #[resource] diags: &mut Diagnostics,
-) {
-    let src = &build_context.runefile;
-
-    match Document::parse(src) {
-        Ok(d) => {
-            cmd.exec_mut(move |_, res| {
-                res.insert(d.clone().to_v1());
-            });
-        },
-        Err(e) => {
-            diags.push(parse_failed_diagnostic(e));
-        },
+impl ParseFailedDiagnostic {
+    pub fn as_codespan_diagnostic(&self) -> Diagnostic<()> {
+        let mut diag = Diagnostic::error().with_message(self.to_string());
+        if let Some(location) = self.inner.location() {
+            let ix = location.index();
+            diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
+        }
+        diag
     }
-}
-
-fn parse(db: &dyn Parse) -> Result<Document, Diagnostic<()>> {
-    let ctx = db.build_context();
-    Document::parse(&ctx.runefile).map_err(parse_failed_diagnostic)
-}
-
-fn parse_failed_diagnostic(e: serde_yaml::Error) -> Diagnostic<()> {
-    let msg = format!("Unable to parse the input: {}", e);
-
-    let mut diag = Diagnostic::error().with_message(msg);
-    if let Some(location) = e.location() {
-        let ix = location.index();
-        diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
-    }
-    diag
-}
-
-pub(crate) fn register_components(registry: &mut Registry<String>) {
-    registry
-        .register_with_type_name::<Document>()
-        .register_with_type_name::<DocumentV1>()
-        .register_with_type_name::<Span>();
 }

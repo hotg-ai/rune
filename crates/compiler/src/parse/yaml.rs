@@ -447,7 +447,7 @@ impl Stage {
 
 /// Something that could be either a reference to a resource (`$resource`)
 /// or a plain string (`./path`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResourceOrString {
     Resource(ResourceName),
     String(String),
@@ -731,6 +731,8 @@ impl ResourceDeclaration {
     Copy,
     Clone,
     PartialEq,
+    Eq,
+    Hash,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,

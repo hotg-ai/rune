@@ -160,14 +160,18 @@ impl Hash for ProcBlock {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct Resource {
     /// Where to read the [`Resource`]'s default value from.
     pub default_value: Option<ResourceSource>,
     pub ty: ResourceType,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum ResourceSource {
     /// The value is specified in-line as a string.
     Inline(String),

@@ -294,7 +294,7 @@ fn unknown_resource_diagnostic(resource_name: &ResourceName) -> Diagnostic<()> {
         .with_labels(vec![Label::primary((), resource_name.span())])
 }
 
-#[cfg(test)]
+#[cfg(never)]
 mod tests {
     use indexmap::IndexMap;
     use legion::{IntoQuery, Resources, World};

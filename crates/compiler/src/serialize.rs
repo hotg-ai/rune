@@ -26,7 +26,6 @@ impl RegistryExt for Registry<String> {
 pub fn registry() -> Registry<String> {
     let mut registry = Registry::new();
 
-    crate::parse::register_components(&mut registry);
     crate::lowering::register_components(&mut registry);
     crate::type_check::register_components(&mut registry);
     crate::codegen::register_components(&mut registry);

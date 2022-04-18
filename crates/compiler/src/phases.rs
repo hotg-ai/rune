@@ -9,7 +9,7 @@ use crate::{
     hooks::{Continuation, Ctx, Hooks},
     inputs::Inputs,
     lowering::{self, Name},
-    parse::Parse,
+    parse::parse,
     type_check, BuildContext, Diagnostics, FeatureFlags,
 };
 
@@ -46,12 +46,13 @@ pub fn build_with_hooks(
     }
 
     log::debug!("Beginning the \"parse\" phase");
-    match db.parse() {
+    match parse(db.build_context().runefile.as_str()) {
         Ok(d) => {
             res.insert(d.clone().to_v1());
         },
         Err(e) => {
-            res.get_mut_or_default::<Diagnostics>().push(e);
+            res.get_mut_or_default::<Diagnostics>()
+                .push(e.as_codespan_diagnostic());
         },
     }
 
@@ -138,7 +139,6 @@ fn update_db_before_codegen(world: &World, db: &mut Database) {
 
 #[derive(Default)]
 #[salsa::database(
-    crate::parse::ParseGroup,
     crate::codegen::inputs::CodegenInputsGroup,
     crate::codegen::CodegenGroup,
     crate::compile::CompileGroup,
