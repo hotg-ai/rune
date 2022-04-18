@@ -8,7 +8,12 @@ extern crate pretty_assertions;
 mod macros;
 
 pub mod diagnostics;
+mod filesystem;
+pub mod lowering;
 pub mod parse;
 mod text;
 
-pub use crate::text::Text;
+pub use crate::{
+    filesystem::{FileSystem, ReadError},
+    text::Text,
+};

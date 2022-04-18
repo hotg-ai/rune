@@ -821,6 +821,8 @@ impl Display for ResourceName {
     Debug,
     Clone,
     PartialEq,
+    Eq,
+    Hash,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -833,6 +835,12 @@ impl FromStr for Image {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Path::from_str(s).map(Image)
+    }
+}
+
+impl Display for Image {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

@@ -2,6 +2,9 @@ use im::Vector;
 
 use crate::Text;
 
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct DiagnosticMetadata {
     pub title: Text,
     pub code: Option<Text>,
@@ -71,15 +74,76 @@ pub enum Severity {
 
 /// A collection of [`Diagnostic`]s.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+    Debug,
+    Default,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 #[serde(transparent)]
-pub struct Diagnostics(Vec<Diagnostic>);
+pub struct Diagnostics(Vector<Diagnostic>);
+
+impl Diagnostics {
+    pub fn new() -> Self { Diagnostics(Vector::new()) }
+
+    pub fn one(d: Diagnostic) -> Self {
+        let mut diags = Diagnostics::new();
+        diags.push(d);
+        diags
+    }
+
+    pub fn push(&mut self, diag: Diagnostic) { self.0.push_back(diag); }
+
+    pub fn iter(&self) -> impl Iterator<Item = &'_ Diagnostic> + '_ {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize { self.0.len() }
+
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
+}
+
+impl FromIterator<Diagnostic> for Diagnostics {
+    fn from_iter<T: IntoIterator<Item = Diagnostic>>(iter: T) -> Self {
+        Diagnostics(iter.into_iter().collect())
+    }
+}
+
+impl Extend<Diagnostic> for Diagnostics {
+    fn extend<T: IntoIterator<Item = Diagnostic>>(&mut self, iter: T) {
+        self.0.extend(iter);
+    }
+}
+
+impl IntoIterator for Diagnostics {
+    type IntoIter = <Vector<Diagnostic> as IntoIterator>::IntoIter;
+    type Item = Diagnostic;
+
+    fn into_iter(self) -> Self::IntoIter { self.0.into_iter() }
+}
+
+impl<'a> IntoIterator for &'a Diagnostics {
+    type IntoIter = <&'a Vector<Diagnostic> as IntoIterator>::IntoIter;
+    type Item = &'a Diagnostic;
+
+    fn into_iter(self) -> Self::IntoIter { self.0.iter() }
+}
 
 /// Something that can be used to create a [`Diagnostic`].
 pub trait AsDiagnostic: std::error::Error {
     fn meta() -> DiagnosticMetadata;
-    fn as_diagnostic(&self) -> Diagnostic;
+
+    /// Create a [`Diagnostic`] from this value.
+    ///
+    /// For convenience, this method has a default implementation which creates
+    /// a [`Severity::Error`] diagnostic with the metadata from
+    /// [`AsDiagnostic::meta()`].
+    fn as_diagnostic(&self) -> Diagnostic {
+        Diagnostic::from_impl(Severity::Error, self)
+    }
 }
 
 #[derive(
@@ -91,6 +155,7 @@ pub struct Diagnostic {
     pub primary_label: Option<Label>,
     pub labels: Vector<Label>,
     pub help: Option<Text>,
+    pub meta: Option<DiagnosticMetadata>,
 }
 
 impl Diagnostic {
@@ -101,8 +166,46 @@ impl Diagnostic {
             primary_label: None,
             labels: Vector::new(),
             help: None,
+            meta: None,
         }
     }
+
+    pub fn from_impl<T>(severity: Severity, diag: &T) -> Self
+    where
+        T: AsDiagnostic + ?Sized,
+    {
+        Diagnostic::new(severity, diag.to_string()).with_meta(T::meta())
+    }
+
+    pub fn with_primary_label(self, primary_label: Label) -> Self {
+        Diagnostic {
+            primary_label: Some(primary_label),
+            ..self
+        }
+    }
+
+    pub fn with_label(mut self, label: Label) -> Self {
+        self.labels.push_back(label);
+        self
+    }
+
+    pub fn with_help(self, help: Text) -> Self {
+        Diagnostic {
+            help: Some(help),
+            ..self
+        }
+    }
+
+    pub fn with_meta(self, meta: DiagnosticMetadata) -> Self {
+        Diagnostic {
+            meta: Some(meta),
+            ..self
+        }
+    }
+}
+
+impl From<Diagnostic> for Diagnostics {
+    fn from(d: Diagnostic) -> Self { Diagnostics::one(d) }
 }
 
 #[derive(
