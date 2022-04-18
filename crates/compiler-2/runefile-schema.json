@@ -1,0 +1,282 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/DocumentV1"
+    }
+  ],
+  "definitions": {
+    "Argument": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ResourceName"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "description": "Something that could be either a reference to a resource (`$resource`) or a plain string (`./path`)."
+    },
+    "CapabilityStage": {
+      "description": "A stage which reads inputs from the runtime.",
+      "properties": {
+        "args": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Argument"
+          },
+          "type": "object"
+        },
+        "capability": {
+          "description": "What type of capability to use (\"IMAGE\", \"SOUND\", etc.).",
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/definitions/Type"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "capability"
+      ],
+      "type": "object"
+    },
+    "DocumentV1": {
+      "description": "Version 1 of the `Runefile.yml` format.",
+      "properties": {
+        "image": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Path"
+            }
+          ],
+          "description": "The base image that defines the interface between a Rune and its runtime.\n\nThis should always be `\"runicos/base\"`."
+        },
+        "pipeline": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Stage"
+          },
+          "description": "The various stages in the Runefile's pipeline.",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": {
+            "$ref": "#/definitions/ResourceDeclaration"
+          },
+          "default": {},
+          "description": "Any resources that can be accessed by pipeline stages.",
+          "type": "object"
+        },
+        "version": {
+          "description": "The version number. Must always be `\"1\"`.",
+          "format": "uint",
+          "maximum": 1.0,
+          "minimum": 1.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "image",
+        "pipeline",
+        "version"
+      ],
+      "type": "object"
+    },
+    "Input": {
+      "description": "\nThe name of a tensor.\n\nTypically something like \"stage\", or \"stage.2\" if the stage has multiple outputs.\n",
+      "format": "string",
+      "pattern": "^(?P<name>[a-zA-Z_][\\w-]*)(?:\\.(?P<index>\\d+))?$",
+      "type": "string"
+    },
+    "ModelStage": {
+      "description": "A ML model which will be executed by the runtime.",
+      "properties": {
+        "args": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Argument"
+          },
+          "type": "object"
+        },
+        "inputs": {
+          "description": "Tensors to use as input to this model.",
+          "items": {
+            "$ref": "#/definitions/Input"
+          },
+          "type": "array"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ResourceName"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The model to use, or a resource which specifies the model to use."
+        },
+        "outputs": {
+          "description": "The tensors that this model outputs.",
+          "items": {
+            "$ref": "#/definitions/Type"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "type": "object"
+    },
+    "OutStage": {
+      "description": "A stage which passes outputs back to the runtime.",
+      "properties": {
+        "args": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Argument"
+          },
+          "type": "object"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/definitions/Input"
+          },
+          "type": "array"
+        },
+        "out": {
+          "description": "The type of output (e.g. \"SERIAL\").",
+          "type": "string"
+        }
+      },
+      "required": [
+        "out"
+      ],
+      "type": "object"
+    },
+    "Path": {
+      "description": "\nA specification for finding a dependency.\n\nThe full syntax is `base@version#sub_path` where\n\n- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`\n  or `https://github.com/hotg-ai/rune`)\n- `version` is an optional field specifying the version (e.g. as a git tag)\n- `sub_path` is an optional field which is useful when pointing to\n  repositories with multiple relevant items because it lets you specify\n  which directory the specified item is in.\n",
+      "format": "string",
+      "pattern": "(?x)\n        (?P<base>[\\w\\d:/_.-]+)\n        (?:@(?P<version>[\\w\\d./-]+))?\n        (?:\\#(?P<sub_path>[\\w\\d._/-]+))?\n        ",
+      "type": "string"
+    },
+    "ProcBlockStage": {
+      "description": "A stage which executes a procedural block.",
+      "properties": {
+        "args": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Argument"
+          },
+          "type": "object"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/definitions/Input"
+          },
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/definitions/Type"
+          },
+          "type": "array"
+        },
+        "proc-block": {
+          "description": "A [`Path`] that Rune can use to locate the proc block.",
+          "format": "string",
+          "pattern": "(?x)\n        (?P<base>[\\w\\d:/_.-]+)\n        (?:@(?P<version>[\\w\\d./-]+))?\n        (?:\\#(?P<sub_path>[\\w\\d._/-]+))?\n        ",
+          "type": "string"
+        }
+      },
+      "required": [
+        "proc-block"
+      ],
+      "type": "object"
+    },
+    "ResourceDeclaration": {
+      "additionalProperties": false,
+      "description": "The declaration for a resource, typically something like a wordlist or environment variable.",
+      "properties": {
+        "inline": {
+          "description": "A resource who's default value is specified inline.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "A resource who's default value is meant to be loaded from a file.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ResourceType"
+            }
+          ],
+          "default": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ResourceName": {
+      "description": "\nA reference to some [`ResourceDeclaration`]. It typically looks like\n`$RESOURCE_NAME`.\n",
+      "format": "string",
+      "pattern": "^\\$[_a-zA-Z][_a-zA-Z0-9]*$",
+      "type": "string"
+    },
+    "ResourceType": {
+      "description": "How the resource should be treated inside the Rune.",
+      "enum": [
+        "string",
+        "binary"
+      ],
+      "type": "string"
+    },
+    "Stage": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ModelStage"
+        },
+        {
+          "$ref": "#/definitions/ProcBlockStage"
+        },
+        {
+          "$ref": "#/definitions/CapabilityStage"
+        },
+        {
+          "$ref": "#/definitions/OutStage"
+        }
+      ],
+      "description": "A stage in the Rune's pipeline."
+    },
+    "Type": {
+      "description": "The element type and dimensions for a particular tensor.",
+      "properties": {
+        "dimensions": {
+          "items": {
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "The top level Runefile type.",
+  "title": "Document"
+}
