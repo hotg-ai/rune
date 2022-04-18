@@ -6,15 +6,14 @@ use crate::{
         AsDiagnostic, Diagnostic, DiagnosticMetadata, Diagnostics, Severity,
     },
     lowering::{
-        Abi, Argument, ArgumentId, DuplicateName, Identifiers, Node, NodeId,
-        PathAndInlineNotAllowed, Resource, ResourceId, ResourceOrText,
-        ResourceSource, UnknownResource,
+        Abi, Argument, ArgumentId, DuplicateName, Identifiers, Input, Node,
+        NodeId, NodeKind, PathAndInlineNotAllowed, Resource, ResourceId,
+        ResourceOrText, ResourceSource, UnknownInput, UnknownResource,
     },
     parse, Text,
 };
 
 /// Populate a [`HirDB`] using a [`parse::Document`].
-#[must_use]
 #[tracing::instrument(skip(db, doc))]
 pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
     let mut ids = Identifiers::new();
@@ -41,8 +40,9 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
     }
 
     for (name, id) in db.node_names() {
-        let node = &pipeline[name.as_str()];
-        resolve_args(db, &name, id, node.args());
+        let stage = &pipeline[name.as_str()];
+        resolve_args(db, &name, id, stage.args());
+        db.set_node(id, resolve_node(db, stage));
     }
 }
 
@@ -60,7 +60,7 @@ pub trait HirDB {
     #[salsa::input]
     fn arguments(&self, node_id: NodeId) -> HashMap<Text, ArgumentId>;
     #[salsa::input]
-    fn argument(&self, id: ArgumentId) -> Result<Argument, Diagnostic>;
+    fn argument(&self, id: ArgumentId) -> (Argument, Diagnostics);
 
     #[salsa::input]
     fn resource_names(&self) -> HashMap<Text, ResourceId>;
@@ -74,6 +74,63 @@ pub trait HirDB {
     /// All the [`Diagnostics`] that were encountered while populating the
     /// [`HirDB`].
     fn lowering_diagnostics(&self) -> Diagnostics;
+}
+
+fn resolve_node(db: &dyn HirDB, stage: &parse::Stage) -> (Node, Diagnostics) {
+    let mut diags = Diagnostics::new();
+
+    let (kind, identifier) = match stage {
+        parse::Stage::Model(m) => {
+            let (value, d) = resolve_resource_or_string(db, &m.model);
+            diags.extend(d);
+            (NodeKind::Model, value)
+        },
+        parse::Stage::ProcBlock(p) => {
+            // TODO: pass the path along as-is instead of marshalling it via a
+            // string
+            (
+                NodeKind::ProcBlock,
+                ResourceOrText::Text(p.proc_block.to_string().into()),
+            )
+        },
+        parse::Stage::Capability(c) => {
+            (NodeKind::Input, ResourceOrText::text(&c.capability))
+        },
+        parse::Stage::Out(o) => {
+            (NodeKind::Output, ResourceOrText::text(&o.out))
+        },
+    };
+
+    let inputs = stage
+        .inputs()
+        .iter()
+        .map(|input| {
+            let names = db.node_names();
+            let node = match names.get(input.name.as_str()) {
+                Some(&id) => id,
+                None => {
+                    let diag = UnknownInput {
+                        input: input.clone(),
+                    };
+                    diags.push(diag.as_diagnostic());
+                    NodeId::ERROR
+                },
+            };
+
+            Input {
+                node,
+                index: input.index.unwrap_or(0),
+            }
+        })
+        .collect();
+
+    let node = Node {
+        kind,
+        identifier,
+        inputs,
+        outputs: stage.output_types().iter().cloned().collect(),
+    };
+    (node, diags)
 }
 
 #[tracing::instrument(level = "debug", skip(db, args, id))]
@@ -90,11 +147,9 @@ fn resolve_args(
         let arg_id = ArgumentId::new(id, name.clone());
         argument_names.insert(name, arg_id.clone());
 
-        let arg = resolve_resource_or_string(db, value)
-            .map(|value| Argument { value })
-            .map_err(|e| e.as_diagnostic());
-
-        db.set_argument(arg_id, arg);
+        let (value, diags) = resolve_resource_or_string(db, value);
+        let arg = Argument { value };
+        db.set_argument(arg_id, (arg, diags));
     }
 
     db.set_arguments(id, argument_names);
@@ -104,19 +159,24 @@ fn resolve_args(
 fn resolve_resource_or_string(
     db: &dyn HirDB,
     value: &parse::ResourceOrString,
-) -> Result<ResourceOrText, UnknownResource> {
+) -> (ResourceOrText, Diagnostics) {
     match value {
         parse::ResourceOrString::String(s) => {
-            Ok(ResourceOrText::Text(s.as_str().into()))
+            (ResourceOrText::Text(s.as_str().into()), Diagnostics::new())
         },
         parse::ResourceOrString::Resource(r) => {
             let resources = db.resource_names();
 
-            resources
-                .get(r.as_str())
-                .copied()
-                .map(|id| ResourceOrText::Resource(id))
-                .ok_or_else(|| UnknownResource { name: r.clone() })
+            match resources.get(r.as_str()) {
+                Some(&id) => (ResourceOrText::Resource(id), Diagnostics::new()),
+                None => {
+                    let diag = UnknownResource { name: r.clone() };
+                    (
+                        ResourceOrText::Error,
+                        Diagnostics::one(diag.as_diagnostic()),
+                    )
+                },
+            }
         },
     }
 }
@@ -190,9 +250,8 @@ fn lowering_diagnostics(db: &dyn HirDB) -> Diagnostics {
         diagnostics.extend(diags);
 
         for (_, arg_id) in db.arguments(id) {
-            if let Err(diag) = db.argument(arg_id) {
-                diagnostics.push(diag);
-            }
+            let (_, diags) = db.argument(arg_id);
+            diagnostics.extend(diags);
         }
     }
 
@@ -308,5 +367,17 @@ mod tests {
                 name: "a".into()
             }
         );
+    }
+
+    #[test]
+    fn populate_gesture() {
+        let src = include_str!("../../../../examples/gesture/Runefile.yml");
+        let doc = crate::parse::parse_runefile(src).unwrap();
+        let mut db = DB::default();
+
+        populate_from_document(&mut db, doc);
+
+        let diags = db.lowering_diagnostics();
+        assert!(diags.is_empty());
     }
 }

@@ -21,11 +21,20 @@ impl Display for Text {
     }
 }
 
-impl<T> From<T> for Text
-where
-    Arc<str>: From<T>,
-{
-    fn from(t: T) -> Self { Text::new(t) }
+impl From<Arc<str>> for Text {
+    fn from(s: Arc<str>) -> Self { Text(s) }
+}
+
+impl From<String> for Text {
+    fn from(s: String) -> Self { Text(s.into()) }
+}
+
+impl From<&'_ str> for Text {
+    fn from(s: &'_ str) -> Self { Text(s.into()) }
+}
+
+impl From<&'_ String> for Text {
+    fn from(s: &'_ String) -> Self { Text(s.as_str().into()) }
 }
 
 impl std::ops::Deref for Text {

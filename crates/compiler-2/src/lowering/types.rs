@@ -1,5 +1,7 @@
 use std::num::NonZeroU32;
 
+use im::Vector;
+
 use crate::{
     diagnostics::{AsDiagnostic, Diagnostic, DiagnosticMetadata, Severity},
     parse::ResourceType,
@@ -32,7 +34,13 @@ pub enum Abi {
     serde::Deserialize,
 )]
 #[repr(transparent)]
-pub struct ResourceId(NonZeroU32);
+pub struct ResourceId(Option<NonZeroU32>);
+
+impl ResourceId {
+    pub const ERROR: ResourceId = ResourceId(None);
+
+    pub fn is_error(self) -> bool { self == Self::ERROR }
+}
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
@@ -78,7 +86,13 @@ impl ResourceSource {
     serde::Deserialize,
 )]
 #[repr(transparent)]
-pub struct NodeId(NonZeroU32);
+pub struct NodeId(Option<NonZeroU32>);
+
+impl NodeId {
+    pub const ERROR: NodeId = NodeId(None);
+
+    pub fn is_error(self) -> bool { self == Self::ERROR }
+}
 
 /// A node in the ML pipeline.
 #[derive(
@@ -87,6 +101,16 @@ pub struct NodeId(NonZeroU32);
 pub struct Node {
     pub kind: NodeKind,
     pub identifier: ResourceOrText,
+    pub inputs: Vector<Input>,
+    pub outputs: Vector<crate::parse::Type>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub struct Input {
+    pub node: NodeId,
+    pub index: usize,
 }
 
 #[derive(
@@ -136,9 +160,9 @@ pub struct Identifiers {
 impl Identifiers {
     pub fn new() -> Self { Identifiers { next_id: 0 } }
 
-    pub fn node(&mut self) -> NodeId { NodeId(self.next()) }
+    pub fn node(&mut self) -> NodeId { NodeId(Some(self.next())) }
 
-    pub fn resource(&mut self) -> ResourceId { ResourceId(self.next()) }
+    pub fn resource(&mut self) -> ResourceId { ResourceId(Some(self.next())) }
 
     pub fn next(&mut self) -> NonZeroU32 {
         self.next_id += 1;
@@ -175,6 +199,13 @@ impl AsDiagnostic for DuplicateName {
 pub enum ResourceOrText {
     Text(Text),
     Resource(ResourceId),
+    Error,
+}
+
+impl ResourceOrText {
+    pub fn text(value: impl Into<Text>) -> Self {
+        ResourceOrText::Text(value.into())
+    }
 }
 
 #[derive(
@@ -234,4 +265,23 @@ impl AsDiagnostic for UnknownResource {
     fn meta() -> DiagnosticMetadata {
         DiagnosticMetadata::new("Unknown Resource")
     }
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    thiserror::Error,
+)]
+#[error("There is no node called \"{}\"", input.name)]
+pub struct UnknownInput {
+    pub input: crate::parse::Input,
+}
+
+impl AsDiagnostic for UnknownInput {
+    fn meta() -> DiagnosticMetadata { DiagnosticMetadata::new("Unknown Input") }
 }
