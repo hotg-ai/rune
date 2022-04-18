@@ -158,7 +158,7 @@ pub struct Identifiers {
 }
 
 impl Identifiers {
-    pub fn new() -> Self { Identifiers { next_id: 0 } }
+    pub const fn new() -> Self { Identifiers { next_id: 0 } }
 
     pub fn node(&mut self) -> NodeId { NodeId(Some(self.next())) }
 
@@ -168,6 +168,10 @@ impl Identifiers {
         self.next_id += 1;
         NonZeroU32::new(self.next_id).expect("Unreachable")
     }
+}
+
+impl Default for Identifiers {
+    fn default() -> Self { Identifiers::new() }
 }
 
 #[derive(

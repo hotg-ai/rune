@@ -1,4 +1,7 @@
-use std::{error::Error, path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use im::Vector;
 
@@ -8,21 +11,38 @@ pub trait FileSystem {
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum ReadError {
-    #[error("The file wasn't found")]
-    NotFound,
-    #[error("Unable to read the file")]
-    Other(Arc<dyn Error + Send + Sync>),
+#[error("Unable to read \"{}\"", path.display())]
+pub struct ReadError {
+    #[source]
+    inner: Arc<std::io::Error>,
+    path: PathBuf,
+}
+
+impl ReadError {
+    pub fn new(path: PathBuf, error: std::io::Error) -> Self {
+        Self {
+            inner: error.into(),
+            path,
+        }
+    }
 }
 
 impl PartialEq for ReadError {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (ReadError::Other(left), ReadError::Other(right)) => {
-                Arc::ptr_eq(left, right)
-            },
-            (ReadError::NotFound, ReadError::NotFound) => true,
-            _ => false,
+        let ReadError { inner, path } = self;
+
+        if *path != other.path {
+            return false;
+        }
+
+        let kind = inner.kind();
+
+        if kind == std::io::ErrorKind::Other {
+            // it's some other type of error. Assume they aren't equal unless
+            // they are the same object.
+            Arc::ptr_eq(inner, &other.inner)
+        } else {
+            kind == other.inner.kind()
         }
     }
 }
