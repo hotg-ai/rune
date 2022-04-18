@@ -1,9 +1,14 @@
 #![doc= include_str!("../README.md")]
 
-#[macro_use]
-mod macros;
-pub mod parse;
-
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
+
+#[macro_use]
+mod macros;
+
+pub mod diagnostics;
+pub mod parse;
+mod text;
+
+pub use crate::text::Text;
