@@ -1,6 +1,12 @@
 //! Convert a Runefile's AST into a high-level intermediate representation that
 //! is more amenable to analysis.
 //!
+//! This high-level intermediate representation is stored as inputs on the
+//! [`HirDB`] query group.
+//!
+//! When loading a Rune from a `Runefile.yml`, you will typically use
+//! [`populate_from_document()`] to set the inputs.
+//!
 //! # Examples
 //!
 //! ```

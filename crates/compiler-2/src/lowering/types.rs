@@ -285,3 +285,22 @@ pub struct UnknownInput {
 impl AsDiagnostic for UnknownInput {
     fn meta() -> DiagnosticMetadata { DiagnosticMetadata::new("Unknown Input") }
 }
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    thiserror::Error,
+)]
+#[error("Unknown ABI, \"{}\"", image)]
+pub struct UnknownAbi {
+    pub image: crate::parse::Image,
+}
+
+impl AsDiagnostic for UnknownAbi {
+    fn meta() -> DiagnosticMetadata { DiagnosticMetadata::new("Unknown ABI") }
+}

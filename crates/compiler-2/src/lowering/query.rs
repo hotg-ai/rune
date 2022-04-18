@@ -2,13 +2,12 @@ use im::{HashMap, HashSet, Vector};
 use indexmap::IndexMap;
 
 use crate::{
-    diagnostics::{
-        AsDiagnostic, Diagnostic, DiagnosticMetadata, Diagnostics, Severity,
-    },
+    diagnostics::{AsDiagnostic, Diagnostics},
     lowering::{
         Abi, Argument, ArgumentId, DuplicateName, Identifiers, Input, Node,
         NodeId, NodeKind, PathAndInlineNotAllowed, Resource, ResourceId,
-        ResourceOrText, ResourceSource, UnknownInput, UnknownResource,
+        ResourceOrText, ResourceSource, UnknownAbi, UnknownInput,
+        UnknownResource,
     },
     parse, Text,
 };
@@ -297,34 +296,13 @@ fn resolve_abi(image: &parse::Image) -> (Abi, Diagnostics) {
     } = &image.0;
     match (base.as_str(), sub_path.as_deref(), version.as_deref()) {
         ("runicos/base", None, None) => (Abi::V0, Diagnostics::new()),
-        _ => (
-            Abi::V1,
-            Diagnostic::new(
-                Severity::Warning,
-                format!("Unknown ABI, \"{}\"", image),
-            )
-            .into(),
-        ),
+        _ => {
+            let diag = UnknownAbi {
+                image: image.clone(),
+            };
+            (Abi::V0, diag.as_diagnostic().into())
+        },
     }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    thiserror::Error,
-)]
-#[error("Unknown ABI, \"{}\"", image)]
-struct UnknownAbi {
-    image: parse::Image,
-}
-
-impl AsDiagnostic for UnknownAbi {
-    fn meta() -> DiagnosticMetadata { DiagnosticMetadata::new("Unknown ABI") }
 }
 
 #[cfg(test)]

@@ -47,6 +47,13 @@ impl Borrow<str> for Text {
     fn borrow(&self) -> &str { &self.0 }
 }
 
+impl<T> PartialEq<T> for Text
+where
+    T: PartialEq<str>,
+{
+    fn eq(&self, other: &T) -> bool { other == self.as_str() }
+}
+
 impl<'de> serde::Deserialize<'de> for Text {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

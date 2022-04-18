@@ -1,3 +1,5 @@
+//! Diagnostics that may be shown to a user.
+
 use im::Vector;
 
 use crate::Text;
@@ -215,4 +217,16 @@ pub struct Label {
     /// A number that refers to the item being labeled.
     pub target_id: u32,
     pub message: Option<Text>,
+}
+
+/// Get the [`DiagnosticMetadata`] for all known diagnostics.
+pub fn all() -> Vec<DiagnosticMetadata> {
+    vec![
+        crate::lowering::DuplicateName::meta(),
+        crate::lowering::PathAndInlineNotAllowed::meta(),
+        crate::lowering::UnknownAbi::meta(),
+        crate::lowering::UnknownInput::meta(),
+        crate::lowering::UnknownResource::meta(),
+        crate::parse::ParseFailed::meta(),
+    ]
 }

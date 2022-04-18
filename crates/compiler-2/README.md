@@ -10,8 +10,18 @@ computation.  This lets us phrase the compilation process as a series of queries
 (essentially, pure functions) which can be aggressively cached based on
 dependency analysis.
 
-- [`parse`] - Runefile parsing
+These series of queries are broken up into a couple submodules,
+
+- [`parse`] - Parse a Runefile written in the YAML format
 - [`lowering`] - Convert a Runefile's AST into a high-level intermediate
   representation that is more amenable to analysis
+
+## Error Handling
+
+Users are guaranteed to write buggy code, so the Rune compiler will try as hard
+as it can to record these errors and continue on.
+
+All queries that may encounter an error should return a value and a set of
+[`diagnostics::Diagnostics`] as a tuple.
 
 [salsa]: https://github.com/salsa-rs/salsa
