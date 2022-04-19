@@ -31,4 +31,13 @@ describe("Tensor", () => {
 
         expect(Array.from(typed)).toEqual(numbers.slice(3, 6));
     });
+
+    it("can be constructed from a typed array", () => {
+        const values = [1, 2, 3, 4, -5, -6];
+        const raw = new Int16Array(values);
+
+        const tensor = Tensor.fromTypedArray("i16", [6], raw);
+
+        expect(Array.from(tensor.asTypedArray("i16"))).toEqual(values);
+    });
 });

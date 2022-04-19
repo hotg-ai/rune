@@ -61,7 +61,7 @@ export default class Tensor {
     ): Tensor {
         const { buffer, byteLength, byteOffset } = elements;
         const shape = new Shape(elementType, [...dimensions]);
-        return new Tensor(shape, new Uint8Array(buffer, byteLength, byteOffset));
+        return new Tensor(shape, new Uint8Array(buffer, byteOffset, byteLength));
     }
 
     /**
