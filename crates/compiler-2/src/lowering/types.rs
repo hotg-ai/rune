@@ -131,18 +131,9 @@ pub enum NodeKind {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+    Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
-pub struct ArgumentId {
-    node: NodeId,
-    name: Text,
-}
-
-impl ArgumentId {
-    pub(super) fn new(node: NodeId, name: Text) -> Self {
-        ArgumentId { node, name }
-    }
-}
+pub struct ArgumentId(Option<NonZeroU32>);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
@@ -163,6 +154,8 @@ impl Identifiers {
     pub fn node(&mut self) -> NodeId { NodeId(Some(self.next())) }
 
     pub fn resource(&mut self) -> ResourceId { ResourceId(Some(self.next())) }
+
+    pub fn argument(&mut self) -> ArgumentId { ArgumentId(Some(self.next())) }
 
     pub fn next(&mut self) -> NonZeroU32 {
         self.next_id += 1;

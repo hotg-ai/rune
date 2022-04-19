@@ -1,4 +1,5 @@
 use std::{
+    fmt::{self, Display, Formatter},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -7,31 +8,46 @@ use im::Vector;
 
 /// An abstract filesystem.
 pub trait FileSystem {
-    fn read(&self, path: &Path) -> Result<Vector<u8>, ReadError>;
+    fn read(&self, path: &Path) -> Result<Vector<u8>, FileSystemError>;
 }
 
+/// An error that may be returned by [`FileSystem`] operations.
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("Unable to read \"{}\"", path.display())]
-pub struct ReadError {
+#[error("Unable to {} \"{}\"", operation, path.display())]
+pub struct FileSystemError {
     #[source]
-    inner: Arc<std::io::Error>,
-    path: PathBuf,
+    pub inner: Arc<std::io::Error>,
+    pub operation: FileSystemOperation,
+    pub path: PathBuf,
 }
 
-impl ReadError {
-    pub fn new(path: PathBuf, error: std::io::Error) -> Self {
+impl FileSystemError {
+    pub fn new(
+        path: PathBuf,
+        operation: FileSystemOperation,
+        error: std::io::Error,
+    ) -> Self {
         Self {
             inner: error.into(),
+            operation,
             path,
         }
     }
+
+    pub fn read(path: PathBuf, error: std::io::Error) -> Self {
+        FileSystemError::new(path, FileSystemOperation::Read, error)
+    }
 }
 
-impl PartialEq for ReadError {
+impl PartialEq for FileSystemError {
     fn eq(&self, other: &Self) -> bool {
-        let ReadError { inner, path } = self;
+        let FileSystemError {
+            ref inner,
+            operation,
+            ref path,
+        } = *self;
 
-        if *path != other.path {
+        if *path != other.path || operation != other.operation {
             return false;
         }
 
@@ -47,4 +63,28 @@ impl PartialEq for ReadError {
     }
 }
 
-impl Eq for ReadError {}
+impl Eq for FileSystemError {}
+
+/// Operations that may be executed as part of implementing [`FileSystem`]
+/// methods.
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub enum FileSystemOperation {
+    Read,
+}
+
+impl Display for FileSystemOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FileSystemOperation::Read => write!(f, "read"),
+        }
+    }
+}

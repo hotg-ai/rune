@@ -15,6 +15,8 @@ These series of queries are broken up into a couple submodules,
 - [`parse`] - Parse a Runefile written in the YAML format
 - [`lowering`] - Convert a Runefile's AST into a high-level intermediate
   representation that is more amenable to analysis
+- [`type_check`] - Construct a fully-defined pipeline based on the high-level
+  intermediate representation
 
 ## Error Handling
 

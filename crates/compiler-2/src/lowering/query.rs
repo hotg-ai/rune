@@ -40,7 +40,7 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
 
     for (name, id) in db.node_names() {
         let stage = &pipeline[name.as_str()];
-        resolve_args(db, &name, id, stage.args());
+        resolve_args(db, &name, id, &mut ids, stage.args());
         db.set_node(id, resolve_node(db, stage));
     }
 }
@@ -137,13 +137,14 @@ fn resolve_args(
     db: &mut dyn HirDB,
     node_name: &Text,
     id: NodeId,
+    ids: &mut Identifiers,
     args: &IndexMap<String, parse::Argument>,
 ) {
     let mut argument_names = HashMap::new();
 
     for (name, value) in args {
         let name = Text::new(name.as_str());
-        let arg_id = ArgumentId::new(id, name.clone());
+        let arg_id = ids.argument();
         argument_names.insert(name, arg_id.clone());
 
         let (value, diags) = resolve_resource_or_string(db, value);
