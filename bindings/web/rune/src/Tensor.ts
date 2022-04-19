@@ -8,7 +8,7 @@ import Shape from "./Shape";
 const BigUint64ArrayShim = global.BigUint64Array ?? class { constructor() { throw new Error("BigUint64Array is not supported on this device"); } };
 const BigInt64ArrayShim = global.BigInt64Array ?? class { constructor() { throw new Error("BigInt64Array is not supported on this device"); } };
 
-const typedArrays = {
+const typedArrayConstructors = {
     "f64": Float64Array,
     "i64": BigInt64ArrayShim,
     "u64": BigUint64ArrayShim,
@@ -20,6 +20,12 @@ const typedArrays = {
     "u8": Uint8ClampedArray,
     "i8": Int8Array,
 } as const;
+
+type TypedArrayConstructors = typeof typedArrayConstructors;
+
+export type TypedArrays = {
+    [Key in keyof TypedArrayConstructors]: InstanceType<TypedArrayConstructors[Key]>;
+}
 
 /**
  * An opaque tensor.
@@ -37,6 +43,25 @@ export default class Tensor {
     constructor(shape: Shape, elements: Uint8Array) {
         this.shape = shape;
         this.elements = elements;
+    }
+
+    /**
+     * Construct a new Tensor from a typed array containing its flattened
+     * elements in row-major order.
+     *
+     * @param elementType The type of the element
+     * @param dimensions The tensor's dimensions
+     * @param elements The elements
+     * @returns
+     */
+    public static fromTypedArray<S extends keyof TypedArrays>(
+        elementType: S,
+        dimensions: readonly number[],
+        elements: TypedArrays[S],
+    ): Tensor {
+        const { buffer, byteLength, byteOffset } = elements;
+        const shape = new Shape(elementType, [...dimensions]);
+        return new Tensor(shape, new Uint8Array(buffer, byteLength, byteOffset));
     }
 
     /**
@@ -102,14 +127,14 @@ export default class Tensor {
      */
     public asTypedArray(elementType: "u8"): Uint8ClampedArray;
 
-    public asTypedArray(elementType: keyof typeof typedArrays): ArrayBuffer {
+    public asTypedArray(elementType: keyof typeof typedArrayConstructors): ArrayBuffer {
         if (this.shape.type != elementType) {
             throw new Error(`Attempting to interpret a ${this.shape.toString()} as a ${elementType} tensor`);
         }
 
         const { buffer, byteOffset, byteLength } = this.elements;
         const length = byteLength / Shape.ByteSize[this.shape.type];
-        const constructor = typedArrays[elementType];
+        const constructor = typedArrayConstructors[elementType];
 
         return new constructor(buffer, byteOffset, length);
     }
@@ -122,3 +147,5 @@ export default class Tensor {
         return this.shape.dimensions;
     }
 }
+
+const x = Tensor.fromTypedArray
