@@ -4,19 +4,24 @@ expression: state
 ---
 diags: []
 abi: v0
-node-names:
-  accelerometer: 1
-  gesture: 3
-  label: 5
-  most_confident_index: 4
-  normalize: 2
-  serial: 6
+names:
+  accelerometer:
+    node: 0
+  gesture:
+    node: 2
+  label:
+    node: 4
+  most_confident_index:
+    node: 3
+  normalize:
+    node: 1
+  serial:
+    node: 5
 nodes:
-  1:
+  0:
     kind: input
     identifier:
       text: ACCEL
-    inputs: []
     outputs:
       - type: F32
         dimensions:
@@ -24,13 +29,10 @@ nodes:
           - 128
           - 3
           - 1
-  2:
+  1:
     kind: proc-block
     identifier:
       text: "hotg-ai/proc-blocks@v0.11.3#normalize"
-    inputs:
-      - node: 1
-        index: 0
     outputs:
       - type: f32
         dimensions:
@@ -38,68 +40,68 @@ nodes:
           - 128
           - 3
           - 1
-  3:
+  2:
     kind: model
     identifier:
       text: "./model.tflite"
-    inputs:
-      - node: 2
-        index: 0
     outputs:
       - type: f32
         dimensions:
           - 1
           - 4
-  4:
+  3:
     kind: proc-block
     identifier:
       text: "hotg-ai/proc-blocks@v0.11.3#most_confident_indices"
-    inputs:
-      - node: 3
-        index: 0
     outputs:
       - type: U32
         dimensions:
           - 1
-  5:
+  4:
     kind: proc-block
     identifier:
       text: "hotg-ai/proc-blocks@v0.11.3#label"
-    inputs:
-      - node: 4
-        index: 0
     outputs:
       - type: UTF8
         dimensions:
           - 1
-  6:
+  5:
     kind: output
     identifier:
       text: SERIAL
-    inputs:
-      - node: 5
-        index: 0
     outputs: []
-arguments:
+inputs:
+  0: []
   1:
-    n: 7
-  2: {}
-  3: {}
+    - node: 0
+      index: 0
+  2:
+    - node: 1
+      index: 0
+  3:
+    - node: 2
+      index: 0
   4:
-    count: 9
+    - node: 3
+      index: 0
   5:
-    wordlist: 8
-  6: {}
-argument-values:
-  7:
-    value:
-      text: "128"
-  8:
-    value:
-      text: "Wing\nRing\nSlope\nUnknown"
-  9:
-    value:
-      text: "1"
-resource-names: {}
+    - node: 4
+      index: 0
+arguments:
+  0:
+    n:
+      value:
+        text: "128"
+  1: {}
+  2: {}
+  3:
+    count:
+      value:
+        text: "1"
+  4:
+    wordlist:
+      value:
+        text: "Wing\nRing\nSlope\nUnknown"
+  5: {}
 resources: {}
 

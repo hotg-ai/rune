@@ -42,10 +42,12 @@
 //! );
 //! ```
 
+pub(crate) mod diagnostics;
 mod query;
 mod types;
 
 pub use self::{
+    diagnostics::*,
     query::{populate_from_document, HirDB, HirDBStorage},
     types::*,
 };

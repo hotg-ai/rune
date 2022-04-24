@@ -1,13 +1,13 @@
-use im::{HashSet, OrdMap, Vector};
+use im::{OrdMap, Vector};
 use indexmap::IndexMap;
 
 use crate::{
     diagnostics::{AsDiagnostic, Diagnostics},
     lowering::{
-        Abi, Argument, ArgumentId, DuplicateName, Identifiers, Input, Node,
-        NodeId, NodeKind, PathAndInlineNotAllowed, Resource, ResourceId,
-        ResourceOrText, ResourceSource, UnknownAbi, UnknownInput,
-        UnknownResource,
+        Abi, Argument, ArgumentId, DuplicateName, HirId, Input, Node, NodeId,
+        NodeKind, NotAResource, PathAndInlineNotAllowed, Resource, ResourceId,
+        ResourceOrText, ResourceSource, ResourceUsedAsInput, UnknownAbi,
+        UnknownInput, UnknownResource,
     },
     parse, Text,
 };
@@ -15,8 +15,6 @@ use crate::{
 /// Populate a [`HirDB`] using a [`parse::Document`].
 #[tracing::instrument(skip(db, doc))]
 pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
-    let mut ids = Identifiers::new();
-
     let parse::DocumentV1 {
         // Only used to switch between Runefile.yml formats
         version: _,
@@ -27,21 +25,18 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
 
     db.set_abi(resolve_abi(&image));
 
-    let node_names = resolve_node_names(&pipeline, &mut ids);
-    db.set_node_names(node_names);
+    let (names, d) = resolve_names(db, &pipeline, &resources);
+    db.set_names((names.clone(), d));
 
-    let resource_names = resolve_resource_names(&resources, &mut ids);
-    db.set_resource_names(resource_names);
+    for (name, id) in names {
+        if let HirId::Node(id) = id {
+            let stage = &pipeline[name.as_str()];
+            let resolved = resolve_args(db, &name, stage.args());
+            db.set_arguments(id, resolved);
 
-    for (name, id) in db.resource_names() {
-        let decl = &resources[name.as_str()];
-        db.set_resource(id, resolve_resource(&name, id, decl));
-    }
-
-    for (name, id) in db.node_names() {
-        let stage = &pipeline[name.as_str()];
-        resolve_args(db, &name, id, &mut ids, stage.args());
-        db.set_node(id, resolve_node(db, stage));
+            let resolved = resolve_inputs(db, &name, stage.inputs());
+            db.set_inputs(id, resolved);
+        }
     }
 }
 
@@ -50,29 +45,68 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
 pub trait HirDB {
     #[salsa::input]
     fn abi(&self) -> (Abi, Diagnostics);
-    #[salsa::input]
-    fn node_names(&self) -> OrdMap<Text, NodeId>;
-    #[salsa::input]
-    fn node(&self, id: NodeId) -> (Node, Diagnostics);
 
+    #[salsa::input]
+    fn names(&self) -> (OrdMap<Text, HirId>, Diagnostics);
+
+    #[salsa::interned]
+    fn node(&self, node: Node) -> NodeId;
+
+    #[salsa::input]
+    fn inputs(&self, node: NodeId) -> (Vector<Option<Input>>, Diagnostics);
+
+    #[salsa::interned]
+    fn argument(&self, arg: Argument) -> ArgumentId;
     /// Retrieve the arguments associated with a [`Node`].
     #[salsa::input]
-    fn arguments(&self, node_id: NodeId) -> OrdMap<Text, ArgumentId>;
-    #[salsa::input]
-    fn argument(&self, id: ArgumentId) -> (Argument, Diagnostics);
+    fn arguments(
+        &self,
+        node_id: NodeId,
+    ) -> (OrdMap<Text, ArgumentId>, Diagnostics);
 
-    #[salsa::input]
-    fn resource_names(&self) -> OrdMap<Text, ResourceId>;
-    #[salsa::input]
-    fn resource(&self, id: ResourceId) -> (Resource, Diagnostics);
-
-    /// Get [`DuplicateName`]s for any names that are duplicated between
-    /// [`HirDB::node_names()`] and [`HirDB::resource_names()`].
-    fn duplicate_names(&self) -> Vector<DuplicateName>;
+    #[salsa::interned]
+    fn resource(&self, res: Resource) -> ResourceId;
 
     /// All the [`Diagnostics`] that were encountered while populating the
     /// [`HirDB`].
     fn lowering_diagnostics(&self) -> Diagnostics;
+}
+
+#[tracing::instrument(skip(db, pipeline, resources))]
+fn resolve_names(
+    db: &dyn HirDB,
+    pipeline: &IndexMap<String, parse::Stage>,
+    resources: &IndexMap<String, parse::ResourceDeclaration>,
+) -> (OrdMap<Text, HirId>, Diagnostics) {
+    let mut names: OrdMap<Text, HirId> = OrdMap::new();
+    let mut diags = Diagnostics::new();
+
+    for (name, stage) in pipeline {
+        let name = Text::new(name.as_str());
+        let (node, d) = resolve_node(db, stage);
+        diags.extend(d);
+        let id = db.node(node).into();
+
+        if let Some(original) = names.insert(name.clone(), id) {
+            diags.push(DuplicateName::new(original, id, name).as_diagnostic());
+        }
+    }
+
+    for (name, resource) in resources {
+        let name = Text::new(name.as_str());
+        let (resource, path_and_inline_defined) = resolve_resource(resource);
+        let id = db.resource(resource);
+        if path_and_inline_defined {
+            let diag = PathAndInlineNotAllowed::new(name.as_str(), id);
+            diags.push(diag.as_diagnostic());
+        }
+        let id = HirId::from(id);
+        if let Some(original) = names.insert(name.clone(), id) {
+            diags.push(DuplicateName::new(original, id, name).as_diagnostic());
+        }
+    }
+
+    (names, diags)
 }
 
 fn resolve_node(db: &dyn HirDB, stage: &parse::Stage) -> (Node, Diagnostics) {
@@ -100,59 +134,67 @@ fn resolve_node(db: &dyn HirDB, stage: &parse::Stage) -> (Node, Diagnostics) {
         },
     };
 
-    let inputs = stage
-        .inputs()
-        .iter()
-        .map(|input| {
-            let names = db.node_names();
-            let node = match names.get(input.name.as_str()) {
-                Some(&id) => id,
-                None => {
-                    let diag = UnknownInput {
-                        input: input.clone(),
-                    };
-                    diags.push(diag.as_diagnostic());
-                    NodeId::ERROR
-                },
-            };
-
-            Input {
-                node,
-                index: input.index.unwrap_or(0),
-            }
-        })
-        .collect();
-
     let node = Node {
         kind,
         identifier,
-        inputs,
         outputs: stage.output_types().iter().cloned().collect(),
     };
     (node, diags)
 }
 
-#[tracing::instrument(level = "debug", skip(db, args, id))]
+#[tracing::instrument(level = "debug", skip(db, args))]
 fn resolve_args(
     db: &mut dyn HirDB,
     node_name: &Text,
-    id: NodeId,
-    ids: &mut Identifiers,
     args: &IndexMap<String, parse::Argument>,
-) {
+) -> (OrdMap<Text, ArgumentId>, Diagnostics) {
     let mut argument_names = OrdMap::new();
+    let mut diags = Diagnostics::new();
 
     for (name, value) in args {
         let name = Text::new(name.as_str());
-        let arg_id = ids.argument();
-        argument_names.insert(name, arg_id.clone());
-
-        let (value, diags) = resolve_resource_or_string(db, value);
+        let (value, d) = resolve_resource_or_string(db, value);
+        diags.extend(d);
         let arg = Argument { value };
-        db.set_argument(arg_id, (arg, diags));
+        let id = db.argument(arg);
+        argument_names.insert(name, id);
     }
 
-    db.set_arguments(id, argument_names);
+    (argument_names, diags)
+}
+
+#[tracing::instrument(level = "debug", skip(db, inputs))]
+fn resolve_inputs(
+    db: &dyn HirDB,
+    name: &str,
+    inputs: &[crate::parse::Input],
+) -> (Vector<Option<Input>>, Diagnostics) {
+    let mut resolved = Vector::new();
+    let mut diags = Diagnostics::new();
+
+    let (names, _) = db.names();
+
+    for input in inputs {
+        match names.get(input.name.as_str()).copied() {
+            Some(HirId::Node(id)) => {
+                let index = input.index.unwrap_or(0);
+                resolved.push_back(Some(Input { node: id, index }));
+            },
+            Some(HirId::Resource(id)) => {
+                let diag =
+                    ResourceUsedAsInput::new(input.clone(), name.into(), id);
+                diags.push(diag.as_diagnostic());
+                resolved.push_back(None);
+            },
+            None => {
+                let diag = UnknownInput::new(input.clone());
+                diags.push(diag.as_diagnostic());
+                resolved.push_back(None);
+            },
+        }
+    }
+
+    (resolved, diags)
 }
 
 #[tracing::instrument(level = "debug", skip(db))]
@@ -165,10 +207,19 @@ fn resolve_resource_or_string(
             (ResourceOrText::Text(s.as_str().into()), Diagnostics::new())
         },
         parse::ResourceOrString::Resource(r) => {
-            let resources = db.resource_names();
+            let (names, _) = db.names();
 
-            match resources.get(r.as_str()) {
-                Some(&id) => (ResourceOrText::Resource(id), Diagnostics::new()),
+            match names.get(r.as_str()).copied() {
+                Some(HirId::Resource(id)) => {
+                    (ResourceOrText::Resource(id), Diagnostics::new())
+                },
+                Some(HirId::Node(_)) => {
+                    let diag = NotAResource { name: r.clone() };
+                    (
+                        ResourceOrText::Error,
+                        Diagnostics::one(diag.as_diagnostic()),
+                    )
+                },
                 None => {
                     let diag = UnknownResource { name: r.clone() };
                     (
@@ -182,20 +233,16 @@ fn resolve_resource_or_string(
 }
 
 #[tracing::instrument(level = "debug", skip(decl))]
-fn resolve_resource(
-    name: &str,
-    id: ResourceId,
-    decl: &parse::ResourceDeclaration,
-) -> (Resource, Diagnostics) {
+fn resolve_resource(decl: &parse::ResourceDeclaration) -> (Resource, bool) {
     let parse::ResourceDeclaration { inline, path, ty } = decl;
 
-    let mut diags = Diagnostics::new();
+    let mut path_and_inline_defined = false;
 
     let default_value = match (inline.as_deref(), path.as_deref()) {
         (Some(inline), None) => Some(ResourceSource::inline(inline)),
         (None, Some(path)) => Some(ResourceSource::from_disk(path)),
         (Some(_), Some(_)) => {
-            diags.push(PathAndInlineNotAllowed::new(name, id).as_diagnostic());
+            path_and_inline_defined = true;
             None
         },
         (None, None) => None,
@@ -205,37 +252,8 @@ fn resolve_resource(
         default_value,
         ty: *ty,
     };
-    (resource, diags)
-}
 
-#[tracing::instrument(level = "debug", skip(db))]
-fn duplicate_names(db: &dyn HirDB) -> Vector<DuplicateName> {
-    let nodes = db.node_names();
-    let resources = db.resource_names();
-
-    let node_names: HashSet<Text> = nodes.keys().cloned().collect();
-    let resource_names: HashSet<Text> = resources.keys().cloned().collect();
-
-    node_names
-        .intersection(resource_names)
-        .into_iter()
-        .map(|name| {
-            let (_, &node_id) = nodes
-                .iter()
-                .find(|(n, _)| n.as_str() == name.as_str())
-                .unwrap();
-            let (_, &resource_id) = resources
-                .iter()
-                .find(|(n, _)| n.as_str() == name.as_str())
-                .unwrap();
-
-            DuplicateName {
-                name,
-                node_id,
-                resource_id,
-            }
-        })
-        .collect()
+    (resource, path_and_inline_defined)
 }
 
 #[tracing::instrument(level = "debug", skip(db))]
@@ -245,47 +263,22 @@ fn lowering_diagnostics(db: &dyn HirDB) -> Diagnostics {
     let (_, diags) = db.abi();
     diagnostics.extend(diags);
 
-    for (_, id) in db.node_names() {
-        let (_, diags) = db.node(id);
-        diagnostics.extend(diags);
+    let (names, diags) = db.names();
+    diagnostics.extend(diags);
 
-        for (_, arg_id) in db.arguments(id) {
-            let (_, diags) = db.argument(arg_id);
-            diagnostics.extend(diags);
+    for (_, id) in names {
+        match id {
+            HirId::Node(id) => {
+                let (_, diags) = db.arguments(id);
+                diagnostics.extend(diags);
+                let (_, diags) = db.inputs(id);
+                diagnostics.extend(diags);
+            },
+            HirId::Resource(_) => {},
         }
     }
 
-    for (_, id) in db.resource_names() {
-        let (_, diags) = db.resource(id);
-        diagnostics.extend(diags);
-    }
-
     diagnostics
-        .extend(db.duplicate_names().into_iter().map(|d| d.as_diagnostic()));
-
-    diagnostics
-}
-
-#[tracing::instrument(level = "debug")]
-fn resolve_resource_names(
-    resources: &IndexMap<String, parse::ResourceDeclaration>,
-    ids: &mut Identifiers,
-) -> OrdMap<Text, ResourceId> {
-    resources
-        .keys()
-        .map(|name| (Text::new(name.as_str()), ids.resource()))
-        .collect()
-}
-
-#[tracing::instrument(level = "debug")]
-fn resolve_node_names(
-    pipeline: &IndexMap<String, parse::Stage>,
-    ids: &mut Identifiers,
-) -> OrdMap<Text, NodeId> {
-    pipeline
-        .keys()
-        .map(|name| (Text::new(name.as_str()), ids.node()))
-        .collect()
 }
 
 #[tracing::instrument(level = "debug", skip(image))]
@@ -308,64 +301,60 @@ fn resolve_abi(image: &parse::Image) -> (Abi, Diagnostics) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use salsa::Database;
 
     use super::*;
-    use crate::lowering::DuplicateName;
 
     #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all = "kebab-case")]
     struct SerializedHir {
         diags: Diagnostics,
         abi: Abi,
-        node_names: BTreeMap<Text, NodeId>,
-        nodes: BTreeMap<NodeId, Node>,
-        arguments: BTreeMap<NodeId, BTreeMap<Text, ArgumentId>>,
-        argument_values: BTreeMap<ArgumentId, Argument>,
-        resource_names: BTreeMap<Text, ResourceId>,
-        resources: BTreeMap<ResourceId, Resource>,
+        names: OrdMap<Text, HirId>,
+        nodes: OrdMap<NodeId, Node>,
+        inputs: OrdMap<NodeId, Vector<Option<Input>>>,
+        arguments: OrdMap<NodeId, OrdMap<Text, Argument>>,
+        resources: OrdMap<ResourceId, Resource>,
     }
 
     fn load_state(db: &dyn HirDB) -> SerializedHir {
         let (abi, _) = db.abi();
-        let node_names: BTreeMap<Text, NodeId> =
-            db.node_names().into_iter().collect();
-        let nodes: BTreeMap<NodeId, Node> = node_names
-            .values()
-            .copied()
-            .map(|id| (id, db.node(id).0))
-            .collect();
-        let arguments: BTreeMap<NodeId, BTreeMap<Text, ArgumentId>> = nodes
-            .keys()
-            .copied()
-            .map(|id| (id, db.arguments(id).into_iter().collect()))
-            .collect();
-        let argument_values = arguments
-            .values()
-            .flat_map(|map| map.values())
-            .copied()
-            .map(|id| (id, db.argument(id).0))
-            .collect();
-        let resource_names: BTreeMap<Text, ResourceId> =
-            db.resource_names().into_iter().collect();
-        let resources: BTreeMap<ResourceId, Resource> = resource_names
-            .values()
-            .copied()
-            .map(|id| (id, db.resource(id).0))
-            .collect();
+        let (names, _) = db.names();
+
+        let mut nodes = OrdMap::new();
+        let mut resources = OrdMap::new();
+        let mut arguments = OrdMap::new();
+        let mut inputs = OrdMap::new();
+
+        for &id in names.values() {
+            match id {
+                HirId::Node(id) => {
+                    nodes.insert(id, db.lookup_node(id));
+                    let (args, _) = db.arguments(id);
+                    let args = args
+                        .into_iter()
+                        .map(|(name, id)| (name, db.lookup_argument(id)))
+                        .collect();
+                    arguments.insert(id, args);
+                    let (node_inputs, _) = db.inputs(id);
+                    inputs.insert(id, node_inputs);
+                },
+                HirId::Resource(id) => {
+                    resources.insert(id, db.lookup_resource(id));
+                },
+            }
+        }
+
         let diags = db.lowering_diagnostics();
 
         SerializedHir {
             diags,
             abi,
-            node_names,
+            names,
             nodes,
             arguments,
-            argument_values,
-            resource_names,
             resources,
+            inputs,
         }
     }
 
@@ -377,32 +366,79 @@ mod tests {
 
     impl Database for DB {}
 
-    #[test]
-    fn duplicate_names() {
-        let mut ids = Identifiers::new();
-        let mut nodes = OrdMap::new();
-        nodes.insert(Text::new("a"), ids.node());
-        nodes.insert(Text::new("b"), ids.node());
-        let mut resources = OrdMap::new();
-        resources.insert(Text::new("a"), ids.resource());
-        resources.insert(Text::new("c"), ids.resource());
+    macro_rules! expect_diagnostic {
+        ($name:ident, $diagnostic:ty, $src:literal) => {
+            #[test]
+            fn $name() {
+                let doc = crate::parse::parse_runefile($src).unwrap();
+                let mut db = DB::default();
 
-        let mut db = DB::default();
-        db.set_node_names(nodes.clone());
-        db.set_resource_names(resources.clone());
+                populate_from_document(&mut db, doc);
 
-        let errors = db.duplicate_names();
+                let diags = db.lowering_diagnostics();
 
-        assert_eq!(errors.len(), 1);
-        assert_eq!(
-            errors[0],
-            DuplicateName {
-                resource_id: resources["a"],
-                node_id: nodes["a"],
-                name: "a".into()
+                println!("{:#?}", diags);
+                assert_eq!(diags.len(), 1);
+                let diag = diags.iter().next().unwrap();
+                assert_eq!(diag.meta, Some(<$diagnostic>::meta()));
             }
-        );
+        };
     }
+
+    expect_diagnostic!(
+        duplicate_names,
+        DuplicateName,
+        r#"
+            version: 1
+            image: "runicos/base"
+            pipeline:
+                first:
+                    capability: RAW
+            resources:
+                first: {}
+        "#
+    );
+
+    expect_diagnostic!(
+        resource_used_as_input,
+        ResourceUsedAsInput,
+        r#"
+            version: 1
+            image: "runicos/base"
+            pipeline:
+                sine:
+                    model: sine.tflite
+                    inputs:
+                        - res
+            resources:
+                res: {}
+        "#
+    );
+
+    expect_diagnostic!(
+        path_and_inline_not_allowed,
+        PathAndInlineNotAllowed,
+        r#"
+            version: 1
+            image: "runicos/base"
+            pipeline: {}
+            resources:
+                res:
+                    path: ./foo.txt
+                    inline: bar
+        "#
+    );
+
+    expect_diagnostic!(
+        unknown_abi,
+        UnknownAbi,
+        r#"
+            version: 1
+            image: something-else
+            pipeline: {}
+            resources: {}
+        "#
+    );
 
     #[test]
     fn populate_gesture() {

@@ -1,12 +1,36 @@
-use std::num::NonZeroU32;
-
 use im::Vector;
 
-use crate::{
-    diagnostics::{AsDiagnostic, Diagnostic, DiagnosticMetadata, Severity},
-    parse::ResourceType,
-    Text,
-};
+use crate::{parse::ResourceType, Text};
+
+intern_id! {
+    pub struct ResourceId(salsa::InternId);
+    pub struct ArgumentId(salsa::InternId);
+    pub struct NodeId(salsa::InternId);
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum HirId {
+    Node(NodeId),
+    Resource(ResourceId),
+}
+
+impl From<ResourceId> for HirId {
+    fn from(v: ResourceId) -> Self { Self::Resource(v) }
+}
+
+impl From<NodeId> for HirId {
+    fn from(v: NodeId) -> Self { Self::Node(v) }
+}
 
 #[derive(
     Debug,
@@ -22,27 +46,6 @@ use crate::{
 pub enum Abi {
     V0,
     V1,
-}
-
-#[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-#[repr(transparent)]
-pub struct ResourceId(Option<NonZeroU32>);
-
-impl ResourceId {
-    pub const ERROR: ResourceId = ResourceId(None);
-
-    pub fn is_error(self) -> bool { self == Self::ERROR }
 }
 
 #[derive(
@@ -78,27 +81,6 @@ impl ResourceSource {
     }
 }
 
-#[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-#[repr(transparent)]
-pub struct NodeId(Option<NonZeroU32>);
-
-impl NodeId {
-    pub const ERROR: NodeId = NodeId(None);
-
-    pub fn is_error(self) -> bool { self == Self::ERROR }
-}
-
 /// A node in the ML pipeline.
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
@@ -107,7 +89,6 @@ impl NodeId {
 pub struct Node {
     pub kind: NodeKind,
     pub identifier: ResourceOrText,
-    pub inputs: Vector<Input>,
     pub outputs: Vector<crate::parse::Type>,
 }
 
@@ -139,75 +120,11 @@ pub enum NodeKind {
 }
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-#[repr(transparent)]
-pub struct ArgumentId(Option<NonZeroU32>);
-
-#[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
 #[serde(rename_all = "kebab-case")]
 pub struct Argument {
     pub value: ResourceOrText,
-}
-
-/// A monotonic counter that can be used to generate unique HIR identifiers.
-#[derive(Debug)]
-pub struct Identifiers {
-    next_id: u32,
-}
-
-impl Identifiers {
-    pub const fn new() -> Self { Identifiers { next_id: 0 } }
-
-    pub fn node(&mut self) -> NodeId { NodeId(Some(self.next())) }
-
-    pub fn resource(&mut self) -> ResourceId { ResourceId(Some(self.next())) }
-
-    pub fn argument(&mut self) -> ArgumentId { ArgumentId(Some(self.next())) }
-
-    pub fn next(&mut self) -> NonZeroU32 {
-        self.next_id += 1;
-        NonZeroU32::new(self.next_id).expect("Unreachable")
-    }
-}
-
-impl Default for Identifiers {
-    fn default() -> Self { Identifiers::new() }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    thiserror::Error,
-)]
-#[error("The name \"{}\" is used as both a resource and a node", name)]
-#[serde(rename_all = "kebab-case")]
-pub struct DuplicateName {
-    pub resource_id: ResourceId,
-    pub node_id: NodeId,
-    pub name: Text,
-}
-
-impl AsDiagnostic for DuplicateName {
-    fn meta() -> DiagnosticMetadata {
-        DiagnosticMetadata::new("Duplicate Name")
-    }
 }
 
 #[derive(
@@ -224,105 +141,4 @@ impl ResourceOrText {
     pub fn text(value: impl Into<Text>) -> Self {
         ResourceOrText::Text(value.into())
     }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    thiserror::Error,
-)]
-#[error(
-    "The \"{}\" resource defines both a \"path\" and \"inline\" default value",
-    name
-)]
-#[serde(rename_all = "kebab-case")]
-pub struct PathAndInlineNotAllowed {
-    pub name: Text,
-    pub id: ResourceId,
-}
-
-impl PathAndInlineNotAllowed {
-    pub fn new(name: impl Into<Text>, id: ResourceId) -> Self {
-        Self {
-            name: name.into(),
-            id,
-        }
-    }
-}
-
-impl AsDiagnostic for PathAndInlineNotAllowed {
-    fn meta() -> DiagnosticMetadata {
-        DiagnosticMetadata::new("Path and Inline Resources Not Allowed")
-    }
-
-    fn as_diagnostic(&self) -> Diagnostic {
-        Diagnostic::from_impl(Severity::Warning, self)
-    }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    thiserror::Error,
-)]
-#[error("There is no resource called {}", name)]
-#[serde(rename_all = "kebab-case")]
-pub struct UnknownResource {
-    pub name: crate::parse::ResourceName,
-}
-
-impl AsDiagnostic for UnknownResource {
-    fn meta() -> DiagnosticMetadata {
-        DiagnosticMetadata::new("Unknown Resource")
-    }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    thiserror::Error,
-)]
-#[error("There is no node called \"{}\"", input.name)]
-#[serde(rename_all = "kebab-case")]
-pub struct UnknownInput {
-    pub input: crate::parse::Input,
-}
-
-impl AsDiagnostic for UnknownInput {
-    fn meta() -> DiagnosticMetadata { DiagnosticMetadata::new("Unknown Input") }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    thiserror::Error,
-)]
-#[error("Unknown ABI, \"{}\"", image)]
-#[serde(rename_all = "kebab-case")]
-pub struct UnknownAbi {
-    pub image: crate::parse::Image,
-}
-
-impl AsDiagnostic for UnknownAbi {
-    fn meta() -> DiagnosticMetadata { DiagnosticMetadata::new("Unknown ABI") }
 }
