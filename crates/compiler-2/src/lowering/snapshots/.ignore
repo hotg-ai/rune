@@ -1,0 +1,2 @@
+# Make sure "cargo watch" doesn't re-execute every time a snapshot is updated
+*.snap.*

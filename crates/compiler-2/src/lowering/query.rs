@@ -1,4 +1,4 @@
-use im::{HashMap, HashSet, Vector};
+use im::{HashSet, OrdMap, Vector};
 use indexmap::IndexMap;
 
 use crate::{
@@ -51,18 +51,18 @@ pub trait HirDB {
     #[salsa::input]
     fn abi(&self) -> (Abi, Diagnostics);
     #[salsa::input]
-    fn node_names(&self) -> HashMap<Text, NodeId>;
+    fn node_names(&self) -> OrdMap<Text, NodeId>;
     #[salsa::input]
     fn node(&self, id: NodeId) -> (Node, Diagnostics);
 
     /// Retrieve the arguments associated with a [`Node`].
     #[salsa::input]
-    fn arguments(&self, node_id: NodeId) -> HashMap<Text, ArgumentId>;
+    fn arguments(&self, node_id: NodeId) -> OrdMap<Text, ArgumentId>;
     #[salsa::input]
     fn argument(&self, id: ArgumentId) -> (Argument, Diagnostics);
 
     #[salsa::input]
-    fn resource_names(&self) -> HashMap<Text, ResourceId>;
+    fn resource_names(&self) -> OrdMap<Text, ResourceId>;
     #[salsa::input]
     fn resource(&self, id: ResourceId) -> (Resource, Diagnostics);
 
@@ -140,7 +140,7 @@ fn resolve_args(
     ids: &mut Identifiers,
     args: &IndexMap<String, parse::Argument>,
 ) {
-    let mut argument_names = HashMap::new();
+    let mut argument_names = OrdMap::new();
 
     for (name, value) in args {
         let name = Text::new(name.as_str());
@@ -270,7 +270,7 @@ fn lowering_diagnostics(db: &dyn HirDB) -> Diagnostics {
 fn resolve_resource_names(
     resources: &IndexMap<String, parse::ResourceDeclaration>,
     ids: &mut Identifiers,
-) -> HashMap<Text, ResourceId> {
+) -> OrdMap<Text, ResourceId> {
     resources
         .keys()
         .map(|name| (Text::new(name.as_str()), ids.resource()))
@@ -281,7 +281,7 @@ fn resolve_resource_names(
 fn resolve_node_names(
     pipeline: &IndexMap<String, parse::Stage>,
     ids: &mut Identifiers,
-) -> HashMap<Text, NodeId> {
+) -> OrdMap<Text, NodeId> {
     pipeline
         .keys()
         .map(|name| (Text::new(name.as_str()), ids.node()))
@@ -308,10 +308,66 @@ fn resolve_abi(image: &parse::Image) -> (Abi, Diagnostics) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use salsa::Database;
 
     use super::*;
     use crate::lowering::DuplicateName;
+
+    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+    #[serde(rename_all = "kebab-case")]
+    struct SerializedHir {
+        diags: Diagnostics,
+        abi: Abi,
+        node_names: BTreeMap<Text, NodeId>,
+        nodes: BTreeMap<NodeId, Node>,
+        arguments: BTreeMap<NodeId, BTreeMap<Text, ArgumentId>>,
+        argument_values: BTreeMap<ArgumentId, Argument>,
+        resource_names: BTreeMap<Text, ResourceId>,
+        resources: BTreeMap<ResourceId, Resource>,
+    }
+
+    fn load_state(db: &dyn HirDB) -> SerializedHir {
+        let (abi, _) = db.abi();
+        let node_names: BTreeMap<Text, NodeId> =
+            db.node_names().into_iter().collect();
+        let nodes: BTreeMap<NodeId, Node> = node_names
+            .values()
+            .copied()
+            .map(|id| (id, db.node(id).0))
+            .collect();
+        let arguments: BTreeMap<NodeId, BTreeMap<Text, ArgumentId>> = nodes
+            .keys()
+            .copied()
+            .map(|id| (id, db.arguments(id).into_iter().collect()))
+            .collect();
+        let argument_values = arguments
+            .values()
+            .flat_map(|map| map.values())
+            .copied()
+            .map(|id| (id, db.argument(id).0))
+            .collect();
+        let resource_names: BTreeMap<Text, ResourceId> =
+            db.resource_names().into_iter().collect();
+        let resources: BTreeMap<ResourceId, Resource> = resource_names
+            .values()
+            .copied()
+            .map(|id| (id, db.resource(id).0))
+            .collect();
+        let diags = db.lowering_diagnostics();
+
+        SerializedHir {
+            diags,
+            abi,
+            node_names,
+            nodes,
+            arguments,
+            argument_values,
+            resource_names,
+            resources,
+        }
+    }
 
     #[derive(Default)]
     #[salsa::database(HirDBStorage)]
@@ -324,10 +380,10 @@ mod tests {
     #[test]
     fn duplicate_names() {
         let mut ids = Identifiers::new();
-        let mut nodes = HashMap::new();
+        let mut nodes = OrdMap::new();
         nodes.insert(Text::new("a"), ids.node());
         nodes.insert(Text::new("b"), ids.node());
-        let mut resources = HashMap::new();
+        let mut resources = OrdMap::new();
         resources.insert(Text::new("a"), ids.resource());
         resources.insert(Text::new("c"), ids.resource());
 
@@ -358,5 +414,7 @@ mod tests {
 
         let diags = db.lowering_diagnostics();
         assert!(diags.is_empty());
+        let state = load_state(&db);
+        insta::assert_yaml_snapshot!(state);
     }
 }

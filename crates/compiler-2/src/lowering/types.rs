@@ -18,6 +18,7 @@ use crate::{
     serde::Serialize,
     serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub enum Abi {
     V0,
     V1,
@@ -29,6 +30,8 @@ pub enum Abi {
     Clone,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     serde::Serialize,
     serde::Deserialize,
@@ -81,6 +84,8 @@ impl ResourceSource {
     Clone,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     serde::Serialize,
     serde::Deserialize,
@@ -98,6 +103,7 @@ impl NodeId {
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub struct Node {
     pub kind: NodeKind,
     pub identifier: ResourceOrText,
@@ -108,6 +114,7 @@ pub struct Node {
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub struct Input {
     pub node: NodeId,
     pub index: usize,
@@ -123,6 +130,7 @@ pub struct Input {
     serde::Serialize,
     serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub enum NodeKind {
     Input,
     ProcBlock,
@@ -131,13 +139,24 @@ pub enum NodeKind {
 }
 
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
 )]
+#[repr(transparent)]
 pub struct ArgumentId(Option<NonZeroU32>);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub struct Argument {
     pub value: ResourceOrText,
 }
@@ -178,6 +197,7 @@ impl Default for Identifiers {
     thiserror::Error,
 )]
 #[error("The name \"{}\" is used as both a resource and a node", name)]
+#[serde(rename_all = "kebab-case")]
 pub struct DuplicateName {
     pub resource_id: ResourceId,
     pub node_id: NodeId,
@@ -193,6 +213,7 @@ impl AsDiagnostic for DuplicateName {
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "kebab-case")]
 pub enum ResourceOrText {
     Text(Text),
     Resource(ResourceId),
@@ -219,6 +240,7 @@ impl ResourceOrText {
     "The \"{}\" resource defines both a \"path\" and \"inline\" default value",
     name
 )]
+#[serde(rename_all = "kebab-case")]
 pub struct PathAndInlineNotAllowed {
     pub name: Text,
     pub id: ResourceId,
@@ -254,6 +276,7 @@ impl AsDiagnostic for PathAndInlineNotAllowed {
     thiserror::Error,
 )]
 #[error("There is no resource called {}", name)]
+#[serde(rename_all = "kebab-case")]
 pub struct UnknownResource {
     pub name: crate::parse::ResourceName,
 }
@@ -275,6 +298,7 @@ impl AsDiagnostic for UnknownResource {
     thiserror::Error,
 )]
 #[error("There is no node called \"{}\"", input.name)]
+#[serde(rename_all = "kebab-case")]
 pub struct UnknownInput {
     pub input: crate::parse::Input,
 }
@@ -294,6 +318,7 @@ impl AsDiagnostic for UnknownInput {
     thiserror::Error,
 )]
 #[error("Unknown ABI, \"{}\"", image)]
+#[serde(rename_all = "kebab-case")]
 pub struct UnknownAbi {
     pub image: crate::parse::Image,
 }
