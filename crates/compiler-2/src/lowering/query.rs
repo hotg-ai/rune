@@ -41,6 +41,16 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
 }
 
 /// The database containing Rune's high-level intermediate representation.
+///
+/// # Usage
+///
+/// If you are using the YAML frontend, you will typicaly use
+/// [`populate_from_document()`] function to populate the [`HirDB`] using a
+/// parsed `Runefile.yml`.
+///
+/// If you are implementing your own frontend (e.g. a canvas in the browser)
+/// there is no `Runefile.yml` per-se, so you will want to call the setters
+/// yourself.
 #[salsa::query_group(HirDBStorage)]
 pub trait HirDB {
     #[salsa::input]
@@ -49,14 +59,17 @@ pub trait HirDB {
     #[salsa::input]
     fn names(&self) -> (OrdMap<Text, HirId>, Diagnostics);
 
+    /// An interned [`Node`].
     #[salsa::interned]
     fn node(&self, node: Node) -> NodeId;
 
     #[salsa::input]
     fn inputs(&self, node: NodeId) -> (Vector<Option<Input>>, Diagnostics);
 
+    /// An interned argument.
     #[salsa::interned]
     fn argument(&self, arg: Argument) -> ArgumentId;
+
     /// Retrieve the arguments associated with a [`Node`].
     #[salsa::input]
     fn arguments(

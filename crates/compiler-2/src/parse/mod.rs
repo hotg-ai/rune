@@ -1,4 +1,4 @@
-//! The Runefile parser.
+//! The YAML frontend for the Rune compiler.
 //!
 //! You are probably here for the [`parse_runefile()`] function.
 

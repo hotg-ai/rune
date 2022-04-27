@@ -86,6 +86,7 @@ pub enum Severity {
     serde::Deserialize,
 )]
 #[serde(transparent)]
+#[must_use]
 pub struct Diagnostics(Vector<Diagnostic>);
 
 impl Diagnostics {

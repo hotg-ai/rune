@@ -7,6 +7,8 @@ extern crate pretty_assertions;
 #[macro_use]
 mod macros;
 
+pub mod codegen;
+mod config;
 pub mod diagnostics;
 mod filesystem;
 pub mod lowering;
@@ -16,6 +18,7 @@ pub mod type_check;
 
 use crate::diagnostics::{AsDiagnostic, DiagnosticMetadata};
 pub use crate::{
+    config::{BuildConfig, Environment, EnvironmentStorage},
     filesystem::{FileSystem, FileSystemError, FileSystemOperation},
     text::Text,
 };

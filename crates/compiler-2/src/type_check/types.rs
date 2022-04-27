@@ -2,6 +2,22 @@ use std::num::NonZeroUsize;
 
 use im::Vector;
 
+intern_id! {
+    pub struct EdgeId(salsa::InternId);
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct Edge;
+
 /// The fully resolved pipeline.
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,

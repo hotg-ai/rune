@@ -24,6 +24,22 @@ pub enum HirId {
     Resource(ResourceId),
 }
 
+impl HirId {
+    pub fn as_node(self) -> Option<NodeId> {
+        match self {
+            HirId::Node(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn as_resource(self) -> Option<ResourceId> {
+        match self {
+            HirId::Resource(id) => Some(id),
+            _ => None,
+        }
+    }
+}
+
 impl From<ResourceId> for HirId {
     fn from(v: ResourceId) -> Self { Self::Resource(v) }
 }

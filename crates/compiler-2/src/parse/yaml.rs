@@ -830,6 +830,12 @@ impl Display for ResourceName {
 #[schemars(transparent)]
 pub struct Image(pub Path);
 
+impl Image {
+    pub fn runicos_base() -> Self {
+        Image(Path::new("runicos/base", None, None))
+    }
+}
+
 impl FromStr for Image {
     type Err = PathParseError;
 

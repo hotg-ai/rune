@@ -1,25 +1,26 @@
-use crate::lowering::HirDB;
+use im::Vector;
+
+use crate::lowering::{HirDB, NodeId, NodeKind};
 
 /// Queries related to constructing the Rune's data pipeline.
 #[salsa::query_group(TypeCheckGroup)]
 pub trait TypeCheck: HirDB {
-    /// asdf
-    #[salsa::interned]
-    fn edge(&self, edge: Edge) -> EdgeId;
+    fn output_nodes(&self) -> Vector<NodeId>;
 }
 
-#[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub struct Edge;
+fn output_nodes(db: &dyn TypeCheck) -> Vector<NodeId> {
+    let (names, _) = db.names();
 
-intern_id! {
-    pub struct EdgeId(salsa::InternId);
+    names
+        .values()
+        .copied()
+        .filter_map(|id| id.as_node())
+        .filter_map(|id| {
+            let node = db.lookup_node(id);
+            match node.kind {
+                NodeKind::Output => Some(id),
+                _ => None,
+            }
+        })
+        .collect()
 }

@@ -1335,7 +1335,6 @@ dependencies = [
  "indexmap",
  "insta",
  "jsonschema 0.15.2",
- "miette",
  "once_cell",
  "pretty_assertions 1.2.1",
  "regex",
