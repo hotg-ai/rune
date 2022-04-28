@@ -9,6 +9,8 @@ mod config;
 mod filesystem;
 pub mod parse;
 mod text;
+pub mod proc_blocks;
+pub mod type_check;
 
 pub use crate::{
     config::{BuildConfig, Environment, EnvironmentStorage},
