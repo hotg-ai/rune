@@ -21,7 +21,7 @@ use serde::{
     de::{Deserialize, Deserializer, Error as _},
     ser::{Serialize, Serializer},
 };
-use uriparse::{URIBuilder, URIError, URI};
+use uriparse::{URIError, URI};
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -136,6 +136,7 @@ macro_rules! impl_json_schema_via_regex {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -183,6 +184,7 @@ impl FromStr for Document {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -190,7 +192,7 @@ impl FromStr for Document {
 pub struct ModelStage {
     /// The model to use, or a resource which specifies the model to use.
     #[schemars(required)]
-    pub model: String,
+    pub model: Path,
     /// Tensors to use as input to this model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
@@ -206,6 +208,7 @@ pub struct ModelStage {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -223,25 +226,10 @@ pub struct ProcBlockStage {
     pub args: IndexMap<String, Argument>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Path {
     Uri(URI<'static>),
     FileSystem(String),
-}
-
-impl Path {
-    pub fn to_uri(&self) -> Result<URI<'_>, URIError> {
-        match self {
-            Path::Uri(u) => Ok(u.to_borrowed()),
-            Path::FileSystem(path) => {
-                let path = uriparse::Path::try_from(path.as_str())?;
-                URIBuilder::new()
-                    .with_scheme(uriparse::Scheme::File)
-                    .with_path(path)
-                    .build()
-            },
-        }
-    }
 }
 
 impl Serialize for Path {
@@ -300,6 +288,7 @@ impl JsonSchema for Path {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -319,6 +308,7 @@ pub struct CapabilityStage {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -335,7 +325,13 @@ pub struct OutStage {
 
 /// A stage in the Rune's pipeline.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    JsonSchema,
 )]
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
@@ -521,7 +517,7 @@ impl From<ResourceName> for ResourceOrString {
 
 /// A newtype around [`ResourceOrString`] which is used in each stage's `args`
 /// dictionary.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct Argument(pub ResourceOrString);
 
@@ -662,6 +658,7 @@ impl<'de> Deserialize<'de> for Input {
     Clone,
     Default,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -1078,7 +1075,7 @@ pipeline:
                     args: IndexMap::new(),
                 }),
                 model: Stage::Model(ModelStage {
-                    model: "./model.tflite".into(),
+                    model: "./model.tflite".parse().unwrap(),
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
                     args: IndexMap::new(),

@@ -24,6 +24,25 @@ pub struct ParseFailed {
 
 #[derive(
     Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum ItemType {
+    Input,
+    Model,
+    ProcBlock,
+    Output,
+    Resource,
+}
+
+#[derive(
+    Debug,
     Clone,
     PartialEq,
     Eq,
@@ -32,9 +51,10 @@ pub struct ParseFailed {
     serde::Serialize,
     serde::Deserialize,
 )]
-#[error("There is no resource called \"{}\"", name)]
+#[error("There is no model called \"{}\"", name)]
 #[serde(rename_all = "kebab-case")]
-pub struct NoSuchResource {
+pub struct NotFound {
+    pub item_type: ItemType,
     pub name: Text,
 }
 
@@ -48,8 +68,15 @@ pub struct NoSuchResource {
     serde::Serialize,
     serde::Deserialize,
 )]
-#[error("There is no proc-block called \"{}\"", name)]
+#[error(
+    "Expected \"{}\" to be a {:?}, but it is actually a {:?}",
+    name,
+    expected,
+    actual
+)]
 #[serde(rename_all = "kebab-case")]
-pub struct NoSuchProcBlock {
+pub struct WrongItemType {
+    pub expected: ItemType,
+    pub actual: ItemType,
     pub name: Text,
 }

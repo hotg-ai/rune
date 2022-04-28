@@ -8,12 +8,11 @@ pub mod codegen;
 mod config;
 mod filesystem;
 pub mod parse;
-pub mod proc_blocks;
 mod text;
 pub mod type_check;
 
 pub use crate::{
     config::{BuildConfig, Environment, EnvironmentStorage},
-    filesystem::{FileSystem, FileSystemError, FileSystemOperation},
+    filesystem::{FileSystem, ReadError},
     text::Text,
 };
