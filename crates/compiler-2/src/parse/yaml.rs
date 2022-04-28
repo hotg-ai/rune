@@ -21,6 +21,7 @@ use serde::{
     de::{Deserialize, Deserializer, Error as _},
     ser::{Serialize, Serializer},
 };
+use uriparse::{URIBuilder, URIError, URI};
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -41,7 +42,9 @@ impl Document {
 }
 
 impl From<DocumentV1> for Document {
-    fn from(v1: DocumentV1) -> Self { Document::V1(v1) }
+    fn from(v1: DocumentV1) -> Self {
+        Document::V1(v1)
+    }
 }
 
 mod document_serde {
@@ -58,7 +61,9 @@ mod document_serde {
     }
 
     impl<T> Repr<T> {
-        fn new(version: usize, inner: T) -> Self { Repr { version, inner } }
+        fn new(version: usize, inner: T) -> Self {
+            Repr { version, inner }
+        }
     }
 
     impl Serialize for Document {
@@ -103,7 +108,9 @@ mod document_serde {
 macro_rules! impl_json_schema_via_regex {
     ($ty:ty, $pattern:expr, $docs:literal) => {
         impl JsonSchema for $ty {
-            fn schema_name() -> String { String::from(stringify!($ty)) }
+            fn schema_name() -> String {
+                String::from(stringify!($ty))
+            }
 
             fn json_schema(_: &mut SchemaGenerator) -> Schema {
                 let mut schema = SchemaObject {
@@ -166,137 +173,10 @@ impl Document {
 impl FromStr for Document {
     type Err = serde_yaml::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> { Document::parse(s) }
-}
-
-/// A specification for finding a dependency.
-///
-/// The full syntax is `base@version#sub_path` where
-///
-/// - `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`
-///   or `https://github.com/hotg-ai/rune`)
-/// - `version` is an optional field specifying the version (e.g. as a git tag)
-/// - `sub_path` is an optional field which is useful when pointing to
-///   repositories with multiple relevant items because it lets you specify
-///   which directory the specified item is in.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Path {
-    pub base: String,
-    pub sub_path: Option<String>,
-    pub version: Option<String>,
-}
-
-impl_json_schema_via_regex!(
-    Path,
-    PATH_PATTERN,
-    r#"
-A specification for finding a dependency.
-
-The full syntax is `base@version#sub_path` where
-
-- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`
-  or `https://github.com/hotg-ai/rune`)
-- `version` is an optional field specifying the version (e.g. as a git tag)
-- `sub_path` is an optional field which is useful when pointing to
-  repositories with multiple relevant items because it lets you specify
-  which directory the specified item is in.
-"#
-);
-
-impl Path {
-    pub fn new(
-        base: impl Into<String>,
-        sub_path: impl Into<Option<String>>,
-        version: impl Into<Option<String>>,
-    ) -> Self {
-        Path {
-            base: base.into(),
-            sub_path: sub_path.into(),
-            version: version.into(),
-        }
-    }
-}
-
-impl Display for Path {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Path {
-            base,
-            sub_path,
-            version,
-        } = self;
-
-        write!(f, "{}", base)?;
-        if let Some(version) = version {
-            write!(f, "@{}", version)?;
-        }
-        if let Some(sub) = sub_path {
-            write!(f, "#{}", sub)?;
-        }
-
-        Ok(())
-    }
-}
-
-static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r"(?x)
-        (?P<base>[\w\d:/_.-]+)
-        (?:@(?P<version>[\w\d./-]+))?
-        (?:\#(?P<sub_path>[\w\d._/-]+))?
-        ",
-    )
-    .unwrap()
-});
-
-impl FromStr for Path {
-    type Err = PathParseError;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let captures = PATH_PATTERN.captures(s).ok_or(PathParseError)?;
-
-        let base = captures["base"].to_string();
-        let version = captures.name("version").map(|m| m.as_str().to_string());
-        let sub_path =
-            captures.name("sub_path").map(|m| m.as_str().to_string());
-
-        Ok(Path {
-            base,
-            version,
-            sub_path,
-        })
+        Document::parse(s)
     }
 }
-
-impl Serialize for Path {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Path {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = Cow::<'de, str>::deserialize(deserializer)?;
-
-        s.parse().map_err(D::Error::custom)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub struct PathParseError;
-
-impl Display for PathParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Unable to parse the path")
-    }
-}
-
-impl std::error::Error for PathParseError {}
 
 /// A ML model which will be executed by the runtime.
 #[derive(
@@ -310,7 +190,7 @@ impl std::error::Error for PathParseError {}
 pub struct ModelStage {
     /// The model to use, or a resource which specifies the model to use.
     #[schemars(required)]
-    pub model: ResourceOrString,
+    pub model: String,
     /// Tensors to use as input to this model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
@@ -341,6 +221,78 @@ pub struct ProcBlockStage {
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub args: IndexMap<String, Argument>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Path {
+    Uri(URI<'static>),
+    FileSystem(String),
+}
+
+impl Path {
+    pub fn to_uri(&self) -> Result<URI<'_>, URIError> {
+        match self {
+            Path::Uri(u) => Ok(u.to_borrowed()),
+            Path::FileSystem(path) => {
+                let path = uriparse::Path::try_from(path.as_str())?;
+                URIBuilder::new()
+                    .with_scheme(uriparse::Scheme::File)
+                    .with_path(path)
+                    .build()
+            },
+        }
+    }
+}
+
+impl Serialize for Path {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Path {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = Cow::<str>::deserialize(deserializer)?;
+
+        s.parse().map_err(D::Error::custom)
+    }
+}
+
+impl FromStr for Path {
+    type Err = URIError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match URI::try_from(s) {
+            Ok(u) => Ok(Path::Uri(u.into_owned())),
+            Err(URIError::NotURI) => Ok(Path::FileSystem(s.to_string())),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Path::Uri(u) => u.fmt(f),
+            Path::FileSystem(p) => p.fmt(f),
+        }
+    }
+}
+
+impl JsonSchema for Path {
+    fn schema_name() -> String {
+        String::from("Path")
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
+        gen.subschema_for::<String>()
+    }
 }
 
 /// A stage which reads inputs from the runtime.
@@ -448,7 +400,9 @@ pub enum ResourceOrString {
 }
 
 impl JsonSchema for ResourceOrString {
-    fn schema_name() -> std::string::String { "ResourceOrString".to_owned() }
+    fn schema_name() -> std::string::String {
+        "ResourceOrString".to_owned()
+    }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
         let resource_name = gen.subschema_for::<ResourceName>();
@@ -554,11 +508,15 @@ impl Display for ResourceOrString {
 }
 
 impl<S: Into<String>> From<S> for ResourceOrString {
-    fn from(s: S) -> Self { ResourceOrString::String(s.into()) }
+    fn from(s: S) -> Self {
+        ResourceOrString::String(s.into())
+    }
 }
 
 impl From<ResourceName> for ResourceOrString {
-    fn from(name: ResourceName) -> Self { ResourceOrString::Resource(name) }
+    fn from(name: ResourceName) -> Self {
+        ResourceOrString::Resource(name)
+    }
 }
 
 /// A newtype around [`ResourceOrString`] which is used in each stage's `args`
@@ -568,7 +526,9 @@ impl From<ResourceName> for ResourceOrString {
 pub struct Argument(pub ResourceOrString);
 
 impl JsonSchema for Argument {
-    fn schema_name() -> std::string::String { "Argument".to_owned() }
+    fn schema_name() -> std::string::String {
+        "Argument".to_owned()
+    }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
         let number = gen.subschema_for::<serde_json::Number>();
@@ -581,13 +541,17 @@ impl JsonSchema for Argument {
 }
 
 impl<T: Into<ResourceOrString>> From<T> for Argument {
-    fn from(value: T) -> Self { Argument(value.into()) }
+    fn from(value: T) -> Self {
+        Argument(value.into())
+    }
 }
 
 impl Deref for Argument {
     type Target = ResourceOrString;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// The element type and dimensions for a particular tensor.
@@ -733,7 +697,9 @@ pub enum ResourceType {
 }
 
 impl Default for ResourceType {
-    fn default() -> Self { ResourceType::String }
+    fn default() -> Self {
+        ResourceType::String
+    }
 }
 
 /// A reference to some [`ResourceDeclaration`]. It typically looks like
@@ -751,7 +717,9 @@ A reference to some [`ResourceDeclaration`]. It typically looks like
 );
 
 impl<S: Into<String>> From<S> for ResourceName {
-    fn from(s: S) -> Self { ResourceName(s.into()) }
+    fn from(s: S) -> Self {
+        ResourceName(s.into())
+    }
 }
 
 impl FromStr for ResourceName {
@@ -773,7 +741,9 @@ impl FromStr for ResourceName {
 impl Deref for ResourceName {
     type Target = String;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl Serialize for ResourceName {
@@ -828,19 +798,19 @@ impl Display for ResourceName {
     schemars::JsonSchema,
 )]
 #[schemars(transparent)]
-pub struct Image(pub Path);
+pub struct Image(String);
 
 impl Image {
     pub fn runicos_base() -> Self {
-        Image(Path::new("runicos/base", None, None))
+        Image(String::from("runicos/base"))
     }
 }
 
 impl FromStr for Image {
-    type Err = PathParseError;
+    type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Path::from_str(s).map(Image)
+        Ok(Image(s.to_string()))
     }
 }
 
@@ -908,59 +878,6 @@ mod tests {
 
         assert_eq!(got, should_be);
         assert_eq!(got.to_string(), src);
-    }
-
-    #[test]
-    fn parse_paths() {
-        let inputs = vec![
-            ("asdf", Path::new("asdf", None, None)),
-            ("runicos/base", Path::new("runicos/base", None, None)),
-            (
-                "runicos/base@0.1.2",
-                Path::new("runicos/base", None, Some(String::from("0.1.2"))),
-            ),
-            (
-                "runicos/base@latest",
-                Path::new("runicos/base", None, Some(String::from("latest"))),
-            ),
-            (
-                "https://github.com/hotg-ai/rune",
-                Path::new("https://github.com/hotg-ai/rune", None, None),
-            ),
-            (
-                "https://github.com/hotg-ai/rune@2",
-                Path::new(
-                    "https://github.com/hotg-ai/rune",
-                    None,
-                    Some(String::from("2")),
-                ),
-            ),
-            (
-                "hotg-ai/rune@v1.2#proc_blocks/normalize",
-                Path::new(
-                    "hotg-ai/rune",
-                    "proc_blocks/normalize".to_string(),
-                    "v1.2".to_string(),
-                ),
-            ),
-            // Note: GitHub provides these refs that you can use as well as the
-            // normal tags and commits
-            (
-                "hotg-ai/proc-blocks@refs/heads/master#normalize",
-                Path::new(
-                    "hotg-ai/proc-blocks",
-                    "normalize".to_string(),
-                    "refs/heads/master".to_string(),
-                ),
-            ),
-        ];
-
-        for (src, should_be) in inputs {
-            let got: Path = src.parse().unwrap();
-            assert_eq!(got, should_be, "{}", src);
-            let round_tripped = got.to_string();
-            assert_eq!(round_tripped, src);
-        }
     }
 
     #[test]
@@ -1110,7 +1027,7 @@ pipeline:
       hz: 16000
 
   fft:
-    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    proc-block: "git://github.com/hotg-ai/rune#proc_blocks/fft"
     inputs:
     - audio
     outputs:
@@ -1126,7 +1043,7 @@ pipeline:
       dimensions: [6]
 
   label:
-    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    proc-block: "git://github.com/hotg-ai/rune#proc_blocks/ohv_label?tag=v0.11.3"
     inputs:
     - model
     outputs:
@@ -1155,7 +1072,7 @@ pipeline:
                     args: map! { hz: "16000".into() },
                 }),
                 fft: Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
+                    proc_block: "git://github.com/hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
                     inputs: vec!["audio".parse().unwrap()],
                     outputs: vec![ty!(i8[1960])],
                     args: IndexMap::new(),
@@ -1167,7 +1084,7 @@ pipeline:
                     args: IndexMap::new(),
                 }),
                 label: Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
+                    proc_block: "git://github.com/hotg-ai/rune#proc_blocks/ohv_label?tag=v0.11.3".parse().unwrap(),
                     inputs: vec!["model".parse().unwrap()],
                     outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
                     args: map! {

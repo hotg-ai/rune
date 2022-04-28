@@ -10,9 +10,13 @@ use std::{
 pub struct Text(Arc<str>);
 
 impl Text {
-    pub fn new(s: impl Into<Arc<str>>) -> Self { Text(s.into()) }
+    pub fn new(s: impl Into<Arc<str>>) -> Self {
+        Text(s.into())
+    }
 
-    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 impl Display for Text {
@@ -22,36 +26,50 @@ impl Display for Text {
 }
 
 impl From<Arc<str>> for Text {
-    fn from(s: Arc<str>) -> Self { Text(s) }
+    fn from(s: Arc<str>) -> Self {
+        Text(s)
+    }
 }
 
 impl From<String> for Text {
-    fn from(s: String) -> Self { Text(s.into()) }
+    fn from(s: String) -> Self {
+        Text(s.into())
+    }
 }
 
 impl From<&'_ str> for Text {
-    fn from(s: &'_ str) -> Self { Text(s.into()) }
+    fn from(s: &'_ str) -> Self {
+        Text(s.into())
+    }
 }
 
 impl From<&'_ String> for Text {
-    fn from(s: &'_ String) -> Self { Text(s.as_str().into()) }
+    fn from(s: &'_ String) -> Self {
+        Text(s.as_str().into())
+    }
 }
 
 impl std::ops::Deref for Text {
     type Target = Arc<str>;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl Borrow<str> for Text {
-    fn borrow(&self) -> &str { &self.0 }
+    fn borrow(&self) -> &str {
+        &self.0
+    }
 }
 
 impl<T> PartialEq<T> for Text
 where
     T: PartialEq<str>,
 {
-    fn eq(&self, other: &T) -> bool { other == self.as_str() }
+    fn eq(&self, other: &T) -> bool {
+        other == self.as_str()
+    }
 }
 
 impl<'de> serde::Deserialize<'de> for Text {

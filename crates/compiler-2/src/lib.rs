@@ -8,8 +8,8 @@ pub mod codegen;
 mod config;
 mod filesystem;
 pub mod parse;
-mod text;
 pub mod proc_blocks;
+mod text;
 pub mod type_check;
 
 pub use crate::{

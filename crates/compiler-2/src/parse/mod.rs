@@ -1,22 +1,55 @@
 //! The YAML frontend for the Rune compiler.
 //!
-//! You are probably here for the [`parse_runefile()`] function.
+//! You are probably here for either the [`Frontend`] trait or the [`Document`]
+//! type.
 
+mod query;
 mod yaml;
 
 use std::sync::Arc;
 
-pub use self::yaml::*;
+use crate::Text;
 
-/// Parse a `Runefile.yml`.
-#[tracing::instrument(skip(src), err)]
-pub fn parse_runefile(src: &str) -> Result<Document, ParseFailed> {
-    Document::parse(src).map_err(|e| ParseFailed { inner: Arc::new(e) })
-}
+pub use self::{
+    query::{Frontend, FrontendStorage},
+    yaml::*,
+};
 
 #[derive(Debug, Clone, thiserror::Error)]
-#[error("Unable to parse the Runefile: {}", inner)]
+#[error("Unable to parse the Runefile")]
 pub struct ParseFailed {
-    #[source]
-    inner: Arc<serde_yaml::Error>,
+    #[from]
+    pub error: Arc<serde_yaml::Error>,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[error("There is no resource called \"{}\"", name)]
+#[serde(rename_all = "kebab-case")]
+pub struct NoSuchResource {
+    pub name: Text,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[error("There is no proc-block called \"{}\"", name)]
+#[serde(rename_all = "kebab-case")]
+pub struct NoSuchProcBlock {
+    pub name: Text,
 }

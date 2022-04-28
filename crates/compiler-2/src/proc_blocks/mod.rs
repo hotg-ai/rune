@@ -6,7 +6,7 @@ use uriparse::URI;
 use crate::{type_check::TensorShape, Text};
 
 /// Something which knows how to load proc-blocks.
-pub trait ProcBlockRegistry: Send + Sync + 'static {
+pub trait ProcBlockRegistry {
     fn load_proc_block_binary(
         &self,
         path: URI<'_>,
