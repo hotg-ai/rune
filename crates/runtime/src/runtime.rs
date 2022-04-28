@@ -46,10 +46,12 @@ use wasmparser::{Parser, Payload};
 
 use crate::{
     callbacks::{Callbacks, Model, ModelMetadata, RuneGraph},
-    engine::{LoadError, WebAssemblyEngine},
+    engine::{WebAssemblyEngine},
     outputs::{parse_outputs, OutputTensor},
     NodeMetadata, Tensor,
 };
+#[allow(unused_imports)] // used with the "wasm3" or "wasmer" features
+use crate::engine::LoadError;
 
 /// A loaded Rune.
 pub struct Runtime {
@@ -61,23 +63,46 @@ impl Runtime {
     /// Load a Rune, using WASM3 for executing WebAssembly.
     #[cfg(feature = "wasm3")]
     pub fn wasm3(rune: &[u8]) -> Result<Self, LoadError> {
-        Runtime::load::<crate::engine::Wasm3Engine>(rune)
+        let state = State::from_wasm_binary(rune);
+        let state = Arc::new(state);
+        let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
+        let mut engine = crate::engine::Wasm3Engine::load(rune, callbacks)?;
+
+        engine.init()?;
+
+        Ok(Runtime {
+            state,
+            engine: Box::new(engine),
+        })
     }
 
     /// Load a Rune, using Wasmer for executing WebAssembly.
     #[cfg(feature = "wasmer")]
     pub fn wasmer(rune: &[u8]) -> Result<Self, LoadError> {
-        Runtime::load::<crate::engine::WasmerEngine>(rune)
-    }
-
-    fn load<E>(rune: &[u8]) -> Result<Self, LoadError>
-    where
-        E: WebAssemblyEngine + 'static,
-    {
-        let state = State::with_embedded_resources(rune);
+        let state = State::from_wasm_binary(rune);
         let state = Arc::new(state);
         let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
-        let mut engine = E::load(rune, callbacks)?;
+        let mut engine = crate::engine::WasmerEngine::load(rune, callbacks)?;
+
+        engine.init()?;
+
+        Ok(Runtime {
+            state,
+            engine: Box::new(engine),
+        })
+    }
+
+    #[cfg(feature = "wasmer")]
+    pub fn wasmer_from_module(
+        store: &wasmer::Store,
+        module: &wasmer::Module,
+    ) -> Result<Self, LoadError> {
+        let resource_sections = module.custom_sections(".rune_resource");
+        let state = State::new(resource_sections);
+        let state = Arc::new(state);
+        let callbacks = Arc::clone(&state) as Arc<dyn Callbacks>;
+        let mut engine =
+            crate::engine::WasmerEngine::from_module(store, module, callbacks)?;
 
         engine.init()?;
 
@@ -154,25 +179,43 @@ struct State {
     resources: UnsafeCell<HashMap<String, Vec<u8>>>,
 }
 
+#[allow(dead_code)] // used with the "wasmer" and/or "wasm3" feature flags
 impl State {
-    fn with_embedded_resources(wasm: &[u8]) -> Self {
+    /// Construct the `State` by extracting resources from a WebAssembly
+    /// binary's custom sections.
+    fn from_wasm_binary(wasm: &[u8]) -> Self {
+        let _s = State::default();
+
+        let resource_sections =
+            Parser::default().parse_all(wasm).filter_map(|p| match p {
+                Ok(Payload::CustomSection {
+                    name: ".rune_resource",
+                    data,
+                    ..
+                }) => Some(data),
+                _ => None,
+            });
+
+        State::new(resource_sections)
+    }
+
+    fn new<'a, A>(resource_sections: impl Iterator<Item = A>) -> Self
+    where
+        A: AsRef<[u8]>,
+    {
         let s = State::default();
 
-        for payload in Parser::default().parse_all(wasm) {
-            if let Ok(Payload::CustomSection { name, mut data, .. }) = payload {
-                if name != ".rune_resource" {
-                    continue;
-                }
+        for section in resource_sections {
+            let mut section = section.as_ref();
 
-                while let Some((resource_name, value, rest)) =
-                    hotg_rune_core::decode_inline_resource(data)
-                {
-                    // Safety: fine because we are the only ones with access to
-                    // State at the moment.
-                    let resources = unsafe { s.resources() };
-                    resources.insert(resource_name.to_string(), value.to_vec());
-                    data = rest;
-                }
+            while let Some((resource_name, value, rest)) =
+                hotg_rune_core::decode_inline_resource(section)
+            {
+                // Safety: fine because we are the only ones with access to
+                // State at the moment.
+                let resources = unsafe { s.resources() };
+                resources.insert(resource_name.to_string(), value.to_vec());
+                section = rest;
             }
         }
 

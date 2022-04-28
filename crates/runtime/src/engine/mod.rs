@@ -4,7 +4,7 @@ mod wasm3;
 #[cfg(feature = "wasmer")]
 mod wasmer;
 
-use std::sync::Arc;
+//use std::sync::Arc;
 
 use anyhow::Error;
 
@@ -15,13 +15,6 @@ pub(crate) use self::wasmer::WasmerEngine;
 
 /// A WebAssembly virtual machine that links Rune with
 pub(crate) trait WebAssemblyEngine {
-    fn load(
-        wasm: &[u8],
-        callbacks: Arc<dyn crate::callbacks::Callbacks>,
-    ) -> Result<Self, LoadError>
-    where
-        Self: Sized;
-
     /// Call the `_manifest()` function to initialize the Rune graph.
     fn init(&mut self) -> Result<(), Error>;
 

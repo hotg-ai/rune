@@ -22,17 +22,22 @@ pub struct WasmerEngine {
     callbacks: Arc<dyn Callbacks>,
 }
 
-impl WebAssemblyEngine for WasmerEngine {
-    fn load(
+impl WasmerEngine {
+    pub(crate) fn load(
         wasm: &[u8],
         callbacks: Arc<dyn Callbacks>,
-    ) -> Result<Self, LoadError>
-    where
-        Self: Sized,
-    {
+    ) -> Result<Self, LoadError> {
         let store = Store::default();
         let module = Module::from_binary(&store, wasm)?;
+        WasmerEngine::from_module(&store, &module, callbacks)
+    }
 
+    /// Create a new `WasmerEngine` instance with an existing preloaded module
+    pub(crate) fn from_module(
+        store: &Store,
+        module: &Module,
+        callbacks: Arc<dyn Callbacks>,
+    ) -> Result<Self, LoadError> {
         let host_functions =
             Arc::new(Mutex::new(HostFunctions::new(callbacks.clone())));
         let env = Env {
@@ -42,19 +47,19 @@ impl WebAssemblyEngine for WasmerEngine {
 
         let imports = wasmer::imports! {
             "env" => {
-                "_debug" => Function::new_native_with_env(&store, env.clone(), debug),
-                "request_capability" => Function::new_native_with_env(&store, env.clone(), request_capability),
-                "request_capability_set_param" => Function::new_native_with_env(&store, env.clone(), request_capability_set_param),
-                "request_provider_response" => Function::new_native_with_env(&store, env.clone(), request_provider_response),
-                "tfm_model_invoke" => Function::new_native_with_env(&store, env.clone(), tfm_model_invoke),
-                "tfm_preload_model" => Function::new_native_with_env(&store, env.clone(), tfm_preload_model),
-                "rune_model_load" => Function::new_native_with_env(&store, env.clone(), rune_model_load),
-                "rune_model_infer" => Function::new_native_with_env(&store, env.clone(), rune_model_infer),
-                "request_output" => Function::new_native_with_env(&store, env.clone(), request_output),
-                "consume_output" => Function::new_native_with_env(&store, env.clone(), consume_output),
-                "rune_resource_open" => Function::new_native_with_env(&store, env.clone(), rune_resource_open),
-                "rune_resource_read" => Function::new_native_with_env(&store, env.clone(), rune_resource_read),
-                "rune_resource_close" => Function::new_native_with_env(&store, env.clone(), rune_resource_close),
+                "_debug" => Function::new_native_with_env(store, env.clone(), debug),
+                "request_capability" => Function::new_native_with_env(store, env.clone(), request_capability),
+                "request_capability_set_param" => Function::new_native_with_env(store, env.clone(), request_capability_set_param),
+                "request_provider_response" => Function::new_native_with_env(store, env.clone(), request_provider_response),
+                "tfm_model_invoke" => Function::new_native_with_env(store, env.clone(), tfm_model_invoke),
+                "tfm_preload_model" => Function::new_native_with_env(store, env.clone(), tfm_preload_model),
+                "rune_model_load" => Function::new_native_with_env(store, env.clone(), rune_model_load),
+                "rune_model_infer" => Function::new_native_with_env(store, env.clone(), rune_model_infer),
+                "request_output" => Function::new_native_with_env(store, env.clone(), request_output),
+                "consume_output" => Function::new_native_with_env(store, env.clone(), consume_output),
+                "rune_resource_open" => Function::new_native_with_env(store, env.clone(), rune_resource_open),
+                "rune_resource_read" => Function::new_native_with_env(store, env.clone(), rune_resource_read),
+                "rune_resource_close" => Function::new_native_with_env(store, env.clone(), rune_resource_close),
             }
         };
 
@@ -66,7 +71,9 @@ impl WebAssemblyEngine for WasmerEngine {
             callbacks,
         })
     }
+}
 
+impl WebAssemblyEngine for WasmerEngine {
     fn init(&mut self) -> Result<(), Error> {
         let manifest: NativeFunc<(), i32> = self
             .instance
