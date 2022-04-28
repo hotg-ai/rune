@@ -51,6 +51,12 @@ macro_rules! intern_id {
             impl From<$name> for $intern {
                 fn from(v: $name) -> $intern { v.0 }
             }
+
+            impl From<$name> for crate::diagnostics::Id {
+                fn from(v: $name) -> crate::diagnostics::Id {
+                    crate::diagnostics::Id::$name(v)
+                }
+            }
         )*
     };
 }

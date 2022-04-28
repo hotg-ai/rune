@@ -2,7 +2,6 @@
 source: crates/compiler-2/src/lowering/query.rs
 expression: state
 ---
-diags: []
 abi: v0
 names:
   accelerometer:

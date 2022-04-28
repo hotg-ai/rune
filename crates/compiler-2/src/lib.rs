@@ -13,6 +13,7 @@ pub mod diagnostics;
 mod filesystem;
 pub mod lowering;
 pub mod parse;
+pub mod proc_blocks;
 mod text;
 pub mod type_check;
 

@@ -9,9 +9,7 @@ pub trait TypeCheck: HirDB {
 }
 
 fn output_nodes(db: &dyn TypeCheck) -> Vector<NodeId> {
-    let (names, _) = db.names();
-
-    names
+    db.names()
         .values()
         .copied()
         .filter_map(|id| id.as_node())

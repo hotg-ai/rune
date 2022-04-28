@@ -14,7 +14,12 @@ use crate::{
 
 /// Populate a [`HirDB`] using a [`parse::Document`].
 #[tracing::instrument(skip(db, doc))]
-pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
+pub fn populate_from_document(
+    db: &mut dyn HirDB,
+    doc: parse::Document,
+) -> Diagnostics {
+    let mut diags = Diagnostics::default();
+
     let parse::DocumentV1 {
         // Only used to switch between Runefile.yml formats
         version: _,
@@ -23,21 +28,28 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
         resources,
     } = doc.to_v1();
 
-    db.set_abi(resolve_abi(&image));
+    let (abi, d) = resolve_abi(&image);
+    diags.extend(d);
+    db.set_abi(abi);
 
     let (names, d) = resolve_names(db, &pipeline, &resources);
-    db.set_names((names.clone(), d));
+    diags.extend(d);
+    db.set_names(names.clone());
 
     for (name, id) in names {
         if let HirId::Node(id) = id {
             let stage = &pipeline[name.as_str()];
-            let resolved = resolve_args(db, &name, stage.args());
+            let (resolved, d) = resolve_args(db, &name, stage.args());
+            diags.extend(d);
             db.set_arguments(id, resolved);
 
-            let resolved = resolve_inputs(db, &name, stage.inputs());
+            let (resolved, d) = resolve_inputs(db, &name, stage.inputs());
+            diags.extend(d);
             db.set_inputs(id, resolved);
         }
     }
+
+    diags
 }
 
 /// The database containing Rune's high-level intermediate representation.
@@ -54,17 +66,17 @@ pub fn populate_from_document(db: &mut dyn HirDB, doc: parse::Document) {
 #[salsa::query_group(HirDBStorage)]
 pub trait HirDB {
     #[salsa::input]
-    fn abi(&self) -> (Abi, Diagnostics);
+    fn abi(&self) -> Abi;
 
     #[salsa::input]
-    fn names(&self) -> (OrdMap<Text, HirId>, Diagnostics);
+    fn names(&self) -> OrdMap<Text, HirId>;
 
     /// An interned [`Node`].
     #[salsa::interned]
     fn node(&self, node: Node) -> NodeId;
 
     #[salsa::input]
-    fn inputs(&self, node: NodeId) -> (Vector<Option<Input>>, Diagnostics);
+    fn inputs(&self, node: NodeId) -> Vector<Option<Input>>;
 
     /// An interned argument.
     #[salsa::interned]
@@ -72,17 +84,10 @@ pub trait HirDB {
 
     /// Retrieve the arguments associated with a [`Node`].
     #[salsa::input]
-    fn arguments(
-        &self,
-        node_id: NodeId,
-    ) -> (OrdMap<Text, ArgumentId>, Diagnostics);
+    fn arguments(&self, node_id: NodeId) -> OrdMap<Text, ArgumentId>;
 
     #[salsa::interned]
     fn resource(&self, res: Resource) -> ResourceId;
-
-    /// All the [`Diagnostics`] that were encountered while populating the
-    /// [`HirDB`].
-    fn lowering_diagnostics(&self) -> Diagnostics;
 }
 
 #[tracing::instrument(skip(db, pipeline, resources))]
@@ -185,7 +190,7 @@ fn resolve_inputs(
     let mut resolved = Vector::new();
     let mut diags = Diagnostics::new();
 
-    let (names, _) = db.names();
+    let names = db.names();
 
     for input in inputs {
         match names.get(input.name.as_str()).copied() {
@@ -220,7 +225,7 @@ fn resolve_resource_or_string(
             (ResourceOrText::Text(s.as_str().into()), Diagnostics::new())
         },
         parse::ResourceOrString::Resource(r) => {
-            let (names, _) = db.names();
+            let names = db.names();
 
             match names.get(r.as_str()).copied() {
                 Some(HirId::Resource(id)) => {
@@ -269,31 +274,6 @@ fn resolve_resource(decl: &parse::ResourceDeclaration) -> (Resource, bool) {
     (resource, path_and_inline_defined)
 }
 
-#[tracing::instrument(level = "debug", skip(db))]
-fn lowering_diagnostics(db: &dyn HirDB) -> Diagnostics {
-    let mut diagnostics = Diagnostics::new();
-
-    let (_, diags) = db.abi();
-    diagnostics.extend(diags);
-
-    let (names, diags) = db.names();
-    diagnostics.extend(diags);
-
-    for (_, id) in names {
-        match id {
-            HirId::Node(id) => {
-                let (_, diags) = db.arguments(id);
-                diagnostics.extend(diags);
-                let (_, diags) = db.inputs(id);
-                diagnostics.extend(diags);
-            },
-            HirId::Resource(_) => {},
-        }
-    }
-
-    diagnostics
-}
-
 #[tracing::instrument(level = "debug", skip(image))]
 fn resolve_abi(image: &parse::Image) -> (Abi, Diagnostics) {
     let parse::Path {
@@ -321,7 +301,6 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     #[serde(rename_all = "kebab-case")]
     struct SerializedHir {
-        diags: Diagnostics,
         abi: Abi,
         names: OrdMap<Text, HirId>,
         nodes: OrdMap<NodeId, Node>,
@@ -331,8 +310,8 @@ mod tests {
     }
 
     fn load_state(db: &dyn HirDB) -> SerializedHir {
-        let (abi, _) = db.abi();
-        let (names, _) = db.names();
+        let abi = db.abi();
+        let names = db.names();
 
         let mut nodes = OrdMap::new();
         let mut resources = OrdMap::new();
@@ -343,13 +322,13 @@ mod tests {
             match id {
                 HirId::Node(id) => {
                     nodes.insert(id, db.lookup_node(id));
-                    let (args, _) = db.arguments(id);
+                    let args = db.arguments(id);
                     let args = args
                         .into_iter()
                         .map(|(name, id)| (name, db.lookup_argument(id)))
                         .collect();
                     arguments.insert(id, args);
-                    let (node_inputs, _) = db.inputs(id);
+                    let node_inputs = db.inputs(id);
                     inputs.insert(id, node_inputs);
                 },
                 HirId::Resource(id) => {
@@ -358,10 +337,7 @@ mod tests {
             }
         }
 
-        let diags = db.lowering_diagnostics();
-
         SerializedHir {
-            diags,
             abi,
             names,
             nodes,
@@ -386,9 +362,7 @@ mod tests {
                 let doc = crate::parse::parse_runefile($src).unwrap();
                 let mut db = DB::default();
 
-                populate_from_document(&mut db, doc);
-
-                let diags = db.lowering_diagnostics();
+                let diags = populate_from_document(&mut db, doc);
 
                 println!("{:#?}", diags);
                 assert_eq!(diags.len(), 1);
@@ -459,9 +433,8 @@ mod tests {
         let doc = crate::parse::parse_runefile(src).unwrap();
         let mut db = DB::default();
 
-        populate_from_document(&mut db, doc);
+        let diags = populate_from_document(&mut db, doc);
 
-        let diags = db.lowering_diagnostics();
         assert!(diags.is_empty());
         let state = load_state(&db);
         insta::assert_yaml_snapshot!(state);

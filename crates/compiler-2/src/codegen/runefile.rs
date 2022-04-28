@@ -27,8 +27,8 @@ fn pipeline(db: &dyn Codegen) -> IndexMap<String, parse::Stage> {
     for (name, id) in node_names(db) {
         let node = db.lookup_node(id);
 
-        let (inputs, _) = db.inputs(id);
-        let inputs: Vec<_> = inputs
+        let inputs: Vec<_> = db
+            .inputs(id)
             .into_iter()
             .filter_map(|i| i)
             .map(|lowering::Input { index, node }| {
@@ -114,9 +114,8 @@ fn arguments(
     db: &dyn Codegen,
     node_id: NodeId,
 ) -> IndexMap<String, parse::Argument> {
-    let (args, _) = db.arguments(node_id);
-
-    args.into_iter()
+    db.arguments(node_id)
+        .into_iter()
         .map(|(name, id)| {
             let arg = db.lookup_argument(id);
             (
@@ -132,12 +131,12 @@ fn resources(db: &dyn Codegen) -> IndexMap<String, parse::ResourceDeclaration> {
     let mut resources = IndexMap::new();
 
     for (name, id) in query::resource_names(db) {
-        let lowering::Resource { default_value, ty } = db.lookup_resource(id);
+        let lowering::Resource { ty, .. } = db.lookup_resource(id);
 
         resources.insert(
             name.to_string(),
             parse::ResourceDeclaration {
-                path: default_value.map(|_| resource_file_name(&name)),
+                path: Some(resource_file_name(&name)),
                 inline: None,
                 ty,
             },
@@ -152,8 +151,7 @@ pub(crate) fn resource_file_name(node_name: &str) -> String {
 }
 
 fn node_names(db: &dyn Codegen) -> impl Iterator<Item = (Text, NodeId)> {
-    let (names, _) = db.names();
-    names.into_iter().filter_map(|(name, id)| match id {
+    db.names().into_iter().filter_map(|(name, id)| match id {
         HirId::Node(id) => Some((name, id)),
         _ => None,
     })
@@ -216,11 +214,14 @@ mod tests {
                         - sine.0
 
             resources:
-                res: {}
+                res:
+                    inline: this is a string
         "#;
         let mut db = DB::default();
         let doc = crate::parse::parse_runefile(src).unwrap();
-        crate::lowering::populate_from_document(&mut db, doc.clone());
+        let diags =
+            crate::lowering::populate_from_document(&mut db, doc.clone());
+        assert!(diags.is_empty());
 
         let runefile = Arc::try_unwrap(db.self_contained_runefile()).unwrap();
 

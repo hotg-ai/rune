@@ -6,7 +6,7 @@ use crate::{
     codegen::runefile,
     config::Environment,
     lowering::{self, HirDB, HirId, ResourceId},
-    parse, FileSystem, Text,
+    parse, BuildConfig, FileSystem, Text,
 };
 
 #[salsa::query_group(CodegenStorage)]
@@ -26,6 +26,9 @@ pub trait Codegen: HirDB + Environment + FileSystem {
 
 #[tracing::instrument(skip(db))]
 fn resource_files(db: &dyn Codegen) -> OrdMap<Text, Vector<u8>> {
+    let BuildConfig {
+        current_directory, ..
+    } = db.config();
     let mut files = OrdMap::new();
 
     for (name, id) in resource_names(db) {
@@ -33,7 +36,8 @@ fn resource_files(db: &dyn Codegen) -> OrdMap<Text, Vector<u8>> {
         let filename = Text::new(runefile::resource_file_name(&name));
 
         match default_value {
-            Some(lowering::ResourceSource::FromDisk { filename: _ }) => {
+            Some(lowering::ResourceSource::FromDisk { filename }) => {
+                let _path = current_directory.join(filename.as_str());
                 todo!();
             },
             Some(lowering::ResourceSource::Inline(inline)) => {
@@ -49,8 +53,7 @@ fn resource_files(db: &dyn Codegen) -> OrdMap<Text, Vector<u8>> {
 pub(crate) fn resource_names(
     db: &dyn Codegen,
 ) -> impl Iterator<Item = (Text, ResourceId)> {
-    let (names, _) = db.names();
-    names.into_iter().filter_map(|(name, id)| match id {
+    db.names().into_iter().filter_map(|(name, id)| match id {
         HirId::Resource(id) => Some((name, id)),
         _ => None,
     })

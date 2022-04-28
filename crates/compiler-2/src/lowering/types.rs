@@ -158,3 +158,9 @@ impl ResourceOrText {
         ResourceOrText::Text(value.into())
     }
 }
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+pub struct Port {}

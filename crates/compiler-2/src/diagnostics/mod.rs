@@ -86,7 +86,7 @@ pub enum Severity {
     serde::Deserialize,
 )]
 #[serde(transparent)]
-#[must_use]
+#[must_use = "You should always check for errors before proceeding"]
 pub struct Diagnostics(Vector<Diagnostic>);
 
 impl Diagnostics {
@@ -107,6 +107,14 @@ impl Diagnostics {
     pub fn len(&self) -> usize { self.0.len() }
 
     pub fn is_empty(&self) -> bool { self.len() == 0 }
+
+    pub fn has_severity(&self, severity: Severity) -> bool {
+        self.iter().any(|diag| diag.severity > severity)
+    }
+
+    pub fn has_errors(&self) -> bool { self.has_severity(Severity::Error) }
+
+    pub fn has_warnings(&self) -> bool { self.has_severity(Severity::Warning) }
 }
 
 impl FromIterator<Diagnostic> for Diagnostics {
@@ -216,6 +224,24 @@ impl From<Diagnostic> for Diagnostics {
 )]
 pub struct Label {
     /// A number that refers to the item being labeled.
-    pub target_id: u32,
+    pub target: Id,
     pub message: Option<Text>,
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case", tag = "type", content = "index")]
+pub enum Id {
+    NodeId(crate::lowering::NodeId),
+    ArgumentId(crate::lowering::ArgumentId),
+    ResourceId(crate::lowering::ResourceId),
+    PortId(crate::lowering::ResourceId),
 }

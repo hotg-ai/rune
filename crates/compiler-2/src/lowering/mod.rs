@@ -32,9 +32,7 @@
 //! let doc = parse_runefile(runefile).unwrap();
 //!
 //! let mut db = Database::default();
-//! lowering::populate_from_document(&mut db, doc);
-//!
-//! let diags = db.lowering_diagnostics();
+//! let diags = lowering::populate_from_document(&mut db, doc);
 //!
 //! assert!(
 //!     diags.is_empty(),
