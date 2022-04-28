@@ -16,21 +16,21 @@ pub trait FileSystem {
 #[error("Unable to {} \"{}\"", operation, path.display())]
 pub struct FileSystemError {
     #[source]
-    pub inner: Arc<std::io::Error>,
+    pub error: Arc<std::io::Error>,
     pub operation: FileSystemOperation,
     pub path: PathBuf,
 }
 
 impl FileSystemError {
     pub fn new(
-        path: PathBuf,
+        path: impl Into<PathBuf>,
         operation: FileSystemOperation,
         error: std::io::Error,
     ) -> Self {
         Self {
-            inner: error.into(),
+            error: error.into(),
             operation,
-            path,
+            path: path.into(),
         }
     }
 
@@ -42,7 +42,7 @@ impl FileSystemError {
 impl PartialEq for FileSystemError {
     fn eq(&self, other: &Self) -> bool {
         let FileSystemError {
-            ref inner,
+            error: ref inner,
             operation,
             ref path,
         } = *self;
@@ -56,9 +56,9 @@ impl PartialEq for FileSystemError {
         if kind == std::io::ErrorKind::Other {
             // it's some other type of error. Assume they aren't equal unless
             // they are the same object.
-            Arc::ptr_eq(inner, &other.inner)
+            Arc::ptr_eq(inner, &other.error)
         } else {
-            kind == other.inner.kind()
+            kind == other.error.kind()
         }
     }
 }
@@ -84,7 +84,7 @@ pub enum FileSystemOperation {
 impl Display for FileSystemOperation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            FileSystemOperation::Read => write!(f, "read"),
+            FileSystemOperation::Read => "read".fmt(f),
         }
     }
 }

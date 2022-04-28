@@ -7,7 +7,6 @@ mod yaml;
 use std::sync::Arc;
 
 pub use self::yaml::*;
-use crate::diagnostics::{AsDiagnostic, DiagnosticMetadata};
 
 /// Parse a `Runefile.yml`.
 #[tracing::instrument(skip(src), err)]
@@ -20,10 +19,4 @@ pub fn parse_runefile(src: &str) -> Result<Document, ParseFailed> {
 pub struct ParseFailed {
     #[source]
     inner: Arc<serde_yaml::Error>,
-}
-
-impl AsDiagnostic for ParseFailed {
-    fn meta() -> DiagnosticMetadata {
-        DiagnosticMetadata::new("Parsing Failed")
-    }
 }
