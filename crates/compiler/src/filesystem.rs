@@ -13,10 +13,8 @@ pub trait FileSystem {
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ReadError {
-    #[error("Unknown scheme, \"{}\"", scheme)]
-    UnknownScheme { scheme: Text },
-    #[error("This operation isn't supported")]
-    NotSupported,
+    #[error("The \"{}\" scheme isn't supported", scheme)]
+    UnsupportedScheme { scheme: Text },
     #[error(transparent)]
     Other(Arc<dyn std::error::Error + Send + Sync + 'static>),
 }
