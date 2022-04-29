@@ -1,32 +1,82 @@
+//! The YAML frontend for the Rune compiler.
+//!
+//! You are probably here for either the [`Frontend`] trait or the [`Document`]
+//! type.
+
+mod query;
 mod yaml;
 
 use std::sync::Arc;
 
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use crate::Text;
 
-pub use self::yaml::*;
+pub use self::{
+    query::{Frontend, FrontendStorage},
+    yaml::*,
+};
 
-#[tracing::instrument(skip(src), err)]
-pub fn parse(src: &str) -> Result<Document, ParseFailedDiagnostic> {
-    Document::parse(src)
-        .map_err(|e| ParseFailedDiagnostic { inner: Arc::new(e) })
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unable to parse the Runefile")]
+pub struct ParseFailed {
+    #[from]
+    pub error: Arc<serde_yaml::Error>,
 }
 
-#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
-#[error("Unable to parse the Runefile: {}", inner)]
-#[diagnostic(code("P001"))]
-pub struct ParseFailedDiagnostic {
-    #[source]
-    inner: Arc<serde_yaml::Error>,
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum ItemType {
+    Input,
+    Model,
+    ProcBlock,
+    Output,
+    Resource,
 }
 
-impl ParseFailedDiagnostic {
-    pub fn as_codespan_diagnostic(&self) -> Diagnostic<()> {
-        let mut diag = Diagnostic::error().with_message(self.to_string());
-        if let Some(location) = self.inner.location() {
-            let ix = location.index();
-            diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
-        }
-        diag
-    }
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[error("There is no model called \"{}\"", name)]
+#[serde(rename_all = "kebab-case")]
+pub struct NotFound {
+    pub item_type: ItemType,
+    pub name: Text,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[error(
+    "Expected \"{}\" to be a {:?}, but it is actually a {:?}",
+    name,
+    expected,
+    actual
+)]
+#[serde(rename_all = "kebab-case")]
+pub struct WrongItemType {
+    pub expected: ItemType,
+    pub actual: ItemType,
+    pub name: Text,
 }

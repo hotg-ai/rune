@@ -20,7 +20,7 @@ use crate::{
 /// [`Frontend::parse()`].
 ///
 /// ```rust
-/// use hotg_rune_compiler_2::{
+/// use hotg_rune_compiler::{
 ///     parse::{Frontend, FrontendStorage},
 ///     EnvironmentStorage, FileSystem, ReadError, parse::Path, im::Vector,
 /// };
