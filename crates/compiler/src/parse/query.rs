@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, error::Error, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use uriparse::{URIBuilder, URIError, URI};
 
@@ -74,7 +74,7 @@ pub trait Frontend: Environment + FileSystem {
 
     /// Parse the [`Frontend::src()`] into a [`DocumentV1`].
     #[salsa::dependencies]
-    fn parse(&self) -> Result<Arc<DocumentV1>, Arc<dyn Error>>;
+    fn parse(&self) -> Result<Arc<DocumentV1>, crate::Error>;
 
     /// A low-level query for parsing a YAML file.
     #[salsa::dependencies]
@@ -83,26 +83,25 @@ pub trait Frontend: Environment + FileSystem {
     /// Get a resource's value by either returning the value as-is (for
     /// `inline` resources) or reading the file from the filesystem.
     #[salsa::dependencies]
-    fn resource_value(&self, name: Text) -> Result<Vector<u8>, Arc<dyn Error>>;
+    fn resource_value(&self, name: Text) -> Result<Vector<u8>, crate::Error>;
 
     #[salsa::dependencies]
-    fn resource_values(
-        &self,
-    ) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>>;
+    fn resource_values(&self)
+        -> Result<OrdMap<Text, Vector<u8>>, crate::Error>;
 
     #[salsa::dependencies]
-    fn proc_block(&self, name: Text) -> Result<Vector<u8>, Arc<dyn Error>>;
+    fn proc_block(&self, name: Text) -> Result<Vector<u8>, crate::Error>;
 
     /// Get the binary data for each proc-block in this Rune, ignoring any which
     /// may have failed to load.
     #[salsa::dependencies]
-    fn proc_blocks(&self) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>>;
+    fn proc_blocks(&self) -> Result<OrdMap<Text, Vector<u8>>, crate::Error>;
 
     #[salsa::dependencies]
-    fn model_file(&self, name: Text) -> Result<Vector<u8>, Arc<dyn Error>>;
+    fn model_file(&self, name: Text) -> Result<Vector<u8>, crate::Error>;
 
     #[salsa::dependencies]
-    fn model_files(&self) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>>;
+    fn model_files(&self) -> Result<OrdMap<Text, Vector<u8>>, crate::Error>;
 }
 
 #[tracing::instrument(skip(src), err)]
@@ -116,17 +115,17 @@ fn parse_runefile(
 }
 
 #[tracing::instrument(skip(db))]
-fn parse(db: &dyn Frontend) -> Result<Arc<DocumentV1>, Arc<dyn Error>> {
+fn parse(db: &dyn Frontend) -> Result<Arc<DocumentV1>, crate::Error> {
     db.parse_runefile(db.src())
         .map(|d| Arc::new(Document::clone(&d).to_v1()))
-        .map_err(|e| Arc::new(e) as Arc<dyn Error>)
+        .map_err(|e| Arc::new(e) as crate::Error)
 }
 
 #[tracing::instrument(skip(db), err)]
 fn resource_value(
     db: &dyn Frontend,
     name: Text,
-) -> Result<Vector<u8>, Arc<dyn Error>> {
+) -> Result<Vector<u8>, crate::Error> {
     let doc = db.parse()?;
 
     let ResourceDeclaration { inline, path, .. } =
@@ -134,7 +133,7 @@ fn resource_value(
             Arc::new(NotFound {
                 name,
                 item_type: ItemType::Resource,
-            }) as Arc<dyn Error>
+            }) as crate::Error
         })?;
 
     match (inline, path) {
@@ -151,7 +150,7 @@ fn resource_value(
 #[tracing::instrument(skip(db))]
 fn proc_blocks(
     db: &dyn Frontend,
-) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>> {
+) -> Result<OrdMap<Text, Vector<u8>>, crate::Error> {
     let doc = db.parse()?;
 
     let mut proc_blocks = BTreeMap::default();
@@ -170,7 +169,7 @@ fn proc_blocks(
 fn proc_block(
     db: &dyn Frontend,
     name: Text,
-) -> Result<Vector<u8>, Arc<dyn Error>> {
+) -> Result<Vector<u8>, crate::Error> {
     let doc = db.parse()?;
 
     let stage = doc
@@ -180,7 +179,7 @@ fn proc_block(
             name,
             item_type: ItemType::ProcBlock,
         })
-        .map_err(|e| Arc::new(e) as Arc<dyn Error>)?;
+        .map_err(|e| Arc::new(e) as crate::Error)?;
 
     if let Stage::ProcBlock(ProcBlockStage { proc_block, .. }) = stage {
         read(db, &proc_block)
@@ -192,7 +191,7 @@ fn proc_block(
 #[tracing::instrument(skip(db), err)]
 fn resource_values(
     db: &dyn Frontend,
-) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>> {
+) -> Result<OrdMap<Text, Vector<u8>>, crate::Error> {
     let doc = db.parse()?;
 
     doc.resources
@@ -209,7 +208,7 @@ fn resource_values(
 fn model_file(
     db: &dyn Frontend,
     name: Text,
-) -> Result<Vector<u8>, Arc<dyn Error>> {
+) -> Result<Vector<u8>, crate::Error> {
     let doc = db.parse()?;
 
     let stage = doc
@@ -219,15 +218,15 @@ fn model_file(
             name: name.clone(),
             item_type: ItemType::Model,
         })
-        .map_err(|e| Arc::new(e) as Arc<dyn Error>)?;
+        .map_err(|e| Arc::new(e) as crate::Error)?;
 
-    let err = move |actual: ItemType| -> Result<Vector<u8>, Arc<dyn Error>> {
+    let err = move |actual: ItemType| -> Result<Vector<u8>, crate::Error> {
         let e = WrongItemType {
             expected: ItemType::Model,
             actual,
             name,
         };
-        Err(Arc::new(e) as Arc<dyn Error>)
+        Err(Arc::new(e) as crate::Error)
     };
 
     match stage {
@@ -241,7 +240,7 @@ fn model_file(
 #[tracing::instrument(skip(db))]
 fn model_files(
     db: &dyn Frontend,
-) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>> {
+) -> Result<OrdMap<Text, Vector<u8>>, crate::Error> {
     let doc = db.parse()?;
 
     let mut models = BTreeMap::default();
@@ -256,12 +255,10 @@ fn model_files(
     Ok(models.into())
 }
 
-fn read(db: &dyn Frontend, path: &Path) -> Result<Vector<u8>, Arc<dyn Error>> {
+fn read(db: &dyn Frontend, path: &Path) -> Result<Vector<u8>, crate::Error> {
     file_uri(db, path)
-        .map_err(|e| Arc::new(e) as Arc<dyn Error>)
-        .and_then(|uri| {
-            db.read(&uri).map_err(|e| Arc::new(e) as Arc<dyn Error>)
-        })
+        .map_err(|e| Arc::new(e) as crate::Error)
+        .and_then(|uri| db.read(&uri).map_err(|e| Arc::new(e) as crate::Error))
 }
 
 fn file_uri(db: &dyn Frontend, path: &Path) -> Result<URI<'static>, URIError> {

@@ -16,3 +16,5 @@ pub use crate::{
     filesystem::{FileSystem, ReadError},
     im::Text,
 };
+
+pub type Error = std::sync::Arc<dyn std::error::Error + Send + Sync + 'static>;
