@@ -1,9 +1,9 @@
-use std::{error::Error, sync::Arc};
+use std::{collections::BTreeMap, error::Error, sync::Arc};
 
-use im::{OrdMap, Vector};
 use uriparse::{URIBuilder, URIError, URI};
 
 use crate::{
+    im::{OrdMap, Vector},
     parse::{
         Document, DocumentV1, ItemType, ModelStage, NotFound, ParseFailed,
         Path, ProcBlockStage, ResourceDeclaration, Stage, WrongItemType,
@@ -22,10 +22,9 @@ use crate::{
 /// ```rust
 /// use hotg_rune_compiler_2::{
 ///     parse::{Frontend, FrontendStorage},
-///     EnvironmentStorage, FileSystem, ReadError, parse::Path,
+///     EnvironmentStorage, FileSystem, ReadError, parse::Path, im::Vector,
 /// };
 /// use uriparse::URI;
-/// # use im::Vector;
 ///
 /// // First, you need to create a database which can hold Salsa's state
 ///
@@ -101,6 +100,9 @@ pub trait Frontend: Environment + FileSystem {
 
     #[salsa::dependencies]
     fn model_file(&self, name: Text) -> Result<Vector<u8>, Arc<dyn Error>>;
+
+    #[salsa::dependencies]
+    fn model_files(&self) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>>;
 }
 
 #[tracing::instrument(skip(src), err)]
@@ -152,7 +154,7 @@ fn proc_blocks(
 ) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>> {
     let doc = db.parse()?;
 
-    let mut proc_blocks = OrdMap::new();
+    let mut proc_blocks = BTreeMap::default();
 
     for (name, stage) in &doc.pipeline {
         if let Stage::ProcBlock(_) = stage {
@@ -161,7 +163,7 @@ fn proc_blocks(
         }
     }
 
-    Ok(proc_blocks)
+    Ok(proc_blocks.into())
 }
 
 #[tracing::instrument(skip(db), err)]
@@ -234,6 +236,24 @@ fn model_file(
         Stage::ProcBlock(_) => err(ItemType::ProcBlock),
         Stage::Out(_) => err(ItemType::Output),
     }
+}
+
+#[tracing::instrument(skip(db))]
+fn model_files(
+    db: &dyn Frontend,
+) -> Result<OrdMap<Text, Vector<u8>>, Arc<dyn Error>> {
+    let doc = db.parse()?;
+
+    let mut models = BTreeMap::default();
+
+    for (name, stage) in &doc.pipeline {
+        if let Stage::Model(_) = stage {
+            let binary = db.model_file(name.into())?;
+            models.insert(Text::from(name), binary);
+        }
+    }
+
+    Ok(models.into())
 }
 
 fn read(db: &dyn Frontend, path: &Path) -> Result<Vector<u8>, Arc<dyn Error>> {

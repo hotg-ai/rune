@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use im::Vector;
+use crate::im::Vector;
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,

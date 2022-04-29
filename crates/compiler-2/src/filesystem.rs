@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use im::Vector;
 use uriparse::URI;
 
-use crate::Text;
+use crate::{im::Vector, Text};
 
 /// An abstract filesystem.
 pub trait FileSystem {
