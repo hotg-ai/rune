@@ -385,6 +385,15 @@ impl Stage {
             Stage::Out(out) => &out.args,
         }
     }
+
+    pub(crate) fn args_mut(&mut self) -> &mut IndexMap<String, Argument> {
+        match self {
+            Stage::Model(m) => &mut m.args,
+            Stage::ProcBlock(p) => &mut p.args,
+            Stage::Capability(c) => &mut c.args,
+            Stage::Out(out) => &mut out.args,
+        }
+    }
 }
 
 /// Something that could be either a reference to a resource (`$resource`)
