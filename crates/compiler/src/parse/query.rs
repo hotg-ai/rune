@@ -104,7 +104,7 @@ pub trait Frontend: Environment + FileSystem {
     fn model_files(&self) -> Result<OrdMap<Text, Vector<u8>>, crate::Error>;
 }
 
-#[tracing::instrument(skip(src), err)]
+#[tracing::instrument(level = "debug", skip(src), err)]
 fn parse_runefile(
     _: &dyn Frontend,
     src: Text,
@@ -114,14 +114,14 @@ fn parse_runefile(
         .map_err(|e| ParseFailed { error: Arc::new(e) })
 }
 
-#[tracing::instrument(skip(db))]
+#[tracing::instrument(level = "debug", skip(db))]
 fn parse(db: &dyn Frontend) -> Result<Arc<DocumentV1>, crate::Error> {
     db.parse_runefile(db.src())
         .map(|d| Arc::new(Document::clone(&d).to_v1()))
         .map_err(|e| Arc::new(e) as crate::Error)
 }
 
-#[tracing::instrument(skip(db), err)]
+#[tracing::instrument(level = "debug", skip(db), err)]
 fn resource_value(
     db: &dyn Frontend,
     name: Text,
@@ -147,7 +147,7 @@ fn resource_value(
     }
 }
 
-#[tracing::instrument(skip(db))]
+#[tracing::instrument(level = "debug", skip(db))]
 fn proc_blocks(
     db: &dyn Frontend,
 ) -> Result<OrdMap<Text, Vector<u8>>, crate::Error> {
@@ -165,7 +165,7 @@ fn proc_blocks(
     Ok(proc_blocks.into())
 }
 
-#[tracing::instrument(skip(db), err)]
+#[tracing::instrument(level = "debug", skip(db), err)]
 fn proc_block(
     db: &dyn Frontend,
     name: Text,
@@ -188,7 +188,7 @@ fn proc_block(
     }
 }
 
-#[tracing::instrument(skip(db), err)]
+#[tracing::instrument(level = "debug", skip(db), err)]
 fn resource_values(
     db: &dyn Frontend,
 ) -> Result<OrdMap<Text, Vector<u8>>, crate::Error> {
@@ -204,7 +204,7 @@ fn resource_values(
         .collect()
 }
 
-#[tracing::instrument(skip(db), err)]
+#[tracing::instrument(level = "debug", skip(db), err)]
 fn model_file(
     db: &dyn Frontend,
     name: Text,
@@ -237,7 +237,7 @@ fn model_file(
     }
 }
 
-#[tracing::instrument(skip(db))]
+#[tracing::instrument(level = "debug", skip(db))]
 fn model_files(
     db: &dyn Frontend,
 ) -> Result<OrdMap<Text, Vector<u8>>, crate::Error> {

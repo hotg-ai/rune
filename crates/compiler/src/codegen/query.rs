@@ -30,7 +30,7 @@ pub trait Codegen: Frontend {
     fn rune_archive(&self) -> Result<Vector<u8>, crate::Error>;
 }
 
-#[tracing::instrument(skip(db))]
+#[tracing::instrument(level = "debug", skip(db))]
 fn self_contained_runefile(
     db: &dyn Codegen,
 ) -> Result<Arc<DocumentV1>, crate::Error> {
@@ -44,7 +44,7 @@ fn self_contained_runefile(
     Ok(doc)
 }
 
-#[tracing::instrument(skip(db, stages))]
+#[tracing::instrument(level = "debug", skip(db, stages))]
 fn patch_arguments(
     db: &dyn Codegen,
     stages: &mut IndexMap<String, Stage>,
@@ -71,7 +71,7 @@ fn patch_arguments(
     Ok(())
 }
 
-#[tracing::instrument(skip(stages))]
+#[tracing::instrument(level = "debug", skip(stages))]
 fn patch_paths(
     stages: &mut IndexMap<String, Stage>,
 ) -> Result<(), crate::Error> {
@@ -94,7 +94,7 @@ fn patch_paths(
     Ok(())
 }
 
-#[tracing::instrument(skip(resources))]
+#[tracing::instrument(level = "debug", skip(resources))]
 fn patch_resources(
     resources: &mut IndexMap<String, ResourceDeclaration>,
 ) -> Result<(), crate::Error> {
@@ -108,7 +108,7 @@ fn patch_resources(
     Ok(())
 }
 
-#[tracing::instrument(skip(db))]
+#[tracing::instrument(level = "debug", skip(db))]
 fn rune_archive(db: &dyn Codegen) -> Result<Vector<u8>, crate::Error> {
     let runefile = db.self_contained_runefile()?;
     let runefile = serde_yaml::to_string(&*runefile)
@@ -151,7 +151,7 @@ fn generate_archive(
     Ok(buffer)
 }
 
-#[tracing::instrument(skip(writer, data))]
+#[tracing::instrument(level = "debug", skip(writer, data))]
 fn write_to_directory(
     writer: &mut ZipWriter<impl Write + Seek>,
     directory: &str,
