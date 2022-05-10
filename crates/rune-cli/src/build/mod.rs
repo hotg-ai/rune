@@ -1,6 +1,7 @@
 mod rune_v0;
+mod rune_v1;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 use anyhow::{Context, Error};
 use codespan_reporting::term::termcolor::ColorChoice;
@@ -35,6 +36,9 @@ pub struct Build {
     /// Compile the Rune without optimisations.
     #[structopt(long)]
     debug: bool,
+    /// The type of Rune to build.
+    #[structopt( long, short, env = "RUNE_TARGET", default_value = "abi-v0", parse(try_from_str), possible_values = &["abi-v0", "abi-v1"])]
+    target: Target,
 }
 
 impl Build {
@@ -43,7 +47,10 @@ impl Build {
         color: ColorChoice,
         unstable: Unstable,
     ) -> Result<(), Error> {
-        rune_v0::execute(self, color, unstable)
+        match self.target {
+            Target::AbiV0 => rune_v0::execute(self, color, unstable),
+            Target::AbiV1 => rune_v1::execute(self, unstable),
+        }
     }
 
     pub fn current_directory(&self) -> Result<PathBuf, Error> {
@@ -87,3 +94,21 @@ pub(crate) static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
         .to_string_lossy()
         .into_owned()
 });
+
+#[derive(Debug, Clone, PartialEq)]
+enum Target {
+    AbiV0,
+    AbiV1,
+}
+
+impl FromStr for Target {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self, Error> {
+        match value {
+            "abi-v0" => Ok(Target::AbiV0),
+            "abi-v1" => Ok(Target::AbiV1),
+            _ => Err(Error::msg("Unknown ABI version")),
+        }
+    }
+}
