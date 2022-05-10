@@ -1,5 +1,5 @@
-mod rune_v0;
-mod rune_v1;
+mod abi_v0;
+mod abi_v1;
 
 use std::{path::PathBuf, str::FromStr};
 
@@ -48,8 +48,8 @@ impl Build {
         unstable: Unstable,
     ) -> Result<(), Error> {
         match self.target {
-            Target::AbiV0 => rune_v0::execute(self, color, unstable),
-            Target::AbiV1 => rune_v1::execute(self, unstable),
+            Target::AbiV0 => abi_v0::execute(self, color, unstable),
+            Target::AbiV1 => abi_v1::execute(self, unstable),
         }
     }
 
