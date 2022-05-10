@@ -1,16 +1,30 @@
 use anyhow::Error;
-use env_logger::Env;
 use hotg_rune_cli::{
     Build, ColorChoice, Format, Graph, Inspect, ModelInfo, Run, Unstable,
     Version,
 };
-use log::LevelFilter;
 use structopt::{clap::AppSettings, StructOpt};
 use strum::VariantNames;
+use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<(), Error> {
     let _ = dotenv::dotenv();
     human_panic::setup_panic!();
+
+    if std::env::var_os("RUST_LOG").is_none() {
+        // Some modules are known to generate loads of logs that aren't relevant
+        // so we only log warnings by default.
+        std::env::set_var(
+            "RUST_LOG",
+            [
+                "info",
+                "cranelift_codegen=warn",
+                "regalloc=warn",
+                "salsa=warn",
+            ]
+            .join(","),
+        );
+    }
 
     let Args {
         colour,
@@ -19,14 +33,8 @@ fn main() -> Result<(), Error> {
         unstable,
     } = Args::from_args();
 
-    let env = Env::default().default_filter_or("warn");
-    env_logger::Builder::from_env(env)
-        .format_timestamp_millis()
-        .format_indent(Some(2))
-        .write_style(colour.into())
-        // Some modules are known to generate loads of logs that aren't relevant
-        .filter_module("cranelift_codegen", LevelFilter::Warn)
-        .filter_module("regalloc", LevelFilter::Warn)
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 
     match cmd {

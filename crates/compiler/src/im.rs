@@ -154,6 +154,12 @@ impl<A> FromIterator<A> for Vector<A> {
     }
 }
 
+impl<A> AsRef<[A]> for Vector<A> {
+    fn as_ref(&self) -> &[A] {
+        self.0.as_ref()
+    }
+}
+
 #[derive(
     Debug,
     PartialEq,

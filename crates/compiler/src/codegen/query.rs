@@ -175,7 +175,7 @@ mod tests {
     use super::*;
     use crate::{
         parse::Frontend, parse::FrontendStorage, BuildConfig, Environment,
-        EnvironmentStorage, FileSystem, ReadError,
+        EnvironmentStorage, FeatureFlags, FileSystem, ReadError,
     };
 
     #[derive(Default)]
@@ -216,6 +216,7 @@ mod tests {
         let mut db = Database::default();
         db.set_config(BuildConfig {
             current_directory: sine_dir.clone(),
+            features: FeatureFlags::stable(),
         });
         db.set_src(runefile.into());
 

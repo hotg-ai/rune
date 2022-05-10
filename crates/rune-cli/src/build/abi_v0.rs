@@ -32,7 +32,7 @@ pub(crate) fn execute(
     let ctx = build_context(&build)?;
     let features = unstable.feature_flags();
 
-    log::debug!(
+    tracing::debug!(
         "Compiling {} in \"{}\"",
         ctx.name,
         ctx.working_directory.display()
@@ -109,7 +109,7 @@ impl Hooks {
             format!("Unable to write to \"{}\"", self.dest.display())
         })?;
 
-        log::info!("The Rune was written to \"{}\"", self.dest.display());
+        tracing::info!("The Rune was written to \"{}\"", self.dest.display());
 
         Ok(())
     }

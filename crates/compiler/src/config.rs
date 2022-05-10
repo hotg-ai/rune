@@ -8,11 +8,18 @@ pub struct BuildConfig {
     pub features: FeatureFlags,
 }
 
-/// Flags used by the Rune compiler to enable experimental features.
+/// Flags used by the Rune compiler to enable features.
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub struct FeatureFlags {}
+
+impl FeatureFlags {
+    /// Enable all stable features.
+    pub fn stable() -> Self {
+        FeatureFlags {}
+    }
+}
 
 /// The build environment.
 #[salsa::query_group(EnvironmentStorage)]

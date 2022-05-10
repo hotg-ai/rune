@@ -70,7 +70,7 @@ pub struct Run {
 
 impl Run {
     pub fn execute(self) -> Result<(), Error> {
-        log::info!("Running rune: {}", self.rune.display());
+        tracing::info!("Running rune: {}", self.rune.display());
 
         let rune = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
@@ -83,7 +83,7 @@ impl Run {
         self.load_resources(runtime.resources())?;
 
         let caps = runtime.capabilities().clone();
-        log::debug!("Loading capabilities {:?}", caps);
+        tracing::debug!("Loading capabilities {:?}", caps);
         runtime.input_tensors().extend(self.load_inputs(caps)?);
 
         runtime.predict().context("Prediction failed")?;
@@ -104,7 +104,7 @@ impl Run {
         let mut inputs = HashMap::new();
 
         for (id, metadata) in caps {
-            log::debug!("Loading {:?}", metadata);
+            tracing::debug!("Loading {:?}", metadata);
             let NodeMetadata {
                 kind, arguments, ..
             } = metadata;
