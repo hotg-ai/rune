@@ -18,138 +18,64 @@ use hotg_rune_compiler::{
     },
     BuildContext, Verbosity,
 };
-use once_cell::sync::Lazy;
 
-use crate::Unstable;
+use crate::{
+    build::{Build, DEFAULT_CACHE_DIR},
+    Unstable,
+};
 
-#[derive(Debug, Clone, PartialEq, structopt::StructOpt)]
-pub struct Build {
-    /// The Runefile to compile.
-    #[structopt(parse(from_os_str), default_value = "Runefile.yml")]
-    runefile: PathBuf,
-    /// Where to write the generated Rune.
-    #[structopt(short, long, parse(from_os_str))]
-    output: Option<PathBuf>,
-    /// The directory to use when caching builds.
-    #[structopt(long, env)]
-    cache_dir: Option<PathBuf>,
-    /// The directory that all paths are resolved relative to (Defaults to the
-    /// Runefile's directory)
-    #[structopt(short, long, env)]
-    current_dir: Option<PathBuf>,
-    /// The name of the Rune (defaults to the Runefile directory's name).
-    #[structopt(short, long)]
-    name: Option<String>,
-    /// Hide output from tools that rune may call.
-    #[structopt(short, long, conflicts_with = "verbose")]
-    quiet: bool,
-    /// Prints even more detailed information.
-    #[structopt(short, long, conflicts_with = "quiet")]
-    verbose: bool,
-    /// Compile the Rune without optimisations.
-    #[structopt(long)]
-    debug: bool,
-}
+pub(crate) fn execute(
+    build: Build,
+    color: ColorChoice,
+    unstable: Unstable,
+) -> Result<(), Error> {
+    let ctx = build_context(&build)?;
+    let features = unstable.feature_flags();
 
-impl Build {
-    pub fn execute(
-        self,
-        color: ColorChoice,
-        unstable: Unstable,
-    ) -> Result<(), Error> {
-        let ctx = self.build_context()?;
-        let features = unstable.feature_flags();
+    log::debug!(
+        "Compiling {} in \"{}\"",
+        ctx.name,
+        ctx.working_directory.display()
+    );
 
-        log::debug!(
-            "Compiling {} in \"{}\"",
-            ctx.name,
-            ctx.working_directory.display()
-        );
+    let dest = build.output.unwrap_or_else(|| {
+        ctx.current_directory.join(&ctx.name).with_extension("rune")
+    });
 
-        let dest = self.output.unwrap_or_else(|| {
-            ctx.current_directory.join(&ctx.name).with_extension("rune")
-        });
+    let mut hooks = Hooks::new(dest, color, build.runefile);
+    hotg_rune_compiler::build_with_hooks(ctx, features, &mut hooks);
 
-        let mut hooks = Hooks::new(dest, color, self.runefile);
-        hotg_rune_compiler::build_with_hooks(ctx, features, &mut hooks);
-
-        match hooks.error {
-            None => Ok(()),
-            Some(e) => Err(e),
-        }
-    }
-
-    fn build_context(&self) -> Result<BuildContext, Error> {
-        let verbosity =
-            Verbosity::from_quiet_and_verbose(self.quiet, self.verbose)
-                .context(
-                    "The --verbose and --quiet flags can't be used together",
-                )?;
-
-        let current_directory = self.current_directory()?;
-        let name = self.name()?;
-
-        let working_directory = self
-            .cache_dir
-            .clone()
-            .unwrap_or_else(|| Path::new(&*DEFAULT_CACHE_DIR).join(&name));
-        let runefile =
-            std::fs::read_to_string(&self.runefile).with_context(|| {
-                format!("Unable to read \"{}\"", self.runefile.display())
-            })?;
-
-        Ok(BuildContext {
-            name,
-            current_directory,
-            runefile,
-            verbosity,
-            working_directory,
-            optimized: !self.debug,
-            rune_version: Some(RuneVersion::new(env!("CARGO_PKG_VERSION"))),
-        })
-    }
-
-    fn current_directory(&self) -> Result<PathBuf, Error> {
-        if let Some(dir) = &self.current_dir {
-            return Ok(dir.clone());
-        }
-
-        if let Some(parent) =
-            self.runefile.parent().and_then(|p| p.canonicalize().ok())
-        {
-            return Ok(parent);
-        }
-
-        std::env::current_dir()
-            .context("Unable to determine the current directory")
-    }
-
-    fn name(&self) -> Result<String, Error> {
-        if let Some(name) = &self.name {
-            return Ok(name.clone());
-        }
-
-        let current_dir = self.current_directory()?;
-
-        if let Some(name) = current_dir.file_name().and_then(|n| n.to_str()) {
-            return Ok(name.to_string());
-        }
-
-        Err(Error::msg("Unable to determine the Rune's name"))
+    match hooks.error {
+        None => Ok(()),
+        Some(e) => Err(e),
     }
 }
 
-static DEFAULT_CACHE_DIR: Lazy<String> = Lazy::new(|| {
-    let cache_dir = dirs::cache_dir()
-        .or_else(dirs::home_dir)
-        .unwrap_or_else(|| PathBuf::from("."));
+fn build_context(b: &Build) -> Result<BuildContext, Error> {
+    let verbosity = Verbosity::from_quiet_and_verbose(b.quiet, b.verbose)
+        .context("The --verbose and --quiet flags can't be used together")?;
 
-    cache_dir
-        .join("rune")
-        .join("runes")
-        .to_string_lossy()
-        .into_owned()
-});
+    let current_directory = b.current_directory()?;
+    let name = b.name()?;
+
+    let working_directory = b
+        .cache_dir
+        .clone()
+        .unwrap_or_else(|| Path::new(&*DEFAULT_CACHE_DIR).join(&name));
+    let runefile = std::fs::read_to_string(&b.runefile).with_context(|| {
+        format!("Unable to read \"{}\"", b.runefile.display())
+    })?;
+
+    Ok(BuildContext {
+        name,
+        current_directory,
+        runefile,
+        verbosity,
+        working_directory,
+        optimized: !b.debug,
+        rune_version: Some(RuneVersion::new(env!("CARGO_PKG_VERSION"))),
+    })
+}
 
 #[derive(Debug)]
 struct Hooks {

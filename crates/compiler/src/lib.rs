@@ -12,7 +12,7 @@ pub mod parse;
 pub mod type_check;
 
 pub use crate::{
-    config::{BuildConfig, Environment, EnvironmentStorage},
+    config::{BuildConfig, Environment, EnvironmentStorage, FeatureFlags},
     filesystem::{FileSystem, ReadError},
     im::Text,
 };

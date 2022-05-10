@@ -169,11 +169,6 @@ fn generate_project(dest: &PathBuf, filename: &Path) -> Result<(), Error> {
     let name = name.replace("-", "_");
     write(dest.join("lib.rs"), LIB_RS_TEMPLATE.replace("$NAME", &name))?;
 
-    write(
-        dest.join("rust-toolchain.toml"),
-        hotg_rune_compiler::rust_toolchain().to_string(),
-    )?;
-
     Ok(())
 }
 

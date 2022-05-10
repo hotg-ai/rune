@@ -86,6 +86,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic_refcell"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73b5e5f48b927f04e952dedc932f31995a65a0bf65ec971c74436e51bf6e970d"
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -402,7 +408,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51e3973b165dc0f435831a9e426de67e894de532754ff7a3f307c03ee5dec7dc"
 dependencies = [
  "clap",
- "heck",
+ "heck 0.3.3",
  "indexmap",
  "log",
  "proc-macro2",
@@ -497,11 +503,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "codespan"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3362992a0d9f1dd7c3d0e89e0ab2bb540b7a95fea8cd798090e758fda2899b5e"
+dependencies = [
+ "codespan-reporting",
+ "serde",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
+ "serde",
  "termcolor",
  "unicode-width",
 ]
@@ -888,6 +905,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -966,6 +989,15 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "erased-serde"
+version = "0.3.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad132dd8d0d0b546348d7d86cb3191aad14b34e5f979781fc005c80d4ac67ffd"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -1257,6 +1289,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "heck"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1288,9 +1326,9 @@ dependencies = [
  "dirs",
  "dotenv",
  "env_logger",
- "hotg-rune-compiler",
- "hotg-rune-core",
- "hotg-rune-proc-blocks",
+ "hotg-rune-compiler 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hotg-rune-core 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hotg-rune-proc-blocks 0.11.3",
  "hotg-rune-runtime",
  "hotg-runecoral",
  "hound",
@@ -1337,8 +1375,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotg-rune-compiler"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbbee35125a9021f5d1406748c8a93145f36e171f5793ae5f9c9d219c14dc4d9"
+dependencies = [
+ "atomic_refcell",
+ "cargo_toml",
+ "codespan",
+ "codespan-reporting",
+ "heck 0.4.0",
+ "hotg-rune-core 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hotg-rune-proc-blocks 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "indexmap",
+ "indoc",
+ "legion",
+ "log",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "toml",
+ "zip 0.5.13",
+]
+
+[[package]]
 name = "hotg-rune-core"
 version = "0.11.3"
+dependencies = [
+ "log",
+ "serde",
+]
+
+[[package]]
+name = "hotg-rune-core"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "575d4d19eed25d6960b9bdcab2b307f00b67f274105ab8bfa2c6debb38bf6075"
 dependencies = [
  "log",
  "serde",
@@ -1363,7 +1440,7 @@ name = "hotg-rune-proc-block-macros"
 version = "0.11.3"
 dependencies = [
  "difference",
- "hotg-rune-core",
+ "hotg-rune-core 0.11.3",
  "pretty_assertions 1.2.1",
  "proc-macro2",
  "quote",
@@ -1377,9 +1454,19 @@ name = "hotg-rune-proc-blocks"
 version = "0.11.3"
 dependencies = [
  "difference",
- "hotg-rune-core",
+ "hotg-rune-core 0.11.3",
  "hotg-rune-proc-block-macros",
  "pretty_assertions 1.2.1",
+ "serde",
+]
+
+[[package]]
+name = "hotg-rune-proc-blocks"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b188032354021389a1c57233ff3f2f42341af703cff571d9551bc7f3eb4ddd5c"
+dependencies = [
+ "hotg-rune-core 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -1389,7 +1476,7 @@ version = "0.11.3"
 dependencies = [
  "anyhow",
  "csv",
- "hotg-rune-core",
+ "hotg-rune-core 0.11.3",
  "hotg-runecoral",
  "hound",
  "image",
@@ -1421,7 +1508,7 @@ name = "hotg-runicos-base-wasm"
 version = "0.11.3"
 dependencies = [
  "dlmalloc",
- "hotg-rune-core",
+ "hotg-rune-core 0.11.3",
  "log",
  "serde",
  "serde-json-core",
@@ -1574,6 +1661,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05a0bd019339e5d968b37855180087b7b9d512c5046fbd244cf8c95687927d6e"
+
+[[package]]
 name = "insta"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1705,6 +1798,39 @@ name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
+
+[[package]]
+name = "legion"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bfd53bb4690a5ab2bd6d1c683461ee52763afe0d000929743708a256d9d9b1f"
+dependencies = [
+ "atomic_refcell",
+ "bit-set",
+ "downcast-rs",
+ "erased-serde",
+ "itertools",
+ "legion_codegen",
+ "parking_lot 0.11.2",
+ "paste",
+ "scoped-tls-hkt",
+ "serde",
+ "smallvec",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "legion_codegen"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ad5ad7a361d7b2522010335d95fa73135cb3c6816bef22cc7a5d5861587ae1b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
 
 [[package]]
 name = "libc"
@@ -2229,6 +2355,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c520e05135d6e763148b6426a837e239041653ba7becd2e538c076c738025fc"
+
+[[package]]
 name = "pbkdf2"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2706,7 +2838,7 @@ dependencies = [
  "cbindgen",
  "cfg-if",
  "cmake",
- "hotg-rune-core",
+ "hotg-rune-core 0.11.3",
  "hotg-rune-runtime",
  "libc",
  "log",
@@ -2773,7 +2905,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd3904a4ba0a9d0211816177fd34b04c7095443f8cdacd11175064fe541c8fe2"
 dependencies = [
- "heck",
+ "heck 0.3.3",
  "proc-macro2",
  "quote",
  "syn",
@@ -2822,6 +2954,12 @@ dependencies = [
  "serde_derive_internals",
  "syn",
 ]
+
+[[package]]
+name = "scoped-tls-hkt"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2e9d7eaddb227e8fbaaa71136ae0e1e913ca159b86c7da82f3e8f0044ad3a63"
 
 [[package]]
 name = "scoped_threadpool"
@@ -3087,7 +3225,7 @@ version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcb5ae327f9cc13b68763b5749770cb9e048a99bd9dfdfa58d0cf05d5f64afe0"
 dependencies = [
- "heck",
+ "heck 0.3.3",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -3109,7 +3247,7 @@ version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "339f799d8b549e3744c7ac7feb216383e4005d94bdb22561b3ab8f3b808ae9fb"
 dependencies = [
- "heck",
+ "heck 0.3.3",
  "proc-macro2",
  "quote",
  "syn",
@@ -3521,6 +3659,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom",
+ "serde",
 ]
 
 [[package]]

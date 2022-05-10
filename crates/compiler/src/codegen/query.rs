@@ -186,13 +186,13 @@ mod tests {
 
     impl salsa::Database for Database {}
 
-    // The parsing process requires you to load proc-blocks and read files. You
-    // can satisfy these dependencies by implementing the corresponding traits.
-
     impl FileSystem for Database {
         fn read(&self, path: &URI<'_>) -> Result<Vector<u8>, ReadError> {
+            // Note: The tests don't actually care about the value we get back.
             match path.scheme() {
-                Scheme::File => Ok(Vector::default()),
+                Scheme::HTTP | Scheme::HTTPS | Scheme::File => {
+                    Ok(Vector::default())
+                },
                 Scheme::Unregistered(s) if s.as_str() == "wapm" => {
                     Ok(Vector::default())
                 },
