@@ -210,12 +210,42 @@ mod tests {
             .parent()
             .unwrap();
         let sine_dir = project_root.join("examples").join("sine");
-        let runefile =
-            std::fs::read_to_string(sine_dir.join("Runefile.yml")).unwrap();
+        let runefile = r#"
+            version: 1
+            image: runicos/base
+            pipeline:
+              rand:
+                capability: RAW
+                args:
+                  length: 4
+                outputs:
+                - type: F32
+                  dimensions: [1, 1]
+              mod360:
+                proc-block: "https://func.hotg.ai/function/sbfs/pb/argmax.wasm"
+                inputs:
+                - rand
+                outputs:
+                - type: F32
+                  dimensions: [1, 1]
+                args:
+                  modulus: 360.0
+              sine:
+                model: "./sinemodel.tflite"
+                inputs:
+                - mod360
+                outputs:
+                - type: F32
+                  dimensions: [1, 1]
+              serial:
+                out: serial
+                inputs:
+                - sine
+        "#;
 
         let mut db = Database::default();
         db.set_config(BuildConfig {
-            current_directory: sine_dir.clone(),
+            current_directory: sine_dir,
             features: FeatureFlags::stable(),
         });
         db.set_src(runefile.into());

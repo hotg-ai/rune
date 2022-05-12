@@ -4,7 +4,8 @@ use hotg_rune_compiler::{
     codegen::{Codegen, CodegenStorage},
     im::Vector,
     parse::{Frontend, FrontendStorage},
-    BuildConfig, Environment, EnvironmentStorage, FileSystem, ReadError,
+    BuildConfig, Environment, EnvironmentStorage, FeatureFlags, FileSystem,
+    ReadError,
 };
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 use uriparse::{Scheme, URI};
@@ -31,6 +32,7 @@ fn main() {
     db.set_src(src.into());
     db.set_config(BuildConfig {
         current_directory: parent.clone(),
+        features: FeatureFlags::stable(),
     });
 
     let archive = db.rune_archive().unwrap();
