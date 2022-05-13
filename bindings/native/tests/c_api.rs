@@ -12,10 +12,14 @@ static SINE_RUNE: Lazy<Vec<u8>> = Lazy::new(|| {
     let sine_dir = workspace_root.join("examples").join("sine");
     let runefile = sine_dir.join("Runefile.yml");
 
-    Command::new(env!("CARGO"))
+    let status = Command::new(env!("CARGO"))
         .arg("rune")
         .arg("build")
-        .arg(&runefile);
+        .arg(&runefile)
+        .status()
+        .expect("Unable to run cargo");
+
+    assert!(status.success(), "Building the Rune failed");
 
     let rune = sine_dir.join("sine.rune");
 
