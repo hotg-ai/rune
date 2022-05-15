@@ -1,4 +1,5 @@
 import type { Node } from ".";
+import { Logger, StructuredLogger } from "../logging";
 import { TensorDescriptor } from "../proc_blocks";
 import { DocumentV1 } from "../Runefile";
 
@@ -20,6 +21,8 @@ type NodeInfo = {
   outputs: Record<string, TensorId>;
 };
 
-export function determinePipeline(doc: DocumentV1): Pipeline {
+export function determinePipeline(doc: DocumentV1, logBackend: Logger): Pipeline {
+  const logger = new StructuredLogger(logBackend, "determinePipeline");
+
   throw new Error();
 }

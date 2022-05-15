@@ -1,6 +1,6 @@
 import type { Tensor } from ".";
 import { Runtime as RuntimeInterface } from "./loader";
-import { Pipeline } from "./loader/Pipeline";
+import { Pipeline } from "./loader/pipeline";
 import { StructuredLogger, Logger } from "./logging";
 import { TensorDescriptor } from "./proc_blocks";
 

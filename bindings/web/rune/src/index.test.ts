@@ -38,7 +38,7 @@ class DummySineModel implements Node {
 
   infer(
     inputs: Record<string, Tensor>,
-    args: Record<string, string>,
+    args: Record<string, string>
   ): Promise<Record<string, Tensor>> {
     throw new Error("Method not implemented.");
   }

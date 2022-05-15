@@ -12,7 +12,7 @@ import {
 } from "../Runefile";
 import { createRuntime } from "../Runtime";
 import { ProcBlock } from "../proc_blocks";
-import { determinePipeline } from "./Pipeline";
+import { determinePipeline } from "./pipeline";
 
 export class RuneLoader {
   public static default: RuneLoader = new RuneLoader().withLogger(
@@ -62,6 +62,7 @@ export class RuneLoader {
     }
     const src = await f.async("string");
     const runefile = yaml.load(src);
+    console.log(src);
 
     if (!isRunefile(runefile)) {
       throw new Error("Invalid Runefile");
@@ -82,7 +83,7 @@ export class RuneLoader {
       this.modelHandlers
     );
 
-    const pipeline = determinePipeline(runefile);
+    const pipeline = determinePipeline(runefile, this.logger);
 
     return createRuntime(pipeline, this.logger);
   }

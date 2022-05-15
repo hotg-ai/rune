@@ -16,7 +16,7 @@ export interface Node {
   graph(args: Record<string, string>): Promise<Tensors>;
   infer(
     inputs: Record<string, runtime_v1.Tensor>,
-    args: Record<string, string>,
+    args: Record<string, string>
   ): Promise<Record<string, runtime_v1.Tensor>>;
 }
 
