@@ -1,14 +1,9 @@
 import { proc_block_v1, runtime_v1 } from "@hotg-ai/rune-wit-files";
-import type { Metadata, TensorDescriptor } from ".";
+import type { Metadata, Tensors } from ".";
 import { Logger, StructuredLogger } from "../logging";
 import { GraphContext, HostFunctions, KernelContext } from "./HostFunctions";
 
 type ProcBlockBuffer = Parameters<proc_block_v1.ProcBlockV1["instantiate"]>[0];
-
-type Tensors = {
-  inputs: TensorDescriptor[];
-  outputs: TensorDescriptor[];
-};
 
 /**
  * An executable proc-block.
@@ -16,7 +11,7 @@ type Tensors = {
 export class ProcBlock {
   private constructor(
     private hostFunctions: HostFunctions,
-    private instance: proc_block_v1.ProcBlockV1,
+    private instance: proc_block_v1.ProcBlockV1
   ) {}
 
   static async load(

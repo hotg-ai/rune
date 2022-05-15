@@ -30,20 +30,24 @@ export type LogMetadata = {
 };
 
 /**
- * An object that will receive log messages.
+ * A logger that receives structured events.
  */
 export interface Logger {
   /**
-   * Log a message.
+   * Log an event.
    *
    * @param metadata Information about the log message and where it came from.
    * @param message The message.
-   * @param data Structured data.
+   * @param payload Additional, structured data that adds context to the log
+   * message.
    */
-  log(metadata: LogMetadata, message: string, data: LogPayload): void;
+  log(metadata: LogMetadata, message: string, payload: LogPayload): void;
 
   /**
    * Check if a message *would* be logged based on its metadata.
+   *
+   * This is an optimisation that consumers can use to avoid doing expensive
+   * computations or logging large events that would just be thrown away.
    */
   isEnabled(metadata: LogMetadata): boolean;
 }
@@ -58,7 +62,7 @@ export class StructuredLogger {
    * @param backend The logging backend messages are sent to.
    * @param component The name of the component being logged.
    */
-  constructor(private backend: Logger, public component: string) {}
+  constructor(public readonly backend: Logger, public component: string) {}
 
   trace(msg: string, payload?: LogPayload) {
     this.log("trace", msg, payload);
@@ -87,7 +91,7 @@ export class StructuredLogger {
   /**
    * Enter a named span.
    */
-  span(name: string): Span {
+  span(name: string): StructuredLogger {
     return new Span(this.backend, this.component, name);
   }
 
@@ -109,23 +113,9 @@ export class StructuredLogger {
   }
 }
 
-export class Span extends StructuredLogger {
+class Span extends StructuredLogger {
   constructor(backend: Logger, component: string, public name: string) {
     super(backend, component);
-  }
-
-  /**
-   * Time how long an operation takes.
-   */
-  timeit<R>(thunk: () => R, level: LogLevel = "debug"): R {
-    const start = Date.now();
-    this.log(level, "started");
-
-    try {
-      return thunk();
-    } finally {
-      this.log(level, "completed", { duration: Date.now() - start });
-    }
   }
 
   protected metadata(level: LogLevel): LogMetadata {
@@ -142,7 +132,7 @@ export class Span extends StructuredLogger {
 export function consoleLogger(
   metadata: LogMetadata,
   message: string,
-  data: Record<string, string | number | boolean | null>
+  payload: Record<string, string | number | boolean | null>
 ): void {
   const { level } = metadata;
 
@@ -153,6 +143,5 @@ export function consoleLogger(
 
   const logger = level == "fatal" ? fatal : console[level];
 
-  logger(message, metadata, data);
-  throw new Error("Method not implemented.");
+  logger(message, { metadata, payload });
 }

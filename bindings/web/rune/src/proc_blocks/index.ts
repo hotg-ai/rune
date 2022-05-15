@@ -74,3 +74,8 @@ export type SupportedShapes = {
 };
 
 export type TensorHint = MediaHint | SupportedShapes;
+
+export type Tensors = {
+  inputs: TensorDescriptor[];
+  outputs: TensorDescriptor[];
+};

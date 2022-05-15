@@ -19,12 +19,15 @@
     "generate-runefile-types": "json2ts ../../../crates/compiler/runefile-schema.json --output src/Runefile.ts"
   },
   "dependencies": {
-    "@hotg-ai/rune-wit-files": "^0.3.1"
+    "@hotg-ai/rune-wit-files": "^0.3.1",
+    "js-yaml": "^4.1.0",
+    "jszip": "^3.9.1"
   },
   "devDependencies": {
     "@parcel/packager-ts": "2.5.0",
     "@parcel/transformer-typescript-types": "2.5.0",
     "@types/jest": "^27.0.0",
+    "@types/js-yaml": "^4.0.5",
     "jest": "^27.0.6",
     "json-schema-to-typescript": "^10.1.5",
     "parcel": "^2.5.0",
