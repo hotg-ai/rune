@@ -22,7 +22,7 @@ use wasmer::{
 };
 use zip;
 
-use self::{proc_block_v1::ProcBlockV1, runtime_v1::*};
+use self::{proc_block_v1::*, runtime_v1::*};
 use crate::{
     callbacks::Callbacks,
     engine::{host_functions::HostFunctions, LoadError, WebAssemblyEngine},
@@ -40,7 +40,6 @@ struct Runtime {
 struct State {
     tensors: Vec<Option<TensorResult>>,
     graph_contexts: HashMap<String, GraphContext>,
-    tensor_constraints: Vec<Option<TensorResult>>
 }
 
 struct ModelNode {
@@ -51,8 +50,7 @@ struct ModelNode {
 }
 
 struct ProcBlockNode {
-    input_tensors: HashMap<String, usize>,
-    output_tensors: HashMap<String, usize>,
+    node_id: String,
     context: ProcBlockV1,
     shared_state: Arc<Mutex<State>>
 }
@@ -124,11 +122,11 @@ impl WebAssemblyEngine for ZuneEngine {
                     .iter()
                     .map(|(name, argument)| (name.clone(), argument.to_string()))
                     .collect();
-                (k.clone(), GraphContext{ arguments, input_tensors: Vec::new(), output_tensors: Vec::new() })
+                (k.clone(), GraphContext{ arguments, input_tensors: HashMap::new(), output_tensors: HashMap::new() })
             })
             .collect();
 
-        let shared_state = Arc::new(Mutex::new(State { tensors, graph_contexts, tensor_constraints: Vec::new() }));
+        let shared_state = Arc::new(Mutex::new(State { tensors, graph_contexts }));
 
         let (model_contexts, procblock_contexts) = instantiate_nodes(
             pipeline,
@@ -138,6 +136,8 @@ impl WebAssemblyEngine for ZuneEngine {
             output_tensors,
         )
         .map_err(LoadError::Other)?;
+
+        // TODO: Validate and allocate input/output tensors
 
         Ok(ZuneEngine {
             inputs,
@@ -334,7 +334,7 @@ impl ProcBlockNode {
         mut imports: &mut ImportObject,
         shared_state: &Arc<Mutex<State>>,
         input_tensors: &HashMap<String, usize>,
-        output_tensors: &HashMap<String, usize>,
+        output_tensors: &HashMap<String, usize>
     ) -> Result<ProcBlockNode, Error> {
         let module =
             Module::new(&store, wasm).context("Unable to load the module")?;
@@ -345,15 +345,46 @@ impl ProcBlockNode {
 
         let result = pb.graph(node_id);
 
+        // Assign tensors
+        shared_state.lock()
+                    .unwrap()
+                    .graph_contexts
+                    .get_mut(node_id)
+                    .and_then(|c| {
+                        c.input_tensors.iter_mut()
+                        .enumerate()
+                        .for_each(|(i, (k, t))| {
+                            input_tensors.get(&key(node_id, Some(i)))
+                                         .and_then(|&tensor_index| Some(t.tensor_id = Some(tensor_index)));
+                        });
+
+                        c.output_tensors.iter_mut()
+                        .enumerate()
+                        .for_each(|(i, (k, t))| {
+                            output_tensors.get(&key(node_id, Some(i)))
+                                         .and_then(|&tensor_index| Some(t.tensor_id = Some(tensor_index)));
+                        });
+                        Some(())
+                    });
+
         Ok(ProcBlockNode {
-            input_tensors: HashMap::new(),
-            output_tensors: HashMap::new(),
+            node_id: node_id.to_string(),
             context: pb,
             shared_state: shared_state.clone(),
         })
     }
 
-    fn run(&mut self) -> Result<(), Error> { Ok(()) }
+    fn run(&mut self) -> Result<(), Error> {
+        self.context
+            .kernel(&self.node_id)
+            .map_err(|e| anyhow!("Encountered a Runtime Error"))?
+            .map_err(|e| match e {
+                KernelError::Other(s) => anyhow!("Unknown Error"),
+                KernelError::InvalidArgument(a) => anyhow!("Invalid argument for {}: {}", &self.node_id, a.name),
+                KernelError::InvalidInput(i) => anyhow!("Invalid input for {}: {}", &self.node_id, i.name),
+                KernelError::MissingContext => anyhow!("Unable to retrieve kernel context for {}:", &self.node_id)
+            })
+    }
 }
 
 fn get_buffer_size(element_type: ElementType, dimensions: &Vec<u32>) -> usize {
@@ -584,7 +615,7 @@ enum Dimensions {
 
 #[derive(Debug, Clone)]
 struct TensorConstraint {
-    name: String,
+    tensor_id: Option<usize>,
     element_type: ElementType,
     dimensions: Dimensions
 }
@@ -592,14 +623,14 @@ struct TensorConstraint {
 #[derive(Debug, Default, Clone)]
 struct GraphContext {
     arguments: HashMap<String, String>,
-    input_tensors: Vec<TensorConstraint>,
-    output_tensors: Vec<TensorConstraint>
+    input_tensors: HashMap<String, TensorConstraint>,
+    output_tensors: HashMap<String, TensorConstraint>
 }
 
 impl runtime_v1::RuntimeV1 for Runtime {
     type ArgumentHint = Never;
     type ArgumentMetadata = Never;
-    type KernelContext = Arc<Mutex<State>>;
+    type KernelContext = String;
     type Metadata = Metadata;
     type Model = Never;
     type TensorHint = Never;
@@ -778,15 +809,16 @@ impl runtime_v1::RuntimeV1 for Runtime {
             .graph_contexts
             .get_mut(_self_)
             .and_then(|c| {
-                Some(c.input_tensors.push(
+                c.input_tensors.insert(
+                    _name.to_string(),
                     TensorConstraint {
-                        name: _name.to_string(),
+                        tensor_id: None,
                         element_type: _element_type,
                         dimensions: match _dimensions {
                             DimensionsParam::Dynamic => Dimensions::Dynamic,
                             DimensionsParam::Fixed(shape) => Dimensions::Fixed(shape.iter().map(|&i| i.get() as usize).collect())
                         }
-                   }))
+                   })
                 });
     }
 
@@ -803,15 +835,16 @@ impl runtime_v1::RuntimeV1 for Runtime {
             .graph_contexts
             .get_mut(_self_)
             .and_then(|c| {
-                Some(c.output_tensors.push(
+                c.output_tensors.insert(
+                    _name.to_string(),
                     TensorConstraint {
-                        name: _name.to_string(),
+                        tensor_id: None,
                         element_type: _element_type,
                         dimensions: match _dimensions {
                             DimensionsParam::Dynamic => Dimensions::Dynamic,
                             DimensionsParam::Fixed(shape) => Dimensions::Fixed(shape.iter().map(|&i| i.get() as usize).collect())
                         }
-                   }))
+                   })
                 });
     }
 
@@ -819,28 +852,50 @@ impl runtime_v1::RuntimeV1 for Runtime {
         &mut self,
         _node_id: &str,
     ) -> Option<Self::KernelContext> {
-        Some(self.shared_state.clone())
+        self.shared_state
+            .lock()
+            .unwrap()
+            .graph_contexts
+            .get(_node_id)
+            .and_then(|_| Some(_node_id.to_string()))
     }
 
     fn kernel_context_get_argument(
         &mut self,
-        state: &Arc<Mutex<State>>,
+        _self_: &Self::KernelContext,
         name: &str,
     ) -> Option<String> {
-        todo!()
+        self.shared_state
+            .lock()
+            .unwrap()
+            .graph_contexts
+            .get(_self_)
+            .and_then(|c| c.arguments.get(name).and_then(|v| Some(v.clone()) ))
     }
 
     fn kernel_context_get_input_tensor(
         &mut self,
-        state: &Arc<Mutex<State>>,
+        _self_: &Self::KernelContext,
         name: &str,
     ) -> Option<TensorResult> {
-        todo!()
+        let state = self.shared_state.lock().unwrap();
+
+        let tensor_id = state.graph_contexts.get(_self_)
+                             .and_then(|c| {
+                                      c.input_tensors
+                                       .get(name)
+                                       .and_then(|v| v.tensor_id )
+                             });
+
+        match tensor_id {
+            Some(i) => state.tensors[i].clone(),
+            _ => None
+        }
     }
 
     fn kernel_context_set_output_tensor(
         &mut self,
-        state: &Arc<Mutex<State>>,
+        _self_: &Self::KernelContext,
         name: &str,
         TensorParam {
             element_type,
@@ -848,7 +903,22 @@ impl runtime_v1::RuntimeV1 for Runtime {
             dimensions,
         }: TensorParam<'_>,
     ) {
-        todo!()
+        let mut state = self.shared_state.lock().unwrap();
+
+        let tensor_id = state.graph_contexts.get(_self_)
+                             .and_then(|c| {
+                                      c.output_tensors
+                                       .get(name)
+                                       .and_then(|v| v.tensor_id )
+                             });
+
+        let dimensions = dimensions.iter().map(|&i| i.get() as u32).collect();
+
+        // Todo check tensor constraint
+
+        if tensor_id.is_some() {
+            state.tensors[tensor_id.unwrap()] = Some(TensorResult{ element_type, buffer: buffer.to_vec(), dimensions } );
+        }
     }
 
     fn is_enabled(&mut self, _metadata: LogMetadata) -> bool { true }
