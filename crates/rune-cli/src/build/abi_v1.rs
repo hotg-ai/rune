@@ -5,7 +5,8 @@ use query_based_compiler::{
     codegen::{Codegen, CodegenStorage},
     im::Vector,
     parse::{Frontend, FrontendStorage},
-    EnvironmentStorage, FileSystem, ReadError,
+    BuildConfig, Environment, EnvironmentStorage, FeatureFlags, FileSystem,
+    ReadError,
 };
 use salsa::Storage;
 use uriparse::{Scheme, URI};
@@ -28,6 +29,10 @@ pub(crate) fn execute(build: Build, unstable: Unstable) -> Result<(), Error> {
         current_dir: build.current_directory()?,
     };
 
+    db.set_config(BuildConfig {
+        current_directory: db.current_dir.clone(),
+        features: FeatureFlags::stable(),
+    });
     db.set_src(runefile.into());
     let archive = db.rune_archive()?;
 
