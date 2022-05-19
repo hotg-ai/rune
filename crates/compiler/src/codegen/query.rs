@@ -264,7 +264,12 @@ mod tests {
         entries.sort();
         assert_eq!(
             entries,
-            &["Runefile.yml", "models/sine", "proc_blocks/mod360",]
+            &[
+                "Runefile.yml",
+                "models/sine",
+                "proc_blocks/mod360",
+                "proc_blocks/rand"
+            ]
         );
 
         let expected = r#"
@@ -272,7 +277,7 @@ mod tests {
             image: runicos/base
             pipeline:
                 rand:
-                    capability: RAW
+                    capability: proc_blocks/rand
                     outputs:
                     - type: F32
                       dimensions:
