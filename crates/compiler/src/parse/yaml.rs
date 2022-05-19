@@ -228,6 +228,7 @@ pub struct ProcBlockStage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Path {
+    WellKnown(WellKnownPath),
     Uri(URI<'static>),
     FileSystem(String),
 }
@@ -256,6 +257,10 @@ impl FromStr for Path {
     type Err = URIError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(well_known) = s.parse() {
+            return Ok(Path::WellKnown(well_known));
+        }
+
         match URI::try_from(s) {
             Ok(u) => Ok(Path::Uri(u.into_owned())),
             Err(URIError::NotURI) => Ok(Path::FileSystem(s.to_string())),
@@ -267,6 +272,7 @@ impl FromStr for Path {
 impl Display for Path {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Path::WellKnown(w) => w.fmt(f),
             Path::Uri(u) => u.fmt(f),
             Path::FileSystem(p) => p.fmt(f),
         }
@@ -283,6 +289,39 @@ impl JsonSchema for Path {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum WellKnownPath {
+    Accel,
+    Image,
+    Raw,
+    Sound,
+}
+
+impl Display for WellKnownPath {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            WellKnownPath::Accel => "ACCEL".fmt(f),
+            WellKnownPath::Image => "IMAGE".fmt(f),
+            WellKnownPath::Raw => "RAW".fmt(f),
+            WellKnownPath::Sound => "SOUND".fmt(f),
+        }
+    }
+}
+
+impl FromStr for WellKnownPath {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ACCEL" | "accel" => Ok(WellKnownPath::Accel),
+            "IMAGE" | "image" => Ok(WellKnownPath::Image),
+            "RAW" | "raw" => Ok(WellKnownPath::Raw),
+            "SOUND" | "sound" => Ok(WellKnownPath::Sound),
+            _ => Err(()),
+        }
+    }
+}
+
 /// A stage which reads inputs from the runtime.
 #[derive(
     Debug,
@@ -296,7 +335,7 @@ impl JsonSchema for Path {
 pub struct CapabilityStage {
     /// What type of capability to use ("IMAGE", "SOUND", etc.).
     #[schemars(required)]
-    pub capability: String,
+    pub capability: Path,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -1073,7 +1112,7 @@ pipeline:
             image: "runicos/base".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability(CapabilityStage {
-                    capability: String::from("SOUND"),
+                    capability: Path::WellKnown(WellKnownPath::Sound),
                     outputs: vec![ty!(i16[16000])],
                     args: map! { hz: "16000".into() },
                 }),
@@ -1122,7 +1161,7 @@ pipeline:
                 hz: 16000
         "#;
         let should_be = Stage::Capability(CapabilityStage {
-            capability: String::from("SOUND"),
+            capability: Path::WellKnown(WellKnownPath::Sound),
             outputs: vec![Type {
                 name: String::from("i16"),
                 dimensions: vec![16000],

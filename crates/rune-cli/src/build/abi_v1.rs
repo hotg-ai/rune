@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{convert::TryInto, fmt::Display, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
 use query_based_compiler::{
@@ -9,6 +9,7 @@ use query_based_compiler::{
     ReadError,
 };
 use salsa::Storage;
+use serde::Deserialize;
 use uriparse::{Scheme, URI};
 
 use crate::{Build, Unstable};
@@ -59,11 +60,14 @@ impl salsa::Database for Database {}
 impl FileSystem for Database {
     fn read(&self, path: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         match path.scheme() {
-            Scheme::FileSystem => read_file(path.path()),
+            Scheme::FileSystem | Scheme::File => read_file(path.path()),
+            Scheme::HTTP | Scheme::HTTPS => download_from_the_internet(path),
             Scheme::Unregistered(u) if u.as_str().is_empty() => {
                 read_file(path.path())
             },
-
+            Scheme::Unregistered(u) if u.as_str() == "wapm" => {
+                download_from_wapm(path)
+            },
             other => Err(ReadError::UnsupportedScheme {
                 scheme: other.as_str().into(),
             }),
@@ -86,3 +90,58 @@ fn read_file(path: &uriparse::Path<'_>) -> Result<Vector<u8>, ReadError> {
         .map(Vector::from)
         .map_err(|e| ReadError::Other(Arc::new(e) as Arc<_>))
 }
+
+fn download_from_wapm(uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
+    let (namespace, package_name) = match uri.path().segments() {
+        [ns, pkg] => (ns.as_str(), pkg.as_str()),
+        _ => {
+            return Err(ReadError::other(MalformedPackagePath {
+                path: uri.path().clone().into_owned(),
+            }))
+        },
+    };
+
+    // https://registry-cdn.wapm.io/contents/hotg-ai/softmax/0.12.0/softmax.wasm
+    let version = uri
+        .query()
+        .and_then(|q| queryst::parse(q.as_str()).ok())
+        .and_then(|p| QueryParams::deserialize(&p).ok())
+        .and_then(|q| q.version)
+        .ok_or_else(|| {
+            ReadError::msg("Unable to determine the version number")
+        })?;
+
+    let wapm_url = format!("https://registry-cdn.wapm.io/contents/{namespace}/{package_name}/{version}/{package_name}.wasm");
+    let wapm_url = wapm_url.as_str().try_into().map_err(ReadError::other)?;
+
+    download_from_the_internet(&wapm_url)
+}
+
+#[tracing::instrument]
+fn download_from_the_internet(uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
+    let url = uri.to_string();
+    let body = reqwest::blocking::get(&url)
+        .and_then(|response| response.error_for_status())
+        .and_then(|response| response.bytes())
+        .map_err(ReadError::other)?;
+
+    Ok(body.as_ref().into())
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct QueryParams {
+    version: Option<String>,
+}
+
+#[derive(Debug)]
+struct MalformedPackagePath {
+    path: uriparse::Path<'static>,
+}
+
+impl Display for MalformedPackagePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unable to determine the package name and namespace from \"{}\". Expected something like <namespace>/<name>", self.path)
+    }
+}
+
+impl std::error::Error for MalformedPackagePath {}

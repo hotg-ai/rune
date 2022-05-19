@@ -6,7 +6,8 @@ use crate::{
     im::{OrdMap, Vector},
     parse::{
         Document, DocumentV1, ItemType, ModelStage, NotFound, ParseFailed,
-        Path, ProcBlockStage, ResourceDeclaration, Stage, WrongItemType,
+        Path, ProcBlockStage, ResourceDeclaration, Stage, WellKnownPath,
+        WrongItemType,
     },
     BuildConfig, Environment, FileSystem, Text,
 };
@@ -114,7 +115,7 @@ fn parse_runefile(
         .map_err(|e| ParseFailed { error: Arc::new(e) })
 }
 
-#[tracing::instrument(level = "debug", skip(db))]
+#[tracing::instrument(level = "debug", skip(db), err)]
 fn parse(db: &dyn Frontend) -> Result<Arc<DocumentV1>, crate::Error> {
     db.parse_runefile(db.src())
         .map(|d| Arc::new(Document::clone(&d).to_v1()))
@@ -263,6 +264,7 @@ fn read(db: &dyn Frontend, path: &Path) -> Result<Vector<u8>, crate::Error> {
 
 fn file_uri(db: &dyn Frontend, path: &Path) -> Result<URI<'static>, URIError> {
     match path {
+        Path::WellKnown(w) => Ok(wapm_uri(*w)),
         Path::Uri(u) => Ok(u.to_owned()),
         Path::FileSystem(path) => {
             let BuildConfig {
@@ -281,4 +283,15 @@ fn file_uri(db: &dyn Frontend, path: &Path) -> Result<URI<'static>, URIError> {
                 .into_owned())
         },
     }
+}
+
+fn wapm_uri(w: WellKnownPath) -> URI<'static> {
+    let uri = match w {
+        WellKnownPath::Accel => "wapm:///hotg-ai/accelerometer-input",
+        WellKnownPath::Image => "wapm:///hotg-ai/image-input",
+        WellKnownPath::Raw => "wapm:///hotg-ai/tensor-input",
+        WellKnownPath::Sound => "wapm:///hotg-ai/sound-input",
+    };
+
+    uri.try_into().expect("Should never fail")
 }
