@@ -91,6 +91,7 @@ fn read_file(path: &uriparse::Path<'_>) -> Result<Vector<u8>, ReadError> {
         .map_err(|e| ReadError::Other(Arc::new(e) as Arc<_>))
 }
 
+#[tracing::instrument]
 fn download_from_wapm(uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
     let (namespace, package_name) = match uri.path().segments() {
         [ns, pkg] => (ns.as_str(), pkg.as_str()),
@@ -102,14 +103,13 @@ fn download_from_wapm(uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
     };
 
     // https://registry-cdn.wapm.io/contents/hotg-ai/softmax/0.12.0/softmax.wasm
-    let version = uri
-        .query()
-        .and_then(|q| queryst::parse(q.as_str()).ok())
-        .and_then(|p| QueryParams::deserialize(&p).ok())
-        .and_then(|q| q.version)
-        .ok_or_else(|| {
-            ReadError::msg("Unable to determine the version number")
-        })?;
+    let query = uri.query().map(|q| q.as_str()).unwrap_or_default();
+    let query = queryst::parse(query).map_err(|e| ReadError::msg(e.message))?;
+    let query_params: QueryParams =
+        QueryParams::deserialize(&query).map_err(ReadError::other)?;
+    let version = query_params
+        .version
+        .ok_or_else(|| ReadError::msg("No version specified"))?;
 
     let wapm_url = format!("https://registry-cdn.wapm.io/contents/{namespace}/{package_name}/{version}/{package_name}.wasm");
     let wapm_url = wapm_url.as_str().try_into().map_err(ReadError::other)?;

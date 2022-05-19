@@ -5,9 +5,9 @@ use uriparse::{URIBuilder, URIError, URI};
 use crate::{
     im::{OrdMap, Vector},
     parse::{
-        Document, DocumentV1, ItemType, ModelStage, NotFound, ParseFailed,
-        Path, ProcBlockStage, ResourceDeclaration, Stage, WellKnownPath,
-        WrongItemType,
+        CapabilityStage, Document, DocumentV1, ItemType, ModelStage, NotFound,
+        ParseFailed, Path, ProcBlockStage, ResourceDeclaration, Stage,
+        WellKnownPath, WrongItemType,
     },
     BuildConfig, Environment, FileSystem, Text,
 };
@@ -157,9 +157,12 @@ fn proc_blocks(
     let mut proc_blocks = BTreeMap::default();
 
     for (name, stage) in &doc.pipeline {
-        if let Stage::ProcBlock(_) = stage {
-            let binary = db.proc_block(name.into())?;
-            proc_blocks.insert(Text::from(name), binary);
+        match stage {
+            Stage::Capability(_) | Stage::ProcBlock(_) => {
+                let binary = db.proc_block(name.into())?;
+                proc_blocks.insert(Text::from(name), binary);
+            },
+            _ => {},
         }
     }
 
@@ -182,10 +185,14 @@ fn proc_block(
         })
         .map_err(|e| Arc::new(e) as crate::Error)?;
 
-    if let Stage::ProcBlock(ProcBlockStage { proc_block, .. }) = stage {
-        read(db, &proc_block)
-    } else {
-        todo!()
+    match stage {
+        Stage::Capability(CapabilityStage {
+            capability: path, ..
+        })
+        | Stage::ProcBlock(ProcBlockStage {
+            proc_block: path, ..
+        }) => read(db, path),
+        _ => todo!(),
     }
 }
 
@@ -287,10 +294,12 @@ fn file_uri(db: &dyn Frontend, path: &Path) -> Result<URI<'static>, URIError> {
 
 fn wapm_uri(w: WellKnownPath) -> URI<'static> {
     let uri = match w {
-        WellKnownPath::Accel => "wapm:///hotg-ai/accelerometer-input",
-        WellKnownPath::Image => "wapm:///hotg-ai/image-input",
-        WellKnownPath::Raw => "wapm:///hotg-ai/tensor-input",
-        WellKnownPath::Sound => "wapm:///hotg-ai/sound-input",
+        WellKnownPath::Accel => {
+            "wapm:///hotg-ai/accelerometer_input?version=0.12.0"
+        },
+        WellKnownPath::Image => "wapm:///hotg-ai/image_input?version=0.12.0",
+        WellKnownPath::Raw => "wapm:///hotg-ai/tensor_input?version=0.12.0",
+        WellKnownPath::Sound => "wapm:///hotg-ai/sound_input?version=0.12.0",
     };
 
     uri.try_into().expect("Should never fail")
