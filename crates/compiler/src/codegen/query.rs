@@ -87,7 +87,12 @@ fn patch_paths(
                 tracing::debug!(new=%path, old=%p.proc_block, "Patching proc-block path");
                 p.proc_block = path;
             },
-            Stage::Capability(_) | Stage::Out(_) => {},
+            Stage::Capability(c) => {
+                let path = Path::FileSystem(format!("proc_blocks/{name}"));
+                tracing::debug!(new=%path, old=%c.capability, "Patching capability path");
+                c.capability = path;
+            },
+            Stage::Out(_) => {},
         }
     }
 
