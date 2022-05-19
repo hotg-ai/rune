@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { consoleLogger, RuneLoader, Node, ElementType, Tensor } from ".";
+import { RuneLoader, Node, ElementType, Tensor } from ".";
 import { Tensors } from "./proc_blocks";
 
 describe("Integration Tests", () => {
@@ -13,10 +13,9 @@ describe("Integration Tests", () => {
 
     const runtime = await loader
       .withModelHandler("tensorflow-lite", async () => new DummySineModel())
-      .withLogger(consoleLogger)
       .load(sine);
 
-    runtime.infer();
+    await runtime.infer();
   });
 });
 

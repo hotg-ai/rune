@@ -4,8 +4,8 @@ import { Pipeline } from "./loader/pipeline";
 import { StructuredLogger, Logger } from "./logging";
 import { TensorDescriptor } from "./proc_blocks";
 
+type NodeId = string;
 type TensorId = number;
-type NodeId = number;
 
 class Runtime implements RuntimeInterface {
   private tensors: Record<TensorId, Tensor> = {};
@@ -15,19 +15,19 @@ class Runtime implements RuntimeInterface {
   public async infer(): Promise<void> {
     const span = this.logger.span("infer");
     const start = Date.now();
-    span.info("Started evaluating the Rune");
+    span.info("Started running the Rune");
 
     for (const id of this.pipeline.evaluationOrder) {
+      const { name } = this.pipeline.nodeInfo[id];
+      span.debug("Executing node", { name, id });
       const start = Date.now();
+
       await this.evaluate(id);
 
-      span.debug("Evaluated node", {
-        durationMs: Date.now() - start,
-        name: this.pipeline.nodeInfo[id].name,
-      });
+      span.debug("Node executed", { durationMs: Date.now() - start, name });
     }
 
-    span.debug("Evaluation complete", { durationMs: Date.now() - start });
+    span.debug("Rune complete", { durationMs: Date.now() - start });
   }
 
   public inputs(): Record<string, TensorDescriptor> {
@@ -68,12 +68,17 @@ class Runtime implements RuntimeInterface {
     this.tensors[id] = tensor;
   }
 
+  public getOutputs(name: string): Tensor[] | undefined {
+    throw new Error("Not Implemented");
+  }
+
   private async evaluate(id: NodeId) {
     const node = this.pipeline.nodes[id];
     const info = this.pipeline.nodeInfo[id];
-
     const inputs = this.getTensorsById(info.inputs);
+
     const outputs = await node.infer(inputs, info.args);
+
     this.tensors = { ...this.tensors, ...outputs };
   }
 

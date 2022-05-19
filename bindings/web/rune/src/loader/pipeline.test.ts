@@ -1,7 +1,8 @@
 import yaml from "js-yaml";
+import { ElementType } from "..";
 import { consoleLogger, Logger, StructuredLogger } from "../logging";
 import { DocumentV1 } from "../Runefile";
-import { determinePipeline } from "./pipeline";
+import { determinePipeline, Pipeline } from "./pipeline";
 
 describe("pipeline", () => {
   const src = `
@@ -44,21 +45,50 @@ describe("pipeline", () => {
       resources: {}`;
   const runefile = yaml.load(src) as DocumentV1;
 
-  it("can determine the pipeline for sine", () => {
+  it("can determine the pipeline for sine", async () => {
     const logger = { log: consoleLogger, isEnabled: () => true };
 
-    const pipeline = determinePipeline(runefile, logger);
+    const pipeline = await determinePipeline(runefile, {}, {}, logger);
 
     // Note: we can't compare nodes for equality because they are objects
     const { nodes, ...rest } = pipeline;
 
-    expect(rest).toMatchObject({
-      nodeInfo: { 1: { name: "asf" } },
-      evaluationOrder: [42],
-      inputs: [42],
-      tensors: {
-        91: { name: "asdf" },
+    const expected: Omit<Pipeline, "nodes"> = {
+      nodeInfo: {
+        "0": {
+          name: "rand",
+          inputs: {
+            "0": 1,
+          },
+          outputs: {
+            "0": 2,
+          },
+          args: { length: "4" },
+        },
+        "1": {
+          name: "mod360",
+          inputs: {
+            "0": 3,
+          },
+          outputs: {
+            "0": 4,
+          },
+          args: {},
+        },
       },
-    });
+      evaluationOrder: ["42"],
+      inputs: ["42"],
+      tensors: {
+        42: {
+          elementType: ElementType.F32,
+          dimensions: {
+            tag: "fixed",
+            val: Uint32Array.from([1, 1]),
+          },
+        },
+      },
+      outputTensors: [42],
+    };
+    expect(rest).toMatchObject(expected);
   });
 });

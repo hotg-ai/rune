@@ -7,4 +7,5 @@ import { runtime_v1 } from "@hotg-ai/rune-wit-files";
 
 export type Tensor = runtime_v1.Tensor;
 export const ElementType = runtime_v1.ElementType;
+export type ElementType = runtime_v1.ElementType;
 export type Dimensions = runtime_v1.Dimensions;
