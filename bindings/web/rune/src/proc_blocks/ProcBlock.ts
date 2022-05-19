@@ -3,7 +3,7 @@ import type { Metadata, Tensors } from ".";
 import { Logger, StructuredLogger } from "../logging";
 import { GraphContext, HostFunctions, KernelContext } from "./HostFunctions";
 
-type ProcBlockBuffer = Parameters<proc_block_v1.ProcBlockV1["instantiate"]>[0];
+type ProcBlockBinary = Parameters<proc_block_v1.ProcBlockV1["instantiate"]>[0];
 
 /**
  * An executable proc-block.
@@ -14,33 +14,30 @@ export class ProcBlock {
     private instance: proc_block_v1.ProcBlockV1
   ) {}
 
-  static async load(
-    procBlock: ProcBlockBuffer,
-    logger: Logger
-  ): Promise<ProcBlock> {
+  static async load(wasm: ProcBlockBinary, logger: Logger): Promise<ProcBlock> {
     const log = new StructuredLogger(logger, "ProcBlock");
 
     const span = log.span("load");
     span.info("Loading the proc-block");
     const start = Date.now();
 
-    const wrapper = new proc_block_v1.ProcBlockV1();
+    const procBlock = new proc_block_v1.ProcBlockV1();
     const imports: any = {};
 
     const hostFunctions = new HostFunctions(logger);
     runtime_v1.addRuntimeV1ToImports(
       imports,
       hostFunctions,
-      (name) => wrapper.instance.exports[name]
+      (name) => procBlock.instance.exports[name]
     );
 
-    await wrapper.instantiate(procBlock, imports);
+    await procBlock.instantiate(wasm, imports);
 
     span.debug("Finished loading the proc-block", {
       durationMs: Date.now() - start,
     });
 
-    return new ProcBlock(hostFunctions, wrapper);
+    return new ProcBlock(hostFunctions, procBlock);
   }
 
   /**
@@ -59,7 +56,12 @@ export class ProcBlock {
   graph(args: Record<string, string>): Tensors {
     const ctx = new GraphContext(args);
     this.hostFunctions.graph = ctx;
-    this.instance.graph("");
+    const result = this.instance.graph("");
+
+    if (result.tag == "err") {
+      handleGraphError(result.val);
+    }
+
     const { inputs, outputs } = ctx;
     return { inputs, outputs };
   }
@@ -72,12 +74,82 @@ export class ProcBlock {
    * @returns
    */
   evaluate(
-    args: Record<string, string>,
-    inputs: Record<string, runtime_v1.Tensor>
+    inputs: Record<string, runtime_v1.Tensor>,
+    args: Record<string, string>
   ): Record<string, runtime_v1.Tensor> {
     const ctx = new KernelContext(args, inputs);
     this.hostFunctions.kernel = ctx;
-    this.instance.kernel("");
+
+    const result = this.instance.kernel("");
+
+    if (result.tag == "err") {
+      handleKernelError(result.val);
+    }
+
     return ctx.outputs;
+  }
+}
+
+function handleGraphError(err: proc_block_v1.GraphError): never {
+  switch (err.tag) {
+    case "invalid-argument":
+      const { name, reason } = err.val;
+      handleInvalidArgument(name, reason);
+
+    case "missing-context":
+      throw new Error("The proc-block couldn't access the context object");
+
+    case "other":
+      throw new Error(err.val);
+  }
+}
+
+function handleKernelError(err: proc_block_v1.KernelError): never {
+  switch (err.tag) {
+    case "invalid-input":
+      const { name, reason } = err.val;
+      handleInvalidInput(name, reason);
+
+    default:
+      handleGraphError(err);
+  }
+}
+
+function handleInvalidInput(
+  name: string,
+  reason: proc_block_v1.BadInputReason
+): never {
+  switch (reason.tag) {
+    case "invalid-value":
+      throw new Error(
+        `The "${name}" input had an invalid value: ${reason.val}`
+      );
+
+    case "unsupported-shape":
+      throw new Error(`The "${name}" input had a the wrong shape`);
+
+    case "not-found":
+      throw new Error(`The "${name}" input wasn't set`);
+
+    case "other":
+      throw new Error(`The "${name}" input was invalid: ${reason.val}`);
+  }
+}
+
+function handleInvalidArgument(
+  name: string,
+  reason: proc_block_v1.BadArgumentReason
+): never {
+  switch (reason.tag) {
+    case "invalid-value":
+      throw new Error(
+        `The "${name}" argument had an invalid value: ${reason.val}`
+      );
+
+    case "not-found":
+      throw new Error(`The "${name}" argument wasn't set`);
+
+    case "other":
+      throw new Error(`The "${name}" argument was invalid: ${reason.val}`);
   }
 }
