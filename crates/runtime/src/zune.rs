@@ -22,7 +22,7 @@ use wasmer::{
 };
 use zip;
 
-use self::{proc_block_v1::*, runtime_v1::*};
+pub use self::{proc_block_v1::*, runtime_v1::*};
 use crate::{
     LoadError,
 };
@@ -142,6 +142,8 @@ impl ZuneEngine {
             output_tensors,
         )
         .map_err(LoadError::Other)?;
+
+        println!(" execution order: {:?}", processing_order);
 
         // TODO: Validate and allocate input/output tensors
 
@@ -402,15 +404,17 @@ impl ProcBlockNode {
     fn load(
         node_id: &str,
         wasm: &[u8],
-        store: &Store,
-        mut imports: &mut ImportObject,
-        shared_state: &Arc<Mutex<State>>,
+        runtime: &Runtime,
         input_tensors: &HashMap<String, usize>,
         output_tensors: &HashMap<String, usize>
     ) -> Result<ProcBlockNode, Error> {
-        let module =
-            Module::new(&store, wasm).context("Unable to load the module")?;
+        let shared_state = runtime.shared_state.clone();
+        let store = Store::default();
+        let mut imports = ImportObject::default();
+        add_to_imports(&store, &mut imports, runtime.clone());
 
+        let module =
+        Module::new(&store, wasm).context("Unable to load the module")?;
         let (pb, _) =
             ProcBlockV1::instantiate(&store, &module, &mut imports)
                 .context("Unable to instantiate the WebAssembly module")?;
@@ -449,11 +453,13 @@ impl ProcBlockNode {
     }
 
     fn run(&mut self) -> Result<(), Error> {
+        println!("Executing proc block: {:?} ", self.node_id);
+        // impl stderr for KernelError
         self.context
             .kernel(&self.node_id)
             .map_err(|e| anyhow!("Encountered a Runtime Error"))?
             .map_err(|e| match e {
-                KernelError::Other(s) => anyhow!("Unknown Error"),
+                KernelError::Other(s) => anyhow!(s),
                 KernelError::InvalidArgument(a) => anyhow!("Invalid argument for {}: {}", &self.node_id, a.name),
                 KernelError::InvalidInput(i) => anyhow!("Invalid input for {}: {}", &self.node_id, i.name),
                 KernelError::MissingContext => anyhow!("Unable to retrieve kernel context for {}:", &self.node_id)
@@ -516,10 +522,7 @@ fn instantiate_nodes(
     let mut models: HashMap<String, ModelNode> = HashMap::new();
     let mut procblocks: HashMap<String, ProcBlockNode> = HashMap::new();
 
-    let store = Store::default();
-    let mut imports = ImportObject::default();
     let mut runtime = Runtime{ shared_state: shared_state.clone() };
-    add_to_imports(&store, &mut imports, runtime.clone());
 
     for item in pipeline {
         // Collect each output tensor into tensors
@@ -535,9 +538,7 @@ fn instantiate_nodes(
                     ProcBlockNode::load(
                         &stage_name,
                         &wasm,
-                        &store,
-                        &mut imports,
-                        &shared_state,
+                        &runtime,
                         &input_tensors,
                         &output_tensors,
                     )?,
@@ -577,9 +578,7 @@ fn instantiate_nodes(
                     ProcBlockNode::load(
                         &stage_name,
                         &wasm,
-                        &store,
-                        &mut imports,
-                        &shared_state,
+                        &runtime,
                         &input_tensors,
                         &output_tensors,
                     )?,
@@ -871,8 +870,9 @@ impl runtime_v1::RuntimeV1 for Runtime {
             .lock()
             .unwrap()
             .graph_contexts
-            .get(_node_id)
-            .and_then(|_| Some(_node_id.to_string()))
+            .get(_node_id)?;
+
+        Some(_node_id.to_string())
     }
 
     fn graph_context_get_argument(
@@ -944,12 +944,11 @@ impl runtime_v1::RuntimeV1 for Runtime {
         &mut self,
         _node_id: &str,
     ) -> Option<Self::KernelContext> {
-        self.shared_state
-            .lock()
+        self.shared_state.lock()
             .unwrap()
             .graph_contexts
-            .get(_node_id)
-            .and_then(|_| Some(_node_id.to_string()))
+            .get(_node_id)?;
+        Some(_node_id.to_string())
     }
 
     fn kernel_context_get_argument(
