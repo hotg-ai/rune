@@ -30,7 +30,7 @@ class Runtime implements RuntimeInterface {
     span.debug("Rune complete", { durationMs: Date.now() - start });
   }
 
-  public inputs(): Record<string, TensorDescriptor> {
+  public get inputs(): Record<string, TensorDescriptor> {
     const entries = this.pipeline.inputs
       .map((id) => this.pipeline.nodeInfo[id])
       .map((info) => {
@@ -61,11 +61,14 @@ class Runtime implements RuntimeInterface {
           inputTensors: entries.length,
         }
       );
+      console.log({name, tensor, entries, pipeline: this.pipeline.nodeInfo});
+      throw new Error();
       return;
     }
 
     const [_, id] = entries[0];
     this.tensors[id] = tensor;
+    console.log(this.tensors);
   }
 
   public getOutputs(name: string): Tensor[] | undefined {

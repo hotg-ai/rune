@@ -3,7 +3,15 @@ import type { Node } from ".";
 import { Dimensions, ElementType } from "..";
 import { Logger, StructuredLogger } from "../logging";
 import { TensorDescriptor, Tensors } from "../proc_blocks";
-import { CapabilityStage, DocumentV1, Input, Stage } from "../Runefile";
+import {
+  CapabilityStage,
+  DocumentV1,
+  Input,
+  ModelStage,
+  OutStage,
+  ProcBlockStage,
+  Stage,
+} from "../Runefile";
 
 type NodeId = string;
 type TensorId = number;
@@ -20,7 +28,7 @@ export type Pipeline = {
   evaluationOrder: NodeId[];
   inputs: NodeId[];
   tensors: Record<TensorId, TensorShape>;
-  outputTensors: TensorId[];
+  outputTensors: Record<NodeId, TensorId[]> ;
 };
 
 type NodeInfo = {
@@ -28,11 +36,6 @@ type NodeInfo = {
   readonly args: Readonly<Record<string, string>>;
   readonly inputs: Record<string, TensorId>;
   readonly outputs: Record<string, TensorId>;
-};
-
-type Edge = {
-  previous: PortId;
-  next: PortId;
 };
 
 interface ProcBlockLike {
@@ -52,51 +55,220 @@ export async function determinePipeline(
   const logger = new StructuredLogger(logBackend, "determinePipeline");
   logger.debug("Deriving the pipeline");
 
-  const nodePorts = {
-    ...(await ports(doc, models)),
-    ...(await ports(doc, procBlocks)),
-    ...inputPorts(doc),
-  };
-
-  const tensors = discoverTensors(nodePorts);
-  const edges = discoverEdges(doc);
-
-  console.log(JSON.stringify({nodePorts, tensors, edges}, null, 2));
-
-  return {
-    evaluationOrder: [],
-    inputs: [],
-    nodeInfo: {},
-    nodes: {},
-    tensors: {},
-    outputTensors: [],
-  };
+  const resolver = new PipelineResolver(doc, procBlocks, models);
+  return await resolver.pipeline();
 }
 
-function inputPorts(doc: DocumentV1): Record<string, Tensors> {
-  const ports: Record<string, Tensors> = {};
+type TensorInfo = {
+  parent: NodeId;
+  index: number;
+  shape: TensorDescriptor;
+  isGlobalInput: boolean;
+};
 
-  for (const [name, stage] of Object.entries(doc.pipeline)) {
-    if (!isInputStage(stage)) {
-      continue;
-    }
+class PipelineResolver {
+  inputNodes: NodeId[] = [];
+  inputsAndOutputs: Record<NodeId, Tensors> = {};
+  tensors: TensorInfo[] = [];
+  outputNodes: NodeId[] = [];
+  tensorInputs: Record<NodeId, Record<string, TensorId>> = {};
+  outputTensors: Record<NodeId, TensorId[]> = {};
 
-    const outputs = stage.outputs?.map(({ type, dimensions }, i) => {
-      const dims: Dimensions = dimensions
-        ? { tag: "fixed", val: Uint32Array.from(dimensions) }
-        : { tag: "dynamic" };
+  constructor(
+    private doc: DocumentV1,
+    private procBlocks: Record<string, ProcBlockLike>,
+    private models: Record<string, Node>
+  ) {}
 
-      const elementType = elementTypeFromName(type);
-      return {
-        name: i.toString(),
-        elementType,
-        dimensions: dims,
-      };
-    });
-    ports[name] = { inputs: [], outputs: outputs! };
+  async pipeline(): Promise<Pipeline> {
+    await this.registerStages();
+    this.registerTensors();
+    this.resolveInputs();
+    this.resolveOutputTensors();
+
+    return {
+      evaluationOrder: ["rand", "mod360", "sine"],
+      inputs: this.inputNodes,
+      nodeInfo: this.nodeInfo(),
+      nodes: this.nodes(),
+      outputTensors: this.outputTensors,
+      tensors: this.tensorShapes(),
+    };
   }
 
-  return ports;
+  resolveOutputTensors() {
+    for (const node of this.outputNodes) {
+      const inputNames = stageInputs(this.doc.pipeline[node]);
+
+      const inputs: TensorId[] = inputNames
+        .map(parsePortId)
+        .map(([upstreamNode, outputIndex]) => {
+          const ix = this.tensors.findIndex((t) => {
+            return t.parent == upstreamNode && t.index == outputIndex;
+          });
+          if (typeof ix != "number") {
+            throw new Error(
+              `Unable to find the "${upstreamNode}.${outputIndex}" input used by "${node}"`
+            );
+          }
+
+          return ix;
+        });
+
+        this.outputTensors[node] = inputs;
+    }
+  }
+
+  nodes(): Record<string, Node> {
+    const nodes = { ...this.models };
+
+    for (const [name, procBlock] of Object.entries(this.procBlocks)) {
+      nodes[name] = {
+        graph: (args) => Promise.resolve(procBlock.graph(args)),
+        infer: (inputs, args) =>
+          Promise.resolve(procBlock.evaluate(inputs, args)),
+      };
+    }
+
+    return nodes;
+  }
+
+  tensorShapes(): Record<TensorId, TensorShape> {
+    const entries = this.tensors.map((t, id) => [id, t.shape]);
+    return Object.fromEntries(entries);
+  }
+
+  nodeInfo(): Record<string, NodeInfo> {
+    const nodes: Record<string, NodeInfo> = {};
+
+    for (const [name, stage] of Object.entries(this.doc.pipeline)) {
+      if (isOutStage(stage)) {
+        // TODO: handle output nodes
+        continue;
+      }
+
+      const args = stageArguments(stage);
+      const inputs = this.tensorInputs[name];
+      nodes[name] = { name, args, inputs, outputs: {} };
+    }
+
+    return nodes;
+  }
+
+  async registerStages() {
+    for (const [name, stage] of Object.entries(this.doc.pipeline)) {
+      const args = stageArguments(stage);
+
+      if (isCapabilityStage(stage)) {
+        this.inputNodes.push(name);
+        const graph = this.graph(name, args);
+        console.log("[Capability]", name, graph);
+        this.inputsAndOutputs[name] = graph;
+      } else if (isProcBlockStage(stage)) {
+        this.inputsAndOutputs[name] = this.graph(name, args);
+      } else if (isModelStage(stage)) {
+        this.inputsAndOutputs[name] = await this.modelGraph(name, args);
+      } else {
+        this.outputNodes.push(name);
+      }
+    }
+  }
+
+  graph(node: string, args: Record<string, string>): Tensors {
+    if (node in this.procBlocks) {
+      return this.procBlocks[node].graph(args);
+    } else {
+      throw new Error(`No "${node}" proc-block registered`);
+    }
+  }
+
+  async modelGraph(
+    node: string,
+    args: Record<string, string>
+  ): Promise<Tensors> {
+    if (node in this.models) {
+      return await this.models[node].graph(args);
+    } else {
+      throw new Error(`No "${node}" model registered`);
+    }
+  }
+
+  registerTensors() {
+    for (const node in this.inputsAndOutputs) {
+      const { outputs } = this.inputsAndOutputs[node];
+
+      if (node in this.inputNodes) {
+        // Input nodes aren't connected to anything, so we need to allocate
+        // their input tensors explicitly.
+        const {inputs} = this.inputsAndOutputs[node];
+        if (inputs.length != 1) {
+          throw new Error();
+        }
+        this.tensors.push({parent: node, index: 0, shape: inputs[0], isGlobalInput: true});
+      }
+
+      outputs.forEach((shape, index) => {
+        this.tensors.push({ parent: node, index, shape, isGlobalInput: false });
+      });
+    }
+  }
+
+  /**
+   * For each stage, find the TensorId of its inputs and map them to the name
+   * used by the stage.
+   */
+  resolveInputs() {
+    for (const [node, stage] of Object.entries(this.doc.pipeline)) {
+      if (isOutStage(stage)) {
+        // Outputs are handed separately.
+        continue;
+      }
+
+      if (isCapabilityStage(stage)) {
+        const ix = this.tensors.findIndex(t => t.isGlobalInput && t.parent == node);
+        this.tensorInputs[node] = {[node]: ix! };
+        continue;
+      }
+
+      const inputs: TensorId[] = stageInputs(stage)
+        .map(parsePortId)
+        .map(([upstreamNode, outputIndex]) => {
+          const ix = this.tensors.findIndex((t) => {
+            return t.parent == upstreamNode && t.index == outputIndex && !t.isGlobalInput;
+          });
+          if (typeof ix != "number") {
+            throw new Error(
+              `Unable to find the "${upstreamNode}.${outputIndex}" input used by "${node}"`
+            );
+          }
+
+          return ix;
+        });
+
+      const namedInputs: Record<string, TensorId> = {};
+
+      for (let i = 0; i < inputs.length; i++) {
+        // Note: we assume the proc-block declared in the same order as they
+        // are used in the Runefile
+        const tensorId = inputs[i];
+        const { name } = this.inputsAndOutputs[node].inputs[i];
+        namedInputs[name] = tensorId;
+      }
+
+      this.tensorInputs[node] = namedInputs;
+    }
+  }
+}
+
+function stageInputs(stage: Stage): string[] {
+  if (
+    (isProcBlockStage(stage) || isModelStage(stage) || isOutStage(stage)) &&
+    stage.inputs
+  ) {
+    return stage.inputs;
+  }
+
+  return [];
 }
 
 const elementNames: Partial<Record<string, ElementType>> = {
@@ -124,23 +296,6 @@ function elementTypeFromName(name: string): ElementType {
   return type;
 }
 
-async function ports(
-  doc: DocumentV1,
-  nodes: Record<
-    string,
-    { graph(args: Record<string, string>): Tensors | Promise<Tensors> }
-  >
-): Promise<Record<NodeId, Tensors>> {
-  const ports: Record<string, Tensors> = {};
-
-  for (const [name, node] of Object.entries(nodes)) {
-    const args = stageArguments(doc.pipeline[name]);
-    ports[name] = await node.graph(args);
-  }
-
-  return ports;
-}
-
 function stageArguments({ args }: Stage): Record<string, string> {
   if (!args) {
     return {};
@@ -153,27 +308,6 @@ function stageArguments({ args }: Stage): Record<string, string> {
   }
 
   return stringified;
-}
-
-function isInputStage(stage: Stage): stage is CapabilityStage {
-  return "capability" in stage;
-}
-
-function discoverEdges(doc: DocumentV1): Edge[] {
-  const edges: Edge[] = [];
-
-  for (const [name, stage] of Object.entries(doc.pipeline)) {
-    if (isInputStage(stage) || !stage.inputs) {
-      continue;
-    }
-
-    stage.inputs.forEach((input, ix) => {
-      const previous = parsePortId(input);
-      edges.push({ previous, next: [name, ix] });
-    });
-  }
-
-  return edges;
 }
 
 function parsePortId(value: string): PortId {
@@ -189,13 +323,18 @@ function parsePortId(value: string): PortId {
   return [name, index];
 }
 
-function discoverTensors(
-  nodePorts: Record<string, Tensors>
-): Array<{ port: PortId; descriptor: TensorDescriptor }> {
-  return Object.entries(nodePorts).flatMap(([name, tensors]) =>
-    tensors.inputs.map((tensor, ix) => ({
-      port: [name, ix],
-      descriptor: tensor,
-    }))
-  );
+function isModelStage(stage: Stage): stage is ModelStage {
+  return "model" in stage;
+}
+
+function isCapabilityStage(stage: Stage): stage is CapabilityStage {
+  return "capability" in stage;
+}
+
+function isProcBlockStage(stage: Stage): stage is ProcBlockStage {
+  return "proc-block" in stage;
+}
+
+function isOutStage(stage: Stage): stage is OutStage {
+  return "out" in stage;
 }

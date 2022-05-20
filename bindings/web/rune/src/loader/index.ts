@@ -28,7 +28,7 @@ export interface Runtime {
   /**
    * Get all named inputs.
    */
-  inputs(): Record<string, TensorDescriptor>;
+  inputs: Record<string, TensorDescriptor>;
   /**
    * Set an input tensor by name.
    */

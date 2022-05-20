@@ -1,4 +1,5 @@
 import fs from "fs";
+import { load } from "js-yaml";
 import path from "path";
 import { RuneLoader, Node, ElementType, Tensor } from ".";
 import { Tensors } from "./proc_blocks";
@@ -15,7 +16,18 @@ describe("Integration Tests", () => {
       .withModelHandler("tensorflow-lite", async () => new DummySineModel())
       .load(sine);
 
+    for (const name of Object.keys(runtime.inputs)) {
+      runtime.setInput(name, {
+        buffer: new Uint8Array(),
+        dimensions: new Uint32Array(),
+        elementType: ElementType.F32,
+      });
+    }
+
     await runtime.infer();
+
+    console.log(runtime);
+    expect(false).toBeTruthy();
   });
 });
 

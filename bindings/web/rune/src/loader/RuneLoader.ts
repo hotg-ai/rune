@@ -72,7 +72,7 @@ export class RuneLoader {
 
     const nodes = splitByStageType(runefile);
     const procBlocks = await instantiateProcBlocks(
-      nodes.procBlock,
+      nodes,
       zip,
       log.span("instantiate-proc-blocks")
     );
@@ -123,28 +123,45 @@ function splitByStageType(runefile: DocumentV1): Stages {
   return nodes;
 }
 
+function stagesBackedByProcBlocks(stages: Stages) {
+  const procBlocks: Array<{ name: string; path: string }> = [];
+
+  for (const [name, stage] of Object.entries(stages.procBlock)) {
+    const path = stage["proc-block"];
+    procBlocks.push({ name, path });
+  }
+
+  for (const [name, stage] of Object.entries(stages.capability)) {
+    const path = stage.capability;
+    procBlocks.push({ name, path });
+  }
+
+  return procBlocks;
+}
+
 async function instantiateProcBlocks(
-  stages: Record<string, ProcBlockStage>,
+  stages: Stages,
   zip: JSZip,
   log: StructuredLogger
 ): Promise<Record<string, ProcBlock>> {
   const start = Date.now();
 
-  const promises = Object.entries(stages).map(async ([name, stage]) => {
-    const filename = stage["proc-block"];
-    log.debug("Reading proc-block", { name, filename });
+  const entries = stagesBackedByProcBlocks(stages).map(
+    async ({ name, path }) => {
+      log.debug("Reading proc-block", { name, path });
 
-    const file = zip.file(filename);
+      const file = zip.file(path);
 
-    if (!file) {
-      throw new Error(`The Rune doesn't contain "${filename}"`);
+      if (!file) {
+        throw new Error(`The Rune doesn't contain "${path}"`);
+      }
+
+      const data = await file.async("arraybuffer");
+      return [name, await ProcBlock.load(data, log.backend)];
     }
+  );
 
-    const data = await file.async("arraybuffer");
-    return [name, await ProcBlock.load(data, log.backend)];
-  });
-
-  const procBlocks = Object.fromEntries(await Promise.all(promises));
+  const procBlocks = Object.fromEntries(await Promise.all(entries));
 
   log.debug("Finished instantiating all proc-blocks", {
     count: Object.keys(procBlocks).length,
