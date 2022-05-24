@@ -10,7 +10,6 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use rayon::prelude::*;
 
 pub use crate::loader::{Category, ExitCondition, FullName, Test};
 
@@ -30,7 +29,7 @@ pub struct TestSuite {
 
 impl TestSuite {
     pub fn run(&self, ctx: &TestContext, cb: &dyn Callbacks) {
-        self.tests.par_iter().for_each(|test| {
+        self.tests.iter().for_each(|test| {
             let name = &test.name;
 
             if !cb.should_run(name) {
@@ -56,7 +55,9 @@ pub trait Callbacks: Sync {
     fn on_bug(&self, name: &FullName, error: Error);
     fn on_fail(&self, name: &FullName, errors: Vec<Error>, output: Output);
     /// Should this test be executed?
-    fn should_run(&self, _name: &FullName) -> bool { true }
+    fn should_run(&self, _name: &FullName) -> bool {
+        true
+    }
 }
 
 #[derive(Debug)]
@@ -137,7 +138,17 @@ impl TestContext {
             .arg("--rune-repo-dir")
             .arg(&self.rune_project_dir);
 
-        cmd.env("RUST_LOG", "debug,wasmer_compiler_cranelift=warn");
+        // Note: We only want to see debug log messages from our own crates.
+        // This also gives us a consistent RUST_LOG to work with.
+        const WHITELIST: &[&str] =
+            &["hotg_rune_cli", "hotg_rune_compiler", "hotg_rune_runtime"];
+        let rust_log = WHITELIST
+            .iter()
+            .map(|pkg| format!("{pkg}=debug"))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        cmd.env("RUST_LOG", format!("warn,{rust_log}"));
         cmd
     }
 
@@ -156,7 +167,9 @@ impl TestContext {
 struct CommandOutput(Output);
 
 impl CommandOutput {
-    fn new(output: Output) -> Self { CommandOutput(output) }
+    fn new(output: Output) -> Self {
+        CommandOutput(output)
+    }
 }
 
 impl Display for CommandOutput {

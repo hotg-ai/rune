@@ -21,6 +21,7 @@ fn main() -> Result<(), Error> {
                 "cranelift_codegen=warn",
                 "regalloc=warn",
                 "salsa=warn",
+                "wasmer_compiler_cranelift=warn",
             ]
             .join(","),
         );
@@ -35,6 +36,7 @@ fn main() -> Result<(), Error> {
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
         .init();
 
     match cmd {

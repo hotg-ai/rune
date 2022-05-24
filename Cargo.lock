@@ -1443,7 +1443,6 @@ dependencies = [
  "env_logger",
  "log",
  "once_cell",
- "rayon",
  "regex 1.5.5",
  "structopt",
  "walkdir",
