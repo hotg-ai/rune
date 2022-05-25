@@ -1,6 +1,12 @@
 import { runtime_v1 } from "@hotg-ai/rune-wit-files";
 import type { Node } from ".";
 import { Dimensions, ElementType } from "..";
+import {
+  isCapabilityStage,
+  isModelStage,
+  isOutStage,
+  isProcBlockStage,
+} from "../utils";
 import { Logger, StructuredLogger } from "../logging";
 import { TensorDescriptor, Tensors } from "../proc_blocks";
 import {
@@ -28,7 +34,7 @@ export type Pipeline = {
   evaluationOrder: NodeId[];
   inputs: NodeId[];
   tensors: Record<TensorId, TensorShape>;
-  outputTensors: Record<NodeId, TensorId[]> ;
+  outputTensors: Record<NodeId, TensorId[]>;
 };
 
 type NodeInfo = {
@@ -115,7 +121,7 @@ class PipelineResolver {
           return ix;
         });
 
-        this.outputTensors[node] = inputs;
+      this.outputTensors[node] = inputs;
     }
   }
 
@@ -200,11 +206,16 @@ class PipelineResolver {
       if (node in this.inputNodes) {
         // Input nodes aren't connected to anything, so we need to allocate
         // their input tensors explicitly.
-        const {inputs} = this.inputsAndOutputs[node];
+        const { inputs } = this.inputsAndOutputs[node];
         if (inputs.length != 1) {
           throw new Error();
         }
-        this.tensors.push({parent: node, index: 0, shape: inputs[0], isGlobalInput: true});
+        this.tensors.push({
+          parent: node,
+          index: 0,
+          shape: inputs[0],
+          isGlobalInput: true,
+        });
       }
 
       outputs.forEach((shape, index) => {
@@ -225,8 +236,10 @@ class PipelineResolver {
       }
 
       if (isCapabilityStage(stage)) {
-        const ix = this.tensors.findIndex(t => t.isGlobalInput && t.parent == node);
-        this.tensorInputs[node] = {[node]: ix! };
+        const ix = this.tensors.findIndex(
+          (t) => t.isGlobalInput && t.parent == node
+        );
+        this.tensorInputs[node] = { [node]: ix! };
         continue;
       }
 
@@ -234,7 +247,11 @@ class PipelineResolver {
         .map(parsePortId)
         .map(([upstreamNode, outputIndex]) => {
           const ix = this.tensors.findIndex((t) => {
-            return t.parent == upstreamNode && t.index == outputIndex && !t.isGlobalInput;
+            return (
+              t.parent == upstreamNode &&
+              t.index == outputIndex &&
+              !t.isGlobalInput
+            );
           });
           if (typeof ix != "number") {
             throw new Error(
@@ -321,20 +338,4 @@ function parsePortId(value: string): PortId {
   const index = match[1] ? parseInt(match[1]) : 0;
 
   return [name, index];
-}
-
-function isModelStage(stage: Stage): stage is ModelStage {
-  return "model" in stage;
-}
-
-function isCapabilityStage(stage: Stage): stage is CapabilityStage {
-  return "capability" in stage;
-}
-
-function isProcBlockStage(stage: Stage): stage is ProcBlockStage {
-  return "proc-block" in stage;
-}
-
-function isOutStage(stage: Stage): stage is OutStage {
-  return "out" in stage;
 }

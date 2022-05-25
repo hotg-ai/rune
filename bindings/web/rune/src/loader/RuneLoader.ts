@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import yaml from "js-yaml";
-import type { ModelHandler, Runtime } from ".";
+import type { ModelHandler } from ".";
 import { consoleLogger, Logger, StructuredLogger } from "../logging";
 import {
   CapabilityStage,
@@ -8,12 +8,18 @@ import {
   ModelStage,
   OutStage,
   ProcBlockStage,
-  Stage,
 } from "../Runefile";
-import { createRuntime } from "../Runtime";
 import { ProcBlock } from "../proc_blocks";
-import { determinePipeline } from "./pipeline";
+import { create, Runtime } from "../Runtime2";
 import type { Node } from ".";
+import {
+  isCapabilityStage,
+  isModelStage,
+  isOutStage,
+  isProcBlockStage,
+  isRunefile,
+  stageArguments,
+} from "../utils";
 
 export class RuneLoader {
   public static default: RuneLoader = new RuneLoader().withLogger(
@@ -83,19 +89,8 @@ export class RuneLoader {
       this.modelHandlers
     );
 
-    const pipeline = await determinePipeline(
-      runefile,
-      procBlocks,
-      models,
-      this.logger
-    );
-
-    return createRuntime(pipeline, this.logger);
+    return create(runefile, procBlocks, models);
   }
-}
-
-function isRunefile(value?: any): value is DocumentV1 {
-  return value && value.version == "1" && value.pipeline && value.image;
 }
 
 type Stages = {
@@ -199,7 +194,7 @@ async function loadModels(
     const handler = modelHandlers[format];
 
     const data = await file.async("arraybuffer");
-    const model = await handler(data, translateArgs(stage.args));
+    const model = await handler(data, stageArguments(stage));
 
     log.debug("Loaded model", { name, length: data.byteLength });
 
@@ -214,35 +209,4 @@ async function loadModels(
   });
 
   return models;
-}
-
-function isModelStage(stage: Stage): stage is ModelStage {
-  return "model" in stage;
-}
-
-function isCapabilityStage(stage: Stage): stage is CapabilityStage {
-  return "capability" in stage;
-}
-
-function isProcBlockStage(stage: Stage): stage is ProcBlockStage {
-  return "proc-block" in stage;
-}
-
-function isOutStage(stage: Stage): stage is OutStage {
-  return "out" in stage;
-}
-
-function translateArgs(
-  args?: Record<string, string | number>
-): Record<string, string> {
-  if (!args) {
-    return {};
-  }
-
-  const entries = Object.entries(args).map(([key, value]) => [
-    key,
-    value.toString(),
-  ]);
-
-  return Object.fromEntries(entries);
 }

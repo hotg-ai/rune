@@ -61,7 +61,7 @@ class Runtime implements RuntimeInterface {
           inputTensors: entries.length,
         }
       );
-      console.log({name, tensor, entries, pipeline: this.pipeline.nodeInfo});
+      console.log({ name, tensor, entries, pipeline: this.pipeline.nodeInfo });
       throw new Error();
       return;
     }

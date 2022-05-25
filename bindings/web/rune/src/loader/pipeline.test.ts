@@ -7,7 +7,7 @@ import { TensorDescriptor, Tensors } from "../proc_blocks";
 import { DocumentV1 } from "../Runefile";
 import { determinePipeline, Pipeline } from "./pipeline";
 
-describe("pipeline", () => {
+describe.skip("pipeline", () => {
   const src = `
       version: 1
       image: runicos/base

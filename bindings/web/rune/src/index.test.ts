@@ -1,8 +1,8 @@
 import fs from "fs";
-import { load } from "js-yaml";
 import path from "path";
 import { RuneLoader, Node, ElementType, Tensor } from ".";
 import { Tensors } from "./proc_blocks";
+import { floatTensor } from "./utils";
 
 describe("Integration Tests", () => {
   const sine = new Uint8Array(
@@ -16,18 +16,15 @@ describe("Integration Tests", () => {
       .withModelHandler("tensorflow-lite", async () => new DummySineModel())
       .load(sine);
 
-    for (const name of Object.keys(runtime.inputs)) {
-      runtime.setInput(name, {
-        buffer: new Uint8Array(),
-        dimensions: new Uint32Array(),
-        elementType: ElementType.F32,
-      });
-    }
+    runtime.setInput("rand", floatTensor(1));
 
     await runtime.infer();
 
     console.log(runtime);
-    expect(false).toBeTruthy();
+    const outputs = runtime.outputTensors;
+    expect(outputs).toMatchObject({
+      asd: [floatTensor(5)],
+    });
   });
 });
 
@@ -47,10 +44,10 @@ class DummySineModel implements Node {
     };
   }
 
-  infer(
+  async infer(
     inputs: Record<string, Tensor>,
     args: Record<string, string>
   ): Promise<Record<string, Tensor>> {
-    throw new Error("Method not implemented.");
+    return { output: inputs["input"] };
   }
 }
