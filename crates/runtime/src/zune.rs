@@ -131,8 +131,6 @@ impl ZuneEngine {
 
         println!("input_tensors {:?} ", &input_tensors);
         println!("output_tensors {:?} ", &output_tensors);
-        // println!("tensors: {:?}", &tensors);
-
 
         let (model_contexts, procblock_contexts) = instantiate_nodes(
             pipeline,
@@ -284,19 +282,32 @@ impl ModelNode {
                 }
             };
 
+        let tensor_constraint_from_descriptor =
+            |t: &RuneCoralTensorDescriptor, tensor_id: usize| -> TensorConstraint {
+                let element_type = get_element_type(t);
+                let dimensions = t.shape.iter().map(|&x| x as u32).collect();
+                let buffer_size = get_buffer_size(element_type, &dimensions);
+
+                TensorConstraint {
+                    tensor_id: Some(tensor_id),
+                    element_type,
+                    dimensions: Dimensions::Fixed(dimensions.iter().map(|&x| x as usize).collect()),
+                }
+            };
+
         // Returns the list of tensor indices in the State's tensors
         let allocate_tensors = |tensor_type: &str,
                                 model_tensors: &mut dyn Iterator<
             Item = RuneCoralTensorDescriptor,
         >,
                                 pipeline_tensors: &HashMap<String, usize>|
-         -> Result<HashSet<usize>, Error> {
-            let mut result: HashSet<usize> = HashSet::new();
+         -> Result<(HashSet<usize>, HashMap<String, TensorConstraint>), Error> {
+            let mut tensor_indices: HashSet<usize> = HashSet::new();
+            let mut tensor_constraints: HashMap<String, TensorConstraint> = HashMap::new();
             let mut i = 0;
             let mut s = shared_state.lock().unwrap();
 
             while let Some(model_tensor) = model_tensors.next() {
-                let model_tensor = tensor_from_descriptor(&model_tensor);
                 let tensor_key = key(&node_id, Some(i));
                 let tensor_id =
                     *pipeline_tensors.get(&tensor_key).ok_or_else(|| {
@@ -307,6 +318,9 @@ impl ModelNode {
                             &tensor_key
                         )
                     })?;
+
+                let tensor_constraint = tensor_constraint_from_descriptor(&model_tensor, tensor_id);
+                let model_tensor = tensor_from_descriptor(&model_tensor);
 
                 match s.tensors[tensor_id] {
                     Some(ref t)
@@ -326,21 +340,31 @@ impl ModelNode {
                     },
                 }
 
-                result.insert(tensor_id);
+                tensor_indices.insert(tensor_id);
+                tensor_constraints.insert(format!("{}", i), tensor_constraint);
 
                 i += 1;
             }
 
-            Ok(result)
+            Ok((tensor_indices, tensor_constraints))
         };
 
-        let input_tensors =
+        let (input_tensors, input_tensor_constraints) =
             allocate_tensors("input", &mut context.inputs(), &input_tensors)?;
-        let output_tensors = allocate_tensors(
+
+        let (output_tensors, output_tensor_constraints) = allocate_tensors(
             "output",
             &mut context.outputs(),
             &output_tensors,
         )?;
+
+        let graph_context = GraphContext {
+            arguments: node_data.args.iter().map(|(k, v)| (k.clone(), v.to_string())).collect(),
+            input_tensors: input_tensor_constraints,
+            output_tensors: output_tensor_constraints
+        };
+
+        shared_state.lock().unwrap().graph_contexts.insert(node_id.to_string(), graph_context);
 
         Ok(ModelNode {
             context,
