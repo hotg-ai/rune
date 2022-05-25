@@ -1,17 +1,16 @@
 import JSZip from "jszip";
 import yaml from "js-yaml";
-import type { ModelHandler } from ".";
-import { consoleLogger, Logger, StructuredLogger } from "../logging";
+import type { ModelHandler, Node } from ".";
+import { consoleLogger, Logger, StructuredLogger } from "./logging";
 import {
   CapabilityStage,
   DocumentV1,
   ModelStage,
   OutStage,
   ProcBlockStage,
-} from "../Runefile";
-import { ProcBlock } from "../proc_blocks";
-import { create, Runtime } from "../Runtime2";
-import type { Node } from ".";
+} from "./Runefile";
+import { ProcBlock } from "./proc_blocks";
+import { create } from "./Runtime";
 import {
   isCapabilityStage,
   isModelStage,
@@ -19,7 +18,15 @@ import {
   isProcBlockStage,
   isRunefile,
   stageArguments,
-} from "../utils";
+} from "./utils";
+import { Tensor } from ".";
+
+export interface Runtime {
+  readonly inputs: string[];
+  readonly outputTensors: Readonly<Record<string, Tensor[]>>;
+  infer(): Promise<void>;
+  setInput(node: string, tensor: Tensor): void;
+}
 
 export class RuneLoader {
   public static default: RuneLoader = new RuneLoader().withLogger(

@@ -67,10 +67,11 @@ function parsePortId(value: string): InputName {
   return { node, index };
 }
 
-export function floatTensor(value: number): Tensor {
+export function floatTensor(values: number[]): Tensor {
+  const floats = Float32Array.from(values);
   return {
     elementType: ElementType.F32,
     dimensions: Uint32Array.from([1, 1]),
-    buffer: new Uint8Array(Float32Array.from([value])),
+    buffer: new Uint8Array(floats.buffer),
   };
 }

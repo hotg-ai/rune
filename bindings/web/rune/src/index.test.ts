@@ -16,14 +16,14 @@ describe("Integration Tests", () => {
       .withModelHandler("tensorflow-lite", async () => new DummySineModel())
       .load(sine);
 
-    runtime.setInput("rand", floatTensor(1));
+    runtime.setInput("rand", floatTensor([1]));
 
     await runtime.infer();
 
     console.log(runtime);
     const outputs = runtime.outputTensors;
     expect(outputs).toMatchObject({
-      asd: [floatTensor(5)],
+      asd: [floatTensor([5])],
     });
   });
 });

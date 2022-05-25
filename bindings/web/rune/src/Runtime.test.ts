@@ -1,8 +1,8 @@
 import yaml from "js-yaml";
 import { TensorDescriptor, Tensors } from "./proc_blocks";
 import { DocumentV1 } from "./Runefile";
-import { Node } from "./loader";
-import { Runtime, create } from "./Runtime2";
+import { Node } from ".";
+import { Runtime, create } from "./Runtime";
 import { ElementType, Tensor } from ".";
 import { floatTensor } from "./utils";
 
@@ -53,18 +53,18 @@ describe("Runtime2", () => {
   } as const;
 
   const rand = dummyProcBlock([], [{ name: "output", ...f32_1x1 }], {
-    output: floatTensor(1),
+    output: floatTensor([1]),
   });
   const mod360 = dummyProcBlock(
     [{ name: "input", ...f32_1x1 }],
     [{ name: "output", ...f32_1x1 }],
-    { output: floatTensor(2) }
+    { output: floatTensor([2]) }
   );
 
   const sine = dummyNode(
     [{ name: "input", ...f32_1x1 }],
     [{ name: "output", ...f32_1x1 }],
-    { output: floatTensor(3) }
+    { output: floatTensor([3]) }
   );
 
   it("can run the sine Rune", async () => {
@@ -73,13 +73,13 @@ describe("Runtime2", () => {
 
     const runtime: Runtime = create(runefile, procBlocks, models);
 
-    runtime.setInput("rand", floatTensor(0));
+    runtime.setInput("rand", floatTensor([0]));
 
     await runtime.infer();
 
     const outputs = runtime.outputTensors;
     expect(outputs).toMatchObject({
-      serial: [floatTensor(3)],
+      serial: [floatTensor([3])],
     });
   });
 });
