@@ -20,10 +20,8 @@ describe("Integration Tests", () => {
 
     await runtime.infer();
 
-    console.log(runtime);
-    const outputs = runtime.outputTensors;
-    expect(outputs).toMatchObject({
-      asd: [floatTensor([5])],
+    expect(runtime.outputTensors).toEqual({
+      serial: [floatTensor([1])],
     });
   });
 });

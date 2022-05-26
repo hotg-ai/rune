@@ -10,7 +10,6 @@ import {
   stageInputs,
 } from "./utils";
 
-type TensorId = number;
 type NodeId = string;
 
 interface ProcBlockLike {
@@ -59,12 +58,21 @@ export class Runtime {
         const inputs = stageInputs(stage).map(({ node, index }) => {
           const tensor = this.findTensor(node, index);
           if (!tensor) {
-            throw new Error();
+            throw new Error(
+              `The "${node}.${index}" tensor wasn't found (needed by "${name}")`
+            );
           }
           return tensor;
         });
 
-        this.outputTensors[name] = await Promise.all(inputs);
+        const results = await Promise.all(inputs);
+        this.outputTensors[name] = results.map(
+          ({ buffer, dimensions, elementType }) => ({
+            buffer,
+            dimensions,
+            elementType,
+          })
+        );
       }
     }
   }
@@ -107,7 +115,7 @@ export class Runtime {
     outputIndex: number
   ): NamedTensor | undefined {
     return this.tensors.find(
-      t => t.parentNode == parentNode && t.outputIndex == outputIndex
+      (t) => t.parentNode == parentNode && t.outputIndex == outputIndex
     );
   }
 
@@ -135,10 +143,10 @@ export class Runtime {
 
     const outputs = await node.infer(inputs, args);
 
-    const outputTensors = outputDescriptors.map(({ name: outputName }, i) => ({
+    const outputTensors = outputDescriptors.map((descriptor, i) => ({
+      ...outputs[descriptor.name],
       parentNode: name,
       outputIndex: i,
-      ...outputs[outputName],
     }));
     this.tensors.push(...outputTensors);
   }

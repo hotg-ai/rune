@@ -1,9 +1,10 @@
+import { runtime_v1 } from "@hotg-ai/rune-wit-files";
+
 export { consoleLogger } from "./logging";
 export type { Logger } from "./logging";
 export { RuneLoader } from "./RuneLoader";
-
-import { runtime_v1 } from "@hotg-ai/rune-wit-files";
-import { TensorDescriptor, Tensors } from "./proc_blocks";
+export type { Runtime } from "./RuneLoader";
+import { Tensors } from "./proc_blocks";
 
 export type Tensor = runtime_v1.Tensor;
 export const ElementType = runtime_v1.ElementType;
@@ -24,19 +25,4 @@ export interface Node {
     inputs: Record<string, runtime_v1.Tensor>,
     args: Record<string, string>
   ): Promise<Record<string, runtime_v1.Tensor>>;
-}
-
-export interface Runtime {
-  /**
-   * Run the entire Rune pipeline.
-   */
-  infer(): Promise<void>;
-  /**
-   * Get all named inputs.
-   */
-  inputs: Record<string, TensorDescriptor>;
-  /**
-   * Set an input tensor by name.
-   */
-  setInput(name: string, tensor: Tensor): void;
 }
