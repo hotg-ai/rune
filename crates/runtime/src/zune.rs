@@ -1,25 +1,20 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    convert::TryInto,
-    fmt::{self, Display, Formatter},
     io::{Cursor, Read},
     sync::{Arc, Mutex},
 };
 
 use anyhow::{anyhow, Context, Error};
-use hotg_rune_compiler::{diagnostics::Diagnostics, parse::yaml::*};
-use hotg_rune_core::{ElementType as RuneElementType, Shape, TFLITE_MIMETYPE};
+use hotg_rune_compiler::parse::yaml::*;
+use hotg_rune_core::{TFLITE_MIMETYPE};
 use hotg_runecoral::{
     AccelerationBackend, ElementType as RuneCoralElementType, InferenceContext,
     Tensor as RuneCoralTensor, TensorDescriptor as RuneCoralTensorDescriptor,
     TensorMut as RuneCoralTensorMut,
 };
 use indexmap::IndexMap;
-use wasmer::{
-    Array, Function, ImportObject, Instance, LazyInit, Memory, Module,
-    NativeFunc, RuntimeError, Store, ValueType, WasmPtr, WasmerEnv,
-};
+use wasmer::{ImportObject, Module, Store};
 use zip;
 
 pub use self::{proc_block_v1::*, runtime_v1::*};
@@ -236,6 +231,26 @@ impl ZuneEngine {
         }
     }
 
+    // pub fn get_tensor(&self, tensor_id: usize) -> Option<&TensorResult> {
+    //     self.shared_state
+    //         .lock()
+    //         .unwrap()
+    //         .tensors
+    //         .get(tensor_id)
+    //         .unwrap_or(&None)
+    //         .as_ref()
+    // }
+
+    // pub fn set_tensor(&mut self, tensor_id: usize, tensor: &TensorResult) -> Result<(), Error> {
+    //     self.shared_state
+    //         .lock()
+    //         .unwrap()
+    //         .tensors
+    //         .get_mut(tensor_id)
+    //         .and_then(|t| { t = Some(tensor.clone()); Ok() })
+    //         .ok()
+    // }
+
     pub fn set_output_tensor(&mut self, node_name: &str, tensor_name: &str, tensor: &TensorResult) {
         let mut state = self.shared_state.lock().unwrap();
         let tensor_id = state.graph_contexts.get(node_name).and_then(|c| c.output_tensors.get(tensor_name).and_then(|c| c.tensor_id.clone()));
@@ -285,13 +300,12 @@ impl ModelNode {
         let tensor_constraint_from_descriptor =
             |t: &RuneCoralTensorDescriptor, tensor_id: usize| -> TensorConstraint {
                 let element_type = get_element_type(t);
-                let dimensions = t.shape.iter().map(|&x| x as u32).collect();
-                let buffer_size = get_buffer_size(element_type, &dimensions);
+                let dimensions = t.shape.iter().map(|&x| x as usize).collect();
 
                 TensorConstraint {
                     tensor_id: Some(tensor_id),
                     element_type,
-                    dimensions: Dimensions::Fixed(dimensions.iter().map(|&x| x as usize).collect()),
+                    dimensions: Dimensions::Fixed(dimensions),
                 }
             };
 
@@ -319,6 +333,11 @@ impl ModelNode {
                         )
                     })?;
 
+                let tensor_name = model_tensor.name.to_str().ok();
+                let tensor_name = match tensor_name {
+                    Some(tensor_name) if tensor_name.len() > 0 => tensor_name.to_string(),
+                    _  => format!("{}", i).to_string()
+                };
                 let tensor_constraint = tensor_constraint_from_descriptor(&model_tensor, tensor_id);
                 let model_tensor = tensor_from_descriptor(&model_tensor);
 
@@ -341,7 +360,7 @@ impl ModelNode {
                 }
 
                 tensor_indices.insert(tensor_id);
-                tensor_constraints.insert(format!("{}", i), tensor_constraint);
+                tensor_constraints.insert(tensor_name , tensor_constraint);
 
                 i += 1;
             }
@@ -385,7 +404,7 @@ impl ModelNode {
 
         state.tensors.iter_mut().enumerate().for_each(|(i, t)| {
             if self.input_tensors.contains(&i) {
-                let mut pipeline_tensor = t.as_mut().unwrap();
+                let pipeline_tensor = t.as_mut().unwrap();
                 unsafe {
                     inputs.push(RuneCoralTensor {
                         element_type: get_runecoral_element_type(
@@ -399,7 +418,7 @@ impl ModelNode {
                     })
                 }
             } else if self.output_tensors.contains(&i) {
-                let mut pipeline_tensor = t.as_mut().unwrap();
+                let pipeline_tensor = t.as_mut().unwrap();
                 unsafe {
                     outputs.push(RuneCoralTensorMut {
                         element_type: get_runecoral_element_type(
@@ -443,7 +462,7 @@ impl ProcBlockNode {
             ProcBlockV1::instantiate(&store, &module, &mut imports)
                 .context("Unable to instantiate the WebAssembly module")?;
 
-        let result = pb.graph(node_id);
+        let _result = pb.graph(node_id);
 
         // Assign tensors
         // TODO: See if this can be more smart.
@@ -455,14 +474,14 @@ impl ProcBlockNode {
                     .and_then(|c| {
                         c.input_tensors.iter_mut()
                         .enumerate()
-                        .for_each(|(i, (k, t))| {
+                        .for_each(|(i, (_, t))| {
                             input_tensors.get(&key(node_id, Some(i)))
                                          .and_then(|&tensor_index| Some(t.tensor_id = Some(tensor_index)));
                         });
 
                         c.output_tensors.iter_mut()
                         .enumerate()
-                        .for_each(|(i, (k, t))| {
+                        .for_each(|(i, (_, t))| {
                             output_tensors.get(&key(node_id, Some(i)))
                                          .and_then(|&tensor_index| Some(t.tensor_id = Some(tensor_index)));
                         });
@@ -481,7 +500,7 @@ impl ProcBlockNode {
         // impl stderr for KernelError
         self.context
             .kernel(&self.node_id)
-            .map_err(|e| anyhow!("Encountered a Runtime Error"))?
+            .map_err(|_| anyhow!("Encountered a Runtime Error"))?
             .map_err(|e| match e {
                 KernelError::Other(s) => anyhow!(s),
                 KernelError::InvalidArgument(a) => anyhow!("Invalid argument for {}: {}", &self.node_id, a.name),
@@ -546,7 +565,7 @@ fn instantiate_nodes(
     let mut models: HashMap<String, ModelNode> = HashMap::new();
     let mut procblocks: HashMap<String, ProcBlockNode> = HashMap::new();
 
-    let mut runtime = Runtime{ shared_state: shared_state.clone() };
+    let runtime = Runtime{ shared_state: shared_state.clone() };
 
     for item in pipeline {
         // Collect each output tensor into tensors
@@ -1076,7 +1095,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn kernel_context_get_global_input(
         &mut self,
-        self_: &Self::KernelContext,
+        _self_: &Self::KernelContext,
         name: &str,
     ) -> Option<TensorResult> {
         todo!()
@@ -1084,9 +1103,9 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn kernel_context_set_global_output(
         &mut self,
-        self_: &Self::KernelContext,
-        name: &str,
-        tensor: TensorParam<'_>,
+        _self_: &Self::KernelContext,
+        _name: &str,
+        _tensor: TensorParam<'_>,
     ) {
         todo!()
     }

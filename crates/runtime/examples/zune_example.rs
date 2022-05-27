@@ -12,6 +12,10 @@ fn main() {
         zune_engine.get_input_tensor_names("rand")
     );
     println!(
+        "input tensor names of sine => {:?}",
+        zune_engine.get_input_tensor_names("sine")
+    );
+    println!(
         "output tensor names of sine => {:?}",
         zune_engine.get_output_tensor_names("sine")
     );
@@ -32,7 +36,7 @@ fn main() {
     zune_engine.predict().expect("Failed to run predict!");
 
     println!(
-        "input tensor for serial: => {:?}",
-        zune_engine.get_output_tensor("sine", "0")
+        "output tensor for sine: => {:?}",
+        zune_engine.get_output_tensor("sine", "Identity")
     );
 }
