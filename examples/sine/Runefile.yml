@@ -13,7 +13,7 @@ pipeline:
   mod360:
     proc-block: "hotg-ai/proc-blocks@v0.11.3#modulo"
     inputs:
-      - rand
+      asdgf: rand
     outputs:
       - type: F32
         dimensions:
@@ -24,9 +24,10 @@ pipeline:
   sine:
     model: "./sinemodel.tflite"
     inputs:
-      - mod360
+      asdf: mod360
     outputs:
       - type: F32
+        name: identity
         dimensions:
           - 1
           - 1

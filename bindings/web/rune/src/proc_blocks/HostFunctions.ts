@@ -24,7 +24,7 @@ export class HostFunctions implements runtime_v1.RuntimeV1 {
   graph?: GraphContext;
   kernel?: KernelContext;
 
-  constructor(private logger: Logger) { }
+  constructor(private logger: Logger) {}
 
   metadataNew(name: string, version: string): runtime_v1.Metadata {
     return new MetadataBuilder({

@@ -20,7 +20,6 @@ import {
   stageArguments,
 } from "./utils";
 
-
 export class RuneLoader {
   logger: Logger;
 
@@ -42,7 +41,7 @@ export class RuneLoader {
     const procBlocks = await this.instantiateProcBlocks(nodes, zip);
     const models = await this.loadModels(nodes.model, zip, this.modelHandlers);
 
-    return create(runefile, procBlocks, models, this.rootLogger);
+    return await create(runefile, procBlocks, models, this.rootLogger);
   }
 
   async parseRunefile(zip: JSZip): Promise<DocumentV1> {
@@ -80,19 +79,22 @@ export class RuneLoader {
 
         const data = await file.async("arraybuffer");
         const procBlock = await ProcBlock.load(
-            data,
-            this.rootLogger.child({ procBlock: name })
-          );
-        return [ name, procBlock ] as const;
+          data,
+          this.rootLogger.child({ procBlock: name })
+        );
+        return [name, procBlock] as const;
       }
     );
 
     const procBlocks = Object.fromEntries(await Promise.all(entries));
 
-    this.logger.debug({
-      count: Object.keys(procBlocks).length,
-      durationMs: Date.now() - start,
-    }, "Finished instantiating all proc-blocks");
+    this.logger.debug(
+      {
+        count: Object.keys(procBlocks).length,
+        durationMs: Date.now() - start,
+      },
+      "Finished instantiating all proc-blocks"
+    );
 
     return procBlocks;
   }

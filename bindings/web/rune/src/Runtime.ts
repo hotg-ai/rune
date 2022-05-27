@@ -11,6 +11,7 @@ import {
 } from "./utils";
 import { Logger } from "pino";
 
+type TensorId = number;
 type NodeId = string;
 
 interface ProcBlockLike {
@@ -21,32 +22,133 @@ interface ProcBlockLike {
   ): Record<string, runtime_v1.Tensor>;
 }
 
-export function create(
+export async function create(
   doc: DocumentV1,
   procBlocks: Record<string, ProcBlockLike>,
   models: Record<string, Node>,
   logger: Logger
-): Runtime {
+): Promise<Runtime> {
   const pb = procBlockNodes(procBlocks);
   const nodes: Record<string, Node> = { ...models, ...pb };
 
-  return new Runtime(doc, nodes, logger);
+  const { dependencies, evaluationOrder } = await getTensors(
+    doc.pipeline,
+    nodes
+  );
+  return new Runtime(doc, nodes, dependencies, evaluationOrder, logger);
 }
 
-type NamedTensor = {
-  parentNode: NodeId;
-  outputIndex: number;
-} & Tensor;
+type NodeDependencies = {
+  inputs: Record<string, TensorId>;
+  outputs: Record<string, TensorId>;
+};
+
+type Stuff = {
+  evaluationOrder: NodeId[];
+  dependencies: Record<NodeId, NodeDependencies>;
+};
+
+function count(): () => number {
+  let n = 0;
+  return () => n++;
+}
+
+async function allGraphs(
+  pipeline: Record<NodeId, Stage>,
+  nodes: Record<NodeId, Node>
+): Promise<Record<NodeId, Tensors>> {
+  const promises = Object.entries(pipeline).map(async ([name, stage]) => {
+    const args = stageArguments(stage);
+    const node = nodes[name];
+    const tensors = await node.graph(args);
+    return [name, tensors] as const;
+  });
+
+  return Object.fromEntries(await Promise.all(promises));
+}
+
+async function getTensors(
+  pipeline: Record<NodeId, Stage>,
+  nodes: Record<NodeId, Node>
+): Promise<Stuff> {
+  let nextTensorId = count();
+  const visited: NodeId[] = [];
+  const dependencies: Record<NodeId, NodeDependencies> = {};
+
+  const tensorConstraints = await allGraphs(pipeline, nodes);
+
+  const inputs = Object.entries(pipeline)
+    .filter(([_, stage]) => isCapabilityStage(stage))
+    .map(([name, _]) => name);
+  const toVisit = Object.entries(pipeline)
+    .filter(([_, stage]) => isOutStage(stage))
+    .map(([name, _]) => name);
+
+  // assume each capability node has 1 input
+  for (const name of inputs) {
+    const id = nextTensorId();
+    dependencies[name] = {
+      inputs: { [`${name}.0`]: id },
+      outputs: { [`${name}.0`]: id },
+    };
+  }
+
+  let node;
+
+  while ((node = toVisit.pop())) {
+    visited.push(node);
+    const stage = pipeline[node];
+
+    if (isCapabilityStage(stage) || isOutStage(stage)) {
+      continue;
+    }
+
+    const outputs = tensorConstraints[node].outputs.map(
+      (desc) => [desc.name, nextTensorId()] as const
+    );
+    dependencies[node] = {
+      inputs: {},
+      outputs: Object.fromEntries(outputs),
+    };
+
+    stageInputs(stage)
+      .filter(({ node }) => !visited.includes(node))
+      .forEach(({ node }) => toVisit.push(node));
+  }
+
+  for (const [stageName, stage] of Object.entries(pipeline)) {
+    const inputs = stageInputs(stage);
+
+    inputs.forEach(({ node, index }, i) => {
+      const { name: previousTensorName } =
+        tensorConstraints[node].outputs[index];
+      const { name: currentTensorName } =
+        tensorConstraints[stageName].inputs[i];
+      dependencies[stageName].inputs[currentTensorName] =
+        dependencies[node].outputs[previousTensorName];
+    });
+  }
+
+  visited.reverse();
+
+  return {
+    dependencies,
+    evaluationOrder: visited,
+  };
+}
 
 export class Runtime {
-  outputs: Record<string, Tensor[]> = {};
-  private inputTensors: Record<string, Tensor> = {};
-  private tensors: NamedTensor[] = [];
+  /**
+   * The tensors associated with each node.
+   */
+  private tensors: Record<TensorId, Tensor> = {};
   private logger: Logger;
 
   constructor(
     private doc: DocumentV1,
-    private nodes: Record<string, Node>,
+    private nodes: Record<NodeId, Node>,
+    private dependencies: Record<NodeId, NodeDependencies>,
+    private evaluationOrder: NodeId[],
     logger: Logger
   ) {
     this.logger = logger.child({ name: "Runtime" });
@@ -56,40 +158,8 @@ export class Runtime {
     this.logger.debug("Starting inference");
     const start = Date.now();
 
-    // drop any existing tensors
-    this.tensors = [];
-    this.outputs = {};
-
-    for (const [name, stage] of Object.entries(this.doc.pipeline)) {
-      if (!isOutStage(stage)) {
-        continue;
-      }
-
-      this.logger.debug({ node: name }, "Evaluating output node");
-
-      // Output stages are the terminal nodes in our DAG. They aren't
-      // actually backed by anything, so we just need to (recursively)
-      // evaluate the node's inputs.
-      await this.evaluatePrerequisites(stage);
-
-      const inputs = stageInputs(stage).map(({ node, index }) => {
-        const tensor = this.findTensor(node, index);
-        if (!tensor) {
-          throw new Error(
-            `The "${node}.${index}" tensor wasn't found (needed by "${name}")`
-          );
-        }
-        return tensor;
-      });
-
-      const results = await Promise.all(inputs);
-      this.outputs[name] = results.map(
-        ({ buffer, dimensions, elementType }) => ({
-          buffer,
-          dimensions,
-          elementType,
-        })
-      );
+    for (const name of this.evaluationOrder) {
+      this.evaluateNode(name);
     }
 
     const durationMs = Date.now() - start;
@@ -100,6 +170,7 @@ export class Runtime {
     const inputs: string[] = [];
 
     for (const [name, stage] of Object.entries(this.doc.pipeline)) {
+      // TODO: check for proc-blocks with no input tensors in the Runefile
       if (isCapabilityStage(stage)) {
         inputs.push(name);
       }
@@ -108,43 +179,26 @@ export class Runtime {
     return inputs;
   }
 
-  public setInput(node: string, tensor: Tensor) {
-    this.inputTensors[node] = tensor;
-  }
+  public setNodeInput(node: string, name: string, tensor: Tensor) {
+    if (!(node in this.dependencies)) {
+      throw new Error();
+    }
 
-  private async evaluatePrerequisites(stage: Stage) {
-    const inputNames = stageInputs(stage).map((input) => input.node);
+    const { inputs } = this.dependencies[node];
 
-    const deduplicatedNames = new Set(inputNames);
-    this.logger.debug(
-      { prerequisites: Array.from(deduplicatedNames.values()) },
-      "Evaluating prerequisites"
-    );
+    if (!(name in inputs)) {
+      throw new Error();
+    }
 
-    const promises: Array<Promise<void>> = [];
-    deduplicatedNames.forEach((name) => {
-      const alreadyEvaluated = this.tensors.some((t) => t.parentNode == name);
-
-      if (!alreadyEvaluated) {
-        promises.push(this.evaluateNode(name));
-      }
-    });
-
-    await Promise.all(promises);
-  }
-
-  private findTensor(
-    parentNode: string,
-    outputIndex: number
-  ): NamedTensor | undefined {
-    return this.tensors.find(
-      (t) => t.parentNode == parentNode && t.outputIndex == outputIndex
-    );
+    const id = inputs[name];
+    this.tensors[id] = tensor;
   }
 
   private async evaluateNode(name: string) {
-    this.logger.debug({ node: name }, "Evaluating a node");
-    const start = Date.now();
+    if (name in this.tensors) {
+      // already been evaluated
+      return;
+    }
 
     if (!(name in this.nodes)) {
       throw new Error(`No "${name}" node registered`);
@@ -154,74 +208,55 @@ export class Runtime {
     }
 
     const stage = this.doc.pipeline[name];
-    await this.evaluatePrerequisites(stage);
+
+    if (isOutStage(stage)) {
+      // output stages don't do anything. Note: we will be deleting output
+      // stages altogether.
+      return;
+    }
+
+    this.logger.debug({ node: name }, "Evaluating a node");
+    const start = Date.now();
 
     const node = this.nodes[name];
     const args = stageArguments(this.doc.pipeline[name]);
 
-    // Fixme: this could be computed once and cached.
-    const { inputs: inputDescriptors, outputs: outputDescriptors } =
-      await node.graph(args);
-
-    const inputs = isCapabilityStage(stage)
-      ? this.getInputTensorsForInputNode(name, inputDescriptors)
-      : this.getNonInputNodeInputTensors(stage, inputDescriptors);
+    const inputs = this.nodeInputs(name);
 
     const outputs = await node.infer(inputs, args);
+
+    this.setNodeOutputs(name, outputs);
 
     const durationMs = Date.now() - start;
     this.logger.debug({ durationMs, node: name }, "Node evaluated");
     this.logger.trace({ inputs, outputs, args, node: name });
-
-    const outputTensors = outputDescriptors.map((descriptor, i) => ({
-      ...outputs[descriptor.name],
-      parentNode: name,
-      outputIndex: i,
-    }));
-    this.tensors.push(...outputTensors);
   }
 
-  private getInputTensorsForInputNode(
+  private setNodeOutputs(
     name: string,
-    inputs: TensorDescriptor[]
-  ): Record<string, Tensor> {
-    if (!(name in this.inputTensors)) {
-      throw new Error(`The "${name}" input tensor wasn't set`);
+    outputs: Record<string, runtime_v1.Tensor>
+  ) {
+    for (const [tensorName, id] of Object.entries(
+      this.dependencies[name].outputs
+    )) {
+      this.tensors[id] = outputs[tensorName];
     }
-
-    let tensorName;
-
-    switch (inputs.length) {
-      case 0:
-        tensorName = name;
-        break;
-      case 1:
-        tensorName = inputs[0].name;
-        break;
-      default:
-        throw new Error(
-          `The "${name}" node is an input and should only accept 1 tensor, found ${inputs.length}`
-        );
-    }
-
-    return { [tensorName]: this.inputTensors[name] };
   }
 
-  private getNonInputNodeInputTensors(
-    stage: Stage,
-    inputDescriptors: TensorDescriptor[]
-  ): Record<string, Tensor> {
-    const inputs = stageInputs(stage).map(({ node, index }, inputIndex) => {
-      const tensor = this.findTensor(node, index);
-      if (!tensor) {
-        throw new Error(`The "${node}.${index}" tensor hasn't been evaluated`);
+  private nodeInputs(node: string): Record<string, Tensor> {
+    const tensors: Record<string, Tensor> = {};
+
+    for (const [name, id] of Object.entries(this.dependencies[node].inputs)) {
+      if (!(id in this.tensors)) {
+        throw new Error(
+          `The "${node}" node requires tensor ${id}, but it hasn't been set`
+        );
       }
 
-      const inputName = inputDescriptors[inputIndex].name;
-      return [inputName, tensor] as const;
-    });
+      tensors[name] = this.tensors[id];
+    }
 
-    return Object.fromEntries(inputs);
+    return tensors;
   }
 }
 

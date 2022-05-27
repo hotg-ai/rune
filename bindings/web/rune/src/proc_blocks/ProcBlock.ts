@@ -22,10 +22,13 @@ export class ProcBlock {
    * @param rootLogger A logger that this ProcBlock can use.
    * @returns
    */
-  static async load(wasm: ProcBlockBinary, rootLogger: Logger): Promise<ProcBlock> {
+  static async load(
+    wasm: ProcBlockBinary,
+    rootLogger: Logger
+  ): Promise<ProcBlock> {
     // Note: We want the host functions logger to have a different "name" field
     // to the ProcBlock object.
-    const hostFunctionsLogger = rootLogger.child({name: "HostFunctions"});
+    const hostFunctionsLogger = rootLogger.child({ name: "HostFunctions" });
     const logger = rootLogger.child({ name: "ProcBlock" });
 
     logger.info("Loading the proc-block");

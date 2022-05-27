@@ -1,6 +1,6 @@
 import { runtime_v1 } from "@hotg-ai/rune-wit-files";
 import { Logger } from "pino";
-import { Tensors } from "./proc_blocks";
+import { TensorDescriptor, Tensors } from "./proc_blocks";
 
 export { Rune } from "./Rune";
 export * from "./proc_blocks";
@@ -44,20 +44,25 @@ export interface Node {
   ): Promise<Record<string, runtime_v1.Tensor>>;
 }
 
+type NamedTensor = { readonly id: number } & Readonly<TensorDescriptor>;
+
+type NodeInfo = {
+  readonly inputs: readonly NamedTensor[];
+  readonly outputs: readonly NamedTensor[];
+  readonly args: Readonly<Record<string, string>>;
+};
+
+type Pipeline = {
+  readonly inputNodes: readonly string[];
+  readonly outputNodes: readonly string[];
+  readonly nodes: Readonly<Record<string, NodeInfo>>;
+};
+
 /**
  * An instantiated Rune.
  */
 export interface Runtime {
-  /**
-   * The name of all input nodes.
-   */
-  readonly inputs: readonly string[];
-
-  /**
-    * The Rune's output tensors, grouped by the output node they are associated
-    * with.
-   */
-  readonly outputs: Readonly<Record<string, readonly Tensor[]>>;
+  readonly pipeline: Pipeline;
 
   /**
    * Run the Rune's pipeline.
@@ -65,7 +70,20 @@ export interface Runtime {
   infer(): Promise<void>;
 
   /**
-   * Set the tensor to be used for a particular node's input.
+   * Set the tensor to be used for a particular node's input by index.
    */
-  setInput(node: string, tensor: Tensor): void;
+  setInputTensor(node: string, index: number, tensor: Tensor): void;
+  /**
+   * Set the tensor to be used for a particular node's input by name.
+   */
+  setInputTensor(node: string, name: string, tensor: Tensor): void;
+
+  /**
+   * Get a node's output tensor by index.
+  */
+  getOutputTensor(node: string, index: number): Tensor|undefined;
+  /**
+   * Get a node's output tensor by name.
+  */
+  getOutputTensor(node: string, name: string): Tensor|undefined;
 }
