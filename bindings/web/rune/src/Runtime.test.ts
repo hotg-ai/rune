@@ -5,8 +5,11 @@ import { Node } from ".";
 import { Runtime, create } from "./Runtime";
 import { ElementType, Tensor } from ".";
 import { floatTensor } from "./utils";
+import { testLogger } from "./__test__";
 
-describe("Runtime2", () => {
+describe("Runtime", () => {
+  let logger = testLogger();
+
   const src = `
       version: 1
       image: runicos/base
@@ -71,13 +74,13 @@ describe("Runtime2", () => {
     const procBlocks = { rand, mod360 };
     const models = { sine };
 
-    const runtime: Runtime = create(runefile, procBlocks, models);
+    const runtime: Runtime = create(runefile, procBlocks, models, logger);
 
     runtime.setInput("rand", floatTensor([0]));
 
     await runtime.infer();
 
-    const outputs = runtime.outputTensors;
+    const outputs = runtime.outputs;
     expect(outputs).toMatchObject({
       serial: [floatTensor([3])],
     });

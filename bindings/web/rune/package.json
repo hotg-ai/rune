@@ -14,14 +14,15 @@
     "build": "parcel build",
     "watch": "parcel watch",
     "test": "jest",
-    "ci": "tsc --noEmit && yarn build && yarn test",
+    "ci": "tsc --noEmit && parcel build && yarn test",
     "fmt": "prettier --write .",
     "generate-runefile-types": "json2ts ../../../crates/compiler/runefile-schema.json --output src/Runefile.ts"
   },
   "dependencies": {
     "@hotg-ai/rune-wit-files": "^0.3.1",
     "js-yaml": "^4.1.0",
-    "jszip": "^3.9.1"
+    "jszip": "^3.9.1",
+    "pino": "^7.11.0"
   },
   "devDependencies": {
     "@parcel/packager-ts": "2.5.0",

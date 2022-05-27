@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import yaml from "js-yaml";
-import type { ModelHandler, Node } from ".";
-import { consoleLogger, Logger, StructuredLogger } from "./logging";
+import { Logger, pino } from "pino";
+import type { ModelHandler, Node, Runtime, Tensor } from ".";
 import {
   CapabilityStage,
   DocumentV1,
@@ -19,57 +19,33 @@ import {
   isRunefile,
   stageArguments,
 } from "./utils";
-import { Tensor } from ".";
 
-export interface Runtime {
-  readonly inputs: string[];
-  readonly outputTensors: Readonly<Record<string, Tensor[]>>;
-  infer(): Promise<void>;
-  setInput(node: string, tensor: Tensor): void;
-}
 
 export class RuneLoader {
-  public static default: RuneLoader = new RuneLoader().withLogger(
-    consoleLogger
-  );
+  logger: Logger;
 
-  private modelHandlers: Record<string, ModelHandler> = {};
-  private logger: Logger = { log: () => {}, isEnabled: () => false };
-
-  /**
-   * Set the logger that will be used whenever the Rune emits a message.
-   */
-  public withLogger(logger: Logger | Logger["log"]): this {
-    if (typeof logger == "function") {
-      // As a convenience, we let people pass in a logging function if
-      // they don't care about isEnabled().
-      this.logger = { log: logger, isEnabled: (m) => m.level != "trace" };
-    } else {
-      this.logger = logger;
-    }
-
-    return this;
+  constructor(
+    private modelHandlers: Record<string, ModelHandler>,
+    private rootLogger: Logger
+  ) {
+    this.logger = rootLogger.child({ name: "RuneLoader" });
   }
 
-  public withModelHandler(modelType: string, handler: ModelHandler): this {
-    this.modelHandlers[modelType] = handler;
-    return this;
-  }
-
-  /**
-   * Load the Rune, instantiating a Runtime that can be used to interact with
-   * it.
-   *
-   * @param rune
-   */
-  public async load(rune: Uint8Array): Promise<Runtime> {
-    const log = new StructuredLogger(this.logger, RuneLoader.name);
-
-    log.info("Loading the Rune", { bytes: rune.byteLength });
+  async load(rune: Uint8Array): Promise<Runtime> {
+    this.logger.info({ bytes: rune.byteLength }, "Loading the Rune");
 
     const zip = new JSZip();
     await zip.loadAsync(rune);
+    const runefile = await this.parseRunefile(zip);
 
+    const nodes = splitByStageType(runefile);
+    const procBlocks = await this.instantiateProcBlocks(nodes, zip);
+    const models = await this.loadModels(nodes.model, zip, this.modelHandlers);
+
+    return create(runefile, procBlocks, models, this.rootLogger);
+  }
+
+  async parseRunefile(zip: JSZip): Promise<DocumentV1> {
     const f = zip.file("Runefile.yml");
     if (!f) {
       throw new Error("No Runefile.yml found");
@@ -81,22 +57,94 @@ export class RuneLoader {
       throw new Error("Invalid Runefile");
     }
 
-    log.debug("Parsed the Runefile", { length: src.length });
+    this.logger.debug({ length: src.length }, "Parsed the Runefile");
 
-    const nodes = splitByStageType(runefile);
-    const procBlocks = await instantiateProcBlocks(
-      nodes,
-      zip,
-      log.span("instantiate-proc-blocks")
-    );
-    const models = await loadModels(
-      nodes.model,
-      zip,
-      log.span("instantiate-models"),
-      this.modelHandlers
+    return runefile;
+  }
+
+  async instantiateProcBlocks(
+    stages: Stages,
+    zip: JSZip
+  ): Promise<Record<string, ProcBlock>> {
+    const start = Date.now();
+
+    const entries = stagesBackedByProcBlocks(stages).map(
+      async ({ name, path }) => {
+        this.logger.debug({ procBlock: name, path }, "Reading proc-block");
+
+        const file = zip.file(path);
+
+        if (!file) {
+          throw new Error(`The Rune doesn't contain "${path}"`);
+        }
+
+        const data = await file.async("arraybuffer");
+        const procBlock = await ProcBlock.load(
+            data,
+            this.rootLogger.child({ procBlock: name })
+          );
+        return [ name, procBlock ] as const;
+      }
     );
 
-    return create(runefile, procBlocks, models);
+    const procBlocks = Object.fromEntries(await Promise.all(entries));
+
+    this.logger.debug({
+      count: Object.keys(procBlocks).length,
+      durationMs: Date.now() - start,
+    }, "Finished instantiating all proc-blocks");
+
+    return procBlocks;
+  }
+
+  async loadModels(
+    stages: Record<string, ModelStage>,
+    zip: JSZip,
+    modelHandlers: Record<string, ModelHandler>
+  ): Promise<Record<string, Node>> {
+    const start = Date.now();
+
+    const promises = Object.entries(stages).map(async ([name, stage]) => {
+      const format = stage.args?.["model-format"] || "tensorflow-lite";
+      const filename = stage.model;
+      this.logger.debug({ model: name, format, filename }, "Loading model");
+
+      const file = zip.file(filename);
+
+      if (!file) {
+        throw new Error(`The Rune doesn't contain "${filename}"`);
+      }
+
+      if (!(format in modelHandlers)) {
+        throw new Error(
+          `No handler was registered for the "${format}" model on the "${name}" node`
+        );
+      }
+
+      const handler = modelHandlers[format];
+
+      const data = await file.async("arraybuffer");
+      const model = await handler(data, stageArguments(stage), this.rootLogger);
+
+      this.logger.debug(
+        { model: name, length: data.byteLength },
+        "Loaded model"
+      );
+
+      return [name, model];
+    });
+
+    const models = Object.fromEntries(await Promise.all(promises));
+
+    this.logger.debug(
+      {
+        count: Object.keys(models).length,
+        durationMs: Date.now() - start,
+      },
+      "Finished instantiating all models"
+    );
+
+    return models;
   }
 }
 
@@ -139,81 +187,4 @@ function stagesBackedByProcBlocks(stages: Stages) {
   }
 
   return procBlocks;
-}
-
-async function instantiateProcBlocks(
-  stages: Stages,
-  zip: JSZip,
-  log: StructuredLogger
-): Promise<Record<string, ProcBlock>> {
-  const start = Date.now();
-
-  const entries = stagesBackedByProcBlocks(stages).map(
-    async ({ name, path }) => {
-      log.debug("Reading proc-block", { name, path });
-
-      const file = zip.file(path);
-
-      if (!file) {
-        throw new Error(`The Rune doesn't contain "${path}"`);
-      }
-
-      const data = await file.async("arraybuffer");
-      return [name, await ProcBlock.load(data, log.backend)];
-    }
-  );
-
-  const procBlocks = Object.fromEntries(await Promise.all(entries));
-
-  log.debug("Finished instantiating all proc-blocks", {
-    count: Object.keys(procBlocks).length,
-    durationMs: Date.now() - start,
-  });
-
-  return procBlocks;
-}
-
-async function loadModels(
-  stages: Record<string, ModelStage>,
-  zip: JSZip,
-  log: StructuredLogger,
-  modelHandlers: Record<string, ModelHandler>
-): Promise<Record<string, Node>> {
-  const start = Date.now();
-
-  const promises = Object.entries(stages).map(async ([name, stage]) => {
-    const format = stage.args?.["model-format"] || "tensorflow-lite";
-    const filename = stage.model;
-    log.debug("Loading model", { name, format, filename });
-
-    const file = zip.file(filename);
-
-    if (!file) {
-      throw new Error(`The Rune doesn't contain "${filename}"`);
-    }
-
-    if (!(format in modelHandlers)) {
-      throw new Error(
-        `No handler was registered for the "${format}" model on the "${name}" node`
-      );
-    }
-
-    const handler = modelHandlers[format];
-
-    const data = await file.async("arraybuffer");
-    const model = await handler(data, stageArguments(stage));
-
-    log.debug("Loaded model", { name, length: data.byteLength });
-
-    return [name, model];
-  });
-
-  const models = Object.fromEntries(await Promise.all(promises));
-
-  log.debug("Finished instantiating all models", {
-    count: Object.keys(models).length,
-    durationMs: Date.now() - start,
-  });
-
-  return models;
 }

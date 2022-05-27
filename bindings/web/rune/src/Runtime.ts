@@ -9,6 +9,7 @@ import {
   stageArguments,
   stageInputs,
 } from "./utils";
+import { Logger } from "pino";
 
 type NodeId = string;
 
@@ -23,12 +24,13 @@ interface ProcBlockLike {
 export function create(
   doc: DocumentV1,
   procBlocks: Record<string, ProcBlockLike>,
-  models: Record<string, Node>
+  models: Record<string, Node>,
+  logger: Logger
 ): Runtime {
   const pb = procBlockNodes(procBlocks);
   const nodes: Record<string, Node> = { ...models, ...pb };
 
-  return new Runtime(doc, nodes);
+  return new Runtime(doc, nodes, logger);
 }
 
 type NamedTensor = {
@@ -37,44 +39,61 @@ type NamedTensor = {
 } & Tensor;
 
 export class Runtime {
-  outputTensors: Record<string, Tensor[]> = {};
+  outputs: Record<string, Tensor[]> = {};
   private inputTensors: Record<string, Tensor> = {};
   private tensors: NamedTensor[] = [];
+  private logger: Logger;
 
-  constructor(private doc: DocumentV1, private nodes: Record<string, Node>) {}
+  constructor(
+    private doc: DocumentV1,
+    private nodes: Record<string, Node>,
+    logger: Logger
+  ) {
+    this.logger = logger.child({ name: "Runtime" });
+  }
 
   public async infer(): Promise<void> {
+    this.logger.debug("Starting inference");
+    const start = Date.now();
+
     // drop any existing tensors
     this.tensors = [];
-    this.outputTensors = {};
+    this.outputs = {};
 
     for (const [name, stage] of Object.entries(this.doc.pipeline)) {
-      if (isOutStage(stage)) {
-        // Output stages are the terminal nodes in our DAG. They aren't
-        // actually backed by anything, so we just need to (recursively)
-        // evaluate the node's inputs.
-        await this.evaluatePrerequisites(stage);
-
-        const inputs = stageInputs(stage).map(({ node, index }) => {
-          const tensor = this.findTensor(node, index);
-          if (!tensor) {
-            throw new Error(
-              `The "${node}.${index}" tensor wasn't found (needed by "${name}")`
-            );
-          }
-          return tensor;
-        });
-
-        const results = await Promise.all(inputs);
-        this.outputTensors[name] = results.map(
-          ({ buffer, dimensions, elementType }) => ({
-            buffer,
-            dimensions,
-            elementType,
-          })
-        );
+      if (!isOutStage(stage)) {
+        continue;
       }
+
+      this.logger.debug({ node: name }, "Evaluating output node");
+
+      // Output stages are the terminal nodes in our DAG. They aren't
+      // actually backed by anything, so we just need to (recursively)
+      // evaluate the node's inputs.
+      await this.evaluatePrerequisites(stage);
+
+      const inputs = stageInputs(stage).map(({ node, index }) => {
+        const tensor = this.findTensor(node, index);
+        if (!tensor) {
+          throw new Error(
+            `The "${node}.${index}" tensor wasn't found (needed by "${name}")`
+          );
+        }
+        return tensor;
+      });
+
+      const results = await Promise.all(inputs);
+      this.outputs[name] = results.map(
+        ({ buffer, dimensions, elementType }) => ({
+          buffer,
+          dimensions,
+          elementType,
+        })
+      );
     }
+
+    const durationMs = Date.now() - start;
+    this.logger.debug({ durationMs }, "Inference completed successfully");
   }
 
   public get inputs(): string[] {
@@ -97,6 +116,10 @@ export class Runtime {
     const inputNames = stageInputs(stage).map((input) => input.node);
 
     const deduplicatedNames = new Set(inputNames);
+    this.logger.debug(
+      { prerequisites: Array.from(deduplicatedNames.values()) },
+      "Evaluating prerequisites"
+    );
 
     const promises: Array<Promise<void>> = [];
     deduplicatedNames.forEach((name) => {
@@ -120,6 +143,9 @@ export class Runtime {
   }
 
   private async evaluateNode(name: string) {
+    this.logger.debug({ node: name }, "Evaluating a node");
+    const start = Date.now();
+
     if (!(name in this.nodes)) {
       throw new Error(`No "${name}" node registered`);
     }
@@ -142,6 +168,10 @@ export class Runtime {
       : this.getNonInputNodeInputTensors(stage, inputDescriptors);
 
     const outputs = await node.infer(inputs, args);
+
+    const durationMs = Date.now() - start;
+    this.logger.debug({ durationMs, node: name }, "Node evaluated");
+    this.logger.trace({ inputs, outputs, args, node: name });
 
     const outputTensors = outputDescriptors.map((descriptor, i) => ({
       ...outputs[descriptor.name],
@@ -207,6 +237,9 @@ function procBlockNodes(
   return nodes;
 }
 
+/**
+ * An adapter class that makes each ProcBlock method asynchronous.
+ */
 class ProcBlockNode implements Node {
   constructor(private procBlock: ProcBlockLike) {}
 

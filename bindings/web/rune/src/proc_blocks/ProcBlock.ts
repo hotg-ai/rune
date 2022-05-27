@@ -1,6 +1,6 @@
 import { proc_block_v1, runtime_v1 } from "@hotg-ai/rune-wit-files";
+import { Logger } from "pino";
 import type { Metadata, Tensors } from ".";
-import { Logger, StructuredLogger } from "../logging";
 import { GraphContext, HostFunctions, KernelContext } from "./HostFunctions";
 
 type ProcBlockBinary = Parameters<proc_block_v1.ProcBlockV1["instantiate"]>[0];
@@ -11,20 +11,30 @@ type ProcBlockBinary = Parameters<proc_block_v1.ProcBlockV1["instantiate"]>[0];
 export class ProcBlock {
   private constructor(
     private hostFunctions: HostFunctions,
-    private instance: proc_block_v1.ProcBlockV1
+    private instance: proc_block_v1.ProcBlockV1,
+    private logger: Logger
   ) {}
 
-  static async load(wasm: ProcBlockBinary, logger: Logger): Promise<ProcBlock> {
-    const log = new StructuredLogger(logger, "ProcBlock");
+  /**
+   * Load a ProcBlock from a WebAssembly module.
+   *
+   * @param wasm Something that can be used to instantiate a WebAssembly module.
+   * @param rootLogger A logger that this ProcBlock can use.
+   * @returns
+   */
+  static async load(wasm: ProcBlockBinary, rootLogger: Logger): Promise<ProcBlock> {
+    // Note: We want the host functions logger to have a different "name" field
+    // to the ProcBlock object.
+    const hostFunctionsLogger = rootLogger.child({name: "HostFunctions"});
+    const logger = rootLogger.child({ name: "ProcBlock" });
 
-    const span = log.span("load");
-    span.info("Loading the proc-block");
+    logger.info("Loading the proc-block");
     const start = Date.now();
 
     const procBlock = new proc_block_v1.ProcBlockV1();
     const imports: any = {};
 
-    const hostFunctions = new HostFunctions(logger);
+    const hostFunctions = new HostFunctions(hostFunctionsLogger);
     runtime_v1.addRuntimeV1ToImports(
       imports,
       hostFunctions,
@@ -33,19 +43,22 @@ export class ProcBlock {
 
     await procBlock.instantiate(wasm, imports);
 
-    span.debug("Finished loading the proc-block", {
-      durationMs: Date.now() - start,
-    });
+    const durationMs = Date.now() - start;
+    rootLogger.debug({ durationMs }, "Finished loading the proc-block");
 
-    return new ProcBlock(hostFunctions, procBlock);
+    return new ProcBlock(hostFunctions, procBlock, logger);
   }
 
   /**
    * Extract metadata from the proc-block.
    */
-  metadata(): Metadata | undefined {
+  metadata(): Metadata {
     this.hostFunctions.metadata = undefined;
     this.instance.registerMetadata();
+
+    if (!this.hostFunctions.metadata) {
+      throw new Error("The proc-block didn't register any metadata");
+    }
     return this.hostFunctions.metadata;
   }
 
@@ -54,6 +67,8 @@ export class ProcBlock {
    * and output tensors be?
    */
   graph(args: Record<string, string>): Tensors {
+    this.logger.debug({ args }, "Calling the graph function");
+
     const ctx = new GraphContext(args);
     this.hostFunctions.graph = ctx;
     const result = this.instance.graph("");
@@ -77,12 +92,21 @@ export class ProcBlock {
     inputs: Record<string, runtime_v1.Tensor>,
     args: Record<string, string>
   ): Record<string, runtime_v1.Tensor> {
+    this.logger.debug(
+      { args, inputs: Object.keys(inputs) },
+      "Evaluating a proc-block"
+    );
+
     const ctx = new KernelContext(args, inputs);
     this.hostFunctions.kernel = ctx;
 
     const result = this.instance.kernel("");
 
     if (result.tag == "err") {
+      this.logger.error(
+        { error: result.val },
+        "Evaluating the proc-block failed"
+      );
       handleKernelError(result.val);
     }
 

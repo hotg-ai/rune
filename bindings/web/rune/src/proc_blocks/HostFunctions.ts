@@ -1,4 +1,5 @@
 import { runtime_v1 } from "@hotg-ai/rune-wit-files";
+import { Logger, Level, levels } from "pino";
 import type {
   ArgumentHint,
   ArgumentMetadata,
@@ -8,9 +9,8 @@ import type {
   TensorMetadata,
   TensorDescriptor,
 } from ".";
-import { Logger, LogLevel, LogMetadata, StructuredLogger } from "../logging";
 
-const logLevels: Record<runtime_v1.LogLevel, LogLevel> = {
+const logLevels: Record<runtime_v1.LogLevel, Level> = {
   [runtime_v1.LogLevel.Trace]: "trace",
   [runtime_v1.LogLevel.Debug]: "debug",
   [runtime_v1.LogLevel.Info]: "info",
@@ -24,7 +24,7 @@ export class HostFunctions implements runtime_v1.RuntimeV1 {
   graph?: GraphContext;
   kernel?: KernelContext;
 
-  constructor(private logger: Logger) {}
+  constructor(private logger: Logger) { }
 
   metadataNew(name: string, version: string): runtime_v1.Metadata {
     return new MetadataBuilder({
@@ -94,20 +94,10 @@ export class HostFunctions implements runtime_v1.RuntimeV1 {
     return this.kernel || null;
   }
 
-  private translateMetadata(meta: runtime_v1.LogMetadata): LogMetadata {
-    const { level, name, target, file, line, module } = meta;
-    return {
-      span: name,
-      target,
-      file,
-      line,
-      module,
-      level: logLevels[level],
-    };
-  }
-
   isEnabled(meta: runtime_v1.LogMetadata): boolean {
-    return this.logger.isEnabled(this.translateMetadata(meta));
+    const requestedLevel = logLevels[meta.level];
+    const threshold = this.logger.levelVal;
+    return levels.values[requestedLevel] > threshold;
   }
 
   log(
@@ -119,9 +109,10 @@ export class HostFunctions implements runtime_v1.RuntimeV1 {
       return value.tag == "null" ? [key, null] : [key, value.val];
     });
 
-    const meta = this.translateMetadata(metadata);
+    const level = logLevels[metadata.level];
+    const log = this.logger[level];
 
-    this.logger.log(meta, message, Object.fromEntries(payload));
+    log({ metadata, payload: Object.fromEntries(payload) }, message);
   }
 
   modelLoad(
