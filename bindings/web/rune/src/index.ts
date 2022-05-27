@@ -3,7 +3,7 @@ import { Logger } from "pino";
 import { Tensors } from "./proc_blocks";
 
 export { Rune } from "./Rune";
-// export * from "./proc_blocks";
+export * from "./proc_blocks";
 
 export type Tensor = runtime_v1.Tensor;
 export const ElementType = runtime_v1.ElementType;
