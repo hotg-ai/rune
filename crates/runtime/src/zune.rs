@@ -360,6 +360,8 @@ impl ModelNode {
                 }
 
                 tensor_indices.insert(tensor_id);
+                //FIXME: 2 tensors share same name (/empty name)
+                //then tensor_indices.len() != tensor_constraints.len()
                 tensor_constraints.insert(tensor_name , tensor_constraint);
 
                 i += 1;
@@ -685,7 +687,7 @@ fn get_tensors(
         }
 
         for input in stage.inputs() {
-            if !nodes_visited.contains(&input.name) {
+            if !nodes_to_visit.contains(input) && !nodes_visited.contains(&input.name) {
                 nodes_to_visit.push(input.name.clone());
             }
         }
