@@ -687,7 +687,7 @@ fn get_tensors(
         }
 
         for input in stage.inputs() {
-            if !nodes_to_visit.contains(input) && !nodes_visited.contains(&input.name) {
+            if !nodes_to_visit.contains(&input.name) && !nodes_visited.contains(&input.name) {
                 nodes_to_visit.push(input.name.clone());
             }
         }
