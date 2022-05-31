@@ -77,9 +77,9 @@ impl Run {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
 
-        if self.rune.extension().unwrap_or(OsStr::new("")).to_ascii_lowercase() == "zune" {
-            self.engine = Engine::Zune;
-        }
+        // if self.rune.extension().unwrap_or(OsStr::new("")).to_ascii_lowercase() == "zune" {
+        //     self.engine = Engine::Zune;
+        // }
 
         let mut runtime: Runtime = self
             .load_runtime(&rune)
@@ -176,8 +176,7 @@ impl Run {
     ) -> Result<Runtime, LoadError> {
         match self.engine {
             Engine::Wasm3 => Runtime::wasm3(rune),
-            Engine::Wasmer => Runtime::wasmer(rune),
-            Engine::Zune => Runtime::zune(rune),
+            Engine::Wasmer => Runtime::wasmer(rune)
         }
     }
 
@@ -257,6 +256,5 @@ fn parse_key_value_pair(s: &str) -> Result<(&str, &str), Error> {
 #[strum(serialize_all = "kebab-case")]
 enum Engine {
     Wasm3,
-    Wasmer,
-    Zune
+    Wasmer
 }

@@ -24,8 +24,7 @@ use zip;
 
 use self::{proc_block_v1::*, runtime_v1::*};
 use crate::{
-    callbacks::Callbacks,
-    engine::{host_functions::HostFunctions, LoadError, WebAssemblyEngine},
+    LoadError,
 };
 
 wit_bindgen_wasmer::export!("../../wit-files/rune/runtime-v1.wit");
@@ -39,6 +38,7 @@ struct Runtime {
 #[derive(Debug, Default)]
 struct State {
     tensors: Vec<Option<TensorResult>>,
+    tensor_constraints: Vec<Option<TensorConstraint>>,
     graph_contexts: HashMap<String, GraphContext>,
 }
 
@@ -56,8 +56,8 @@ struct ProcBlockNode {
 }
 
 pub struct ZuneEngine {
-    inputs: Vec<String>,
-    outputs: Vec<String>,
+    input_nodes: Vec<String>,
+    output_nodes: Vec<String>,
     models: HashMap<String, ModelNode>,
     procblocks: HashMap<String, ProcBlockNode>,
     pipeline: IndexMap<String, Stage>,
@@ -65,8 +65,8 @@ pub struct ZuneEngine {
     shared_state: Arc<Mutex<State>>, // resources
 }
 
-impl WebAssemblyEngine for ZuneEngine {
-    fn load(binary: &[u8], _: Arc<dyn Callbacks>) -> Result<Self, LoadError>
+impl ZuneEngine {
+    pub fn load(binary: &[u8]) -> Result<Self, LoadError>
     where
         Self: Sized,
     {
@@ -126,7 +126,13 @@ impl WebAssemblyEngine for ZuneEngine {
             })
             .collect();
 
-        let shared_state = Arc::new(Mutex::new(State { tensors, graph_contexts }));
+        let tensor_constraints = tensors.iter().map(|_| None).collect();
+        let shared_state = Arc::new(Mutex::new(State { tensors, tensor_constraints, graph_contexts }));
+
+        println!("input_tensors {:?} ", &input_tensors);
+        println!("output_tensors {:?} ", &output_tensors);
+        // println!("tensors: {:?}", &tensors);
+
 
         let (model_contexts, procblock_contexts) = instantiate_nodes(
             pipeline,
@@ -140,8 +146,8 @@ impl WebAssemblyEngine for ZuneEngine {
         // TODO: Validate and allocate input/output tensors
 
         Ok(ZuneEngine {
-            inputs,
-            outputs,
+            input_nodes: inputs,
+            output_nodes: outputs,
             models: model_contexts,
             procblocks: procblock_contexts,
             pipeline: pipeline.to_owned(),
@@ -150,27 +156,94 @@ impl WebAssemblyEngine for ZuneEngine {
         })
     }
 
-    fn init(&mut self) -> Result<(), Error> {
-        // TODO: Call each proc block's graph() and each model's inputs/outputs
-        // to allocate the tensors with correct dimensions
-
-        Ok(())
-    }
-
-    fn predict(&mut self) -> Result<(), Error> {
+    pub fn predict(&mut self) -> Result<(), Error> {
         for stage_name in &self.processing_order {
             let stage = self.pipeline.get(stage_name).unwrap();
             match stage {
-                Stage::Model(stage) => {
+                Stage::Model(_) => {
                     self.models.get_mut(stage_name).unwrap().run()?;
                 },
-                Stage::ProcBlock(stage) => {
+                Stage::Capability(_) | Stage::ProcBlock(_)  => {
                     self.procblocks.get_mut(stage_name).unwrap().run()?;
                 },
                 _ => {},
             }
         }
         Ok(())
+    }
+
+    pub fn input_nodes(&self) -> &'_ Vec<std::string::String> {
+        return &self.input_nodes;
+    }
+
+    pub fn output_nodes(&self) -> &'_ Vec<std::string::String> {
+        return &self.output_nodes;
+    }
+
+    pub fn get_input_tensor_names(&self, node_name: &str) -> Result<Vec<String>, Error> {
+        let state = self.shared_state.lock().unwrap();
+        state.graph_contexts
+             .get(node_name)
+             .and_then(|c| {
+                let tensor_list: Vec<String> = c.input_tensors.iter()
+                                                .map(|(k, _)| k.to_string())
+                                                .collect();
+                Some(tensor_list)
+             })
+             .ok_or(anyhow!("Unable to get input tensors"))
+    }
+
+    pub fn get_input_tensor(&mut self, node_name: &str, tensor_name: &str) -> Option<TensorResult> {
+        let state = self.shared_state.lock().unwrap();
+        let tensor_constraint = state.graph_contexts.get(node_name).and_then(|c| c.input_tensors.get(tensor_name));
+
+        match tensor_constraint {
+            Some(c) if c.tensor_id.is_some()  => state.tensors[c.tensor_id.unwrap()].clone(),
+            _ => None
+        }
+    }
+
+    pub fn set_input_tensor(&mut self, node_name: &str, tensor_name: &str, tensor: &TensorResult) {
+        let mut state = self.shared_state.lock().unwrap();
+        let tensor_id = state.graph_contexts.get(node_name).and_then(|c| c.input_tensors.get(tensor_name).and_then(|c| c.tensor_id.clone()));
+
+        match tensor_id {
+            Some(i)  => state.tensors[i] = Some(tensor.clone()),
+            _ => {}
+        }
+    }
+
+    pub fn get_output_tensor_names(&self, node_name: &str) -> Result<Vec<String>, Error> {
+        let state = self.shared_state.lock().unwrap();
+        state.graph_contexts
+             .get(node_name)
+             .and_then(|c| {
+                let tensor_list: Vec<String> = c.output_tensors.iter()
+                                                .map(|(k, _)| k.to_string())
+                                                .collect();
+                Some(tensor_list)
+             })
+             .ok_or(anyhow!("Unable to get input tensors"))
+    }
+
+    pub fn get_output_tensor(&mut self, node_name: &str, tensor_name: &str) -> Option<TensorResult> {
+        let state = self.shared_state.lock().unwrap();
+        let tensor_constraint = state.graph_contexts.get(node_name).and_then(|c| c.output_tensors.get(tensor_name));
+
+        match tensor_constraint {
+            Some(c) if c.tensor_id.is_some()  => state.tensors[c.tensor_id.unwrap()].clone(),
+            _ => None
+        }
+    }
+
+    pub fn set_output_tensor(&mut self, node_name: &str, tensor_name: &str, tensor: &TensorResult) {
+        let mut state = self.shared_state.lock().unwrap();
+        let tensor_id = state.graph_contexts.get(node_name).and_then(|c| c.output_tensors.get(tensor_name).and_then(|c| c.tensor_id.clone()));
+
+        match tensor_id {
+            Some(i)  => state.tensors[i] = Some(tensor.clone()),
+            _ => {}
+        }
     }
 }
 
@@ -328,7 +401,6 @@ impl ModelNode {
 impl ProcBlockNode {
     fn load(
         node_id: &str,
-        node_data: &ProcBlockStage,
         wasm: &[u8],
         store: &Store,
         mut imports: &mut ImportObject,
@@ -346,6 +418,8 @@ impl ProcBlockNode {
         let result = pb.graph(node_id);
 
         // Assign tensors
+        // TODO: See if this can be more smart.
+        // Not bothering with that for now because tensor names are lost in current Runefile format
         shared_state.lock()
                     .unwrap()
                     .graph_contexts
@@ -451,8 +525,23 @@ fn instantiate_nodes(
         // Collect each output tensor into tensors
         let stage_name = item.0;
         match item.1 {
-            Stage::Capability(_) => {
-                // inputs.push(stage_name.to_string());
+            // Models are handled on the host side, so we treat them separately
+            Stage::Capability(stage) => {
+                let wasm = read_zip_resource_by_path(&stage.capability)
+                    .context("Unable to load the capability")?;
+
+                procblocks.insert(
+                    stage_name.to_string(),
+                    ProcBlockNode::load(
+                        &stage_name,
+                        &wasm,
+                        &store,
+                        &mut imports,
+                        &shared_state,
+                        &input_tensors,
+                        &output_tensors,
+                    )?,
+                );
             },
             Stage::Model(stage) => {
                 // Instantiating the model's inference context here because that
@@ -480,10 +569,6 @@ fn instantiate_nodes(
                 );
             },
             Stage::ProcBlock(stage) => {
-                println!(
-                    "Pipeline stage: {} proc block {:?} {}",
-                    stage_name, stage.args, stage.proc_block.base
-                );
                 let wasm = read_zip_resource_by_path(&stage.proc_block.base)
                     .context("Unable to load the proc_block")?;
 
@@ -491,7 +576,6 @@ fn instantiate_nodes(
                     stage_name.to_string(),
                     ProcBlockNode::load(
                         &stage_name,
-                        &stage,
                         &wasm,
                         &store,
                         &mut imports,
@@ -501,9 +585,8 @@ fn instantiate_nodes(
                     )?,
                 );
             },
-            Stage::Out(_) => {
-                // outputs.push(stage_name.to_string());
-            },
+
+            _ => { } // Do nothing for capabilities/outputs
         }
     }
 
@@ -529,12 +612,21 @@ fn get_tensors(
     let mut output_tensors: HashMap<String, usize> = HashMap::new();
     let mut input_tensors: HashMap<String, usize> = HashMap::new();
 
-    // For Inputs/Capabilities - input tensors and output tensors are the same?
+    // For Inputs/Capabilities - We create an input so as to be able to inject inputs
     for item in inputs {
         tensors.push(None);
         input_tensors.insert(key(item, Some(0)), tensors.len() - 1);
         output_tensors.insert(key(item, Some(0)), tensors.len() - 1);
     }
+
+    // // For Outputs - we allocate all the outputs
+    // for item in outputs {
+    //     for _ in pipeline.get(item).unwrap().output_types() {
+    //         tensors.push(None);
+    //         output_tensors.insert(key(item, Some(0)), tensors.len() - 1);
+    //     }
+    // }
+
 
     // Do a depth first traversal of the tree structure to determine the order
     // of processing/calling predict() Also allocate the output tensors of

@@ -73,7 +73,7 @@ tempfile = "3.2.0"
 
 [features]
 builtins = ["hound", "image", "rand", "rand/small_rng", "csv"]
-default = ["builtins", "tflite"]
+default = ["builtins", "tflite", "zune"]
 tflite = ["hotg-runecoral"]
 unstable_doc_cfg = []
 zune = ["wasmer", "zip"]

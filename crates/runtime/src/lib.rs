@@ -32,10 +32,12 @@ mod tensor;
 pub mod builtins;
 mod outputs;
 
+pub mod zune;
+
 pub use crate::{
     callbacks::{Model, ModelMetadata, NodeMetadata},
     engine::LoadError,
     outputs::OutputTensor,
     runtime::Runtime,
-    tensor::{ElementType, Tensor, TensorElement},
+    tensor::{ElementType, Tensor, TensorElement}
 };
