@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use hotg_rune_compiler::{
     codegen::{Codegen, CodegenStorage},
+    filesystem::{FileSystem, ReadError, StandardFileSystem},
     im::Vector,
     parse::{Frontend, FrontendStorage},
-    BuildConfig, Environment, EnvironmentStorage, FeatureFlags, FileSystem,
-    ReadError,
+    BuildConfig, Environment, EnvironmentStorage, FeatureFlags,
 };
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
-use uriparse::{Scheme, URI};
+use uriparse::URI;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -45,6 +45,7 @@ fn main() {
 #[salsa::database(FrontendStorage, EnvironmentStorage, CodegenStorage)]
 struct Database {
     storage: salsa::Storage<Self>,
+    fs: StandardFileSystem,
 }
 
 impl salsa::Database for Database {}
@@ -54,33 +55,6 @@ impl salsa::Database for Database {}
 
 impl FileSystem for Database {
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
-        let _span = tracing::info_span!("read", %uri).entered();
-
-        match uri.scheme() {
-            Scheme::File => {
-                let filename = uri.path().to_string();
-                let contents =
-                    std::fs::read(&filename).map_err(ReadError::other)?;
-
-                tracing::info!(bytes_read = contents.len(), %filename, "Read a file from disk");
-
-                Ok(contents.into())
-            },
-            Scheme::HTTP | Scheme::HTTPS => {
-                tracing::info!("Downloading");
-                let response = reqwest::blocking::get(uri.to_string())
-                    .and_then(|r| r.error_for_status())
-                    .map_err(ReadError::other)?;
-
-                let body = response.bytes().map_err(ReadError::other)?;
-                tracing::debug!(bytes_read = body.len(), "Download complete");
-
-                Ok(body.to_vec().into())
-            },
-            Scheme::Unregistered(s) if s.as_str() == "wapm" => {
-                Ok(Vector::default())
-            },
-            _ => unimplemented!(),
-        }
+        self.fs.read(uri)
     }
 }

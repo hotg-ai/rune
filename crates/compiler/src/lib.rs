@@ -6,14 +6,13 @@ extern crate pretty_assertions;
 
 pub mod codegen;
 mod config;
-mod filesystem;
+pub mod filesystem;
 pub mod im;
 pub mod parse;
 pub mod type_check;
 
 pub use crate::{
     config::{BuildConfig, Environment, EnvironmentStorage, FeatureFlags},
-    filesystem::{FileSystem, ReadError},
     im::Text,
 };
 

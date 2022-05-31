@@ -179,8 +179,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        parse::Frontend, parse::FrontendStorage, BuildConfig, Environment,
-        EnvironmentStorage, FeatureFlags, FileSystem, ReadError,
+        filesystem::{FileSystem, ReadError},
+        parse::Frontend,
+        parse::FrontendStorage,
+        BuildConfig, Environment, EnvironmentStorage, FeatureFlags,
     };
 
     #[derive(Default)]
