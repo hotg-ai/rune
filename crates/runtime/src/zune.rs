@@ -575,7 +575,7 @@ fn instantiate_nodes(
         match item.1 {
             // Models are handled on the host side, so we treat them separately
             Stage::Capability(stage) => {
-                let wasm = read_zip_resource_by_path(&stage.capability)
+                let wasm = read_zip_resource_by_path(&stage.capability.to_string())
                     .context("Unable to load the capability")?;
 
                 procblocks.insert(
@@ -615,7 +615,7 @@ fn instantiate_nodes(
                 );
             },
             Stage::ProcBlock(stage) => {
-                let wasm = read_zip_resource_by_path(&stage.proc_block.base)
+                let wasm = read_zip_resource_by_path(&stage.proc_block.to_string())
                     .context("Unable to load the proc_block")?;
 
                 procblocks.insert(
