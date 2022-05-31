@@ -4,7 +4,7 @@
 //! type.
 
 mod query;
-mod yaml;
+pub mod yaml;
 
 use std::sync::Arc;
 

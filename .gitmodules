@@ -1,0 +1,3 @@
+[submodule "wit-files"]
+	path = wit-files
+	url = git@github.com:hotg-ai/wit-files.git

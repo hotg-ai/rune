@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use structopt::StructOpt;
 use strum::VariantNames;
+use std::ffi::OsStr;
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct Run {
@@ -75,6 +76,10 @@ impl Run {
         let rune = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
+
+        if self.rune.extension().unwrap_or(OsStr::new("")).to_ascii_lowercase() == "zune" {
+            self.engine = Engine::Zune;
+        }
 
         let mut runtime: Runtime = self
             .load_runtime(&rune)
@@ -172,6 +177,7 @@ impl Run {
         match self.engine {
             Engine::Wasm3 => Runtime::wasm3(rune),
             Engine::Wasmer => Runtime::wasmer(rune),
+            Engine::Zune => Runtime::zune(rune),
         }
     }
 
@@ -252,4 +258,5 @@ fn parse_key_value_pair(s: &str) -> Result<(&str, &str), Error> {
 enum Engine {
     Wasm3,
     Wasmer,
+    Zune
 }

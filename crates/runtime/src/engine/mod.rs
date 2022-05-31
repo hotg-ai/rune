@@ -3,6 +3,8 @@ mod host_functions;
 mod wasm3;
 #[cfg(feature = "wasmer")]
 mod wasmer;
+#[cfg(feature = "zune")]
+mod zune;
 
 use std::sync::Arc;
 
@@ -12,7 +14,8 @@ use anyhow::Error;
 pub(crate) use self::wasm3::Wasm3Engine;
 #[cfg(feature = "wasmer")]
 pub(crate) use self::wasmer::WasmerEngine;
-
+#[cfg(feature = "zune")]
+pub(crate) use self::zune::ZuneEngine;
 /// A WebAssembly virtual machine that links Rune with
 pub(crate) trait WebAssemblyEngine {
     fn load(

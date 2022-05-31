@@ -70,6 +70,11 @@ impl Runtime {
         Runtime::load::<crate::engine::WasmerEngine>(rune)
     }
 
+    #[cfg(feature = "zune")]
+    pub fn zune(rune: &[u8]) -> Result<Self, LoadError> {
+        Runtime::load::<crate::engine::ZuneEngine>(rune)
+    }
+
     fn load<E>(rune: &[u8]) -> Result<Self, LoadError>
     where
         E: WebAssemblyEngine + 'static,
