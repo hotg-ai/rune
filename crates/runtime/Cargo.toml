@@ -16,6 +16,8 @@ log = "0.4.14"
 thiserror = "1.0.30"
 wasmparser = "0.83.0"
 wit-bindgen-wasmer = { git = "https://github.com/wasmerio/wit-bindgen", branch = "wasmer" }
+tracing = { version = "0.1.33", features = ["attributes"] }
+tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 indexmap = { version = "1.8.0", features = ["serde-1"] }
 
 [dependencies.csv]
