@@ -1,9 +1,16 @@
+use anyhow::{Context, Error};
 use hotg_rune_runtime::zune::{ElementType, TensorResult, ZuneEngine};
 
-fn main() {
-    let sine_zune = include_bytes!("sine.rune");
-    let mut zune_engine =
-        ZuneEngine::load(sine_zune).expect("Unable to initialize Zune Engine!");
+fn main() -> Result<(), Error> {
+    let args: Vec<String> = std::env::args().collect();
+
+    let filename = args.get(1).map(|s| s.as_str()).unwrap_or("sine.rune");
+
+    let sine_zune = std::fs::read(&filename)
+        .with_context(|| format!("Unable to read \"{filename}\""))?;
+
+    let mut zune_engine = ZuneEngine::load(&sine_zune)
+        .context("Unable to initialize Zune Engine!")?;
 
     println!("input nodes {:?}", zune_engine.input_nodes());
     println!("output nodes {:?}", zune_engine.output_nodes());
@@ -33,10 +40,12 @@ fn main() {
         zune_engine.get_input_tensor("rand", "input")
     );
 
-    zune_engine.predict().expect("Failed to run predict!");
+    zune_engine.predict().context("Failed to run predict!")?;
 
     println!(
         "output tensor for sine: => {:?}",
         zune_engine.get_output_tensor("sine", "Identity")
     );
+
+    Ok(())
 }
