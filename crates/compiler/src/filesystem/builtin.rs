@@ -42,7 +42,7 @@ impl FileSystem for StandardFileSystem {
                 local_file(&self.root_directory, uri.path())
             },
             Scheme::Unregistered(u) if u.as_str() == "wapm" => {
-                let uri: WapmUri = uri.try_into().map_err(ReadError::other)?;
+                let _uri: WapmUri = uri.try_into().map_err(ReadError::other)?;
                 todo!()
             },
             other => Err(ReadError::UnsupportedScheme {
