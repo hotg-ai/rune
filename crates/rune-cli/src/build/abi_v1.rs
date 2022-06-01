@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Error};
 use query_based_compiler::{
     codegen::{Codegen, CodegenStorage},
-    filesystem::{FileSystem, ReadError, StandardFileSystem},
+    asset_loader::{AssetLoader, DefaultAssetLoader, ReadError},
     im::Vector,
     parse::{Frontend, FrontendStorage},
     BuildConfig, Environment, EnvironmentStorage, FeatureFlags,
@@ -27,7 +27,7 @@ pub(crate) fn execute(build: Build, unstable: Unstable) -> Result<(), Error> {
     let mut db = Database {
         storage: Storage::default(),
         current_dir: build.current_directory()?,
-        fs: StandardFileSystem::default(),
+        fs: DefaultAssetLoader::default(),
     };
 
     db.set_config(BuildConfig {
@@ -53,12 +53,12 @@ pub(crate) fn execute(build: Build, unstable: Unstable) -> Result<(), Error> {
 struct Database {
     storage: Storage<Self>,
     current_dir: PathBuf,
-    fs: StandardFileSystem,
+    fs: DefaultAssetLoader,
 }
 
 impl salsa::Database for Database {}
 
-impl FileSystem for Database {
+impl AssetLoader for Database {
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         self.fs.read(uri)
     }

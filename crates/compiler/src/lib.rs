@@ -6,7 +6,7 @@ extern crate pretty_assertions;
 
 pub mod codegen;
 mod config;
-pub mod filesystem;
+pub mod asset_loader;
 pub mod im;
 pub mod parse;
 pub mod type_check;

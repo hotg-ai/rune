@@ -1,7 +1,8 @@
 #[cfg(feature = "builtins")]
 mod builtin;
 
-pub use self::builtin::StandardFileSystem;
+#[cfg(feature = "builtins")]
+pub use self::builtin::DefaultAssetLoader;
 
 use std::{
     collections::HashMap,
@@ -15,13 +16,19 @@ use uriparse::{Scheme, URI};
 
 use crate::{im::Vector, Text};
 
-/// An abstract filesystem.
-pub trait FileSystem {
-    /// Read a file's contents from somewhere, with the interpretation changing
-    /// depending on the URI's scheme.
+/// Something that can load external resources using a URI.
+///
+///
+/// - **`http` and `https`**: Make a GET request and use the response body,
+///   erroring out if the server doesn't send back a 2XX response
+/// - **file**: Read a file from disk
+/// - **wapm**: Retrieve a WebAssembly module from the WebAssembly Package
+///   Manager (see also [`WapmUri`])
+pub trait AssetLoader {
+    /// Fetch an asset using some URI.
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError>;
 
-    /// Wrap a [`FileSystem`] in a simple caching layer.
+    /// Wrap a [`AssetLoader`] in a simple caching layer.
     fn cached(self) -> Cached<Self>
     where
         Self: Sized,
@@ -104,7 +111,7 @@ impl<F> Cached<F> {
     }
 }
 
-impl<F: FileSystem> FileSystem for Cached<F> {
+impl<F: AssetLoader> AssetLoader for Cached<F> {
     #[tracing::instrument(skip(self), err)]
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         if let Some(cached_value) =
@@ -127,11 +134,82 @@ impl<F: FileSystem> FileSystem for Cached<F> {
     }
 }
 
+/// A URI which represents a WebAssembly module on WAPM.
+///
+/// Some examples are:
+/// - The simplest WAPM URI - `wapm:///hotg-ai/normalize`
+/// - Use a particular Semver version - `wapm:///hotg-ai/normalize?version=0.12`
+/// - Use the `first` module from latest version of `hotg-ai/normalize` -
+///   `wapm:///hotg-ai/normalize?version=latest&module=first`
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WapmUri {
     pub namespace: String,
     pub package_name: String,
     pub version: Option<String>,
+    pub module: Option<String>,
+}
+
+impl WapmUri {
+    pub fn new(
+        namespace: impl Into<String>,
+        package_name: impl Into<String>,
+    ) -> Self {
+        WapmUri {
+            namespace: namespace.into(),
+            package_name: package_name.into(),
+            version: None,
+            module: None,
+        }
+    }
+
+    pub fn with_version(self, version: impl Into<String>) -> Self {
+        WapmUri {
+            version: Some(version.into()),
+            ..self
+        }
+    }
+
+    pub fn with_module(self, module: impl Into<String>) -> Self {
+        WapmUri {
+            module: Some(module.into()),
+            ..self
+        }
+    }
+
+    pub fn as_uri(&self) -> Result<URI<'_>, uriparse::URIError> {
+        let WapmUri {
+            namespace,
+            package_name,
+            version,
+            module,
+        } = self;
+        let mut path: uriparse::Path = namespace.as_str().try_into()?;
+        path.push(package_name.as_str())?;
+        path.set_absolute(true);
+
+        let query = match (version.as_deref(), module.as_deref()) {
+            (Some(v), Some(m)) => Some(format!("version={v}&module={m}")),
+            (Some(v), None) => Some(format!("version={v}")),
+            (None, Some(m)) => Some(format!("module={m}")),
+            (None, None) => None,
+        };
+        let query = query
+            .as_deref()
+            .and_then(|q| uriparse::Query::try_from(q).ok())
+            .map(|q| q.into_owned());
+
+        let mut builder = URI::builder().with_path(path).with_query(query);
+        builder.try_scheme("wapm")?.try_authority(Some(""))?;
+
+        builder.build()
+    }
+}
+
+impl Display for WapmUri {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let uri = self.as_uri().map_err(|_| fmt::Error)?;
+        Display::fmt(&uri, f)
+    }
 }
 
 impl FromStr for WapmUri {
@@ -182,40 +260,43 @@ impl TryFrom<&'_ URI<'_>> for WapmUri {
             },
         };
 
-        let version = parse_version_from_query(&uri)?;
+        let WapmQueryParameters { version, module } =
+            parse_version_from_query(&uri)?;
 
         Ok(WapmUri {
             namespace,
             package_name,
             version,
+            module,
         })
     }
 }
 
+#[derive(Default, serde::Deserialize)]
+struct WapmQueryParameters {
+    version: Option<String>,
+    module: Option<String>,
+}
+
 fn parse_version_from_query(
     uri: &URI<'_>,
-) -> Result<Option<String>, ParseWapmUriError> {
+) -> Result<WapmQueryParameters, ParseWapmUriError> {
     let query = match uri.query() {
         Some(q) => q,
-        None => return Ok(None),
+        None => return Ok(WapmQueryParameters::default()),
     };
 
     let parsed = queryst::parse(query.as_borrowed().as_str())
         .map_err(|e| ParseWapmUriError::InvalidQueryString(e.message))?;
 
-    #[derive(serde::Deserialize)]
-    struct Query {
-        version: Option<String>,
-    }
-
-    let Query { version } = Query::deserialize(&parsed).map_err(|e| {
+    let params = WapmQueryParameters::deserialize(&parsed).map_err(|e| {
         ParseWapmUriError::InvalidQueryParameters {
             error: e,
             query: query.as_str().to_string(),
         }
     })?;
 
-    Ok(version)
+    Ok(params)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -273,16 +354,48 @@ mod tests {
     }
 
     #[test]
-    fn parse_wapm_uri() {
-        let uri = "wapm:///hotg-ai/normalize?version=0.12";
+    fn parse_simple_wapm_uri() {
+        let uri = "wapm:///hotg-ai/normalize";
         let should_be = WapmUri {
             namespace: "hotg-ai".to_string(),
             package_name: "normalize".to_string(),
-            version: Some("0.12".to_string()),
+            version: None,
+            module: None,
         };
 
         let got: WapmUri = uri.parse().unwrap();
 
         assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn parse_full_wapm_uri() {
+        let uri = "wapm:///hotg-ai/normalize?version=0.12&module=first";
+        let should_be = WapmUri {
+            namespace: "hotg-ai".to_string(),
+            package_name: "normalize".to_string(),
+            version: Some("0.12".to_string()),
+            module: Some("first".to_string()),
+        };
+
+        let got: WapmUri = uri.parse().unwrap();
+
+        assert_eq!(got, should_be);
+    }
+
+    #[test]
+    fn round_trip_wapm_uris() {
+        let uris = [
+            "wapm:///hotg-ai/normalize",
+            "wapm:///hotg-ai/normalize?module=first",
+            "wapm:///hotg-ai/normalize?version=0.12",
+            "wapm:///hotg-ai/normalize?version=0.12&module=first",
+        ];
+
+        for uri in uris {
+            let parsed: WapmUri = uri.parse().unwrap();
+            let round_tripped = parsed.to_string();
+            assert_eq!(round_tripped, uri);
+        }
     }
 }

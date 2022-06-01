@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use hotg_rune_compiler::{
     codegen::{Codegen, CodegenStorage},
-    filesystem::{FileSystem, ReadError, StandardFileSystem},
+    asset_loader::{AssetLoader, DefaultAssetLoader, ReadError},
     im::Vector,
     parse::{Frontend, FrontendStorage},
     BuildConfig, Environment, EnvironmentStorage, FeatureFlags,
@@ -45,7 +45,7 @@ fn main() {
 #[salsa::database(FrontendStorage, EnvironmentStorage, CodegenStorage)]
 struct Database {
     storage: salsa::Storage<Self>,
-    fs: StandardFileSystem,
+    fs: DefaultAssetLoader,
 }
 
 impl salsa::Database for Database {}
@@ -53,7 +53,7 @@ impl salsa::Database for Database {}
 // The parsing process requires you to load proc-blocks and read files. You
 // can satisfy these dependencies by implementing the corresponding traits.
 
-impl FileSystem for Database {
+impl AssetLoader for Database {
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         self.fs.read(uri)
     }

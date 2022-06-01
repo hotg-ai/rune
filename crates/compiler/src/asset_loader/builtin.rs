@@ -4,33 +4,34 @@ use reqwest::blocking::Client;
 use uriparse::{Scheme, URI};
 
 use crate::{
-    filesystem::{FileSystem, ReadError, WapmUri},
+    asset_loader::{AssetLoader, ReadError, WapmUri},
     im::Vector,
 };
 
+/// A [`FileLoader`] that uses a "pretty good" strategy for retrieving assets.
 #[derive(Debug, Clone)]
-pub struct StandardFileSystem {
+pub struct DefaultAssetLoader {
     client: Client,
     root_directory: PathBuf,
 }
 
-impl StandardFileSystem {
+impl DefaultAssetLoader {
     pub fn new(root_directory: impl Into<PathBuf>) -> Self {
-        StandardFileSystem {
+        DefaultAssetLoader {
             client: Client::default(),
             root_directory: root_directory.into(),
         }
     }
 }
 
-impl Default for StandardFileSystem {
+impl Default for DefaultAssetLoader {
     fn default() -> Self {
         let current_dir = std::env::current_dir().unwrap_or_default();
-        StandardFileSystem::new(current_dir)
+        DefaultAssetLoader::new(current_dir)
     }
 }
 
-impl FileSystem for StandardFileSystem {
+impl AssetLoader for DefaultAssetLoader {
     #[tracing::instrument(skip(self), err)]
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         match uri.scheme() {
