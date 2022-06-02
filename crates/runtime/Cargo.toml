@@ -10,70 +10,35 @@ name = "hotg-rune-runtime"
 readme = "README.md"
 repository = "https://github.com/hotg-ai/rune"
 version = "0.11.3"
+
 [dependencies]
 anyhow = "1.0.40"
+csv = { version = "1.1.6", optional = true }
+hotg-rune-compiler = { version = "^0.11.0", path = "../compiler" }
+hotg-rune-core = { version = "^0.11.0", path = "../rune-core", features = ["std"] }
+hotg-runecoral = { version = "0.3.12", optional = true }
+hound = { version = "3.4.0", optional = true }
+image =  { version = "0.23.14", optional = true }
+indexmap = { version = "1.8.0", features = ["serde-1"] }
 log = "0.4.14"
+rand = { version = "0.8.3", optional = true }
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
 thiserror = "1.0.30"
-wasmparser = "0.83.0"
-wit-bindgen-wasmer = { git = "https://github.com/wasmerio/wit-bindgen", branch = "wasmer" }
 tracing = { version = "0.1.33", features = ["attributes"] }
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
-indexmap = { version = "1.8.0", features = ["serde-1"] }
-
-[dependencies.csv]
-optional = true
-version = "1.1.6"
-
-[dependencies.hotg-rune-compiler]
-path = "../compiler"
-version = "^0.11.0"
-
-[dependencies.hotg-rune-core]
-features = ["std"]
-path = "../rune-core"
-version = "^0.11.0"
-
-[dependencies.hotg-runecoral]
-optional = true
-version = "0.3.12"
-
-[dependencies.hound]
-optional = true
-version = "3.4.0"
-
-[dependencies.image]
-optional = true
-version = "0.23.14"
-
-[dependencies.rand]
-optional = true
-version = "0.8.3"
-
-[dependencies.serde]
-features = ["derive"]
-version = "1.0.136"
-
-[dependencies.serde_json]
-version = "1.0.79"
-
-[dependencies.wasm3]
-git = "https://github.com/wasm3/wasm3-rs"
-optional = true
-
-[dependencies.wasmer]
-optional = true
-version = "2.2.0-rc2"
-
-[dependencies.zip]
-optional = true
-version = "0.6.2"
+wasm3 = { git = "https://github.com/wasm3/wasm3-rs", optional = true }
+wasmer = { version = "2.2.0-rc2", optional = true }
+wasmparser = "0.83.0"
+wit-bindgen-wasmer = { git = "https://github.com/wasmerio/wit-bindgen", branch = "wasmer" }
+zip =  { version = "0.6.2", optional = true }
 
 [dev-dependencies]
 tempfile = "3.2.0"
 
 [features]
-builtins = ["hound", "image", "rand", "rand/small_rng", "csv"]
 default = ["builtins", "tflite", "zune"]
+builtins = ["hound", "image", "rand", "rand/small_rng", "csv"]
 tflite = ["hotg-runecoral"]
 unstable_doc_cfg = []
 zune = ["wasmer", "zip"]
