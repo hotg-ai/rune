@@ -179,8 +179,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        parse::Frontend, parse::FrontendStorage, BuildConfig, Environment,
-        EnvironmentStorage, FeatureFlags, FileSystem, ReadError,
+        asset_loader::{AssetLoader, ReadError},
+        parse::Frontend,
+        parse::FrontendStorage,
+        BuildConfig, Environment, EnvironmentStorage, FeatureFlags,
     };
 
     #[derive(Default)]
@@ -191,7 +193,7 @@ mod tests {
 
     impl salsa::Database for Database {}
 
-    impl FileSystem for Database {
+    impl AssetLoader for Database {
         fn read(&self, path: &URI<'_>) -> Result<Vector<u8>, ReadError> {
             // Note: The tests don't actually care about the value we get back.
             match path.scheme() {

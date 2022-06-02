@@ -3,13 +3,14 @@ use std::{collections::BTreeMap, sync::Arc};
 use uriparse::{URIBuilder, URIError, URI};
 
 use crate::{
+    asset_loader::AssetLoader,
     im::{OrdMap, Vector},
     parse::{
         CapabilityStage, Document, DocumentV1, ItemType, ModelStage, NotFound,
         ParseFailed, Path, ProcBlockStage, ResourceDeclaration, Stage,
         WellKnownPath, WrongItemType,
     },
-    BuildConfig, Environment, FileSystem, Text,
+    BuildConfig, Environment, Text,
 };
 
 /// The Rune compiler's YAML frontend.
@@ -23,7 +24,8 @@ use crate::{
 /// ```rust
 /// use hotg_rune_compiler::{
 ///     parse::{Frontend, FrontendStorage},
-///     EnvironmentStorage, FileSystem, ReadError, parse::Path, im::Vector,
+///     asset_loader::{AssetLoader, ReadError},
+///     parse::Path, EnvironmentStorage, im::Vector,
 /// };
 /// use uriparse::URI;
 ///
@@ -37,10 +39,11 @@ use crate::{
 ///
 /// impl salsa::Database for Database {}
 ///
-/// // The parsing process requires you to load proc-blocks and read files. You
-/// // can satisfy these dependencies by implementing the corresponding traits.
+/// // The parsing process requires you to load proc-blocks and other assets.
+/// // You can satisfy these dependencies by implementing the corresponding
+/// // traits.
 ///
-/// impl FileSystem for Database {
+/// impl AssetLoader for Database {
 ///     fn read(&self, path: &URI<'_>) -> Result<Vector<u8>, ReadError> {
 ///         todo!();
 ///     }
@@ -68,7 +71,7 @@ use crate::{
 /// let doc = db.parse().unwrap();
 /// ```
 #[salsa::query_group(FrontendStorage)]
-pub trait Frontend: Environment + FileSystem {
+pub trait Frontend: Environment + AssetLoader {
     /// The YAML document being parsed.
     #[salsa::input]
     fn src(&self) -> Text;
