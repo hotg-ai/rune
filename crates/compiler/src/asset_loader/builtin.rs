@@ -8,7 +8,7 @@ use crate::{
     im::Vector,
 };
 
-/// A [`FileLoader`] that uses a "pretty good" strategy for retrieving assets.
+/// An [`AssetLoader`] that loads assets using the basic solution.
 #[derive(Debug, Clone)]
 pub struct DefaultAssetLoader {
     client: Client,
