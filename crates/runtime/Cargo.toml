@@ -78,7 +78,5 @@ tflite = ["hotg-runecoral"]
 unstable_doc_cfg = []
 zune = ["wasmer", "zip"]
 
-[metadata]
-[metadata.docs]
-[metadata.docs.rs]
+[package.metadata.docs.rs]
 all-features = true
