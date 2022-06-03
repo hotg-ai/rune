@@ -1,0 +1,9 @@
+query LookupPackage($name: String!, $version: String = "latest") {
+  getPackageVersion(name: $name, version: $version) {
+    version
+    modules {
+      name
+      publicUrl
+		}
+  }
+}
