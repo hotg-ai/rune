@@ -15,7 +15,7 @@ use hotg_runecoral::{
 
 use crate::zune::{
     get_buffer_size, key, proc_block::Dimensions, ElementType, GraphContext,
-    State, TensorConstraint, TensorResult,
+    Node, State, TensorConstraint, TensorResult,
 };
 
 pub(crate) struct ModelNode {
@@ -184,9 +184,11 @@ impl ModelNode {
             shared_state: shared_state.clone(),
         })
     }
+}
 
+impl Node for ModelNode {
     #[tracing::instrument(skip_all, level = "debug")]
-    pub(crate) fn run(&mut self) -> Result<(), Error> {
+    fn run(&mut self) -> Result<(), Error> {
         // We are recreating the input_tensors and output_tensors every time
         // before predict because wasm linear memory might have changed
         // the locations TODO: There's an optimization that can happen

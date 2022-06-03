@@ -8,7 +8,7 @@ use wasmer::{ImportObject, Module, Store};
 
 use crate::zune::{
     key, runtime_v1, ArgumentType, DimensionsParam, ElementType, KernelError,
-    LogLevel, LogMetadata, LogValue, ModelInferError, ModelLoadError,
+    LogLevel, LogMetadata, LogValue, ModelInferError, ModelLoadError, Node,
     ProcBlockV1, Runtime, State, TensorParam, TensorResult,
 };
 
@@ -77,9 +77,11 @@ impl ProcBlockNode {
             shared_state: shared_state.clone(),
         })
     }
+}
 
+impl Node for ProcBlockNode {
     #[tracing::instrument(skip_all, level = "debug")]
-    pub(crate) fn run(&mut self) -> Result<(), Error> {
+    fn run(&mut self) -> Result<(), Error> {
         println!("Executing proc block: {:?} ", self.node_id);
         self.context.kernel(&self.node_id)?.map_err(|e| match e {
             KernelError::Other(s) => Error::msg(s),
@@ -109,7 +111,7 @@ impl ProcBlockNode {
 pub enum Never {}
 
 #[derive(Debug, Clone)]
-struct Metadata {
+pub(crate) struct Metadata {
     description: String,
     repository: String,
     homepage: String,
@@ -127,7 +129,7 @@ struct ArgumentMetadata {
 }
 
 #[derive(Debug, Clone)]
-struct TensorMetadata {}
+pub(crate) struct TensorMetadata {}
 
 #[derive(Debug, Clone)]
 pub(crate) enum Dimensions {

@@ -22,8 +22,12 @@ use crate::{
 wit_bindgen_wasmer::export!("../../../wit-files/rune/runtime-v1.wit");
 wit_bindgen_wasmer::import!("../../../wit-files/rune/proc-block-v1.wit");
 
+pub(crate) trait Node {
+    fn run(&mut self) -> Result<(), Error>;
+}
+
 #[derive(Debug, Default, Clone, wasmer::WasmerEnv)]
-struct Runtime {
+pub(crate) struct Runtime {
     shared_state: Arc<Mutex<State>>,
 }
 
@@ -37,10 +41,7 @@ pub(crate) struct State {
 pub struct ZuneEngine {
     input_nodes: Vec<String>,
     output_nodes: Vec<String>,
-    #[cfg(feature = "tflite")]
-    models: HashMap<String, tflite::ModelNode>,
-    procblocks: HashMap<String, ProcBlockNode>,
-    pipeline: IndexMap<String, Stage>,
+    nodes: HashMap<String, Box<dyn Node>>,
     processing_order: Vec<String>,
     shared_state: Arc<Mutex<State>>, // resources
 }
@@ -126,7 +127,7 @@ impl ZuneEngine {
 
         tracing::trace!(?input_tensors, ?output_tensors, "Loaded tensors");
 
-        let (model_contexts, procblock_contexts) = instantiate_nodes(
+        let nodes = instantiate_nodes(
             pipeline,
             read_zip_resource_by_path,
             &shared_state,
@@ -142,9 +143,7 @@ impl ZuneEngine {
         Ok(ZuneEngine {
             input_nodes: inputs,
             output_nodes: outputs,
-            models: model_contexts,
-            procblocks: procblock_contexts,
-            pipeline: pipeline.to_owned(),
+            nodes,
             processing_order,
             shared_state,
         })
@@ -156,24 +155,7 @@ impl ZuneEngine {
             let _span =
                 tracing::debug_span!("Running Stage", %stage_name).entered();
 
-            let stage = self.pipeline.get(stage_name).unwrap();
-            match stage {
-                #[cfg(feature = "tflite")]
-                Stage::Model(_) => {
-                    self.models.get_mut(stage_name).unwrap().run()?;
-                },
-                #[cfg(not(feature = "tflite"))]
-                Stage::Model(_) => {
-                    anyhow::bail!(
-                        "Unable to run \"{}\" because models aren't supported",
-                        stage_name
-                    );
-                },
-                Stage::Capability(_) | Stage::ProcBlock(_) => {
-                    self.procblocks.get_mut(stage_name).unwrap().run()?;
-                },
-                _ => {},
-            }
+            self.nodes.get_mut(stage_name).unwrap().run()?;
         }
         Ok(())
     }
@@ -341,10 +323,8 @@ fn instantiate_nodes(
     shared_state: &Arc<Mutex<State>>,
     input_tensors: HashMap<String, usize>,
     output_tensors: HashMap<String, usize>,
-) -> Result<(HashMap<String, ModelNode>, HashMap<String, ProcBlockNode>), Error>
-{
-    let mut models: HashMap<String, ModelNode> = HashMap::new();
-    let mut procblocks: HashMap<String, ProcBlockNode> = HashMap::new();
+) -> Result<HashMap<String, Box<dyn Node>>, Error> {
+    let mut nodes: HashMap<String, Box<dyn Node>> = HashMap::new();
 
     let runtime = Runtime {
         shared_state: shared_state.clone(),
@@ -360,16 +340,14 @@ fn instantiate_nodes(
                     read_zip_resource_by_path(&stage.capability.to_string())
                         .context("Unable to load the capability")?;
 
-                procblocks.insert(
-                    stage_name.to_string(),
-                    ProcBlockNode::load(
-                        &stage_name,
-                        &wasm,
-                        &runtime,
-                        &input_tensors,
-                        &output_tensors,
-                    )?,
-                );
+                let pb = ProcBlockNode::load(
+                    &stage_name,
+                    &wasm,
+                    &runtime,
+                    &input_tensors,
+                    &output_tensors,
+                )?;
+                nodes.insert(stage_name.to_string(), Box::new(pb));
             },
             Stage::Model(stage) => {
                 // Instantiating the model's inference context here because that
@@ -384,40 +362,68 @@ fn instantiate_nodes(
                             )
                         })?;
 
-                models.insert(
-                    stage_name.to_string(),
-                    ModelNode::load(
-                        &stage_name,
-                        &stage,
-                        &model_data,
-                        &shared_state,
-                        &input_tensors,
-                        &output_tensors,
-                    )?,
-                );
+                let model_format =
+                    stage.args.get("model-format").map(|f| f.to_string());
+                let node = load_model(
+                    &model_data,
+                    model_format.as_deref(),
+                    stage_name,
+                    stage,
+                    shared_state,
+                    &input_tensors,
+                    &output_tensors,
+                )?;
+                nodes.insert(stage_name.to_string(), node);
             },
             Stage::ProcBlock(stage) => {
                 let wasm =
                     read_zip_resource_by_path(&stage.proc_block.to_string())
                         .context("Unable to load the proc_block")?;
 
-                procblocks.insert(
-                    stage_name.to_string(),
-                    ProcBlockNode::load(
-                        &stage_name,
-                        &wasm,
-                        &runtime,
-                        &input_tensors,
-                        &output_tensors,
-                    )?,
-                );
+                let pb = ProcBlockNode::load(
+                    &stage_name,
+                    &wasm,
+                    &runtime,
+                    &input_tensors,
+                    &output_tensors,
+                )?;
+                nodes.insert(stage_name.to_string(), Box::new(pb));
             },
 
             _ => {}, // Do nothing for capabilities/outputs
         }
     }
 
-    Ok((models, procblocks))
+    Ok(nodes)
+}
+
+fn load_model(
+    model_data: &[u8],
+    model_format: Option<&str>,
+    stage_name: &str,
+    stage: &ModelStage,
+    shared_state: &Arc<Mutex<State>>,
+    input_tensors: &HashMap<String, usize>,
+    output_tensors: &HashMap<String, usize>,
+) -> Result<Box<dyn Node>, Error> {
+    match model_format {
+        #[cfg(feature = "tflite")]
+        Some("tflite") | None => {
+            let model = tflite::ModelNode::load(
+                stage_name,
+                stage,
+                model_data,
+                shared_state,
+                input_tensors,
+                output_tensors,
+            )?;
+
+            Ok(Box::new(model))
+        },
+        #[cfg(not(feature = "tflite"))]
+        None => anyhow::bail!("Unsupported model format, \"tflite\""),
+        Some(other) => anyhow::bail!("Unsupported model format, \"{}\"", other),
+    }
 }
 
 fn get_tensors(
