@@ -39,5 +39,5 @@ pub use crate::{
     engine::LoadError,
     outputs::OutputTensor,
     runtime::Runtime,
-    tensor::{ElementType, Tensor, TensorElement}
+    tensor::{ElementType, Tensor, TensorElement},
 };
