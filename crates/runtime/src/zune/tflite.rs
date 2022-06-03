@@ -103,13 +103,8 @@ impl ModelNode {
             while let Some(model_tensor) = model_tensors.next() {
                 let tensor_key = key(&node_id, Some(i));
                 let tensor_id =
-                    *pipeline_tensors.get(&tensor_key).ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "Unable to find pipeline_tensor for {} tensor \
-                             with key {}",
-                            &tensor_type,
-                            &tensor_key
-                        )
+                    *pipeline_tensors.get(&tensor_key).with_context(|| {
+                        format!( "Unable to find pipeline_tensor for {tensor_type} tensor with key {tensor_key}")
                     })?;
 
                 let tensor_name = model_tensor.name.to_str().ok();
@@ -117,7 +112,7 @@ impl ModelNode {
                     Some(tensor_name) if tensor_name.len() > 0 => {
                         tensor_name.to_string()
                     },
-                    _ => format!("{}", i).to_string(),
+                    _ => i.to_string(),
                 };
                 let tensor_constraint =
                     tensor_constraint_from_descriptor(&model_tensor, tensor_id);

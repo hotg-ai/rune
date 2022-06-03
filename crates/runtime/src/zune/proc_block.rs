@@ -7,15 +7,14 @@ use anyhow::{Context, Error};
 use wasmer::{ImportObject, Module, Store};
 
 use crate::zune::{
-    key, runtime_v1, ArgumentType, DimensionsParam, ElementType, KernelError,
-    LogLevel, LogMetadata, LogValue, ModelInferError, ModelLoadError, Node,
-    ProcBlockV1, Runtime, State, TensorParam, TensorResult,
+    key, runtime_v1, ArgumentType, DimensionsParam, ElementType, LogLevel,
+    LogMetadata, LogValue, ModelInferError, ModelLoadError, Node, ProcBlockV1,
+    Runtime, TensorParam, TensorResult,
 };
 
 pub(crate) struct ProcBlockNode {
     node_id: String,
     context: ProcBlockV1,
-    shared_state: Arc<Mutex<State>>,
 }
 
 impl ProcBlockNode {
@@ -74,7 +73,6 @@ impl ProcBlockNode {
         Ok(ProcBlockNode {
             node_id: node_id.to_string(),
             context: pb,
-            shared_state: shared_state.clone(),
         })
     }
 }
