@@ -15,7 +15,7 @@ use crate::callbacks::{Model, ModelMetadata};
 ///
 /// Supported formats are:
 /// - TensorFlow Lite
-#[cfg_attr(not(feature = "tflite"), doc("(not supported)"))]
+#[cfg_attr(not(feature = "tflite"), doc = "(not supported)")]
 pub fn default_model_handler(
     _id: u32,
     meta: &ModelMetadata<'_>,
