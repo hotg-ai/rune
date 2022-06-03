@@ -1501,7 +1501,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tracing",
- "tracing-subscriber",
  "wasm3",
  "wasmer",
  "wasmparser 0.83.0",
