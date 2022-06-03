@@ -20,8 +20,8 @@ use crate::{
     LoadError,
 };
 
-wit_bindgen_wasmer::export!("../../../wit-files/rune/runtime-v1.wit");
-wit_bindgen_wasmer::import!("../../../wit-files/rune/proc-block-v1.wit");
+wit_bindgen_wasmer::export!("../../wit-files/rune/runtime-v1.wit");
+wit_bindgen_wasmer::import!("../../wit-files/rune/proc-block-v1.wit");
 
 pub(crate) trait Node {
     fn run(&mut self) -> Result<(), Error>;
