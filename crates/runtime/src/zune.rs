@@ -61,6 +61,7 @@ pub struct ZuneEngine {
 }
 
 impl ZuneEngine {
+    #[tracing::instrument(skip_all)]
     pub fn load(binary: &[u8]) -> Result<Self, LoadError>
     where
         Self: Sized,
@@ -84,6 +85,8 @@ impl ZuneEngine {
         let runefile =
             String::from_utf8(read_zip_resource_by_path("Runefile.yml")?)
                 .context("Unable to read Runefile")?;
+        tracing::debug!(length=runefile.len(), "Read the Rune");
+
         let parsed_runefile =
             Document::parse(&runefile).context("Unable to parse Runefile")?;
         let pipeline = &parsed_runefile.to_v1().pipeline;
@@ -124,8 +127,7 @@ impl ZuneEngine {
         let tensor_constraints = tensors.iter().map(|_| None).collect();
         let shared_state = Arc::new(Mutex::new(State { tensors, tensor_constraints, graph_contexts }));
 
-        println!("input_tensors {:?} ", &input_tensors);
-        println!("output_tensors {:?} ", &output_tensors);
+        tracing::trace!(?input_tensors, ?output_tensors, "Loaded tensors");
 
         let (model_contexts, procblock_contexts) = instantiate_nodes(
             pipeline,
@@ -136,7 +138,7 @@ impl ZuneEngine {
         )
         .map_err(LoadError::Other)?;
 
-        println!(" execution order: {:?}", processing_order);
+        tracing::debug!(order=?processing_order, "Determined the execution order");
 
         // TODO: Validate and allocate input/output tensors
 
@@ -151,8 +153,11 @@ impl ZuneEngine {
         })
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn predict(&mut self) -> Result<(), Error> {
         for stage_name in &self.processing_order {
+            let _span = tracing::debug_span!("Running Stage", %stage_name).entered();
+
             let stage = self.pipeline.get(stage_name).unwrap();
             match stage {
                 Stage::Model(_) => {
@@ -263,6 +268,7 @@ impl ZuneEngine {
 }
 
 impl ModelNode {
+    #[tracing::instrument(skip(node_data, model_data, shared_state, input_tensors, output_tensors), level = "debug")]
     fn load(
         node_id: &str,
         node_data: &ModelStage,
@@ -395,6 +401,7 @@ impl ModelNode {
         })
     }
 
+    #[tracing::instrument(skip_all, level = "debug")]
     fn run(&mut self) -> Result<(), Error> {
         // We are recreating the input_tensors and output_tensors every time
         // before predict because wasm linear memory might have changed
@@ -446,6 +453,7 @@ impl ModelNode {
 }
 
 impl ProcBlockNode {
+    #[tracing::instrument(skip_all, level = "debug", fields(%node_id))]
     fn load(
         node_id: &str,
         wasm: &[u8],
@@ -497,6 +505,7 @@ impl ProcBlockNode {
         })
     }
 
+    #[tracing::instrument(skip_all, level = "debug")]
     fn run(&mut self) -> Result<(), Error> {
         println!("Executing proc block: {:?} ", self.node_id);
         // impl stderr for KernelError
@@ -907,51 +916,54 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn register_node(&mut self, _metadata: &Self::Metadata) { todo!() }
 
+    #[tracing::instrument(skip_all, level = "debug")]
     fn graph_context_for_node(
         &mut self,
-        _node_id: &str,
+        node_id: &str,
     ) -> Option<Self::GraphContext> {
         self.shared_state
             .lock()
             .unwrap()
             .graph_contexts
-            .get(_node_id)?;
+            .get(node_id)?;
 
-        Some(_node_id.to_string())
+        Some(node_id.to_string())
     }
 
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     fn graph_context_get_argument(
         &mut self,
-        _self_: &Self::GraphContext,
-        _name: &str,
+        ctx: &Self::GraphContext,
+        name: &str,
     ) -> Option<String> {
         self.shared_state
             .lock()
             .unwrap()
             .graph_contexts
-            .get(_self_)
-            .and_then(|c| c.arguments.get(_name).and_then(|v| Some(v.clone()) ))
+            .get(ctx)
+            .and_then(|c| c.arguments.get(name).and_then(|v| Some(v.clone()) ))
     }
 
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     fn graph_context_add_input_tensor(
         &mut self,
-        _self_: &Self::GraphContext,
-        _name: &str,
-        _element_type: ElementType,
-        _dimensions: DimensionsParam<'_>,
+        ctx: &Self::GraphContext,
+        name: &str,
+        element_type: ElementType,
+        dimensions: DimensionsParam<'_>,
     ) {
         self.shared_state
             .lock()
             .unwrap()
             .graph_contexts
-            .get_mut(_self_)
+            .get_mut(ctx)
             .and_then(|c| {
                 c.input_tensors.insert(
-                    _name.to_string(),
+                    name.to_string(),
                     TensorConstraint {
                         tensor_id: None,
-                        element_type: _element_type,
-                        dimensions: match _dimensions {
+                        element_type,
+                        dimensions: match dimensions {
                             DimensionsParam::Dynamic => Dimensions::Dynamic,
                             DimensionsParam::Fixed(shape) => Dimensions::Fixed(shape.iter().map(|&i| i.get() as usize).collect())
                         }
@@ -959,25 +971,26 @@ impl runtime_v1::RuntimeV1 for Runtime {
                 });
     }
 
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     fn graph_context_add_output_tensor(
         &mut self,
-        _self_: &Self::GraphContext,
-        _name: &str,
-        _element_type: ElementType,
-        _dimensions: DimensionsParam<'_>,
+        ctx: &Self::GraphContext,
+        name: &str,
+        element_type: ElementType,
+        dimensions: DimensionsParam<'_>,
     ) {
         self.shared_state
             .lock()
             .unwrap()
             .graph_contexts
-            .get_mut(_self_)
+            .get_mut(ctx)
             .and_then(|c| {
                 c.output_tensors.insert(
-                    _name.to_string(),
+                    name.to_string(),
                     TensorConstraint {
                         tensor_id: None,
-                        element_type: _element_type,
-                        dimensions: match _dimensions {
+                        element_type: element_type,
+                        dimensions: match dimensions {
                             DimensionsParam::Dynamic => Dimensions::Dynamic,
                             DimensionsParam::Fixed(shape) => Dimensions::Fixed(shape.iter().map(|&i| i.get() as usize).collect())
                         }
@@ -985,38 +998,41 @@ impl runtime_v1::RuntimeV1 for Runtime {
                 });
     }
 
+    #[tracing::instrument(skip_all, level = "debug")]
     fn kernel_context_for_node(
         &mut self,
-        _node_id: &str,
+        node_id: &str,
     ) -> Option<Self::KernelContext> {
         self.shared_state.lock()
             .unwrap()
             .graph_contexts
-            .get(_node_id)?;
-        Some(_node_id.to_string())
+            .get(node_id)?;
+        Some(node_id.to_string())
     }
 
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     fn kernel_context_get_argument(
         &mut self,
-        _self_: &Self::KernelContext,
+        ctx: &Self::KernelContext,
         name: &str,
     ) -> Option<String> {
         self.shared_state
             .lock()
             .unwrap()
             .graph_contexts
-            .get(_self_)
+            .get(ctx)
             .and_then(|c| c.arguments.get(name).and_then(|v| Some(v.clone()) ))
     }
 
+    #[tracing::instrument(skip(self, ctx), level = "debug")]
     fn kernel_context_get_input_tensor(
         &mut self,
-        _self_: &Self::KernelContext,
+        ctx: &Self::KernelContext,
         name: &str,
     ) -> Option<TensorResult> {
         let state = self.shared_state.lock().unwrap();
 
-        let tensor_id = state.graph_contexts.get(_self_)
+        let tensor_id = state.graph_contexts.get(ctx)
                              .and_then(|c| {
                                       c.input_tensors
                                        .get(name)
@@ -1029,9 +1045,10 @@ impl runtime_v1::RuntimeV1 for Runtime {
         }
     }
 
+    #[tracing::instrument(skip(self, ctx, buffer), level = "debug")]
     fn kernel_context_set_output_tensor(
         &mut self,
-        _self_: &Self::KernelContext,
+        ctx: &Self::KernelContext,
         name: &str,
         TensorParam {
             element_type,
@@ -1041,7 +1058,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
     ) {
         let mut state = self.shared_state.lock().unwrap();
 
-        let tensor_id = state.graph_contexts.get(_self_)
+        let tensor_id = state.graph_contexts.get(ctx)
                              .and_then(|c| {
                                       c.output_tensors
                                        .get(name)
