@@ -361,7 +361,7 @@ impl ModelNode {
                     },
                     Some(_) => {},
                     ref mut other => {
-                        other.insert(model_tensor);
+                        *other = Some(model_tensor);
                     },
                 }
 
@@ -788,27 +788,27 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn metadata_set_description(
         &mut self,
-        _self_: &Self::Metadata,
+        _ctx: &Self::Metadata,
         _description: &str,
     ) {
         todo!()
     }
 
-    fn metadata_set_repository(&mut self, _self_: &Self::Metadata, _url: &str) {
+    fn metadata_set_repository(&mut self, _ctx: &Self::Metadata, _url: &str) {
         todo!()
     }
 
-    fn metadata_set_homepage(&mut self, _self_: &Self::Metadata, _url: &str) {
+    fn metadata_set_homepage(&mut self, _ctx: &Self::Metadata, _url: &str) {
         todo!()
     }
 
-    fn metadata_add_tag(&mut self, _self_: &Self::Metadata, _tag: &str) {
+    fn metadata_add_tag(&mut self, _ctx: &Self::Metadata, _tag: &str) {
         todo!()
     }
 
     fn metadata_add_argument(
         &mut self,
-        _self_: &Self::Metadata,
+        _ctx: &Self::Metadata,
         _arg: &Self::ArgumentMetadata,
     ) {
         todo!()
@@ -816,7 +816,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn metadata_add_input(
         &mut self,
-        _self_: &Self::Metadata,
+        _ctx: &Self::Metadata,
         _metadata: &Self::TensorMetadata,
     ) {
         todo!()
@@ -824,7 +824,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn metadata_add_output(
         &mut self,
-        _self_: &Self::Metadata,
+        _ctx: &Self::Metadata,
         _metadata: &Self::TensorMetadata,
     ) {
         todo!()
@@ -836,7 +836,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn argument_metadata_set_description(
         &mut self,
-        _self_: &Self::ArgumentMetadata,
+        _ctx: &Self::ArgumentMetadata,
         _description: &str,
     ) {
         todo!()
@@ -844,7 +844,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn argument_metadata_set_default_value(
         &mut self,
-        _self_: &Self::ArgumentMetadata,
+        _ctx: &Self::ArgumentMetadata,
         _default_value: &str,
     ) {
         todo!()
@@ -852,7 +852,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn argument_metadata_add_hint(
         &mut self,
-        _self_: &Self::ArgumentMetadata,
+        _ctx: &Self::ArgumentMetadata,
         _hint: &Self::ArgumentHint,
     ) {
         todo!()
@@ -864,7 +864,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn tensor_metadata_set_description(
         &mut self,
-        _self_: &Self::TensorMetadata,
+        _ctx: &Self::TensorMetadata,
         _description: &str,
     ) {
         todo!()
@@ -872,7 +872,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn tensor_metadata_add_hint(
         &mut self,
-        _self_: &Self::TensorMetadata,
+        _ctx: &Self::TensorMetadata,
         _hint: &Self::TensorHint,
     ) {
         todo!()
@@ -1114,15 +1114,15 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn kernel_context_get_global_input(
         &mut self,
-        _self_: &Self::KernelContext,
-        name: &str,
+        _ctx: &Self::KernelContext,
+        _name: &str,
     ) -> Option<TensorResult> {
         todo!()
     }
 
     fn kernel_context_set_global_output(
         &mut self,
-        _self_: &Self::KernelContext,
+        _ctx: &Self::KernelContext,
         _name: &str,
         _tensor: TensorParam<'_>,
     ) {
@@ -1131,25 +1131,25 @@ impl runtime_v1::RuntimeV1 for Runtime {
 
     fn model_load(
         &mut self,
-        model_format: &str,
-        model: &[u8],
-        arguments: Vec<(&str, &str)>,
+        _: &str,
+        _: &[u8],
+        _: Vec<(&str, &str)>,
     ) -> Result<Self::Model, ModelLoadError> {
         todo!()
     }
 
-    fn model_inputs(&mut self, self_: &Self::Model) -> Vec<runtime_v1::Shape> {
+    fn model_inputs(&mut self, _: &Self::Model) -> Vec<runtime_v1::Shape> {
         todo!()
     }
 
-    fn model_outputs(&mut self, self_: &Self::Model) -> Vec<runtime_v1::Shape> {
+    fn model_outputs(&mut self, _: &Self::Model) -> Vec<runtime_v1::Shape> {
         todo!()
     }
 
     fn model_infer(
         &mut self,
-        self_: &Self::Model,
-        inputs: Vec<TensorParam<'_>>,
+        _: &Self::Model,
+        _: Vec<TensorParam<'_>>,
     ) -> Result<Vec<TensorResult>, ModelInferError> {
         todo!()
     }
