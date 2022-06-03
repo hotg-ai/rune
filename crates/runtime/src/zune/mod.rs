@@ -4,6 +4,7 @@ mod tflite;
 
 use std::{
     collections::HashMap,
+    fmt::{self, Display, Formatter},
     io::{Cursor, Read},
     sync::{Arc, Mutex},
 };
@@ -63,7 +64,7 @@ impl ZuneEngine {
                     })?;
                 let mut buffer = Vec::new();
                 requested_file.read_to_end(&mut buffer).with_context(|| {
-                    anyhow!("Unable to read {} from zune", path)
+                    format!("Unable to read {} from zune", path)
                 })?;
                 Ok(buffer)
             };
@@ -95,7 +96,7 @@ impl ZuneEngine {
 
         let (tensors, input_tensors, output_tensors, processing_order) =
             get_tensors(&inputs, &outputs, &pipeline)
-                .context(anyhow!("Unable to map out input/output tensors"))?;
+                .context("Unable to map out input/output tensors")?;
 
         let graph_contexts = pipeline
             .iter()
@@ -160,11 +161,11 @@ impl ZuneEngine {
         Ok(())
     }
 
-    pub fn input_nodes(&self) -> &'_ Vec<std::string::String> {
+    pub fn input_nodes(&self) -> &[String] {
         return &self.input_nodes;
     }
 
-    pub fn output_nodes(&self) -> &'_ Vec<std::string::String> {
+    pub fn output_nodes(&self) -> &[String] {
         return &self.output_nodes;
     }
 
@@ -184,7 +185,7 @@ impl ZuneEngine {
                     .collect();
                 Some(tensor_list)
             })
-            .ok_or(anyhow!("Unable to get input tensors"))
+            .context("Unable to get input tensors")
     }
 
     pub fn get_input_tensor(
@@ -241,7 +242,7 @@ impl ZuneEngine {
                     .collect();
                 Some(tensor_list)
             })
-            .ok_or(anyhow!("Unable to get input tensors"))
+            .context("Unable to get input tensors")
     }
 
     pub fn get_output_tensor(
@@ -356,7 +357,7 @@ fn instantiate_nodes(
                 let model_data =
                     read_zip_resource_by_path(&stage.model.to_string())
                         .with_context(|| {
-                            anyhow!(
+                            format!(
                                 "Unable to read model from zune {}",
                                 stage.model
                             )
@@ -366,7 +367,7 @@ fn instantiate_nodes(
                     stage.args.get("model-format").map(|f| f.to_string());
                 let node = load_model(
                     &model_data,
-                    model_format.as_deref(),
+                    model_format.as_deref().unwrap_or("tflite"),
                     stage_name,
                     stage,
                     shared_state,
@@ -399,7 +400,7 @@ fn instantiate_nodes(
 
 fn load_model(
     model_data: &[u8],
-    model_format: Option<&str>,
+    model_format: &str,
     stage_name: &str,
     stage: &ModelStage,
     shared_state: &Arc<Mutex<State>>,
@@ -408,7 +409,7 @@ fn load_model(
 ) -> Result<Box<dyn Node>, Error> {
     match model_format {
         #[cfg(feature = "tflite")]
-        Some("tflite") | None => {
+        "tflite" | hotg_rune_core::TFLITE_MIMETYPE => {
             let model = tflite::ModelNode::load(
                 stage_name,
                 stage,
@@ -420,9 +421,7 @@ fn load_model(
 
             Ok(Box::new(model))
         },
-        #[cfg(not(feature = "tflite"))]
-        None => anyhow::bail!("Unsupported model format, \"tflite\""),
-        Some(other) => anyhow::bail!("Unsupported model format, \"{}\"", other),
+        other => anyhow::bail!("Unsupported model format, \"{}\"", other),
     }
 }
 
@@ -491,9 +490,10 @@ fn get_tensors(
         for i in 0..item.1.inputs().len() {
             let input = &item.1.inputs()[i];
             let input_key = key(&input.name, input.index);
-            let &input_tensor_index = output_tensors.get(&input_key).context(
-                anyhow!("Invalid input key specified: {}", &input_key),
-            )?;
+            let &input_tensor_index =
+                output_tensors.get(&input_key).with_context(|| {
+                    format!("Invalid input key specified: {}", &input_key)
+                })?;
             input_tensors.insert(key(stage_name, Some(i)), input_tensor_index);
         }
     }
@@ -505,4 +505,91 @@ fn get_tensors(
 
 fn key(node_name: &str, tensor_index: Option<usize>) -> String {
     format!("{}.{}", node_name, tensor_index.or(Some(0)).unwrap())
+}
+
+impl std::error::Error for proc_block_v1::GraphError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            GraphError::InvalidArgument(InvalidArgument { reason, .. }) => {
+                Some(reason)
+            },
+            _ => None,
+        }
+    }
+}
+
+impl Display for proc_block_v1::GraphError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            GraphError::Other(msg) => Display::fmt(msg, f),
+            GraphError::InvalidArgument(InvalidArgument { name, .. }) => {
+                write!(f, "The \"{}\" argument is invalid", name)
+            },
+            GraphError::MissingContext => {
+                write!(f, "Unable to retrieve the graph context")
+            },
+        }
+    }
+}
+
+impl std::error::Error for proc_block_v1::KernelError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            KernelError::InvalidArgument(InvalidArgument {
+                reason, ..
+            }) => Some(reason),
+            KernelError::InvalidInput(InvalidInput { reason, .. }) => {
+                Some(reason)
+            },
+            _ => None,
+        }
+    }
+}
+
+impl Display for proc_block_v1::KernelError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            KernelError::Other(s) => Display::fmt(s, f),
+            KernelError::InvalidArgument(InvalidArgument { name, .. }) => {
+                write!(f, "The \"{}\" argument is invalid", name)
+            },
+            KernelError::InvalidInput(InvalidInput { name, .. }) => {
+                write!(f, "The \"{}\" input is invalid", name)
+            },
+            KernelError::MissingContext => {
+                write!(f, "Unable to retrieve the kernel context")
+            },
+        }
+    }
+}
+
+impl std::error::Error for BadArgumentReason {}
+
+impl Display for BadArgumentReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BadArgumentReason::Other(msg) => Display::fmt(msg, f),
+            BadArgumentReason::NotFound => write!(f, "Argument not found"),
+            BadArgumentReason::InvalidValue(msg) => {
+                write!(f, "Invalid argument value: {}", msg)
+            },
+        }
+    }
+}
+
+impl std::error::Error for BadInputReason {}
+
+impl Display for BadInputReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BadInputReason::Other(msg) => Display::fmt(msg, f),
+            BadInputReason::NotFound => write!(f, "Input not found"),
+            BadInputReason::UnsupportedShape => {
+                write!(f, "Unsupported tensor shape")
+            },
+            BadInputReason::InvalidValue(msg) => {
+                write!(f, "Invalid argument value: {}", msg)
+            },
+        }
+    }
 }

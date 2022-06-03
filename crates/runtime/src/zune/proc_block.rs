@@ -82,28 +82,9 @@ impl ProcBlockNode {
 impl Node for ProcBlockNode {
     #[tracing::instrument(skip_all, level = "debug")]
     fn run(&mut self) -> Result<(), Error> {
-        println!("Executing proc block: {:?} ", self.node_id);
-        self.context.kernel(&self.node_id)?.map_err(|e| match e {
-            KernelError::Other(s) => Error::msg(s),
-            KernelError::InvalidArgument(a) => {
-                anyhow::anyhow!(
-                    "Invalid argument for {}: {}",
-                    &self.node_id,
-                    a.name
-                )
-            },
-            KernelError::InvalidInput(i) => {
-                anyhow::anyhow!(
-                    "Invalid input for {}: {}",
-                    &self.node_id,
-                    i.name
-                )
-            },
-            KernelError::MissingContext => anyhow::anyhow!(
-                "Unable to retrieve kernel context for {}:",
-                &self.node_id
-            ),
-        })
+        self.context.kernel(&self.node_id)??;
+
+        Ok(())
     }
 }
 
