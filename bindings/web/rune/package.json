@@ -1,6 +1,6 @@
 {
   "name": "@hotg-ai/rune",
-  "version": "0.12.0-rc.0",
+  "version": "0.12.0-rc.1",
   "description": "Execute Runes inside a JavaScript environment.",
   "repository": "https://github.com/hotg-ai/rune",
   "homepage": "https://hotg.dev/",
@@ -24,8 +24,8 @@
     "pino": "^7.11.0"
   },
   "devDependencies": {
-    "@parcel/packager-ts": "2.5.0",
-    "@parcel/transformer-typescript-types": "2.5.0",
+    "@parcel/packager-ts": "2.6.0",
+    "@parcel/transformer-typescript-types": "^2.6.0",
     "@types/jest": "^27.0.0",
     "@types/js-yaml": "^4.0.5",
     "jest": "^27.0.6",

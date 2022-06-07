@@ -174,7 +174,7 @@ class ArgumentMetadataBuilder implements runtime_v1.ArgumentMetadata {
   }
 
   setDefaultValue(defaultValue: string): void {
-    this.meta.defaultValue;
+    this.meta.defaultValue = defaultValue;
   }
 
   addHint(hint: runtime_v1.ArgumentHint): void {
