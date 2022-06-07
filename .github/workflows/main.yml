@@ -36,7 +36,7 @@ jobs:
       - name: Setup bazel
         uses: jwlawson/actions-setup-bazel@v1
         with:
-          bazel-version: '3.7.2'
+          bazel-version: "3.7.2"
       - uses: maxim-lobanov/setup-xcode@v1
         if: runner.os == 'macOS'
         with:
@@ -148,7 +148,7 @@ jobs:
       - name: Setup Rust
         run: rustup show
       - name: check @hotg-ai/rune
-        run: yarn install && yarn build && yarn test
+        run: yarn install && yarn ci
         working-directory: bindings/web/rune
       - name: check @hotg-ai/rune-tfjs-v3
         run: yarn install && yarn build && yarn test
@@ -159,4 +159,3 @@ jobs:
       - name: check @hotg-ai/rune-tflite
         run: yarn install && yarn build
         working-directory: bindings/web/tflite
-

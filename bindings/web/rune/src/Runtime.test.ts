@@ -1,97 +1,114 @@
-import child_process from "child_process";
-import path from "path";
-import fs from "fs";
-import { Runtime, Capability, Output } from "./Runtime";
-
-const decoder = new TextDecoder("utf8");
+import yaml from "js-yaml";
+import { TensorDescriptor, Tensors } from "./proc_blocks";
+import { DocumentV1 } from "./Runefile";
+import { Node } from ".";
+import { Runtime, create } from "./Runtime";
+import { ElementType, Tensor } from ".";
+import { floatTensor } from "./utils";
+import { testLogger } from "./__test__";
 
 describe("Runtime", () => {
-    const noopRune = buildExample("noop");
+  let logger = testLogger();
 
-    it("can load the noop Rune", async () => {
-        const imports = {
-            createCapability: () => new RawCapability(),
-            createOutput: () => new SpyOutput([]),
-            createModel: () => { throw new Error(); },
-            log: (msg: any) => { },
-        };
+  const src = `
+      version: 1
+      image: runicos/base
+      pipeline:
+        rand:
+          capability: RAW
+          outputs:
+            - type: F32
+              dimensions:
+                - 1
+                - 1
+          args:
+            length: "4"
+        mod360:
+          proc-block: proc_blocks/mod360
+          inputs:
+            - rand
+          outputs:
+            - type: F32
+              dimensions:
+                - 1
+                - 1
+          args:
+            modulus: "360"
+        sine:
+          model: models/sine
+          inputs:
+            - mod360
+          outputs:
+            - type: F32
+              dimensions:
+                - 1
+                - 1
+        serial:
+          out: serial
+          inputs:
+            - sine
+      resources: {}`;
+  const runefile = yaml.load(src) as DocumentV1;
 
-        const runtime = await Runtime.load(noopRune, imports);
+  const f32_1x1 = {
+    elementType: ElementType.F32,
+    dimensions: { tag: "fixed", val: Uint32Array.from([1]) },
+  } as const;
 
-        expect(runtime).not.toBeNull();
+  const rand = dummyProcBlock([], [{ name: "output", ...f32_1x1 }], {
+    output: floatTensor([1]),
+  });
+  const mod360 = dummyProcBlock(
+    [{ name: "input", ...f32_1x1 }],
+    [{ name: "output", ...f32_1x1 }],
+    { output: floatTensor([2]) }
+  );
+
+  const sine = dummyNode(
+    [{ name: "input", ...f32_1x1 }],
+    [{ name: "output", ...f32_1x1 }],
+    { output: floatTensor([3]) }
+  );
+
+  it("can run the sine Rune", async () => {
+    const procBlocks = { rand, mod360 };
+    const models = { sine };
+
+    const runtime: Runtime = create(runefile, procBlocks, models, logger);
+
+    runtime.setInput("rand", floatTensor([0]));
+
+    await runtime.infer();
+
+    const outputs = runtime.outputs;
+    expect(outputs).toMatchObject({
+      serial: [floatTensor([3])],
     });
-
-    it("can run the noop Rune", async () => {
-        const calls: Uint8Array[] = [];
-        const imports = {
-            createCapability: () => new RawCapability([
-                1, 0, 0, 0,
-                2, 0, 0, 0,
-                3, 0, 0, 0,
-                4, 0, 0, 0,
-            ]),
-            createOutput: () => new SpyOutput(calls),
-            createModel: () => { throw new Error(); },
-            log: (msg: any) => { },
-        };
-        const runtime = await Runtime.load(noopRune, imports);
-
-        runtime.call();
-
-        expect(calls).toHaveLength(1);
-        const output = decoder.decode(calls[0]);
-        expect(JSON.parse(output)).toEqual({
-            channel: 1,
-            dimensions: [4,],
-            elements: [1, 2, 3, 4,],
-            type_name: "i32",
-        });
-    });
+  });
 });
 
-class RawCapability implements Capability {
-    data: Uint8Array = new Uint8Array();
-
-    constructor(data?: number[]) {
-        if (data) {
-            this.data = Uint8Array.from(data);
-        }
-    }
-
-    setParameter(name: string, value: number): void {
-        throw new Error("Method not implemented.");
-    }
-    generate(dest: Uint8Array): void {
-        dest.set(this.data);
-    }
+function dummyProcBlock(
+  inputs: TensorDescriptor[],
+  outputs: TensorDescriptor[],
+  results: Record<string, Tensor>
+) {
+  return {
+    graph: (): Tensors => {
+      return { inputs, outputs };
+    },
+    evaluate: () => results,
+  };
 }
 
-class SpyOutput implements Output {
-    received: Uint8Array[];
-    constructor(received: Uint8Array[]) {
-        this.received = received;
-    }
-
-    consume(data: Uint8Array): void {
-        this.received.push(data);
-    }
-}
-
-function buildExample(name: string): ArrayBuffer {
-    const gitOutput = child_process.execSync("git rev-parse --show-toplevel");
-    const repoRoot = decoder.decode(gitOutput).trim();
-
-    const exampleDir = path.join(repoRoot, "examples", name);
-    const runefile = path.join(exampleDir, "Runefile.yml");
-
-    child_process.execSync(`cargo run --bin rune --quiet -- build ${runefile} --quiet --unstable --rune-repo-dir ${repoRoot}`, {
-        cwd: repoRoot,
-        env: {
-            RUST_LOG: "warning",
-            ...process.env
-        },
-    });
-    const rune = path.join(exampleDir, name + ".rune");
-
-    return fs.readFileSync(rune);
+function dummyNode(
+  inputs: TensorDescriptor[],
+  outputs: TensorDescriptor[],
+  results: Record<string, Tensor>
+): Node {
+  return {
+    graph: async (): Promise<Tensors> => {
+      return { inputs, outputs };
+    },
+    infer: () => Promise.resolve(results),
+  };
 }
