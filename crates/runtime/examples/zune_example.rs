@@ -4,7 +4,7 @@ use hotg_rune_runtime::zune::{ElementType, TensorResult, ZuneEngine};
 fn main() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
 
-    let filename = args.get(1).map(|s| s.as_str()).unwrap_or("sine.rune");
+    let filename = args.get(1).map(|s| s.as_str()).unwrap_or("/home/helios/Code/hotg/rune/crates/runtime/examples/sine.rune");
 
     let sine_zune = std::fs::read(&filename)
         .with_context(|| format!("Unable to read \"{filename}\""))?;
@@ -46,6 +46,13 @@ fn main() -> Result<(), Error> {
         "output tensor for sine: => {:?}",
         zune_engine.get_output_tensor("sine", "Identity")
     );
+
+    for node in zune_engine.output_nodes() {
+        let input_tensor_names = zune_engine.get_input_tensor_names(node)?;
+        for tensor_name in &input_tensor_names {
+            println!("Output {:?} {:?}: {:?}", node, tensor_name, zune_engine.get_input_tensor(node, tensor_name));
+        }
+    }
 
     Ok(())
 }
