@@ -3,7 +3,6 @@ mod proc_block;
 mod tflite;
 
 use std::{
-    collections::HashMap,
     fmt::{self, Display, Formatter},
     io::{Cursor, Read},
     sync::{Arc, Mutex},
@@ -36,13 +35,13 @@ pub(crate) struct Runtime {
 pub(crate) struct State {
     pub(crate) tensors: Vec<Option<TensorResult>>,
     pub(crate) tensor_constraints: Vec<Option<TensorConstraint>>,
-    pub(crate) graph_contexts: HashMap<String, GraphContext>,
+    pub(crate) graph_contexts: IndexMap<String, GraphContext>,
 }
 
 pub struct ZuneEngine {
     input_nodes: Vec<String>,
     output_nodes: Vec<String>,
-    nodes: HashMap<String, Box<dyn Node>>,
+    nodes: IndexMap<String, Box<dyn Node>>,
     processing_order: Vec<String>,
     shared_state: Arc<Mutex<State>>, // resources
 }
@@ -112,8 +111,8 @@ impl ZuneEngine {
                     k.clone(),
                     GraphContext {
                         arguments,
-                        input_tensors: HashMap::new(),
-                        output_tensors: HashMap::new(),
+                        input_tensors: IndexMap::new(),
+                        output_tensors: IndexMap::new(),
                     },
                 )
             })
@@ -324,10 +323,10 @@ fn instantiate_nodes(
     pipeline: &IndexMap<String, Stage>,
     mut read_zip_resource_by_path: impl FnMut(&str) -> Result<Vec<u8>, Error>,
     shared_state: &Arc<Mutex<State>>,
-    input_tensors: HashMap<String, usize>,
-    output_tensors: HashMap<String, usize>,
-) -> Result<HashMap<String, Box<dyn Node>>, Error> {
-    let mut nodes: HashMap<String, Box<dyn Node>> = HashMap::new();
+    input_tensors: IndexMap<String, usize>,
+    output_tensors: IndexMap<String, usize>,
+) -> Result<IndexMap<String, Box<dyn Node>>, Error> {
+    let mut nodes: IndexMap<String, Box<dyn Node>> = IndexMap::new();
 
     let runtime = Runtime {
         shared_state: shared_state.clone(),
@@ -424,8 +423,8 @@ fn load_model(
     stage_name: &str,
     stage: &ModelStage,
     shared_state: &Arc<Mutex<State>>,
-    input_tensors: &HashMap<String, usize>,
-    output_tensors: &HashMap<String, usize>,
+    input_tensors: &IndexMap<String, usize>,
+    output_tensors: &IndexMap<String, usize>,
 ) -> Result<Box<dyn Node>, Error> {
     match model_format {
         #[cfg(feature = "tflite")]
@@ -452,8 +451,8 @@ fn get_tensors(
 ) -> Result<
     (
         Vec<Option<TensorResult>>,
-        HashMap<String, usize>,
-        HashMap<String, usize>,
+        IndexMap<String, usize>,
+        IndexMap<String, usize>,
         Vec<String>,
     ),
     Error,
@@ -461,8 +460,8 @@ fn get_tensors(
     let mut nodes_to_visit = outputs.clone();
     let mut nodes_visited = Vec::new();
     let mut tensors: Vec<Option<TensorResult>> = Vec::new();
-    let mut output_tensors: HashMap<String, usize> = HashMap::new();
-    let mut input_tensors: HashMap<String, usize> = HashMap::new();
+    let mut output_tensors: IndexMap<String, usize> = IndexMap::new();
+    let mut input_tensors: IndexMap<String, usize> = IndexMap::new();
 
     // For Inputs/Capabilities - We create an input so as to be able to inject inputs
     for item in inputs {

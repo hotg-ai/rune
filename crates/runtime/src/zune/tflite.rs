@@ -1,9 +1,10 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{HashSet},
     sync::{Arc, Mutex},
 };
 
+use indexmap::IndexMap;
 use anyhow::{Context, Error};
 use hotg_rune_compiler::parse::ModelStage;
 use hotg_rune_core::TFLITE_MIMETYPE;
@@ -41,8 +42,8 @@ impl ModelNode {
         node_data: &ModelStage,
         model_data: &[u8],
         shared_state: &Arc<Mutex<State>>,
-        input_tensors: &HashMap<String, usize>,
-        output_tensors: &HashMap<String, usize>,
+        input_tensors: &IndexMap<String, usize>,
+        output_tensors: &IndexMap<String, usize>,
     ) -> Result<ModelNode, Error> {
         // Create Inference Context
         let context = InferenceContext::create_context(
@@ -89,14 +90,14 @@ impl ModelNode {
                                 model_tensors: &mut dyn Iterator<
             Item = RuneCoralTensorDescriptor,
         >,
-                                pipeline_tensors: &HashMap<String, usize>|
+                                pipeline_tensors: &IndexMap<String, usize>|
          -> Result<
-            (HashSet<usize>, HashMap<String, TensorConstraint>),
+            (HashSet<usize>, IndexMap<String, TensorConstraint>),
             Error,
         > {
             let mut tensor_indices: HashSet<usize> = HashSet::new();
-            let mut tensor_constraints: HashMap<String, TensorConstraint> =
-                HashMap::new();
+            let mut tensor_constraints: IndexMap<String, TensorConstraint> =
+                IndexMap::new();
             let mut i = 0;
             let mut s = shared_state.lock().unwrap();
 

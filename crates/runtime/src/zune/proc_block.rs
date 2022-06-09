@@ -1,7 +1,7 @@
 use std::{
-    collections::HashMap,
     sync::{Arc, Mutex},
 };
+use indexmap::IndexMap;
 
 use anyhow::{Context, Error};
 use wasmer::{ImportObject, Module, Store};
@@ -23,8 +23,8 @@ impl ProcBlockNode {
         node_id: &str,
         wasm: &[u8],
         runtime: &Runtime,
-        input_tensors: &HashMap<String, usize>,
-        output_tensors: &HashMap<String, usize>,
+        input_tensors: &IndexMap<String, usize>,
+        output_tensors: &IndexMap<String, usize>,
     ) -> Result<ProcBlockNode, Error> {
         let shared_state = runtime.shared_state.clone();
         let store = Store::default();
@@ -125,9 +125,9 @@ pub(crate) struct TensorConstraint {
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct GraphContext {
-    pub arguments: HashMap<String, String>,
-    pub input_tensors: HashMap<String, TensorConstraint>,
-    pub output_tensors: HashMap<String, TensorConstraint>,
+    pub arguments: IndexMap<String, String>,
+    pub input_tensors: IndexMap<String, TensorConstraint>,
+    pub output_tensors: IndexMap<String, TensorConstraint>,
 }
 
 impl runtime_v1::RuntimeV1 for Runtime {
