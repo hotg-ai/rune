@@ -35,7 +35,7 @@ pub struct DefaultAssetLoader {
 impl DefaultAssetLoader {
     pub fn new(root_directory: impl Into<PathBuf>) -> Self {
         DefaultAssetLoader {
-            client: Client::builder().danger_accept_invalid_certs(true).build()?,
+            client: Client::builder().danger_accept_invalid_certs(true).build().or::<reqwest::Client>(Ok(Client::new())).unwrap(),
             root_directory: root_directory.into(),
         }
     }
