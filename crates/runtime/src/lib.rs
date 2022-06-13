@@ -32,6 +32,9 @@ mod tensor;
 pub mod builtins;
 mod outputs;
 
+#[cfg(feature = "zune")]
+pub mod zune;
+
 pub use crate::{
     callbacks::{Model, ModelMetadata, NodeMetadata},
     engine::LoadError,

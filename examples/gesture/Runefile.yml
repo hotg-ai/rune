@@ -52,11 +52,19 @@ pipeline:
           - 1
     args:
       wordlist: |
-          Wing
-          Ring
-          Slope
-          Unknown
+        Wing
+        Ring
+        Slope
+        Unknown
   serial:
     out: SERIAL
     inputs:
       - label
+
+resource:
+  WORDLIST:
+    inline: |
+      Wing
+      Ring
+      Slope
+      Unknown

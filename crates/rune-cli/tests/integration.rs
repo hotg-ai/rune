@@ -19,7 +19,9 @@ fn project_root() -> PathBuf {
     );
 }
 
-fn example_dir() -> PathBuf { project_root().join("examples") }
+fn example_dir() -> PathBuf {
+    project_root().join("examples")
+}
 
 fn cache_dir() -> PathBuf {
     project_root().join("target").join(concat!(
@@ -61,6 +63,10 @@ fn person_detection() {
 
 #[test]
 fn build_all_examples() {
+    // TODO: Enable these when all Rune examples have been migrated to the
+    // zipped format based on wit-files.
+    let exclude = ["sine"];
+
     let runefiles = WalkDir::new(example_dir())
         .into_iter()
         .filter_map(|entry| entry.ok())
@@ -71,6 +77,11 @@ fn build_all_examples() {
     for runefile in runefiles {
         let path = runefile.path();
         let name = path.parent().unwrap().file_name().unwrap();
+
+        if exclude.contains(&name.to_str().unwrap()) {
+            continue;
+        }
+
         let cache_dir = cache_dir.join(name);
 
         let mut cmd = Command::cargo_bin("rune").unwrap();

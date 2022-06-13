@@ -1,58 +1,82 @@
-//! The parsing phase.
+//! The YAML frontend for the Rune compiler.
 //!
-//! This is a simple phase which just calls [`Document::parse()`] and stores
-//! the resulting [`DocumentV1`] in the global [`legion::Resources`].
+//! You are probably here for either the [`Frontend`] trait or the [`Document`]
+//! type.
 
-mod yaml;
+mod query;
+pub mod yaml;
 
-use codespan::Span;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use legion::{systems::CommandBuffer, Registry};
+use std::sync::Arc;
 
-pub use self::yaml::*;
-use crate::{phases::Phase, serialize::RegistryExt, BuildContext, Diagnostics};
+use crate::Text;
 
-pub fn phase() -> Phase {
-    Phase::with_setup(|res| {
-        res.insert(Diagnostics::new());
-    })
-    .and_then(run_system)
+pub use self::{
+    query::{Frontend, FrontendStorage},
+    yaml::*,
+};
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Unable to parse the Runefile")]
+pub struct ParseFailed {
+    #[from]
+    pub error: Arc<serde_yaml::Error>,
 }
 
-#[legion::system]
-fn run(
-    cmd: &mut CommandBuffer,
-    #[resource] build_context: &BuildContext,
-    #[resource] diags: &mut Diagnostics,
-) {
-    let src = &build_context.runefile;
-
-    match Document::parse(src) {
-        Ok(d) => {
-            cmd.exec_mut(move |_, res| {
-                res.insert(d.clone().to_v1());
-            });
-        },
-        Err(e) => {
-            diags.push(parse_failed_diagnostic(e));
-        },
-    }
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum ItemType {
+    Input,
+    Model,
+    ProcBlock,
+    Output,
+    Resource,
 }
 
-fn parse_failed_diagnostic(e: serde_yaml::Error) -> Diagnostic<()> {
-    let msg = format!("Unable to parse the input: {}", e);
-
-    let mut diag = Diagnostic::error().with_message(msg);
-    if let Some(location) = e.location() {
-        let ix = location.index();
-        diag = diag.with_labels(vec![Label::primary((), ix..ix)]);
-    }
-    diag
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[error("There is no model called \"{}\"", name)]
+#[serde(rename_all = "kebab-case")]
+pub struct NotFound {
+    pub item_type: ItemType,
+    pub name: Text,
 }
 
-pub(crate) fn register_components(registry: &mut Registry<String>) {
-    registry
-        .register_with_type_name::<Document>()
-        .register_with_type_name::<DocumentV1>()
-        .register_with_type_name::<Span>();
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    thiserror::Error,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[error(
+    "Expected \"{}\" to be a {:?}, but it is actually a {:?}",
+    name,
+    expected,
+    actual
+)]
+#[serde(rename_all = "kebab-case")]
+pub struct WrongItemType {
+    pub expected: ItemType,
+    pub actual: ItemType,
+    pub name: Text,
 }

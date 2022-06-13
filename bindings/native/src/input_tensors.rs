@@ -20,11 +20,15 @@ pub struct InputTensors(NonNull<HashMap<u32, Tensor>>);
 impl std::ops::Deref for InputTensors {
     type Target = HashMap<u32, Tensor>;
 
-    fn deref(&self) -> &Self::Target { unsafe { self.0.as_ref() } }
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0.as_ref() }
+    }
 }
 
 impl std::ops::DerefMut for InputTensors {
-    fn deref_mut(&mut self) -> &mut Self::Target { unsafe { self.0.as_mut() } }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.0.as_mut() }
+    }
 }
 
 impl From<&'_ mut HashMap<u32, Tensor>> for InputTensors {

@@ -7,7 +7,6 @@ mod unstable;
 mod version;
 
 use codespan_reporting::term::termcolor;
-use env_logger::WriteStyle;
 
 pub use crate::{
     build::Build, graph::Graph, inspect::Inspect, model_info::ModelInfo,
@@ -30,16 +29,6 @@ impl From<ColorChoice> for termcolor::ColorChoice {
             ColorChoice::Always => termcolor::ColorChoice::Always,
             ColorChoice::Auto => termcolor::ColorChoice::Auto,
             ColorChoice::Never => termcolor::ColorChoice::Never,
-        }
-    }
-}
-
-impl From<ColorChoice> for WriteStyle {
-    fn from(c: ColorChoice) -> WriteStyle {
-        match c {
-            ColorChoice::Always => WriteStyle::Always,
-            ColorChoice::Auto => WriteStyle::Auto,
-            ColorChoice::Never => WriteStyle::Never,
         }
     }
 }
