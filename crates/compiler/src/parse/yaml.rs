@@ -363,15 +363,7 @@ pub struct OutStage {
 }
 
 /// A stage in the Rune's pipeline.
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    JsonSchema,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, JsonSchema)]
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
     Model(ModelStage),
@@ -432,6 +424,41 @@ impl Stage {
             Stage::Capability(c) => &mut c.args,
             Stage::Out(out) => &mut out.args,
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for Stage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_yaml::Mapping::deserialize(deserializer)?;
+
+        if value.contains_key(&"capability".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::Capability)
+                .map_err(D::Error::custom);
+        }
+
+        if value.contains_key(&"proc-block".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::ProcBlock)
+                .map_err(D::Error::custom);
+        }
+
+        if value.contains_key(&"model".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::Model)
+                .map_err(D::Error::custom);
+        }
+
+        if value.contains_key(&"out".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::Out)
+                .map_err(D::Error::custom);
+        }
+
+        Err(D::Error::custom("The value didn't parse as a capability, model, proc-block, or output"))
     }
 }
 
