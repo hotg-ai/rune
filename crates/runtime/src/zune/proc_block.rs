@@ -1,7 +1,5 @@
-use std::{
-    sync::{Arc, Mutex},
-};
 use indexmap::IndexMap;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Error};
 use wasmer::{ImportObject, Module, Store};
@@ -417,7 +415,17 @@ impl runtime_v1::RuntimeV1 for Runtime {
             .and_then(|c| c.input_tensors.get(name).and_then(|v| v.tensor_id));
 
         match tensor_id {
-            Some(i) => state.tensors[i].clone(),
+            Some(i) => {
+                let tensor = state.tensors[i].clone();
+                tracing::debug!(
+                    ?tensor.element_type,
+                    ?tensor.dimensions,
+                    tensor.buffer_length = tensor.buffer.len(),
+                    id=i,
+                    "Returning a tensor",
+                );
+                tensor
+            },
             _ => None,
         }
     }
