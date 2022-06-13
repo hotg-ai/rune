@@ -301,7 +301,7 @@ fn wapm_uri(w: WellKnownPath) -> URI<'static> {
             "wapm:///hotg-ai/accelerometer_input?version=0.12.0"
         },
         WellKnownPath::Image => "wapm:///hotg-ai/image_input?version=0.12.0",
-        WellKnownPath::Raw => "wapm:///hotg-ai/tensor_input?version=0.12.0",
+        WellKnownPath::Raw => "https://func.hotg.ai/function/sbfs/weld/tensor_input.wasm",
         WellKnownPath::Sound => "wapm:///hotg-ai/sound_input?version=0.12.0",
     };
 
