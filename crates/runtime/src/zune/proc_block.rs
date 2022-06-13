@@ -417,13 +417,15 @@ impl runtime_v1::RuntimeV1 for Runtime {
         match tensor_id {
             Some(i) => {
                 let tensor = state.tensors[i].clone();
-                tracing::debug!(
-                    ?tensor.element_type,
-                    ?tensor.dimensions,
-                    tensor.buffer_length = tensor.buffer.len(),
-                    id=i,
-                    "Returning a tensor",
-                );
+                if let Some(tensor) = tensor {
+                    tracing::debug!(
+                        ?tensor.element_type,
+                        ?tensor.dimensions,
+                        tensor.buffer_length = tensor.buffer.len(),
+                        id=i,
+                        "Returning a tensor",
+                    );
+                }
                 tensor
             },
             _ => None,
