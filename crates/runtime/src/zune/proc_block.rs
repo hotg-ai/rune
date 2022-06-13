@@ -417,7 +417,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
         match tensor_id {
             Some(i) => {
                 let tensor = state.tensors[i].clone();
-                if let Some(tensor) = tensor {
+                if let Some(tensor) = &tensor {
                     tracing::debug!(
                         ?tensor.element_type,
                         ?tensor.dimensions,
