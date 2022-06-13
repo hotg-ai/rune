@@ -37,7 +37,7 @@ impl ProcBlockNode {
             ProcBlockV1::instantiate(&store, &module, &mut imports)
                 .context("Unable to instantiate the WebAssembly module")?;
 
-        let _result = pb.graph(node_id);
+        let _result = pb.graph(node_id)??;
 
         // Assign tensors
         // TODO: See if this can be more smart.
