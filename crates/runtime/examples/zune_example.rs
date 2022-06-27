@@ -40,7 +40,7 @@ fn main() -> Result<(), Error> {
         zune_engine.get_input_tensor("rand", "input")
     );
 
-    zune_engine.predict().context("Failed to run predict!")?;
+    zune_engine.run().context("Failed to run predict!")?;
 
     println!(
         "output tensor for sine: => {:?}",

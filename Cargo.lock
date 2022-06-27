@@ -1588,6 +1588,7 @@ name = "hotg-rune-runtime"
 version = "0.11.3"
 dependencies = [
  "anyhow",
+ "bitflags",
  "csv",
  "hotg-rune-compiler 0.11.3",
  "hotg-rune-core 0.11.3",
@@ -1599,9 +1600,11 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "serde_yaml",
  "tempfile",
  "thiserror",
  "tracing",
+ "uriparse",
  "wasm3",
  "wasmer",
  "wasmparser 0.83.0",
@@ -3859,6 +3862,7 @@ checksum = "0200d0fc04d809396c2ad43f3c95da3582a2556eba8d453c1087f4120ee352ff"
 dependencies = [
  "fnv",
  "lazy_static",
+ "serde",
 ]
 
 [[package]]

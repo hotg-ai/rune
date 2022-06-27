@@ -1,49 +1,99 @@
-mod proc_block;
-#[cfg(feature = "tflite")]
-mod tflite;
-
 use std::{
-    fmt::{self, Display, Formatter},
     io::{Cursor, Read},
-    sync::{Arc, Mutex},
+    collections::{HashMap, HashSet}
 };
 
 use anyhow::{anyhow, Context, Error};
-use hotg_rune_compiler::parse::yaml::*;
-use indexmap::IndexMap;
 use zip;
+use bitflags::bitflags;
+use indexmap::IndexMap;
 
-pub use self::{proc_block_v1::*, runtime_v1::*};
-use crate::{
-    zune::proc_block::{GraphContext, ProcBlockNode, TensorConstraint, Dimensions},
-    LoadError,
-};
+use crate::LoadError;
 
-wit_bindgen_wasmer::export!("../../wit-files/rune/runtime-v1.wit");
-wit_bindgen_wasmer::import!("../../wit-files/rune/proc-block-v1.wit");
+use self::tflite::ModelNode;
+mod runefile;
+mod tflite;
+mod proc_block;
 
-pub(crate) trait Node {
-    fn run(&mut self) -> Result<(), Error>;
+#[derive(Debug, Default, Clone)]
+pub struct Tensor {
+    element_type: ElementType,
+    dimensions: Vec<u32>,
+    buffer: Vec<u8>
 }
 
-#[derive(Debug, Default, Clone, wasmer::WasmerEnv)]
-pub(crate) struct Runtime {
-    shared_state: Arc<Mutex<State>>,
+#[derive(Debug, Clone)]
+pub struct TensorConstraint {
+    element_types: ElementTypeConstraint,
+    dimensions: DimensionsConstraint
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct State {
-    pub(crate) tensors: Vec<Option<TensorResult>>,
-    pub(crate) tensor_constraints: Vec<Option<TensorConstraint>>,
-    pub(crate) graph_contexts: IndexMap<String, GraphContext>,
+#[derive(Debug, Clone)]
+pub struct TensorConstraints {
+    inputs: IndexMap<String, TensorConstraint>,
+    outputs: IndexMap<String, TensorConstraint>
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ElementType {
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    F32,
+    U64,
+    I64,
+    F64,
+    Complex64,
+    Complex128,
+    /// A string as UTF-8 encoded bytes.
+    Utf8
+}
+
+bitflags! {
+    struct ElementTypeConstraint: u32 {
+        const U8             = 1 << 0;
+        const I8             = 1 << 1;
+        const U16            = 1 << 2;
+        const I16            = 1 << 3;
+        const U32            = 1 << 4;
+        const I32            = 1 << 5;
+        const F32            = 1 << 6;
+        const U64            = 1 << 7;
+        const I64            = 1 << 8;
+        const F64            = 1 << 9;
+        const COMPLEX_64      = 1 << 10;
+        const COMPLEX_128     = 1 << 11;
+        const UTF8           = 1 << 12;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum DimensionsConstraint {
+    Dynamic,
+    Fixed(Vec<u32>)
 }
 
 pub struct ZuneEngine {
-    input_nodes: Vec<String>,
-    output_nodes: Vec<String>,
-    nodes: IndexMap<String, Box<dyn Node>>,
+    runefile: runefile::Document,
+    input_nodes: HashSet<String>,
+    output_nodes: HashSet<String>,
     processing_order: Vec<String>,
-    shared_state: Arc<Mutex<State>>, // resources
+
+    nodes: HashMap<String, Box<dyn GraphNode>>,
+    tensors: Vec<Option<Tensor>>,
+    tensor_constraints: Vec<TensorConstraint>,
+    input_tensor_mappings: HashMap<String, Vec<usize>>,
+    // resources not yet implemented
+}
+
+pub(crate) trait GraphNode {
+    fn load(node_id: &str, args: &HashMap<String, String>, node_data: &[u8]) -> Result<Box<dyn GraphNode>, Error> where Self: Sized;
+    fn node_id(&self) -> &str;
+    fn tensor_constraints(&self) -> &TensorConstraints;
+    fn run(&mut self, inputs: HashMap<&str, &Tensor>) -> Result<HashMap<&str, Tensor>, Error>;
 }
 
 impl ZuneEngine {
@@ -71,198 +121,118 @@ impl ZuneEngine {
         let runefile =
             String::from_utf8(read_zip_resource_by_path("Runefile.yml")?)
                 .context("Unable to read Runefile")?;
+
         tracing::debug!(length = runefile.len(), "Read the Rune");
 
-        let parsed_runefile =
-            Document::parse(&runefile).context("Unable to parse Runefile")?;
-        let pipeline = &parsed_runefile.to_v1().pipeline;
+        let runefile =
+            runefile::Document::parse(&runefile).map_err(|e| LoadError::Other(anyhow!("Unable to parse runefile: {}", e.to_string())))?;
 
-        let inputs: Vec<_> = pipeline
-            .iter()
-            .filter_map(|(k, v)| match v {
-                Stage::Capability(_) => Some(k.clone()),
-                _ => None,
-            })
-            .collect();
-
-        let outputs: Vec<_> = pipeline
-            .iter()
-            .filter_map(|(k, v)| match v {
-                Stage::Out(_) => Some(k.clone()),
-                _ => None,
-            })
-            .collect();
-
-        let (tensors, input_tensors, output_tensors, processing_order) =
-            get_tensors(&inputs, &outputs, &pipeline)
-                .context("Unable to map out input/output tensors")?;
-
-        let graph_contexts = pipeline
-            .iter()
-            .map(|(k, v)| {
-                let arguments = v
-                    .args()
-                    .iter()
-                    .map(|(name, argument)| {
-                        (name.clone(), argument.to_string())
-                    })
-                    .collect();
-                (
-                    k.clone(),
-                    GraphContext {
-                        arguments,
-                        input_tensors: IndexMap::new(),
-                        output_tensors: IndexMap::new(),
-                    },
-                )
-            })
-            .collect();
-
-        let tensor_constraints = tensors.iter().map(|_| None).collect();
-        let shared_state = Arc::new(Mutex::new(State {
-            tensors,
-            tensor_constraints,
-            graph_contexts,
-        }));
-
-        tracing::trace!(?input_tensors, ?output_tensors, "Loaded tensors");
-
-        let nodes = instantiate_nodes(
-            pipeline,
-            read_zip_resource_by_path,
-            &shared_state,
-            input_tensors,
-            output_tensors,
-        )
-        .map_err(LoadError::Other)?;
+        let input_nodes = runefile.get_input_nodes();
+        let output_nodes = runefile.get_output_nodes();
+        let processing_order = runefile.get_processing_order()
+            .map_err(|e| LoadError::Other(anyhow!("Unable to determine processing order of the pipeline: {}", e.to_string())))?;
+        let tensors = Vec::new();
+        let tensor_constraints = Vec::new();
+        let input_tensor_mappings = HashMap::new();
+        let mut nodes = HashMap::new();
 
         tracing::debug!(order=?processing_order, "Determined the execution order");
 
         // TODO: Validate and allocate input/output tensors
+        // TODO: Add support for metadata in tflite
+        // TODO: Add support for m3 in wit bindgen
+        for (node_name, node_details) in &runefile.pipeline {
+            let node_data = read_zip_resource_by_path(&node_details.uri)?;
+            match node_details.ty {
+                runefile::NodeType::Model => {
+                    nodes.insert(
+                        node_name.to_string(),
+                        ModelNode::load(node_name, &node_details.args, &node_data)?
+                    );
+                },
+                runefile::NodeType::ProcBlock => {
+                    nodes.insert(
+                        node_name.to_string(),
+                        proc_block::ProcBlockNode::load(node_name, &node_details.args, &node_data)?
+                    );
+                }
+            }
+        }
 
         Ok(ZuneEngine {
-            input_nodes: inputs,
-            output_nodes: outputs,
-            nodes,
+            runefile,
+            input_nodes,
+            output_nodes,
             processing_order,
-            shared_state,
+            nodes,
+            tensors,
+            tensor_constraints,
+            input_tensor_mappings
         })
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn predict(&mut self) -> Result<(), Error> {
+    pub fn run(&mut self) -> Result<(), Error> {
         for stage_name in &self.processing_order {
             let _span =
                 tracing::debug_span!("Running Stage", %stage_name).entered();
 
-            if let Some(node) = self.nodes.get_mut(stage_name) {
-                node.run()?;
-            }
+            // if let Some(node) = self.nodes.get_mut(stage_name) {
+            //     node.run()?;
+            // }
         }
         Ok(())
     }
 
-    pub fn input_nodes(&self) -> &[String] {
+    pub fn input_nodes(&self) -> &HashSet<String> {
         return &self.input_nodes;
     }
 
-    pub fn output_nodes(&self) -> &[String] {
+    pub fn output_nodes(&self) -> &HashSet<String> {
         return &self.output_nodes;
     }
 
-    pub fn get_input_tensor_names(
+    pub fn dependent_nodes(&self, node_name: &str) -> Option<HashSet<String>> {
+        let node = self.runefile.pipeline.get(node_name);
+        match node {
+            Some(node) => {
+                Some(node.inputs.iter().map(|(_input_name, tensor)| tensor.node.to_string()).collect())
+            },
+            None => None
+        }
+    }
+
+    pub fn get_tensor_constraints(
         &self,
         node_name: &str,
-    ) -> Result<Vec<String>, Error> {
-        let state = self.shared_state.lock().unwrap();
-        state
-            .graph_contexts
-            .get(node_name)
-            .and_then(|c| {
-                let tensor_list: Vec<String> = c
-                    .input_tensors
-                    .iter()
-                    .map(|(k, _)| k.to_string())
-                    .collect();
-                Some(tensor_list)
-            })
-            .context("Unable to get input tensors")
+    ) -> Result<&TensorConstraints, Error> {
+        let node = self.nodes.get(node_name).ok_or_else( || anyhow!("Unable to find node {}", node_name))?;
+        Ok(node.tensor_constraints())
     }
 
     pub fn get_input_tensor(
         &self,
         node_name: &str,
         tensor_name: &str,
-    ) -> Option<TensorResult> {
-        let state = self.shared_state.lock().unwrap();
-        let tensor_constraint = state
-            .graph_contexts
-            .get(node_name)
-            .and_then(|c| c.input_tensors.get(tensor_name));
-
-        match tensor_constraint {
-            Some(c) if c.tensor_id.is_some() => {
-                state.tensors[c.tensor_id.unwrap()].clone()
-            },
-            _ => None,
-        }
+    ) -> Option<Tensor> {
+        todo!()
     }
 
     pub fn set_input_tensor(
         &mut self,
         node_name: &str,
         tensor_name: &str,
-        tensor: &TensorResult,
+        tensor: &Tensor,
     ) {
-        let mut state = self.shared_state.lock().unwrap();
-        let tensor_id = state.graph_contexts.get(node_name).and_then(|c| {
-            c.input_tensors
-                .get(tensor_name)
-                .and_then(|c| c.tensor_id.clone())
-        });
-
-        match tensor_id {
-            Some(i) => state.tensors[i] = Some(tensor.clone()),
-            _ => {},
-        }
-    }
-
-    pub fn get_output_tensor_names(
-        &self,
-        node_name: &str,
-    ) -> Result<Vec<String>, Error> {
-        let state = self.shared_state.lock().unwrap();
-        state
-            .graph_contexts
-            .get(node_name)
-            .and_then(|c| {
-                let tensor_list: Vec<String> = c
-                    .output_tensors
-                    .iter()
-                    .map(|(k, _)| k.to_string())
-                    .collect();
-                Some(tensor_list)
-            })
-            .context("Unable to get input tensors")
+        todo!()
     }
 
     pub fn get_output_tensor(
         &mut self,
         node_name: &str,
         tensor_name: &str,
-    ) -> Option<TensorResult> {
-        let state = self.shared_state.lock().unwrap();
-        let tensor_constraint = state
-            .graph_contexts
-            .get(node_name)
-            .and_then(|c| c.output_tensors.get(tensor_name));
-
-        match tensor_constraint {
-            Some(c) if c.tensor_id.is_some() => {
-                state.tensors[c.tensor_id.unwrap()].clone()
-            },
-            _ => None,
-        }
+    ) -> Option<Tensor> {
+        todo!()
     }
 
     // pub fn get_tensor(&self, tensor_id: usize) -> Option<&TensorResult> {
@@ -289,19 +259,9 @@ impl ZuneEngine {
         &mut self,
         node_name: &str,
         tensor_name: &str,
-        tensor: &TensorResult,
+        tensor: &Tensor,
     ) {
-        let mut state = self.shared_state.lock().unwrap();
-        let tensor_id = state.graph_contexts.get(node_name).and_then(|c| {
-            c.output_tensors
-                .get(tensor_name)
-                .and_then(|c| c.tensor_id.clone())
-        });
-
-        match tensor_id {
-            Some(i) => state.tensors[i] = Some(tensor.clone()),
-            _ => {},
-        }
+        todo!()
     }
 }
 
@@ -319,301 +279,10 @@ fn get_bytes_per_element(element_type: ElementType) -> u32 {
     }
 }
 
-fn instantiate_nodes(
-    pipeline: &IndexMap<String, Stage>,
-    mut read_zip_resource_by_path: impl FnMut(&str) -> Result<Vec<u8>, Error>,
-    shared_state: &Arc<Mutex<State>>,
-    input_tensors: IndexMap<String, usize>,
-    output_tensors: IndexMap<String, usize>,
-) -> Result<IndexMap<String, Box<dyn Node>>, Error> {
-    let mut nodes: IndexMap<String, Box<dyn Node>> = IndexMap::new();
-
-    let runtime = Runtime {
-        shared_state: shared_state.clone(),
-    };
-
-    for (stage_name, stage) in pipeline {
-        // Collect each output tensor into tensors
-        instantiate_node(stage, &mut read_zip_resource_by_path, stage_name, &runtime, &input_tensors, &output_tensors, &mut nodes, shared_state)
-            .with_context(|| format!("Unable to load node \"{stage_name}\""))?;
-    }
-
-    Ok(nodes)
-}
-
-fn instantiate_node(stage: &Stage, read_zip_resource_by_path: &mut impl FnMut(&str) -> Result<Vec<u8>, Error>, stage_name: &String, runtime: &Runtime, input_tensors: &IndexMap<String, usize>, output_tensors: &IndexMap<String, usize>, nodes: &mut IndexMap<String, Box<dyn Node>>, shared_state: &Arc<Mutex<State>>) -> Result<(), Error> {
-    Ok(match stage {
-        // Models are handled on the host side, so we treat them separately
-        Stage::Capability(stage) => {
-            let wasm =
-                read_zip_resource_by_path(&stage.capability.to_string())
-                    .context("Unable to load the capability")?;
-
-            let pb = ProcBlockNode::load(
-                &stage_name,
-                &wasm,
-                runtime,
-                input_tensors,
-                output_tensors,
-            )?;
-            nodes.insert(stage_name.to_string(), Box::new(pb));
-        },
-        Stage::Model(stage) => {
-            // Instantiating the model's inference context here because that
-            // way model_data gets deallocated once we are done with it
-            // This way memory usage is under control
-            let model_data =
-                read_zip_resource_by_path(&stage.model.to_string())
-                    .with_context(|| {
-                        format!(
-                            "Unable to read model from zune {}",
-                            stage.model
-                        )
-                    })?;
-
-            let model_format =
-                stage.args.get("model-format").map(|f| f.to_string());
-            let node = load_model(
-                &model_data,
-                model_format.as_deref().unwrap_or("tflite"),
-                stage_name,
-                stage,
-                shared_state,
-                input_tensors,
-                output_tensors,
-            )?;
-            nodes.insert(stage_name.to_string(), node);
-        },
-        Stage::ProcBlock(stage) => {
-            let wasm =
-                read_zip_resource_by_path(&stage.proc_block.to_string())
-                    .context("Unable to load the proc_block")?;
-
-            let pb = ProcBlockNode::load(
-                &stage_name,
-                &wasm,
-                runtime,
-                input_tensors,
-                output_tensors,
-            )?;
-            nodes.insert(stage_name.to_string(), Box::new(pb));
-        },
-        Stage::Out(stage) => {
-            shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get_mut(stage_name)
-            .and_then(|c| {
-                for input in stage.inputs.iter() {
-                    let tensor_key = key(&input.name, input.index);
-                    let tensor_id = output_tensors.get(&tensor_key).copied();
-                    c.input_tensors.insert(tensor_key,
-                        TensorConstraint {
-                            tensor_id,
-                            element_type: ElementType::U8,
-                            dimensions: Dimensions::Dynamic
-                        }
-                    );
-                }
-                Some(())
-            });
-        }, // Do nothing for capabilities/outputs
-    })
-}
-
-fn load_model(
-    model_data: &[u8],
-    model_format: &str,
-    stage_name: &str,
-    stage: &ModelStage,
-    shared_state: &Arc<Mutex<State>>,
-    input_tensors: &IndexMap<String, usize>,
-    output_tensors: &IndexMap<String, usize>,
-) -> Result<Box<dyn Node>, Error> {
-    match model_format {
-        #[cfg(feature = "tflite")]
-        "tflite" | hotg_rune_core::TFLITE_MIMETYPE => {
-            let model = tflite::ModelNode::load(
-                stage_name,
-                stage,
-                model_data,
-                shared_state,
-                input_tensors,
-                output_tensors,
-            )?;
-
-            Ok(Box::new(model))
-        },
-        other => anyhow::bail!("Unsupported model format, \"{}\"", other),
-    }
-}
-
-fn get_tensors(
-    inputs: &Vec<String>,
-    outputs: &Vec<String>,
-    pipeline: &IndexMap<String, Stage>,
-) -> Result<
-    (
-        Vec<Option<TensorResult>>,
-        IndexMap<String, usize>,
-        IndexMap<String, usize>,
-        Vec<String>,
-    ),
-    Error,
-> {
-    let mut nodes_to_visit = outputs.clone();
-    let mut nodes_visited = Vec::new();
-    let mut tensors: Vec<Option<TensorResult>> = Vec::new();
-    let mut output_tensors: IndexMap<String, usize> = IndexMap::new();
-    let mut input_tensors: IndexMap<String, usize> = IndexMap::new();
-
-    // For Inputs/Capabilities - We create an input so as to be able to inject inputs
-    for item in inputs {
-        tensors.push(None);
-        input_tensors.insert(key(item, Some(0)), tensors.len() - 1);
-        output_tensors.insert(key(item, Some(0)), tensors.len() - 1);
-    }
-
-    // // For Outputs - we allocate all the outputs
-    // for item in outputs {
-    //     for _ in pipeline.get(item).unwrap().output_types() {
-    //         tensors.push(None);
-    //         output_tensors.insert(key(item, Some(0)), tensors.len() - 1);
-    //     }
-    // }
-
-    // Do a depth first traversal of the tree structure to determine the order
-    // of processing/calling predict() Also allocate the output tensors of
-    // each node along the way
-    while !nodes_to_visit.is_empty() {
-        let node = nodes_to_visit.pop().unwrap();
-        nodes_visited.push(node.clone());
-
-        let stage = pipeline.get(&node).unwrap();
-        for output_index in 0..stage.output_types().len() {
-            tensors.push(None);
-            output_tensors
-                .insert(key(&node, Some(output_index)), tensors.len() - 1);
-        }
-
-        for input in stage.inputs() {
-            if !nodes_to_visit.contains(&input.name)
-                && !nodes_visited.contains(&input.name)
-            {
-                nodes_to_visit.push(input.name.clone());
-            }
-        }
-    }
-
-    // For each stage in the pipeline, since the inputs have to come from the
-    // outputs of other stages, simply map to the same tensor
-    for item in pipeline {
-        // Collect each output tensor into tensors
-        let stage_name = item.0;
-        for i in 0..item.1.inputs().len() {
-            let input = &item.1.inputs()[i];
-            let input_key = key(&input.name, input.index);
-            let &input_tensor_index =
-                output_tensors.get(&input_key).with_context(|| {
-                    format!("Invalid input key specified: {}", &input_key)
-                })?;
-            input_tensors.insert(key(stage_name, Some(i)), input_tensor_index);
-        }
-    }
-
-    nodes_visited.reverse();
-
-    Ok((tensors, input_tensors, output_tensors, nodes_visited))
-}
-
 fn key(node_name: &str, tensor_index: Option<usize>) -> String {
     format!("{}.{}", node_name, tensor_index.or(Some(0)).unwrap())
 }
 
-impl std::error::Error for proc_block_v1::GraphError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            GraphError::InvalidArgument(InvalidArgument { reason, .. }) => {
-                Some(reason)
-            },
-            _ => None,
-        }
-    }
-}
-
-impl Display for proc_block_v1::GraphError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            GraphError::Other(msg) => Display::fmt(msg, f),
-            GraphError::InvalidArgument(InvalidArgument { name, .. }) => {
-                write!(f, "The \"{}\" argument is invalid", name)
-            },
-            GraphError::MissingContext => {
-                write!(f, "Unable to retrieve the graph context")
-            },
-        }
-    }
-}
-
-impl std::error::Error for proc_block_v1::KernelError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            KernelError::InvalidArgument(InvalidArgument {
-                reason, ..
-            }) => Some(reason),
-            KernelError::InvalidInput(InvalidInput { reason, .. }) => {
-                Some(reason)
-            },
-            _ => None,
-        }
-    }
-}
-
-impl Display for proc_block_v1::KernelError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            KernelError::Other(s) => Display::fmt(s, f),
-            KernelError::InvalidArgument(InvalidArgument { name, .. }) => {
-                write!(f, "The \"{}\" argument is invalid", name)
-            },
-            KernelError::InvalidInput(InvalidInput { name, .. }) => {
-                write!(f, "The \"{}\" input is invalid", name)
-            },
-            KernelError::MissingContext => {
-                write!(f, "Unable to retrieve the kernel context")
-            },
-        }
-    }
-}
-
-impl std::error::Error for BadArgumentReason {}
-
-impl Display for BadArgumentReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            BadArgumentReason::Other(msg) => Display::fmt(msg, f),
-            BadArgumentReason::NotFound => write!(f, "Argument not found"),
-            BadArgumentReason::InvalidValue(msg) => {
-                write!(f, "Invalid argument value: {}", msg)
-            },
-        }
-    }
-}
-
-impl std::error::Error for BadInputReason {}
-
-impl Display for BadInputReason {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            BadInputReason::Other(msg) => Display::fmt(msg, f),
-            BadInputReason::NotFound => write!(f, "Input not found"),
-            BadInputReason::UnsupportedShape => {
-                write!(f, "Unsupported tensor shape")
-            },
-            BadInputReason::InvalidValue(msg) => {
-                write!(f, "Invalid argument value: {}", msg)
-            },
-        }
-    }
+impl Default for ElementType {
+    fn default() -> Self { ElementType::U8 }
 }

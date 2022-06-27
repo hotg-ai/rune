@@ -1,460 +1,147 @@
-use std::{
-    sync::{Arc, Mutex},
-};
 use indexmap::IndexMap;
+use std::{collections::HashMap, ops::Index};
 
-use anyhow::{Context, Error};
+use anyhow::{anyhow, Context, Error};
+use rand::random;
 use wasmer::{ImportObject, Module, Store};
 
 use crate::zune::{
-    key, runtime_v1, ArgumentType, DimensionsParam, ElementType, LogLevel,
-    LogMetadata, LogValue, ModelInferError, ModelLoadError, Node, ProcBlockV1,
-    Runtime, TensorParam, TensorResult,
+    DimensionsConstraint, ElementType, ElementTypeConstraint, GraphNode,
+    Tensor, TensorConstraint, TensorConstraints,
 };
+
+use self::proc_block_v2::{CreateError, ProcBlockV2};
+pub use self::{
+    proc_block_v2::{
+        Argument, Dimensions as WDimensions, ElementType as WElementType,
+        ElementTypeConstraint as WElementTypeConstraint, Node,
+        TensorConstraint as WTensorConstraint,
+        TensorConstraints as WTensorConstraints, TensorParam as WTensorParam,
+        TensorResult as WTensorResult,
+    },
+    runtime_v2::*,
+};
+
+wit_bindgen_wasmer::export!("../../wit-files/rune/runtime-v2.wit");
+wit_bindgen_wasmer::import!("../../wit-files/rune/proc-block-v2.wit");
+
+#[derive(Debug, Default, Clone, wasmer::WasmerEnv)]
+struct Runtime {}
 
 pub(crate) struct ProcBlockNode {
     node_id: String,
-    context: ProcBlockV1,
+    pbv2: ProcBlockV2,
+    node: Node,
+    tensor_constraints: TensorConstraints,
 }
 
-impl ProcBlockNode {
+impl GraphNode for ProcBlockNode {
     #[tracing::instrument(skip_all, level = "debug", fields(%node_id))]
-    pub(crate) fn load(
+    fn load(
         node_id: &str,
-        wasm: &[u8],
-        runtime: &Runtime,
-        input_tensors: &IndexMap<String, usize>,
-        output_tensors: &IndexMap<String, usize>,
-    ) -> Result<ProcBlockNode, Error> {
-        let shared_state = runtime.shared_state.clone();
+        args: &HashMap<String, String>,
+        node_data: &[u8],
+    ) -> Result<Box<dyn GraphNode>, Error>
+    where
+        Self: Sized,
+    {
         let store = Store::default();
+        let module = Module::new(&store, node_data)
+            .context("Unable to load the module")?;
+
         let mut imports = ImportObject::default();
-        super::add_to_imports(&store, &mut imports, runtime.clone());
+        add_to_imports(&store, &mut imports, Runtime::default());
+        let (pbv2, _) = ProcBlockV2::instantiate(&store, &module, &mut imports)
+            .context("Unable to instantiate the WebAssembly module")?;
 
-        let module =
-            Module::new(&store, wasm).context("Unable to load the module")?;
-        let (pb, _) =
-            ProcBlockV1::instantiate(&store, &module, &mut imports)
-                .context("Unable to instantiate the WebAssembly module")?;
+        let args: Vec<Argument> = args
+            .iter()
+            .map(|(name, value)| Argument { name, value })
+            .collect();
+        let node = ProcBlockV2::create_node(&pbv2, &args)
+            .map_err(Error::from)?
+            .map_err(|x| anyhow!("Unable to create Node: {node_id} : {:?}", x))?;
+        let tensor_constraints: TensorConstraints =
+            ProcBlockV2::node_tensor_constraints(&pbv2, &node)
+                .map_err(Error::from)?
+                .into();
 
-        let _result = pb.graph(node_id)??;
-
-        // Assign tensors
-        // TODO: See if this can be more smart.
-        // Not bothering with that for now because tensor names are lost in current Runefile format
-        shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get_mut(node_id)
-            .and_then(|c| {
-                c.input_tensors.iter_mut().enumerate().for_each(
-                    |(i, (_, t))| {
-                        input_tensors.get(&key(node_id, Some(i))).and_then(
-                            |&tensor_index| {
-                                Some(t.tensor_id = Some(tensor_index))
-                            },
-                        );
-                    },
-                );
-
-                c.output_tensors.iter_mut().enumerate().for_each(
-                    |(i, (_, t))| {
-                        output_tensors.get(&key(node_id, Some(i))).and_then(
-                            |&tensor_index| {
-                                Some(t.tensor_id = Some(tensor_index))
-                            },
-                        );
-                    },
-                );
-                Some(())
-            });
-
-        Ok(ProcBlockNode {
+        Ok(Box::new(ProcBlockNode {
             node_id: node_id.to_string(),
-            context: pb,
-        })
-    }
-}
-
-impl Node for ProcBlockNode {
-    #[tracing::instrument(skip_all, level = "debug")]
-    fn run(&mut self) -> Result<(), Error> {
-        self.context.kernel(&self.node_id)??;
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Never {}
-
-#[derive(Debug, Clone)]
-pub(crate) struct Metadata {
-    description: String,
-    repository: String,
-    homepage: String,
-    tags: Vec<String>,
-    arguments: Vec<ArgumentMetadata>,
-    inputs: Vec<TensorMetadata>,
-    outputs: Vec<TensorMetadata>,
-}
-
-#[derive(Debug, Clone)]
-struct ArgumentMetadata {
-    description: String,
-    default_value: String,
-    // hint: Vec<ArgumentHints>
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct TensorMetadata {}
-
-#[derive(Debug, Clone)]
-pub(crate) enum Dimensions {
-    Dynamic,
-    Fixed(Vec<usize>),
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct TensorConstraint {
-    pub tensor_id: Option<usize>,
-    pub element_type: ElementType,
-    pub dimensions: Dimensions,
-}
-
-#[derive(Debug, Default, Clone)]
-pub(crate) struct GraphContext {
-    pub arguments: IndexMap<String, String>,
-    pub input_tensors: IndexMap<String, TensorConstraint>,
-    pub output_tensors: IndexMap<String, TensorConstraint>,
-}
-
-impl runtime_v1::RuntimeV1 for Runtime {
-    type ArgumentHint = Never;
-    type ArgumentMetadata = Never;
-    type KernelContext = String;
-    type Metadata = Metadata;
-    type Model = Never;
-    type TensorHint = Never;
-    type TensorMetadata = TensorMetadata;
-    type GraphContext = String;
-
-    fn metadata_new(&mut self, _name: &str, _version: &str) -> Self::Metadata {
-        todo!()
+            pbv2,
+            node,
+            tensor_constraints,
+        }))
     }
 
-    fn metadata_set_description(
-        &mut self,
-        _ctx: &Self::Metadata,
-        _description: &str,
-    ) {
-        todo!()
+    fn node_id(&self) -> &str {
+        return &self.node_id;
     }
 
-    fn metadata_set_repository(&mut self, _ctx: &Self::Metadata, _url: &str) {
-        todo!()
-    }
-
-    fn metadata_set_homepage(&mut self, _ctx: &Self::Metadata, _url: &str) {
-        todo!()
-    }
-
-    fn metadata_add_tag(&mut self, _ctx: &Self::Metadata, _tag: &str) {
-        todo!()
-    }
-
-    fn metadata_add_argument(
-        &mut self,
-        _ctx: &Self::Metadata,
-        _arg: &Self::ArgumentMetadata,
-    ) {
-        todo!()
-    }
-
-    fn metadata_add_input(
-        &mut self,
-        _ctx: &Self::Metadata,
-        _metadata: &Self::TensorMetadata,
-    ) {
-        todo!()
-    }
-
-    fn metadata_add_output(
-        &mut self,
-        _ctx: &Self::Metadata,
-        _metadata: &Self::TensorMetadata,
-    ) {
-        todo!()
-    }
-
-    fn argument_metadata_new(&mut self, _name: &str) -> Self::ArgumentMetadata {
-        todo!()
-    }
-
-    fn argument_metadata_set_description(
-        &mut self,
-        _ctx: &Self::ArgumentMetadata,
-        _description: &str,
-    ) {
-        todo!()
-    }
-
-    fn argument_metadata_set_default_value(
-        &mut self,
-        _ctx: &Self::ArgumentMetadata,
-        _default_value: &str,
-    ) {
-        todo!()
-    }
-
-    fn argument_metadata_add_hint(
-        &mut self,
-        _ctx: &Self::ArgumentMetadata,
-        _hint: &Self::ArgumentHint,
-    ) {
-        todo!()
-    }
-
-    fn tensor_metadata_new(&mut self, _name: &str) -> Self::TensorMetadata {
-        todo!()
-    }
-
-    fn tensor_metadata_set_description(
-        &mut self,
-        _ctx: &Self::TensorMetadata,
-        _description: &str,
-    ) {
-        todo!()
-    }
-
-    fn tensor_metadata_add_hint(
-        &mut self,
-        _ctx: &Self::TensorMetadata,
-        _hint: &Self::TensorHint,
-    ) {
-        todo!()
-    }
-
-    fn interpret_as_image(&mut self) -> Self::TensorHint {
-        todo!()
-    }
-
-    fn interpret_as_audio(&mut self) -> Self::TensorHint {
-        todo!()
-    }
-
-    fn supported_shapes(
-        &mut self,
-        _supported_element_types: Vec<ElementType>,
-        _dimensions: DimensionsParam<'_>,
-    ) -> Self::TensorHint {
-        todo!()
-    }
-
-    fn interpret_as_number_in_range(
-        &mut self,
-        _min: &str,
-        _max: &str,
-    ) -> Self::ArgumentHint {
-        todo!()
-    }
-
-    fn interpret_as_string_in_enum(
-        &mut self,
-        _string_enum: Vec<&str>,
-    ) -> Self::ArgumentHint {
-        todo!()
-    }
-
-    fn non_negative_number(&mut self) -> Self::ArgumentHint {
-        todo!()
-    }
-
-    fn supported_argument_type(
-        &mut self,
-        _hint: ArgumentType,
-    ) -> Self::ArgumentHint {
-        todo!()
-    }
-
-    fn register_node(&mut self, _metadata: &Self::Metadata) {
-        todo!()
+    fn tensor_constraints(&self) -> &TensorConstraints {
+        return &self.tensor_constraints;
     }
 
     #[tracing::instrument(skip_all, level = "debug")]
-    fn graph_context_for_node(
+    fn run(
         &mut self,
-        node_id: &str,
-    ) -> Option<Self::GraphContext> {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get(node_id)?;
+        inputs: HashMap<&str, &Tensor>,
+    ) -> Result<HashMap<&str, Tensor>, Error> {
+        let inputs: Vec<WTensorParam> = inputs
+            .iter()
+            .map(|(&name, &t)| WTensorParam {
+                name,
+                element_type: t.element_type.into(),
+                dimensions: &t.dimensions,
+                buffer: &t.buffer,
+            })
+            .collect();
 
-        Some(node_id.to_string())
+        let mut result = ProcBlockV2::node_run(&self.pbv2, &self.node, &inputs)
+            .map_err(Error::from)?
+            .map_err(|x| anyhow!("Runtime Error: {:?}", x))?;
+
+        let mut extract_result = |name: &str| -> Option<Tensor> {
+            let t = result.iter_mut().find(|t| t.name == name);
+            match t {
+                Some(t) => {
+                    let t = std::mem::replace(t, WTensorResult{ name: String::new(), element_type: WElementType::U8, dimensions: Vec::new(), buffer: Vec::new() });
+                    Some(Tensor { element_type: t.element_type.into(), dimensions: t.dimensions, buffer: t.buffer })
+                },
+                None => None
+            }
+        };
+
+        // TODO: Make sure to check for errors when trying to extract_result
+        let outputs: Result<HashMap<&str, Tensor>, Error> =
+            self.tensor_constraints
+                .outputs
+                .iter()
+                .map(|(name, _)| -> Result<(&str, Tensor), Error> {
+                    let t = extract_result(name);
+                    match t {
+                        Some(t) => Ok((name.as_str(), t)),
+                        None => Err(anyhow!("Unable to find output tensor: {}", name))
+                    }
+                })
+                .collect();
+
+        Ok(outputs?)
     }
+}
 
-    #[tracing::instrument(skip(self, ctx), level = "debug")]
-    fn graph_context_get_argument(
-        &mut self,
-        ctx: &Self::GraphContext,
-        name: &str,
-    ) -> Option<String> {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get(ctx)
-            .and_then(|c| c.arguments.get(name).and_then(|v| Some(v.clone())))
-    }
-
-    #[tracing::instrument(skip(self, ctx), level = "debug")]
-    fn graph_context_add_input_tensor(
-        &mut self,
-        ctx: &Self::GraphContext,
-        name: &str,
-        element_type: ElementType,
-        dimensions: DimensionsParam<'_>,
-    ) {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get_mut(ctx)
-            .and_then(|c| {
-                c.input_tensors.insert(
-                    name.to_string(),
-                    TensorConstraint {
-                        tensor_id: None,
-                        element_type,
-                        dimensions: match dimensions {
-                            DimensionsParam::Dynamic => Dimensions::Dynamic,
-                            DimensionsParam::Fixed(shape) => Dimensions::Fixed(
-                                shape
-                                    .iter()
-                                    .map(|&i| i.get() as usize)
-                                    .collect(),
-                            ),
-                        },
-                    },
-                )
-            });
-    }
-
-    #[tracing::instrument(skip(self, ctx), level = "debug")]
-    fn graph_context_add_output_tensor(
-        &mut self,
-        ctx: &Self::GraphContext,
-        name: &str,
-        element_type: ElementType,
-        dimensions: DimensionsParam<'_>,
-    ) {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get_mut(ctx)
-            .and_then(|c| {
-                c.output_tensors.insert(
-                    name.to_string(),
-                    TensorConstraint {
-                        tensor_id: None,
-                        element_type,
-                        dimensions: match dimensions {
-                            DimensionsParam::Dynamic => Dimensions::Dynamic,
-                            DimensionsParam::Fixed(shape) => Dimensions::Fixed(
-                                shape
-                                    .iter()
-                                    .map(|&i| i.get() as usize)
-                                    .collect(),
-                            ),
-                        },
-                    },
-                )
-            });
-    }
-
+impl runtime_v2::RuntimeV2 for Runtime {
     #[tracing::instrument(skip_all, level = "debug")]
-    fn kernel_context_for_node(
-        &mut self,
-        node_id: &str,
-    ) -> Option<Self::KernelContext> {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get(node_id)?;
-        Some(node_id.to_string())
-    }
-
-    #[tracing::instrument(skip(self, ctx), level = "debug")]
-    fn kernel_context_get_argument(
-        &mut self,
-        ctx: &Self::KernelContext,
-        name: &str,
-    ) -> Option<String> {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .get(ctx)
-            .and_then(|c| c.arguments.get(name).and_then(|v| Some(v.clone())))
-    }
-
-    #[tracing::instrument(skip(self, ctx), level = "debug")]
-    fn kernel_context_get_input_tensor(
-        &mut self,
-        ctx: &Self::KernelContext,
-        name: &str,
-    ) -> Option<TensorResult> {
-        let state = self.shared_state.lock().unwrap();
-
-        let tensor_id = state
-            .graph_contexts
-            .get(ctx)
-            .and_then(|c| c.input_tensors.get(name).and_then(|v| v.tensor_id));
-
-        match tensor_id {
-            Some(i) => state.tensors[i].clone(),
-            _ => None,
-        }
-    }
-
-    #[tracing::instrument(skip(self, ctx, buffer), level = "debug")]
-    fn kernel_context_set_output_tensor(
-        &mut self,
-        ctx: &Self::KernelContext,
-        name: &str,
-        TensorParam {
-            element_type,
-            buffer,
-            dimensions,
-        }: TensorParam<'_>,
-    ) {
-        let mut state = self.shared_state.lock().unwrap();
-
-        let tensor_id = state
-            .graph_contexts
-            .get(ctx)
-            .and_then(|c| c.output_tensors.get(name).and_then(|v| v.tensor_id));
-
-        let dimensions = dimensions.iter().map(|&i| i.get() as u32).collect();
-
-        // Todo check tensor constraint
-
-        if tensor_id.is_some() {
-            state.tensors[tensor_id.unwrap()] = Some(TensorResult {
-                element_type,
-                buffer: buffer.to_vec(),
-                dimensions,
-            });
-        }
-    }
-
     fn is_enabled(&mut self, _metadata: LogMetadata) -> bool {
         true
+    }
+
+    fn abort(&mut self, msg: &str) {
+        panic!("Node panicked: {}", msg);
+    }
+
+    fn get_random(&mut self, buffer: &mut [u8]) {
+        buffer.iter_mut().for_each(|x| *x = rand::random::<u8>());
     }
 
     fn log(
@@ -468,7 +155,7 @@ impl runtime_v1::RuntimeV1 for Runtime {
             LogLevel::Debug => tracing::Level::DEBUG,
             LogLevel::Info => tracing::Level::INFO,
             LogLevel::Warn => tracing::Level::WARN,
-            LogLevel::Error | LogLevel::Fatal => tracing::Level::ERROR,
+            LogLevel::Error => tracing::Level::ERROR,
         };
 
         let LogMetadata {
@@ -492,46 +179,85 @@ impl runtime_v1::RuntimeV1 for Runtime {
             message,
         );
     }
+}
 
-    fn kernel_context_get_global_input(
-        &mut self,
-        _ctx: &Self::KernelContext,
-        _name: &str,
-    ) -> Option<TensorResult> {
-        todo!()
+impl From<WElementType> for ElementType {
+    fn from(w: WElementType) -> ElementType {
+        match w {
+            WElementType::U8 => ElementType::U8,
+            WElementType::I8 => ElementType::I8,
+            WElementType::U16 => ElementType::U16,
+            WElementType::I16 => ElementType::I16,
+            WElementType::U32 => ElementType::U32,
+            WElementType::I32 => ElementType::I32,
+            WElementType::F32 => ElementType::F32,
+            WElementType::U64 => ElementType::U64,
+            WElementType::I64 => ElementType::I64,
+            WElementType::F64 => ElementType::F64,
+            WElementType::Complex64 => ElementType::Complex64,
+            WElementType::Complex128 => ElementType::Complex128,
+            WElementType::Utf8 => ElementType::Utf8,
+        }
     }
+}
 
-    fn kernel_context_set_global_output(
-        &mut self,
-        _ctx: &Self::KernelContext,
-        _name: &str,
-        _tensor: TensorParam<'_>,
-    ) {
-        todo!()
+impl From<ElementType> for WElementType {
+    fn from(e: ElementType) -> WElementType {
+        match e {
+            ElementType::U8 => WElementType::U8,
+            ElementType::I8 => WElementType::I8,
+            ElementType::U16 => WElementType::U16,
+            ElementType::I16 => WElementType::I16,
+            ElementType::U32 => WElementType::U32,
+            ElementType::I32 => WElementType::I32,
+            ElementType::F32 => WElementType::F32,
+            ElementType::U64 => WElementType::U64,
+            ElementType::I64 => WElementType::I64,
+            ElementType::F64 => WElementType::F64,
+            ElementType::Complex64 => WElementType::Complex64,
+            ElementType::Complex128 => WElementType::Complex128,
+            ElementType::Utf8 => WElementType::Utf8,
+        }
     }
+}
 
-    fn model_load(
-        &mut self,
-        _: &str,
-        _: &[u8],
-        _: Vec<(&str, &str)>,
-    ) -> Result<Self::Model, ModelLoadError> {
-        todo!()
+impl From<&WElementTypeConstraint> for ElementTypeConstraint {
+    fn from(w: &WElementTypeConstraint) -> ElementTypeConstraint {
+        ElementTypeConstraint::from_bits_truncate(w.bits() as u32)
     }
+}
 
-    fn model_inputs(&mut self, _: &Self::Model) -> Vec<runtime_v1::Shape> {
-        todo!()
+impl From<&WDimensions> for DimensionsConstraint {
+    fn from(w: &WDimensions) -> DimensionsConstraint {
+        match w {
+            WDimensions::Dynamic => DimensionsConstraint::Dynamic,
+            WDimensions::Fixed(s) => DimensionsConstraint::Fixed(s.clone()),
+        }
     }
+}
 
-    fn model_outputs(&mut self, _: &Self::Model) -> Vec<runtime_v1::Shape> {
-        todo!()
+impl From<&WTensorConstraint> for TensorConstraint {
+    fn from(w: &WTensorConstraint) -> TensorConstraint {
+        TensorConstraint {
+            element_types: (&w.element_type).into(),
+            dimensions: (&w.dimensions).into(),
+        }
     }
+}
 
-    fn model_infer(
-        &mut self,
-        _: &Self::Model,
-        _: Vec<TensorParam<'_>>,
-    ) -> Result<Vec<TensorResult>, ModelInferError> {
-        todo!()
+impl From<WTensorConstraints> for TensorConstraints {
+    fn from(w: WTensorConstraints) -> TensorConstraints {
+        TensorConstraints {
+            inputs: w
+                .inputs
+                .iter()
+                .map(|x| (x.name.to_owned(), x.into()))
+                .collect(),
+            outputs: w
+                .outputs
+                .iter()
+                .map(|x| (x.name.to_owned(), x.into()))
+                .collect(),
+        }
     }
 }

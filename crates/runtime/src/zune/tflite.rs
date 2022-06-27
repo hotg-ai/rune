@@ -1,54 +1,39 @@
-use std::{
-    borrow::Cow,
-    collections::{HashSet},
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Cow, collections::HashMap};
 
-use indexmap::IndexMap;
-use anyhow::{Context, Error};
-use hotg_rune_compiler::parse::ModelStage;
+use anyhow::{anyhow, Context, Error};
 use hotg_rune_core::TFLITE_MIMETYPE;
 use hotg_runecoral::{
     AccelerationBackend, ElementType as RuneCoralElementType, InferenceContext,
     Tensor as RuneCoralTensor, TensorDescriptor as RuneCoralTensorDescriptor,
     TensorMut as RuneCoralTensorMut,
 };
+use indexmap::IndexMap;
 
 use crate::zune::{
-    get_buffer_size, key, proc_block::Dimensions, ElementType, GraphContext,
-    Node, State, TensorConstraint, TensorResult,
+    DimensionsConstraint, ElementType, ElementTypeConstraint, GraphNode,
+    Tensor, TensorConstraint, TensorConstraints,
 };
 
 pub(crate) struct ModelNode {
+    node_id: String,
     context: InferenceContext,
-    input_tensors: HashSet<usize>,
-    output_tensors: HashSet<usize>,
-    shared_state: Arc<Mutex<State>>,
+    tensor_constraints: TensorConstraints,
 }
 
-impl ModelNode {
-    #[tracing::instrument(
-        skip(
-            node_data,
-            model_data,
-            shared_state,
-            input_tensors,
-            output_tensors
-        ),
-        level = "debug"
-    )]
-    pub(crate) fn load(
+impl GraphNode for ModelNode {
+    #[tracing::instrument(skip(node_data), level = "debug")]
+    fn load(
         node_id: &str,
-        node_data: &ModelStage,
-        model_data: &[u8],
-        shared_state: &Arc<Mutex<State>>,
-        input_tensors: &IndexMap<String, usize>,
-        output_tensors: &IndexMap<String, usize>,
-    ) -> Result<ModelNode, Error> {
+        args: &HashMap<String, String>,
+        node_data: &[u8],
+    ) -> Result<Box<dyn GraphNode>, Error>
+    where
+        Self: Sized,
+    {
         // Create Inference Context
         let context = InferenceContext::create_context(
             TFLITE_MIMETYPE,
-            &model_data,
+            &node_data,
             AccelerationBackend::NONE,
         )
         .with_context(|| {
@@ -58,183 +43,155 @@ impl ModelNode {
             )
         })?;
 
-        let tensor_from_descriptor =
-            |t: &RuneCoralTensorDescriptor| -> TensorResult {
-                let element_type = get_element_type(t);
-                let dimensions = t.shape.iter().map(|&x| x as u32).collect();
-                let buffer_size = get_buffer_size(element_type, &dimensions);
+        let get_tensor_constraints =
+            |model_tensors: &mut dyn Iterator<
+                Item = RuneCoralTensorDescriptor,
+            >|
+             -> IndexMap<String, TensorConstraint> {
+                let mut result = IndexMap::new();
+                let mut i = 0;
 
-                TensorResult {
-                    element_type,
-                    dimensions,
-                    buffer: vec![0; buffer_size],
+                while let Some(model_tensor) = model_tensors.next() {
+                    // Not all tensors in the tensorflow models might have names.
+                    // In such cases, we give them our own names based on their index
+                    let tensor_name = model_tensor.name.to_str().ok();
+                    let tensor_name = match tensor_name {
+                        Some(tensor_name) if tensor_name.len() > 0 => {
+                            tensor_name.to_string()
+                        },
+                        _ => i.to_string(),
+                    };
+                    result.insert(
+                        tensor_name,
+                        TensorConstraint {
+                            element_types: get_element_type_constraint(
+                                &model_tensor.element_type,
+                            ),
+                            dimensions: DimensionsConstraint::Fixed(
+                                model_tensor
+                                    .shape
+                                    .iter()
+                                    .map(|&x| x as u32)
+                                    .collect(),
+                            ),
+                        },
+                    );
+                    i += 1;
                 }
+
+                result
             };
 
-        let tensor_constraint_from_descriptor =
-            |t: &RuneCoralTensorDescriptor,
-             tensor_id: usize|
-             -> TensorConstraint {
-                let element_type = get_element_type(t);
-                let dimensions = t.shape.iter().map(|&x| x as usize).collect();
-
-                TensorConstraint {
-                    tensor_id: Some(tensor_id),
-                    element_type,
-                    dimensions: Dimensions::Fixed(dimensions),
-                }
-            };
-
-        // Returns the list of tensor indices in the State's tensors
-        let allocate_tensors = |tensor_type: &str,
-                                model_tensors: &mut dyn Iterator<
-            Item = RuneCoralTensorDescriptor,
-        >,
-                                pipeline_tensors: &IndexMap<String, usize>|
-         -> Result<
-            (HashSet<usize>, IndexMap<String, TensorConstraint>),
-            Error,
-        > {
-            let mut tensor_indices: HashSet<usize> = HashSet::new();
-            let mut tensor_constraints: IndexMap<String, TensorConstraint> =
-                IndexMap::new();
-            let mut i = 0;
-            let mut s = shared_state.lock().unwrap();
-
-            while let Some(model_tensor) = model_tensors.next() {
-                let tensor_key = key(&node_id, Some(i));
-                let tensor_id =
-                    *pipeline_tensors.get(&tensor_key).with_context(|| {
-                        format!( "Unable to find pipeline_tensor for {tensor_type} tensor with key {tensor_key}")
-                    })?;
-
-                let tensor_name = model_tensor.name.to_str().ok();
-                let tensor_name = match tensor_name {
-                    Some(tensor_name) if tensor_name.len() > 0 => {
-                        tensor_name.to_string()
-                    },
-                    _ => i.to_string(),
-                };
-                let tensor_constraint =
-                    tensor_constraint_from_descriptor(&model_tensor, tensor_id);
-                let model_tensor = tensor_from_descriptor(&model_tensor);
-
-                match s.tensors[tensor_id] {
-                    Some(ref t)
-                        if t.dimensions != model_tensor.dimensions
-                            || t.element_type != model_tensor.element_type =>
-                    {
-                        anyhow::bail!(
-                            "Pipeline tensor for {} with key {} doesn't match \
-                             model tensor",
-                            &tensor_type,
-                            &tensor_key
-                        );
-                    },
-                    Some(_) => {},
-                    ref mut other => {
-                        *other = Some(model_tensor);
-                    },
-                }
-
-                tensor_indices.insert(tensor_id);
-                //FIXME: 2 tensors share same name (/empty name)
-                //then tensor_indices.len() != tensor_constraints.len()
-                tensor_constraints.insert(tensor_name, tensor_constraint);
-
-                i += 1;
-            }
-
-            Ok((tensor_indices, tensor_constraints))
+        let tensor_constraints = TensorConstraints {
+            inputs: get_tensor_constraints(&mut context.inputs()),
+            outputs: get_tensor_constraints(&mut context.outputs()),
         };
 
-        let (input_tensors, input_tensor_constraints) =
-            allocate_tensors("input", &mut context.inputs(), &input_tensors)?;
-
-        let (output_tensors, output_tensor_constraints) = allocate_tensors(
-            "output",
-            &mut context.outputs(),
-            &output_tensors,
-        )?;
-
-        let graph_context = GraphContext {
-            arguments: node_data
-                .args
-                .iter()
-                .map(|(k, v)| (k.clone(), v.to_string()))
-                .collect(),
-            input_tensors: input_tensor_constraints,
-            output_tensors: output_tensor_constraints,
-        };
-
-        shared_state
-            .lock()
-            .unwrap()
-            .graph_contexts
-            .insert(node_id.to_string(), graph_context);
-
-        Ok(ModelNode {
+        Ok(Box::new(ModelNode {
+            node_id: node_id.to_string(),
             context,
-            input_tensors,
-            output_tensors,
-            shared_state: shared_state.clone(),
-        })
+            tensor_constraints,
+        }))
     }
-}
 
-impl Node for ModelNode {
     #[tracing::instrument(skip_all, level = "debug")]
-    fn run(&mut self) -> Result<(), Error> {
-        // We are recreating the input_tensors and output_tensors every time
-        // before predict because wasm linear memory might have changed
-        // the locations TODO: There's an optimization that can happen
-        // here.. but just not yet
-        let mut inputs: Vec<RuneCoralTensor> = Vec::new();
-        let mut outputs: Vec<RuneCoralTensorMut> = Vec::new();
-        let mut state = self.shared_state.lock().unwrap();
+    fn node_id(&self) -> &str {
+        return &self.node_id;
+    }
 
-        state.tensors.iter_mut().enumerate().for_each(|(i, t)| {
-            if self.input_tensors.contains(&i) {
-                let pipeline_tensor = t.as_mut().unwrap();
+    #[tracing::instrument(skip_all, level = "debug")]
+    fn tensor_constraints(&self) -> &TensorConstraints {
+        return &self.tensor_constraints;
+    }
+
+    #[tracing::instrument(skip_all, level = "debug")]
+    fn run(
+        &mut self,
+        inputs: HashMap<&str, &Tensor>,
+    ) -> Result<HashMap<&str, Tensor>, Error> {
+        let runecoral_inputs: Result<Vec<RuneCoralTensor>, _> = self
+            .tensor_constraints
+            .inputs
+            .iter()
+            .map(|(name, _)| -> Result<RuneCoralTensor, anyhow::Error> {
+                let tensor = *inputs.get(name.as_str()).ok_or_else(|| {
+                    anyhow!("Unable to find input tensor: {}", name)
+                })?;
                 unsafe {
-                    inputs.push(RuneCoralTensor {
+                    Ok(RuneCoralTensor {
                         element_type: get_runecoral_element_type(
-                            &pipeline_tensor.element_type,
+                            &tensor.element_type,
                         ),
                         shape: Cow::Borrowed(std::slice::from_raw_parts(
-                            pipeline_tensor.dimensions.as_ptr() as *const i32,
-                            pipeline_tensor.dimensions.len(),
+                            tensor.dimensions.as_ptr() as *const i32,
+                            tensor.dimensions.len(),
                         )),
-                        buffer: &pipeline_tensor.buffer,
+                        buffer: &tensor.buffer,
                     })
                 }
-            } else if self.output_tensors.contains(&i) {
-                let pipeline_tensor = t.as_mut().unwrap();
-                unsafe {
-                    outputs.push(RuneCoralTensorMut {
-                        element_type: get_runecoral_element_type(
-                            &pipeline_tensor.element_type,
-                        ),
-                        shape: Cow::Borrowed(std::slice::from_raw_parts(
-                            pipeline_tensor.dimensions.as_ptr() as *const i32,
-                            pipeline_tensor.dimensions.len(),
-                        )),
-                        buffer: &mut pipeline_tensor.buffer,
-                    })
-                }
-            } else {
-                // Do nothing
-            }
-        });
+            })
+            .collect();
+        let runecoral_inputs = runecoral_inputs?;
+        let mut runecoral_outputs: Vec<RuneCoralTensorMut> = Vec::new();
 
         self.context
-            .infer(&inputs, &mut outputs)
-            .map_err(Error::from)
+            .infer(&runecoral_inputs, &mut runecoral_outputs)
+            .map_err(Error::from)?;
+
+        let result: Result<HashMap<&str, Tensor>, Error> = self
+            .tensor_constraints
+            .outputs
+            .iter()
+            .enumerate()
+            .map(
+                |(index, (name, _))| -> Result<(&str, Tensor), anyhow::Error> {
+                    let tensor =
+                        runecoral_outputs.get(index).ok_or_else(|| {
+                            anyhow!("Unable to find output tensor: {}", name)
+                        })?;
+                    Ok((
+                        name,
+                        Tensor {
+                            element_type: get_element_type(
+                                &tensor.element_type,
+                            ),
+                            dimensions: tensor
+                                .shape
+                                .iter()
+                                .map(|&x| x as u32)
+                                .collect(),
+                            buffer: tensor.buffer.to_owned(),
+                        },
+                    ))
+                },
+            )
+            .collect();
+
+        result
     }
 }
 
-fn get_element_type(t: &RuneCoralTensorDescriptor) -> ElementType {
-    match t.element_type {
+fn get_element_type_constraint(
+    t: &RuneCoralElementType,
+) -> ElementTypeConstraint {
+    match t {
+        RuneCoralElementType::UInt8 => ElementTypeConstraint::U8,
+        RuneCoralElementType::Int8 => ElementTypeConstraint::I8,
+        RuneCoralElementType::Int16 => ElementTypeConstraint::I16,
+        RuneCoralElementType::Int32 => ElementTypeConstraint::I32,
+        RuneCoralElementType::Float32 => ElementTypeConstraint::F32,
+        RuneCoralElementType::Int64 => ElementTypeConstraint::I64,
+        RuneCoralElementType::Float64 => ElementTypeConstraint::F64,
+        RuneCoralElementType::Complex64 => ElementTypeConstraint::COMPLEX_64,
+        RuneCoralElementType::Complex128 => ElementTypeConstraint::COMPLEX_128,
+        RuneCoralElementType::String => ElementTypeConstraint::UTF8,
+        // TODO: Implement support for all the element types
+        _ => ElementTypeConstraint::U8,
+    }
+}
+
+fn get_element_type(t: &RuneCoralElementType) -> ElementType {
+    match t {
         RuneCoralElementType::UInt8 => ElementType::U8,
         RuneCoralElementType::Int8 => ElementType::I8,
         RuneCoralElementType::Int16 => ElementType::I16,
@@ -242,6 +199,8 @@ fn get_element_type(t: &RuneCoralTensorDescriptor) -> ElementType {
         RuneCoralElementType::Float32 => ElementType::F32,
         RuneCoralElementType::Int64 => ElementType::I64,
         RuneCoralElementType::Float64 => ElementType::F64,
+        RuneCoralElementType::Complex64 => ElementType::Complex64,
+        RuneCoralElementType::Complex128 => ElementType::Complex128,
         RuneCoralElementType::String => ElementType::Utf8,
         // TODO: Implement support for all the element types
         _ => ElementType::U8,
@@ -257,6 +216,8 @@ fn get_runecoral_element_type(t: &ElementType) -> RuneCoralElementType {
         ElementType::F32 => RuneCoralElementType::Float32,
         ElementType::I64 => RuneCoralElementType::Int64,
         ElementType::F64 => RuneCoralElementType::Float64,
+        ElementType::Complex64 => RuneCoralElementType::Complex64,
+        ElementType::Complex128 => RuneCoralElementType::Complex128,
         ElementType::Utf8 => RuneCoralElementType::String,
         // TODO: Implement support for all the element types
         _ => RuneCoralElementType::NoType,
