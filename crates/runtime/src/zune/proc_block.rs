@@ -1,5 +1,4 @@
-use indexmap::IndexMap;
-use std::{collections::HashMap, ops::Index};
+use std::{collections::HashMap};
 
 use anyhow::{anyhow, Context, Error};
 use rand::random;
