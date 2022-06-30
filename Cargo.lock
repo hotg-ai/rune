@@ -1589,6 +1589,7 @@ version = "0.11.3"
 dependencies = [
  "anyhow",
  "bitflags",
+ "bytemuck",
  "csv",
  "hotg-rune-compiler 0.11.3",
  "hotg-rune-core 0.11.3",

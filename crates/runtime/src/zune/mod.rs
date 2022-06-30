@@ -17,24 +17,23 @@ mod tflite;
 
 #[derive(Debug, Default, Clone)]
 pub struct Tensor {
-    element_type: ElementType,
-    dimensions: Vec<u32>,
-    buffer: Vec<u8>,
+    pub element_type: ElementType,
+    pub dimensions: Vec<u32>,
+    pub buffer: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TensorConstraint {
-    element_types: ElementTypeConstraint,
-    dimensions: DimensionsConstraint,
+    pub element_types: ElementTypeConstraint,
+    pub dimensions: DimensionsConstraint,
 }
 
 #[derive(Debug, Clone)]
 pub struct TensorConstraints {
-    inputs: IndexMap<String, TensorConstraint>,
-    outputs: IndexMap<String, TensorConstraint>,
+    pub inputs: IndexMap<String, TensorConstraint>,
+    pub outputs: IndexMap<String, TensorConstraint>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum ElementType {
     U8,
@@ -54,7 +53,7 @@ pub enum ElementType {
 }
 
 bitflags! {
-    struct ElementTypeConstraint: u32 {
+    pub struct ElementTypeConstraint: u32 {
         const U8             = 1 << 0;
         const I8             = 1 << 1;
         const U16            = 1 << 2;
@@ -210,7 +209,7 @@ impl ZuneEngine {
             let _span =
                 tracing::debug_span!("Running Stage", %node_name).entered();
 
-            let mut tensors = &mut self.tensors;
+            let tensors = &mut self.tensors;
 
             let input_tensors: Result<HashMap<&str, &Tensor>, Error> =
                 self.input_tensor_mappings[node_name]
@@ -243,38 +242,6 @@ impl ZuneEngine {
 
     pub fn output_tensor_names(&self) -> &HashMap<String, HashSet<String>> {
         &self.output_tensor_names
-    }
-
-    // Just for compatibility with existing zune api
-    pub fn input_nodes(&self) -> Vec<String> {
-        self.input_tensor_names
-            .keys()
-            .map(|k| k.to_string())
-            .collect()
-    }
-
-    // Just for compatibility with existing zune api
-    pub fn input_tensor_names_of_node(
-        &self,
-        node_name: &str,
-    ) -> Option<&HashSet<String>> {
-        self.input_tensor_names.get(node_name)
-    }
-
-    // Just for compatibility with existing zune api
-    pub fn output_nodes(&self) -> Vec<String> {
-        self.output_tensor_names
-            .keys()
-            .map(|k| k.to_string())
-            .collect()
-    }
-
-    // Just for compatibility with existing zune api
-    pub fn output_tensor_names_of_node(
-        &self,
-        node_name: &str,
-    ) -> Option<&HashSet<String>> {
-        self.output_tensor_names.get(node_name)
     }
 
     pub fn dependent_nodes(&self, node_name: &str) -> Option<HashSet<String>> {
@@ -412,12 +379,12 @@ impl ZuneEngine {
     }
 }
 
-fn get_buffer_size(element_type: ElementType, dimensions: &Vec<u32>) -> usize {
-    (dimensions.iter().fold(1, |a, &b| a * b)
-        * get_bytes_per_element(element_type)) as usize
+fn get_buffer_size(element_type: ElementType, dimensions: &[u32]) -> usize {
+    let count: u32 = dimensions.iter().product();
+    (count as usize) * get_bytes_per_element(element_type)
 }
 
-fn get_bytes_per_element(element_type: ElementType) -> u32 {
+pub(crate) fn get_bytes_per_element(element_type: ElementType) -> usize {
     match element_type {
         ElementType::I16 => 2,
         ElementType::I32 | ElementType::F32 => 4,

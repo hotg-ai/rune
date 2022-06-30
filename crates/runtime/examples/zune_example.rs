@@ -1,10 +1,11 @@
 use anyhow::{Context, Error};
-use hotg_rune_runtime::zune::{ElementType, TensorResult, ZuneEngine};
+use hotg_rune_runtime::zune::{ElementType, Tensor, ZuneEngine};
 
 fn main() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
 
-    let filename = args.get(1).map(|s| s.as_str()).unwrap_or("/home/helios/Code/hotg/rune/crates/runtime/examples/sine.rune");
+    let default_example_path = format!("{}/../../examples/zune/sine.zune",env!("CARGO_MANIFEST_DIR"));
+    let filename = args.get(1).map(|s| s.as_str()).unwrap_or(&default_example_path);
 
     let sine_zune = std::fs::read(&filename)
         .with_context(|| format!("Unable to read \"{filename}\""))?;
@@ -12,47 +13,32 @@ fn main() -> Result<(), Error> {
     let mut zune_engine = ZuneEngine::load(&sine_zune)
         .context("Unable to initialize Zune Engine!")?;
 
-    println!("input nodes {:?}", zune_engine.input_nodes());
-    println!("output nodes {:?}", zune_engine.output_nodes());
+    println!("input tensors {:?}", zune_engine.input_tensor_names());
+    println!("output tensors {:?}", zune_engine.output_tensor_names());
     println!(
-        "input tensor names of rand => {:?}",
-        zune_engine.get_input_tensor_names("rand")
-    );
-    println!(
-        "input tensor names of sine => {:?}",
-        zune_engine.get_input_tensor_names("sine")
-    );
-    println!(
-        "output tensor names of sine => {:?}",
-        zune_engine.get_output_tensor_names("sine")
+        "input tensor constraint => {:?}",
+        zune_engine.get_input_tensor_constraint("mod360", "input")
     );
 
-    let input_tensor = TensorResult {
+    let input_tensor = Tensor {
         element_type: ElementType::F32,
         dimensions: vec![1, 1],
-        buffer: vec![0, 0, 0, 0],
+        buffer: 0.0_f32.to_ne_bytes().to_vec(),
     };
 
-    zune_engine.set_input_tensor("rand", "input", &input_tensor);
+    zune_engine.set_input_tensor("mod360", "input", &input_tensor)?;
 
     println!(
-        "input tensor rand => {:?}",
-        zune_engine.get_input_tensor("rand", "input")
+        "input tensor for mod360 => {:?}",
+        zune_engine.get_input_tensor("mod360", "input")
     );
 
-    zune_engine.run().context("Failed to run predict!")?;
+    zune_engine.run().context("Failed to run!")?;
 
     println!(
         "output tensor for sine: => {:?}",
         zune_engine.get_output_tensor("sine", "Identity")
     );
-
-    for node in zune_engine.output_nodes() {
-        let input_tensor_names = zune_engine.get_input_tensor_names(node)?;
-        for tensor_name in &input_tensor_names {
-            println!("Output {:?} {:?}: {:?}", node, tensor_name, zune_engine.get_input_tensor(node, tensor_name));
-        }
-    }
 
     Ok(())
 }

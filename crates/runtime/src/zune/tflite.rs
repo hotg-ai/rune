@@ -12,6 +12,7 @@ use indexmap::IndexMap;
 use crate::zune::{
     DimensionsConstraint, ElementType, ElementTypeConstraint, GraphNode,
     Tensor, TensorConstraint, TensorConstraints,
+    get_bytes_per_element
 };
 
 pub(crate) struct ModelNode {
@@ -117,22 +118,37 @@ impl GraphNode for ModelNode {
                 let tensor = *inputs.get(name.as_str()).ok_or_else(|| {
                     anyhow!("Unable to find input tensor: {}", name)
                 })?;
-                unsafe {
-                    Ok(RuneCoralTensor {
-                        element_type: get_runecoral_element_type(
-                            &tensor.element_type,
-                        ),
-                        shape: Cow::Borrowed(std::slice::from_raw_parts(
-                            tensor.dimensions.as_ptr() as *const i32,
-                            tensor.dimensions.len(),
-                        )),
-                        buffer: &tensor.buffer,
-                    })
+                Ok(RuneCoralTensor {
+                    element_type: get_runecoral_element_type(
+                        &tensor.element_type,
+                    ),
+                    shape: bytemuck::cast_slice(&tensor.dimensions).into(),
+                    buffer: &tensor.buffer,
+                })
+            })
+            .collect();
+
+        let runecoral_inputs = runecoral_inputs?;
+        let mut runecoral_output_buffers: Vec<_> = self.context
+            .outputs()
+            .map(|t| {
+                let element_type =
+                    get_element_type(&t.element_type);
+                let count: i32 = t.shape.iter().product();
+                let buffer_size =  (count as usize) * get_bytes_per_element(element_type);
+                (t.element_type, t.shape.into_owned(), vec![0; buffer_size])
+            })
+            .collect();
+
+        let mut runecoral_outputs: Vec<_> = runecoral_output_buffers.iter_mut()
+            .map(|(element_type, shape, buffer)| {
+                RuneCoralTensorMut {
+                    element_type: *element_type,
+                    shape: Cow::Borrowed(shape),
+                    buffer
                 }
             })
             .collect();
-        let runecoral_inputs = runecoral_inputs?;
-        let mut runecoral_outputs: Vec<RuneCoralTensorMut> = Vec::new();
 
         self.context
             .infer(&runecoral_inputs, &mut runecoral_outputs)

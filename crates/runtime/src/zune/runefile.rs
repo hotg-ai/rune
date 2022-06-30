@@ -63,6 +63,7 @@ impl Document {
     }
 
     // Input nodes are defined as nodes which rely on no other nodes
+    #[allow(dead_code)]
     pub fn get_input_nodes(&self) -> HashSet<String> {
         self.pipeline.iter()
             .filter_map(|(k, v)| if v.inputs.len() == 0 { Some(k.to_string()) } else { None })
