@@ -141,8 +141,6 @@ impl ZuneEngine {
             ))
         })?;
 
-        let input_nodes = runefile.get_input_nodes();
-        let output_nodes = runefile.get_output_nodes();
         let processing_order =
             runefile.get_processing_order().map_err(|e| {
                 LoadError::Other(anyhow!(
@@ -405,6 +403,9 @@ fn get_bytes_per_element(element_type: ElementType) -> u32 {
     }
 }
 
+// Allocate a global set of tensor_constraints
+// And the associated mappings,
+// Which map each tensor_constraint to nodes's inputs and outputs
 fn get_tensor_constraints(
     runefile: &runefile::Document,
     nodes: &HashMap<String, Box<dyn GraphNode>>,
@@ -522,6 +523,7 @@ fn get_tensor_constraints(
     ))
 }
 
+// Input tensors are those proc bloc tensors which aren't connected to other nodes' outputs
 fn get_input_tensors(
     runefile: &runefile::Document,
     nodes: &HashMap<String, Box<dyn GraphNode>>,
@@ -555,6 +557,7 @@ fn get_input_tensors(
     result
 }
 
+// Output tensors are those proc bloc tensors which aren't connected to any other nodes as inputs
 fn get_output_tensors(
     runefile: &runefile::Document,
     nodes: &HashMap<String, Box<dyn GraphNode>>,
