@@ -34,6 +34,7 @@ pub struct TensorConstraints {
     outputs: IndexMap<String, TensorConstraint>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum ElementType {
     U8,
@@ -78,15 +79,15 @@ pub enum DimensionsConstraint {
 
 pub struct ZuneEngine {
     runefile: runefile::Document,
-    input_nodes: HashSet<String>,
-    output_nodes: HashSet<String>,
+    input_tensor_names: HashMap<String, HashSet<String>>,
+    output_tensor_names: HashMap<String, HashSet<String>>,
     processing_order: Vec<String>,
 
     nodes: HashMap<String, Box<dyn GraphNode>>,
     tensors: HashMap<usize, Tensor>,
     tensor_constraints: HashMap<usize, TensorConstraint>,
-    input_tensor_mappings: HashMap<String, usize>,
-    output_tensor_mappings: HashMap<String, usize>, // resources not yet implemented
+    input_tensor_mappings: HashMap<String, HashMap<String, usize>>,
+    output_tensor_mappings: HashMap<String, HashMap<String, usize>>, // resources not yet implemented
 }
 
 pub(crate) trait GraphNode {
@@ -184,21 +185,18 @@ impl ZuneEngine {
         }
 
         let tensors = HashMap::new();
-        let (tensor_constraints, input_tensor_mappings, output_tensor_mappings) =
-            get_tensor_constraints(
-                &runefile,
-                &nodes,
-                &processing_order,
-                &input_nodes,
-                &output_nodes,
-            )?;
-
-        println!("Tensor constraints: {:?}", tensor_constraints);
+        let (
+            tensor_constraints,
+            input_tensor_names,
+            output_tensor_names,
+            input_tensor_mappings,
+            output_tensor_mappings,
+        ) = get_tensor_constraints(&runefile, &nodes, &processing_order)?;
 
         Ok(ZuneEngine {
             runefile,
-            input_nodes,
-            output_nodes,
+            input_tensor_names,
+            output_tensor_names,
             processing_order,
             nodes,
             tensors,
@@ -214,29 +212,48 @@ impl ZuneEngine {
             let _span =
                 tracing::debug_span!("Running Stage", %node_name).entered();
 
-            let node = self.nodes.get(node_name).unwrap();
+            let input_tensors: Result<HashMap<&str, &Tensor>, Error> =
+                self.input_tensor_mappings[node_name]
+                    .iter()
+                    .map(|(tensor_name, tensor_id)|
+                        Ok((tensor_name.as_str(), self.tensors
+                                             .get(tensor_id)
+                                             .ok_or_else(|| anyhow!("Tensor value not set: {node_name} {tensor_name}"))? )))
+                    .collect();
 
-            let input_tensors: Result<HashMap<&str, &Tensor>, Error> = node
-                .tensor_constraints()
-                .inputs
-                .iter()
-                .map(|(tensor_name, _)| -> Result<(&str, &Tensor), Error> {
-                    let tensor = self.get_input_tensor(node_name, tensor_name)?.ok_or_else(|| anyhow!("Input tensor not set: {node_name}.{tensor_name}"))?;
-                    Ok((tensor_name, tensor))
-                })
-                .collect();
+            let node = self.nodes.get_mut(node_name).unwrap();
 
-            let outputs = node.run(input_tensors?)?;
+            // let outputs = node.run(input_tensors?)?;
         }
         Ok(())
     }
 
-    pub fn input_nodes(&self) -> &HashSet<String> {
-        return &self.input_nodes;
+    pub fn input_tensor_names(&self) -> &HashMap<String, HashSet<String>> {
+        &self.input_tensor_names
     }
 
-    pub fn output_nodes(&self) -> &HashSet<String> {
-        return &self.output_nodes;
+    pub fn output_tensor_names(&self) -> &HashMap<String, HashSet<String>> {
+        &self.output_tensor_names
+    }
+
+    // Just for compatibility with existing zune api
+    pub fn input_nodes(&self) -> Vec<String> {
+        self.input_tensor_names.keys().map(|k| k.to_string()).collect()
+    }
+
+    // Just for compatibility with existing zune api
+    pub fn input_tensor_names_of_node(&self, node_name: &str) -> Option<&HashSet<String>> {
+        self.input_tensor_names.get(node_name)
+    }
+
+    // Just for compatibility with existing zune api
+    pub fn output_nodes(&self) -> Vec<String> {
+        self.output_tensor_names.keys().map(|k| k.to_string()).collect()
+    }
+
+    // Just for compatibility with existing zune api
+    pub fn output_tensor_names_of_node(&self, node_name: &str) -> Option<&HashSet<String>> {
+        self.output_tensor_names.get(node_name)
     }
 
     pub fn dependent_nodes(&self, node_name: &str) -> Option<HashSet<String>> {
@@ -319,13 +336,14 @@ impl ZuneEngine {
         &self,
         node_name: &str,
         tensor_name: &str,
-    ) -> Result<Option<&Tensor>, Error> {
-        let k = key(node_name, tensor_name);
+    ) -> Result<&Tensor, Error> {
         let tensor_id = self
             .input_tensor_mappings
-            .get(&k)
-            .ok_or_else(|| anyhow!("Tensor not found for {k}"))?;
-        Ok(self.get_tensor(tensor_id))
+            .get(node_name)
+            .ok_or_else(|| anyhow!("Node not found: {node_name}"))?
+            .get(tensor_name)
+            .ok_or_else(|| anyhow!("Tensor not found: {tensor_name}"))?;
+        Ok(self.get_tensor(tensor_id).unwrap())
     }
 
     pub fn set_input_tensor(
@@ -334,11 +352,12 @@ impl ZuneEngine {
         tensor_name: &str,
         tensor: &Tensor,
     ) -> Result<(), Error> {
-        let k = key(node_name, tensor_name);
         let tensor_id = self
             .input_tensor_mappings
-            .get(&k)
-            .ok_or_else(|| anyhow!("Tensor not found for {k}"))?;
+            .get(node_name)
+            .ok_or_else(|| anyhow!("Node not found: {node_name}"))?
+            .get(tensor_name)
+            .ok_or_else(|| anyhow!("Tensor not found: {tensor_name}"))?;
         self.set_tensor(*tensor_id, tensor)
     }
 
@@ -346,14 +365,14 @@ impl ZuneEngine {
         &mut self,
         node_name: &str,
         tensor_name: &str,
-    ) -> Option<&Tensor> {
+    ) -> Result<&Tensor, Error> {
         let tensor_id = self
             .output_tensor_mappings
-            .get(&key(node_name, tensor_name));
-        match tensor_id {
-            Some(id) => self.get_tensor(id),
-            None => None,
-        }
+            .get(node_name)
+            .ok_or_else(|| anyhow!("Node not found: {node_name}"))?
+            .get(tensor_name)
+            .ok_or_else(|| anyhow!("Tensor not found: {tensor_name}"))?;
+        Ok(self.get_tensor(tensor_id).unwrap())
     }
 
     pub fn set_output_tensor(
@@ -362,11 +381,12 @@ impl ZuneEngine {
         tensor_name: &str,
         tensor: &Tensor,
     ) -> Result<(), Error> {
-        let k = key(node_name, tensor_name);
         let tensor_id = self
             .output_tensor_mappings
-            .get(&k)
-            .ok_or_else(|| anyhow!("Tensor not found for {k}"))?;
+            .get(node_name)
+            .ok_or_else(|| anyhow!("Node not found: {node_name}"))?
+            .get(tensor_name)
+            .ok_or_else(|| anyhow!("Tensor not found: {tensor_name}"))?;
         self.set_tensor(*tensor_id, tensor)
     }
 }
@@ -385,128 +405,193 @@ fn get_bytes_per_element(element_type: ElementType) -> u32 {
     }
 }
 
-fn key(node_name: &str, tensor_name: &str) -> String {
-    format!("{}.{}", node_name, tensor_name)
-}
-
 fn get_tensor_constraints(
     runefile: &runefile::Document,
     nodes: &HashMap<String, Box<dyn GraphNode>>,
     processing_order: &Vec<String>,
-    input_nodes: &HashSet<String>,
-    output_nodes: &HashSet<String>,
 ) -> Result<
     (
         HashMap<usize, TensorConstraint>,
-        HashMap<String, usize>,
-        HashMap<String, usize>,
+        HashMap<String, HashSet<String>>,
+        HashMap<String, HashSet<String>>,
+        HashMap<String, HashMap<String, usize>>,
+        HashMap<String, HashMap<String, usize>>,
     ),
     Error,
 > {
-    let mut merged_tensor_constraints = HashMap::new();
-    let mut input_tensor_mappings: HashMap<String, usize> = HashMap::new();
-    let mut output_tensor_mappings: HashMap<String, usize> = HashMap::new();
+    let mut global_tensor_constraints = HashMap::new();
+    let mut input_tensor_mappings: HashMap<String, HashMap<String, usize>> =
+        HashMap::new();
+    let mut output_tensor_mappings: HashMap<String, HashMap<String, usize>> =
+        HashMap::new();
+    let global_input_tensors = get_input_tensors(runefile, nodes);
+    let global_output_tensors = get_output_tensors(runefile, nodes);
 
-    // First allocate all the output tensors and input tensors of input nodes
-    // TODO: Change the definition of input nodes/output nodes to accomodate for partially connected nodes?
-    for node in processing_order {
-        let tensor_constraints = nodes[node].tensor_constraints();
-
-        if input_nodes.contains(node.as_str()) {
-            for (tensor_name, tensor_constraint) in &tensor_constraints.inputs {
-                let tensor_id = merged_tensor_constraints.len();
-                let k = key(node, tensor_name);
-                merged_tensor_constraints
-                    .insert(tensor_id, tensor_constraint.clone());
-                input_tensor_mappings.insert(k, tensor_id);
-            }
+    let is_global_input_tensor = |node_name: &str, tensor_name: &str| -> bool {
+        let node = global_input_tensors.get(node_name);
+        match node {
+            Some(node) => node.contains(tensor_name),
+            None => false,
         }
-
-        for (tensor_name, tensor_constraint) in &tensor_constraints.outputs {
-            let tensor_id = merged_tensor_constraints.len();
-            let k = key(node, tensor_name);
-            merged_tensor_constraints
-                .insert(tensor_id, tensor_constraint.clone());
-            output_tensor_mappings.insert(k, tensor_id);
-        }
-
-        // TODO: Support reading runefiles where an input tensor is specified by a node alone.
-        // Like sine { input: mod360 } - Then simply take the first output and plug it in
-    }
-
-    let mut merge_constraints = |node: &str,
-                                 input_tensor: &str,
-                                 target_node: &str,
-                                 target_tensor: &str,
-                                 constraint: &TensorConstraint|
-     -> Result<(), Error> {
-        let output_tensor_key = key(target_node, target_tensor);
-        let &existing_constraint_index = output_tensor_mappings
-            .get(&output_tensor_key)
-            .ok_or_else(|| anyhow!("{node}.{input_tensor}'s target tensor not found: {target_node} {target_tensor} {output_tensor_key}"))?;
-        let existing_constraint =
-            merged_tensor_constraints[&existing_constraint_index].clone();
-        let element_types = ElementTypeConstraint::from_bits_truncate(
-            existing_constraint.element_types.bits()
-                & constraint.element_types.bits(),
-        );
-        let dimensions = match (&existing_constraint.dimensions, &constraint.dimensions) {
-            (DimensionsConstraint::Dynamic, DimensionsConstraint::Dynamic) => Ok(DimensionsConstraint::Dynamic),
-            (DimensionsConstraint::Fixed(t), DimensionsConstraint::Dynamic) => Ok(DimensionsConstraint::Fixed(t.clone())),
-            (DimensionsConstraint::Dynamic, DimensionsConstraint::Fixed(t)) => Ok(DimensionsConstraint::Fixed(t.clone())),
-            (DimensionsConstraint::Fixed(a), DimensionsConstraint::Fixed(b)) if a == b => Ok(DimensionsConstraint::Fixed(a.clone())),
-            _ => Err(anyhow!("{node}.{input_tensor}'s target {output_tensor_key} dimensions mismatch"))
-        }?;
-
-        input_tensor_mappings
-            .insert(key(node, input_tensor), existing_constraint_index);
-        merged_tensor_constraints.insert(
-            existing_constraint_index,
-            TensorConstraint {
-                element_types,
-                dimensions,
-            },
-        );
-
-        Ok(())
     };
 
-    // Then simply walk through all the nodes and merge the input constraints, of the
-    for node_name in processing_order {
-        if !input_nodes.contains(node_name.as_str()) {
-            let node_details = &runefile.pipeline[node_name];
-            let current_node_constraints =
-                &nodes[node_name].tensor_constraints().inputs;
+    // First allocate all the global input tensors
+    for (node_name, input_tensors) in global_input_tensors.iter() {
+        let mut tensors = HashMap::new();
 
-            for (input_name, target) in &node_details.inputs {
-                let current_input_constraint =
-                    current_node_constraints.get(input_name);
-                match current_input_constraint {
-                    Some(constraint) => {
-                        merge_constraints(
-                            node_name,
-                            input_name,
-                            &target.node,
-                            &target.tensor_name,
-                            constraint,
-                        )?;
-                    },
-                    None => {
-                        println!("{node_name} does not contain input tensor: {input_name}. Ignoring...");
-                    },
-                }
+        for tensor_name in input_tensors {
+            let tensor_id = global_tensor_constraints.len();
+            // No error checking because global_tensor_constraints already got tensor names from the same place
+            let input_tensor_constraints =
+                &nodes[node_name].tensor_constraints().inputs;
+            let tensor_constraint = &input_tensor_constraints[tensor_name];
+            global_tensor_constraints
+                .insert(tensor_id, tensor_constraint.clone());
+            tensors.insert(tensor_name.to_string(), tensor_id);
+        }
+        input_tensor_mappings.insert(node_name.to_string(), tensors);
+    }
+
+    // Then allocate all the output tensors of each nodes
+    for node in processing_order {
+        let tensor_constraints = nodes[node].tensor_constraints();
+        let mut output_tensors = HashMap::new();
+
+        for (tensor_name, tensor_constraint) in &tensor_constraints.outputs {
+            let tensor_id = global_tensor_constraints.len();
+            global_tensor_constraints
+                .insert(tensor_id, tensor_constraint.clone());
+            output_tensors.insert(tensor_name.to_string(), tensor_id);
+        }
+
+        output_tensor_mappings.insert(node.to_string(), output_tensors);
+    }
+
+    // Then simply walk through all the nodes and merge the input constraints, of each node with output tensor of the target
+    for node_name in processing_order {
+        let node_details = &runefile.pipeline[node_name];
+
+        if !input_tensor_mappings.contains_key(node_name) {
+            input_tensor_mappings.insert(node_name.to_string(), HashMap::new());
+        }
+
+        for (tensor_name, target) in &node_details.inputs {
+            if !is_global_input_tensor(&node_name, &tensor_name) {
+                let target_node = &target.node;
+                let target_tensor_name = &target.tensor_name;
+                let &target_tensor_index =
+                    output_tensor_mappings
+                        .get(&target.node)
+                        .ok_or_else(|| anyhow!("Invalid tensor mapping: {node_name}::{tensor_name} --> {target_node}.{target_tensor_name}: {target_node} doesnt exist"))?
+                        .get(&target.tensor_name)
+                        .ok_or_else(|| anyhow!("Invalid tensor mapping: {node_name}::{tensor_name} --> {target_node}.{target_tensor_name}: {target_tensor_name} doesnt exist"))?;
+
+                let target_constraint =
+                    &global_tensor_constraints[&target_tensor_index];
+
+                let current_tensor =
+                    nodes[node_name]
+                        .tensor_constraints()
+                        .inputs.get(tensor_name)
+                        .ok_or_else(|| anyhow!("Invalid tensor mapping: {node_name}::{tensor_name} --> {target_node}.{target_tensor_name}: {tensor_name} doesnt exist"))?;
+
+                let merged_tensor = target_constraint
+                    .merge(current_tensor)
+                    .with_context(|| anyhow!("Unable to merge constraints: {node_name}::{tensor_name} --> {target_node}.{target_tensor_name}"))?;
+
+                input_tensor_mappings
+                    .get_mut(node_name)
+                    .unwrap()
+                    .insert(tensor_name.to_string(), target_tensor_index);
+
+                global_tensor_constraints.insert(target_tensor_index, merged_tensor);
             }
         }
     }
 
     tracing::debug!("Input tensor mappings: {:?}", input_tensor_mappings);
     tracing::debug!("Output tensor mappings: {:?}", output_tensor_mappings);
+    tracing::debug!("Tensor constraints: {:?}", global_tensor_constraints);
 
     Ok((
-        merged_tensor_constraints,
+        global_tensor_constraints,
+        global_input_tensors,
+        global_output_tensors,
         input_tensor_mappings,
         output_tensor_mappings,
     ))
+}
+
+fn get_input_tensors(
+    runefile: &runefile::Document,
+    nodes: &HashMap<String, Box<dyn GraphNode>>,
+) -> HashMap<String, HashSet<String>> {
+    let mut result = HashMap::new();
+
+    for (node_name, node) in nodes {
+        let node_tensors: HashSet<String> = node
+            .tensor_constraints()
+            .inputs
+            .iter()
+            .map(|(tensor_name, _)| tensor_name.to_string())
+            .collect();
+
+        // No error checking here because we created nodes based on the pipeline and node_name will always be found
+        let mapped_tensors: HashSet<String> = runefile.pipeline[node_name]
+            .inputs
+            .iter()
+            .map(|(tensor_name, _)| tensor_name.to_string())
+            .collect();
+
+        let unmapped_tensors: HashSet<String> = node_tensors
+            .difference(&mapped_tensors)
+            .map(|x| x.to_string())
+            .collect();
+        if !unmapped_tensors.is_empty() {
+            result.insert(node_name.to_string(), unmapped_tensors);
+        }
+    }
+
+    result
+}
+
+fn get_output_tensors(
+    runefile: &runefile::Document,
+    nodes: &HashMap<String, Box<dyn GraphNode>>,
+) -> HashMap<String, HashSet<String>> {
+    let mut result: HashMap<String, HashSet<String>> = nodes
+        .iter()
+        .map(|(node_name, node)| {
+            (
+                node_name.to_string(),
+                node.tensor_constraints()
+                    .outputs
+                    .iter()
+                    .map(|(tensor_name, _)| tensor_name.to_string())
+                    .collect(),
+            )
+        })
+        .collect();
+
+    for (_node_name, node) in &runefile.pipeline {
+        for (_input_tensor_name, target) in &node.inputs {
+            result
+                .get_mut(&target.node)
+                .unwrap()
+                .remove(&target.tensor_name);
+        }
+    }
+
+    result
+        .iter()
+        .filter_map(|(node_name, outputs)| {
+            if outputs.is_empty() {
+                None
+            } else {
+                Some((node_name.to_string(), outputs.clone()))
+            }
+        })
+        .collect()
 }
 
 impl Default for ElementType {
@@ -516,21 +601,57 @@ impl Default for ElementType {
 }
 
 impl TensorConstraint {
+    fn merge(
+        &self,
+        other: &TensorConstraint,
+    ) -> Result<TensorConstraint, Error> {
+        let element_types = ElementTypeConstraint::from_bits_truncate(
+            self.element_types.bits() & other.element_types.bits(),
+        );
+
+        if element_types.is_empty() {
+            return Err(anyhow!("Incompatible element types: "));
+        }
+
+        let dimensions = match (&self.dimensions, &other.dimensions) {
+            (DimensionsConstraint::Dynamic, DimensionsConstraint::Dynamic) => {
+                Ok(DimensionsConstraint::Dynamic)
+            },
+            (DimensionsConstraint::Fixed(t), DimensionsConstraint::Dynamic) => {
+                Ok(DimensionsConstraint::Fixed(t.clone()))
+            },
+            (DimensionsConstraint::Dynamic, DimensionsConstraint::Fixed(t)) => {
+                Ok(DimensionsConstraint::Fixed(t.clone()))
+            },
+            (
+                DimensionsConstraint::Fixed(a),
+                DimensionsConstraint::Fixed(b),
+            ) if a == b => Ok(DimensionsConstraint::Fixed(a.clone())),
+            _ => Err(anyhow!(
+                "Dimensions mismatch {:?} vs. {:?}", self.dimensions, other.dimensions
+            )),
+        }?;
+
+        Ok(TensorConstraint {
+            element_types,
+            dimensions,
+        })
+    }
     fn is_satisfied(&self, tensor: &Tensor) -> Result<(), Error> {
-        let element_type_value = match (tensor.element_type) {
-            U8 => 1 << 0,
-            I8 => 1 << 1,
-            U16 => 1 << 2,
-            I16 => 1 << 3,
-            U32 => 1 << 4,
-            I32 => 1 << 5,
-            F32 => 1 << 6,
-            U64 => 1 << 7,
-            I64 => 1 << 8,
-            F64 => 1 << 9,
-            Complex64 => 1 << 10,
-            Complex128 => 1 << 11,
-            Utf8 => 1 << 12,
+        let element_type_value = match tensor.element_type {
+            ElementType::U8 => 1 << 0,
+            ElementType::I8 => 1 << 1,
+            ElementType::U16 => 1 << 2,
+            ElementType::I16 => 1 << 3,
+            ElementType::U32 => 1 << 4,
+            ElementType::I32 => 1 << 5,
+            ElementType::F32 => 1 << 6,
+            ElementType::U64 => 1 << 7,
+            ElementType::I64 => 1 << 8,
+            ElementType::F64 => 1 << 9,
+            ElementType::Complex64 => 1 << 10,
+            ElementType::Complex128 => 1 << 11,
+            ElementType::Utf8 => 1 << 12,
         };
 
         if self.element_types.bits() & element_type_value == 0 {
@@ -553,6 +674,7 @@ impl TensorConstraint {
 
         let expected_buffer_size =
             get_buffer_size(tensor.element_type, &tensor.dimensions);
+
         if expected_buffer_size != tensor.buffer.len() {
             return Err(anyhow!(
                 "Tensor Buffer size mismatch: Expecting {:?}. Received {:?}",
