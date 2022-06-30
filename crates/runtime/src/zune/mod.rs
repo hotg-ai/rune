@@ -210,18 +210,29 @@ impl ZuneEngine {
             let _span =
                 tracing::debug_span!("Running Stage", %node_name).entered();
 
+            let mut tensors = &mut self.tensors;
+
             let input_tensors: Result<HashMap<&str, &Tensor>, Error> =
                 self.input_tensor_mappings[node_name]
                     .iter()
                     .map(|(tensor_name, tensor_id)|
-                        Ok((tensor_name.as_str(), self.tensors
+                        Ok((tensor_name.as_str(), tensors
                                              .get(tensor_id)
                                              .ok_or_else(|| anyhow!("Tensor value not set: {node_name} {tensor_name}"))? )))
                     .collect();
 
             let node = self.nodes.get_mut(node_name).unwrap();
+            let outputs = node.run(input_tensors?)?;
 
-            // let outputs = node.run(input_tensors?)?;
+            for (tensor_name, tensor) in outputs {
+                let output_tensor_names =
+                    &self.output_tensor_mappings[node_name];
+                let tensor_id = &output_tensor_names[tensor_name];
+                let tensor_constraint = &self.tensor_constraints[tensor_id];
+
+                tensor_constraint.is_satisfied(&tensor).with_context(|| format!("Output tensor {node_name}::{tensor_name} doesn't satisfy the constraint") )?;
+                tensors.insert(*tensor_id, tensor);
+            }
         }
         Ok(())
     }
