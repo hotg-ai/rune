@@ -236,21 +236,33 @@ impl ZuneEngine {
 
     // Just for compatibility with existing zune api
     pub fn input_nodes(&self) -> Vec<String> {
-        self.input_tensor_names.keys().map(|k| k.to_string()).collect()
+        self.input_tensor_names
+            .keys()
+            .map(|k| k.to_string())
+            .collect()
     }
 
     // Just for compatibility with existing zune api
-    pub fn input_tensor_names_of_node(&self, node_name: &str) -> Option<&HashSet<String>> {
+    pub fn input_tensor_names_of_node(
+        &self,
+        node_name: &str,
+    ) -> Option<&HashSet<String>> {
         self.input_tensor_names.get(node_name)
     }
 
     // Just for compatibility with existing zune api
     pub fn output_nodes(&self) -> Vec<String> {
-        self.output_tensor_names.keys().map(|k| k.to_string()).collect()
+        self.output_tensor_names
+            .keys()
+            .map(|k| k.to_string())
+            .collect()
     }
 
     // Just for compatibility with existing zune api
-    pub fn output_tensor_names_of_node(&self, node_name: &str) -> Option<&HashSet<String>> {
+    pub fn output_tensor_names_of_node(
+        &self,
+        node_name: &str,
+    ) -> Option<&HashSet<String>> {
         self.output_tensor_names.get(node_name)
     }
 
@@ -505,7 +517,8 @@ fn get_tensor_constraints(
                     .unwrap()
                     .insert(tensor_name.to_string(), target_tensor_index);
 
-                global_tensor_constraints.insert(target_tensor_index, merged_tensor);
+                global_tensor_constraints
+                    .insert(target_tensor_index, merged_tensor);
             }
         }
     }
@@ -608,9 +621,7 @@ impl TensorConstraint {
         &self,
         other: &TensorConstraint,
     ) -> Result<TensorConstraint, Error> {
-        let element_types = ElementTypeConstraint::from_bits_truncate(
-            self.element_types.bits() & other.element_types.bits(),
-        );
+        let element_types = self.element_types & other.element_types;
 
         if element_types.is_empty() {
             return Err(anyhow!("Incompatible element types: "));
@@ -631,7 +642,9 @@ impl TensorConstraint {
                 DimensionsConstraint::Fixed(b),
             ) if a == b => Ok(DimensionsConstraint::Fixed(a.clone())),
             _ => Err(anyhow!(
-                "Dimensions mismatch {:?} vs. {:?}", self.dimensions, other.dimensions
+                "Dimensions mismatch {:?} vs. {:?}",
+                self.dimensions,
+                other.dimensions
             )),
         }?;
 
@@ -640,24 +653,12 @@ impl TensorConstraint {
             dimensions,
         })
     }
-    fn is_satisfied(&self, tensor: &Tensor) -> Result<(), Error> {
-        let element_type_value = match tensor.element_type {
-            ElementType::U8 => 1 << 0,
-            ElementType::I8 => 1 << 1,
-            ElementType::U16 => 1 << 2,
-            ElementType::I16 => 1 << 3,
-            ElementType::U32 => 1 << 4,
-            ElementType::I32 => 1 << 5,
-            ElementType::F32 => 1 << 6,
-            ElementType::U64 => 1 << 7,
-            ElementType::I64 => 1 << 8,
-            ElementType::F64 => 1 << 9,
-            ElementType::Complex64 => 1 << 10,
-            ElementType::Complex128 => 1 << 11,
-            ElementType::Utf8 => 1 << 12,
-        };
 
-        if self.element_types.bits() & element_type_value == 0 {
+    fn is_satisfied(&self, tensor: &Tensor) -> Result<(), Error> {
+        if (self.element_types
+            & ElementTypeConstraint::from(tensor.element_type))
+        .is_empty()
+        {
             return Err(anyhow!(
                 "Tensor Element type mismatch: Expecting {:?}. Received {:?}",
                 self.element_types,
@@ -687,5 +688,25 @@ impl TensorConstraint {
         }
 
         Ok(())
+    }
+}
+
+impl From<ElementType> for ElementTypeConstraint {
+    fn from(element_type: ElementType) -> Self {
+        match element_type {
+            ElementType::U8 => ElementTypeConstraint::U8,
+            ElementType::I8 => ElementTypeConstraint::I8,
+            ElementType::U16 => ElementTypeConstraint::U16,
+            ElementType::I16 => ElementTypeConstraint::I16,
+            ElementType::U32 => ElementTypeConstraint::U32,
+            ElementType::I32 => ElementTypeConstraint::I32,
+            ElementType::F32 => ElementTypeConstraint::F32,
+            ElementType::U64 => ElementTypeConstraint::U64,
+            ElementType::I64 => ElementTypeConstraint::I64,
+            ElementType::F64 => ElementTypeConstraint::F64,
+            ElementType::Complex64 => ElementTypeConstraint::COMPLEX_64,
+            ElementType::Complex128 => ElementTypeConstraint::COMPLEX_128,
+            ElementType::Utf8 => ElementTypeConstraint::UTF8,
+        }
     }
 }
