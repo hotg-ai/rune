@@ -1253,4 +1253,13 @@ pipeline:
             .validate(&number)
             .unwrap_or_else(|e| handle_errors(e));
     }
+
+        #[test]
+        fn parse_paths_containing_a_space() {
+            let path = "/path/to/folder/with a/space";
+
+            let got: Path = path.parse().unwrap();
+
+            assert_eq!(got, Path::FileSystem(path.to_string()));
+        }
 }
