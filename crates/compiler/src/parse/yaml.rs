@@ -21,7 +21,7 @@ use serde::{
     de::{Deserialize, Deserializer, Error as _},
     ser::{Serialize, Serializer},
 };
-use uriparse::{URIError, URI};
+use uriparse::{URIError, URI, PathError};
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -263,7 +263,7 @@ impl FromStr for Path {
 
         match URI::try_from(s) {
             Ok(u) => Ok(Path::Uri(u.into_owned())),
-            Err(URIError::NotURI) => Ok(Path::FileSystem(s.to_string())),
+            Err(URIError::NotURI) | Err(URIError::Path(PathError::InvalidCharacter)) => Ok(Path::FileSystem(s.to_string())),
             Err(e) => Err(e),
         }
     }
