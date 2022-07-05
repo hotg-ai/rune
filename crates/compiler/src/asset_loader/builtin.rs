@@ -1,6 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use graphql_client::{GraphQLQuery, Response};
+use percent_encoding::percent_decode_str;
 use reqwest::blocking::Client;
 use uriparse::{Scheme, URI};
 
@@ -49,7 +50,7 @@ impl Default for DefaultAssetLoader {
 }
 
 impl AssetLoader for DefaultAssetLoader {
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(skip_all, err, fields(uri = %uri))]
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         match uri.scheme() {
             Scheme::HTTP | Scheme::HTTPS => {
@@ -183,7 +184,8 @@ fn local_file(
     };
 
     for segment in uri.segments() {
-        path.push(segment.as_str());
+        let decoded = percent_decode_str(segment.as_str()).decode_utf8_lossy();
+        path.push(decoded.as_ref());
     }
 
     tracing::debug!(path = %path.display(), "Reading a file from disk");
@@ -199,5 +201,28 @@ impl From<reqwest::Error> for ReadError {
         } else {
             ReadError::other(e)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::*;
+
+    #[test]
+    fn read_file_with_a_percent_encoded_uri() {
+        let loader = DefaultAssetLoader::default();
+        let temp = tempdir().unwrap();
+        let file_name =
+            temp.path().join("folder").join("with a").join("space.txt");
+        std::fs::create_dir_all(file_name.parent().unwrap()).unwrap();
+        std::fs::write(&file_name, b"Hello, World!").unwrap();
+        let uri = crate::asset_loader::file_uri(&file_name).unwrap();
+        assert!(uri.to_string().contains("%20"));
+
+        let data = loader.read(&uri).unwrap();
+
+        assert_eq!(data, *b"Hello, World!");
     }
 }

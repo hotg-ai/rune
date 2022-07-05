@@ -96,9 +96,9 @@ impl serde::Serialize for Text {
 
 #[derive(
     Debug,
-    PartialEq,
     Eq,
     Hash,
+    PartialEq,
     PartialOrd,
     Ord,
     serde::Serialize,
@@ -157,6 +157,36 @@ impl<A> FromIterator<A> for Vector<A> {
 impl<A> AsRef<[A]> for Vector<A> {
     fn as_ref(&self) -> &[A] {
         self.0.as_ref()
+    }
+}
+
+impl<A: PartialEq> PartialEq<[A]> for Vector<A> {
+    fn eq(&self, other: &[A]) -> bool {
+        self.as_ref() == other
+    }
+}
+
+impl<A: PartialEq, const N: usize> PartialEq<[A; N]> for Vector<A> {
+    fn eq(&self, other: &[A; N]) -> bool {
+        self.as_ref() == other
+    }
+}
+
+impl<A: PartialEq> PartialEq<Vector<A>> for [A] {
+    fn eq(&self, other: &Vector<A>) -> bool {
+        other.eq(self)
+    }
+}
+
+impl<A: PartialEq, const N: usize> PartialEq<Vector<A>> for [A; N] {
+    fn eq(&self, other: &Vector<A>) -> bool {
+        other.as_ref() == &self[..]
+    }
+}
+
+impl<A: PartialEq, const N: usize> PartialEq<Vector<A>> for &'_ [A; N] {
+    fn eq(&self, other: &Vector<A>) -> bool {
+        other.as_ref() == &self[..]
     }
 }
 

@@ -1481,6 +1481,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
  "thiserror",
  "tracing",
  "tracing-subscriber",

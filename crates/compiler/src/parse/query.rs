@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use uriparse::{URIBuilder, URIError, URI};
+use uriparse::{URIError, URI};
 
 use crate::{
     asset_loader::AssetLoader,
@@ -285,42 +285,9 @@ fn path_to_uri(
             } = db.config();
             let full_path = current_directory.join(path);
 
-            file_uri(&full_path)
+            crate::asset_loader::file_uri(&full_path)
         },
     }
-}
-
-fn file_uri(path: &std::path::Path) -> Result<URI<'static>, URIError> {
-    let segments: Vec<_> = path
-        .components()
-        .filter_map(|segment| match segment {
-            std::path::Component::Normal(segment) => segment.to_str(),
-            std::path::Component::ParentDir => Some(".."),
-            std::path::Component::CurDir => None,
-            std::path::Component::Prefix(_) => None,
-            std::path::Component::RootDir => None,
-        })
-        .map(|s| {
-            percent_encoding::utf8_percent_encode(
-                &s,
-                percent_encoding::NON_ALPHANUMERIC,
-            )
-            .to_string()
-        })
-        .collect();
-
-    let mut joined = segments.join("/");
-    if path.is_absolute() {
-        joined.insert(0, '/');
-    }
-
-    let path = uriparse::Path::try_from(joined.as_str())?;
-    let mut builder = URIBuilder::new()
-        .with_scheme(uriparse::Scheme::File)
-        .with_path(path);
-    builder.try_authority(Some(""))?;
-
-    builder.build().map(|u| u.into_owned())
 }
 
 fn wapm_uri(w: WellKnownPath) -> URI<'static> {
@@ -334,22 +301,4 @@ fn wapm_uri(w: WellKnownPath) -> URI<'static> {
     };
 
     uri.try_into().expect("Should never fail")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
-    #[test]
-    fn convert_filename_with_space_to_uri() {
-        let path = PathBuf::from("/path/to/folder/with a/space");
-
-        let got = file_uri(&path).unwrap();
-
-        assert_eq!(
-            got,
-            URI::try_from("file:///path/to/folder/with%20a/space").unwrap()
-        );
-    }
 }

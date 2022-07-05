@@ -12,7 +12,7 @@ use std::{
 };
 
 use serde::Deserialize;
-use uriparse::{Scheme, URI};
+use uriparse::{Scheme, URIBuilder, URIError, URI};
 
 use crate::{im::Vector, Text};
 
@@ -112,7 +112,7 @@ impl<F> Cached<F> {
 }
 
 impl<F: AssetLoader> AssetLoader for Cached<F> {
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(skip_all, err, fields(uri = %uri))]
     fn read(&self, uri: &URI<'_>) -> Result<Vector<u8>, ReadError> {
         if let Some(cached_value) =
             self.cache.read().ok().and_then(|c| c.get(uri).cloned())
@@ -319,8 +319,45 @@ pub enum ParseWapmUriError {
     },
 }
 
+pub(crate) fn file_uri(
+    path: &std::path::Path,
+) -> Result<URI<'static>, URIError> {
+    let segments: Vec<_> = path
+        .components()
+        .filter_map(|segment| match segment {
+            std::path::Component::Normal(segment) => segment.to_str(),
+            std::path::Component::ParentDir => Some(".."),
+            std::path::Component::CurDir => None,
+            std::path::Component::Prefix(_) => None,
+            std::path::Component::RootDir => None,
+        })
+        .map(|s| {
+            percent_encoding::utf8_percent_encode(
+                &s,
+                percent_encoding::NON_ALPHANUMERIC,
+            )
+            .to_string()
+        })
+        .collect();
+
+    let mut joined = segments.join("/");
+    if path.is_absolute() {
+        joined.insert(0, '/');
+    }
+
+    let path = uriparse::Path::try_from(joined.as_str())?;
+    let mut builder = URIBuilder::new()
+        .with_scheme(uriparse::Scheme::File)
+        .with_path(path);
+    builder.try_authority(Some(""))?;
+
+    builder.build().map(|u| u.into_owned())
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     #[test]
@@ -397,5 +434,17 @@ mod tests {
             let round_tripped = parsed.to_string();
             assert_eq!(round_tripped, uri);
         }
+    }
+
+    #[test]
+    fn convert_filename_with_space_to_uri() {
+        let path = PathBuf::from("/path/to/folder/with a/space");
+
+        let got = file_uri(&path).unwrap();
+
+        assert_eq!(
+            got,
+            URI::try_from("file:///path/to/folder/with%20a/space").unwrap()
+        );
     }
 }
