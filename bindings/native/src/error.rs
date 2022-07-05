@@ -65,13 +65,17 @@ impl Error {
 }
 
 impl From<anyhow::Error> for Error {
-    fn from(e: anyhow::Error) -> Error { Error(e) }
+    fn from(e: anyhow::Error) -> Error {
+        Error(e)
+    }
 }
 
 impl Deref for Error {
     type Target = anyhow::Error;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// Create a new `Error` with the provided error message.

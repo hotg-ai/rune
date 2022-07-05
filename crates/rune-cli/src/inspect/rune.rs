@@ -193,7 +193,7 @@ impl Metadata {
                             meta.rune = Some(rune);
                         },
                         Err(e) => {
-                            log::warn!(
+                            tracing::warn!(
                                 "Unable to deserialize the Rune graph: {}",
                                 e
                             );
@@ -206,7 +206,7 @@ impl Metadata {
                             meta.version = Some(v);
                         },
                         Err(e) => {
-                            log::warn!(
+                            tracing::warn!(
                                 "Unable to deserialize the version: {}",
                                 e
                             );

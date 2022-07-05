@@ -11,4 +11,3 @@ examples/.DS_Store
 *.png
 tarpaulin-report.html
 .ipynb_checkpoints/
-build/

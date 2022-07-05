@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use codespan::Span;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -22,6 +21,7 @@ use serde::{
     de::{Deserialize, Deserializer, Error as _},
     ser::{Serialize, Serializer},
 };
+use uriparse::{PathError, URIError, URI};
 
 static RESOURCE_NAME_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\$[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
@@ -42,7 +42,9 @@ impl Document {
 }
 
 impl From<DocumentV1> for Document {
-    fn from(v1: DocumentV1) -> Self { Document::V1(v1) }
+    fn from(v1: DocumentV1) -> Self {
+        Document::V1(v1)
+    }
 }
 
 mod document_serde {
@@ -59,7 +61,9 @@ mod document_serde {
     }
 
     impl<T> Repr<T> {
-        fn new(version: usize, inner: T) -> Self { Repr { version, inner } }
+        fn new(version: usize, inner: T) -> Self {
+            Repr { version, inner }
+        }
     }
 
     impl Serialize for Document {
@@ -104,7 +108,9 @@ mod document_serde {
 macro_rules! impl_json_schema_via_regex {
     ($ty:ty, $pattern:expr, $docs:literal) => {
         impl JsonSchema for $ty {
-            fn schema_name() -> String { String::from(stringify!($ty)) }
+            fn schema_name() -> String {
+                String::from(stringify!($ty))
+            }
 
             fn json_schema(_: &mut SchemaGenerator) -> Schema {
                 let mut schema = SchemaObject {
@@ -130,6 +136,7 @@ macro_rules! impl_json_schema_via_regex {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -167,143 +174,17 @@ impl Document {
 impl FromStr for Document {
     type Err = serde_yaml::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> { Document::parse(s) }
-}
-
-/// A specification for finding a dependency.
-///
-/// The full syntax is `base@version#sub_path` where
-///
-/// - `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`
-///   or `https://github.com/hotg-ai/rune`)
-/// - `version` is an optional field specifying the version (e.g. as a git tag)
-/// - `sub_path` is an optional field which is useful when pointing to
-///   repositories with multiple relevant items because it lets you specify
-///   which directory the specified item is in.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Path {
-    pub base: String,
-    pub sub_path: Option<String>,
-    pub version: Option<String>,
-}
-
-impl_json_schema_via_regex!(
-    Path,
-    PATH_PATTERN,
-    r#"
-A specification for finding a dependency.
-
-The full syntax is `base@version#sub_path` where
-
-- `base` is a URL or the name of a repository on GitHub (e.g. `hotg-ai/rune`
-  or `https://github.com/hotg-ai/rune`)
-- `version` is an optional field specifying the version (e.g. as a git tag)
-- `sub_path` is an optional field which is useful when pointing to
-  repositories with multiple relevant items because it lets you specify
-  which directory the specified item is in.
-"#
-);
-
-impl Path {
-    pub fn new(
-        base: impl Into<String>,
-        sub_path: impl Into<Option<String>>,
-        version: impl Into<Option<String>>,
-    ) -> Self {
-        Path {
-            base: base.into(),
-            sub_path: sub_path.into(),
-            version: version.into(),
-        }
-    }
-}
-
-impl Display for Path {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Path {
-            base,
-            sub_path,
-            version,
-        } = self;
-
-        write!(f, "{}", base)?;
-        if let Some(version) = version {
-            write!(f, "@{}", version)?;
-        }
-        if let Some(sub) = sub_path {
-            write!(f, "#{}", sub)?;
-        }
-
-        Ok(())
-    }
-}
-
-static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r"(?x)
-        (?P<base>[\w\d:/_.-]+)
-        (?:@(?P<version>[\w\d./-]+))?
-        (?:\#(?P<sub_path>[\w\d._/-]+))?
-        ",
-    )
-    .unwrap()
-});
-
-impl FromStr for Path {
-    type Err = PathParseError;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let captures = PATH_PATTERN.captures(s).ok_or(PathParseError)?;
-
-        let base = captures["base"].to_string();
-        let version = captures.name("version").map(|m| m.as_str().to_string());
-        let sub_path =
-            captures.name("sub_path").map(|m| m.as_str().to_string());
-
-        Ok(Path {
-            base,
-            version,
-            sub_path,
-        })
+        Document::parse(s)
     }
 }
-
-impl Serialize for Path {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Path {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = Cow::<'de, str>::deserialize(deserializer)?;
-
-        s.parse().map_err(D::Error::custom)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub struct PathParseError;
-
-impl Display for PathParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Unable to parse the path")
-    }
-}
-
-impl std::error::Error for PathParseError {}
 
 /// A ML model which will be executed by the runtime.
 #[derive(
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -311,7 +192,7 @@ impl std::error::Error for PathParseError {}
 pub struct ModelStage {
     /// The model to use, or a resource which specifies the model to use.
     #[schemars(required)]
-    pub model: ResourceOrString,
+    pub model: Path,
     /// Tensors to use as input to this model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
@@ -327,6 +208,7 @@ pub struct ModelStage {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -344,11 +226,111 @@ pub struct ProcBlockStage {
     pub args: IndexMap<String, Argument>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Path {
+    WellKnown(WellKnownPath),
+    Uri(URI<'static>),
+    FileSystem(String),
+}
+
+impl Serialize for Path {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Path {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = Cow::<str>::deserialize(deserializer)?;
+
+        s.parse().map_err(D::Error::custom)
+    }
+}
+
+impl FromStr for Path {
+    type Err = URIError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(well_known) = s.parse() {
+            return Ok(Path::WellKnown(well_known));
+        }
+
+        match URI::try_from(s) {
+            Ok(u) => Ok(Path::Uri(u.into_owned())),
+            Err(URIError::NotURI)
+            | Err(URIError::Path(PathError::InvalidCharacter)) => {
+                Ok(Path::FileSystem(s.to_string()))
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Path::WellKnown(w) => w.fmt(f),
+            Path::Uri(u) => u.fmt(f),
+            Path::FileSystem(p) => p.fmt(f),
+        }
+    }
+}
+
+impl JsonSchema for Path {
+    fn schema_name() -> String {
+        String::from("Path")
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
+        gen.subschema_for::<String>()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum WellKnownPath {
+    Accel,
+    Image,
+    Raw,
+    Sound,
+}
+
+impl Display for WellKnownPath {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            WellKnownPath::Accel => "ACCEL".fmt(f),
+            WellKnownPath::Image => "IMAGE".fmt(f),
+            WellKnownPath::Raw => "RAW".fmt(f),
+            WellKnownPath::Sound => "SOUND".fmt(f),
+        }
+    }
+}
+
+impl FromStr for WellKnownPath {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ACCEL" | "accel" => Ok(WellKnownPath::Accel),
+            "IMAGE" | "image" => Ok(WellKnownPath::Image),
+            "RAW" | "raw" => Ok(WellKnownPath::Raw),
+            "SOUND" | "sound" => Ok(WellKnownPath::Sound),
+            _ => Err(()),
+        }
+    }
+}
+
 /// A stage which reads inputs from the runtime.
 #[derive(
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -356,7 +338,7 @@ pub struct ProcBlockStage {
 pub struct CapabilityStage {
     /// What type of capability to use ("IMAGE", "SOUND", etc.).
     #[schemars(required)]
-    pub capability: String,
+    pub capability: Path,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<Type>,
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -368,6 +350,7 @@ pub struct CapabilityStage {
     Debug,
     Clone,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -383,9 +366,7 @@ pub struct OutStage {
 }
 
 /// A stage in the Rune's pipeline.
-#[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, JsonSchema,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, JsonSchema)]
 #[serde(untagged, rename_all = "kebab-case")]
 pub enum Stage {
     Model(ModelStage),
@@ -430,11 +411,6 @@ impl Stage {
         }
     }
 
-    pub fn span(&self) -> Span {
-        // TODO: Get span from serde_yaml
-        Span::default()
-    }
-
     pub fn args(&self) -> &IndexMap<String, Argument> {
         match self {
             Stage::Model(m) => &m.args,
@@ -443,18 +419,64 @@ impl Stage {
             Stage::Out(out) => &out.args,
         }
     }
+
+    pub(crate) fn args_mut(&mut self) -> &mut IndexMap<String, Argument> {
+        match self {
+            Stage::Model(m) => &mut m.args,
+            Stage::ProcBlock(p) => &mut p.args,
+            Stage::Capability(c) => &mut c.args,
+            Stage::Out(out) => &mut out.args,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Stage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_yaml::Mapping::deserialize(deserializer)?;
+
+        if value.contains_key(&"capability".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::Capability)
+                .map_err(D::Error::custom);
+        }
+
+        if value.contains_key(&"proc-block".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::ProcBlock)
+                .map_err(D::Error::custom);
+        }
+
+        if value.contains_key(&"model".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::Model)
+                .map_err(D::Error::custom);
+        }
+
+        if value.contains_key(&"out".into()) {
+            return serde_yaml::from_value(serde_yaml::Value::Mapping(value))
+                .map(Stage::Out)
+                .map_err(D::Error::custom);
+        }
+
+        Err(D::Error::custom("The value didn't parse as a capability, model, proc-block, or output"))
+    }
 }
 
 /// Something that could be either a reference to a resource (`$resource`)
 /// or a plain string (`./path`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResourceOrString {
     Resource(ResourceName),
     String(String),
 }
 
 impl JsonSchema for ResourceOrString {
-    fn schema_name() -> std::string::String { "ResourceOrString".to_owned() }
+    fn schema_name() -> std::string::String {
+        "ResourceOrString".to_owned()
+    }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
         let resource_name = gen.subschema_for::<ResourceName>();
@@ -560,21 +582,27 @@ impl Display for ResourceOrString {
 }
 
 impl<S: Into<String>> From<S> for ResourceOrString {
-    fn from(s: S) -> Self { ResourceOrString::String(s.into()) }
+    fn from(s: S) -> Self {
+        ResourceOrString::String(s.into())
+    }
 }
 
 impl From<ResourceName> for ResourceOrString {
-    fn from(name: ResourceName) -> Self { ResourceOrString::Resource(name) }
+    fn from(name: ResourceName) -> Self {
+        ResourceOrString::Resource(name)
+    }
 }
 
 /// A newtype around [`ResourceOrString`] which is used in each stage's `args`
 /// dictionary.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct Argument(pub ResourceOrString);
 
 impl JsonSchema for Argument {
-    fn schema_name() -> std::string::String { "Argument".to_owned() }
+    fn schema_name() -> std::string::String {
+        "Argument".to_owned()
+    }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
         let number = gen.subschema_for::<serde_json::Number>();
@@ -587,13 +615,17 @@ impl JsonSchema for Argument {
 }
 
 impl<T: Into<ResourceOrString>> From<T> for Argument {
-    fn from(value: T) -> Self { Argument(value.into()) }
+    fn from(value: T) -> Self {
+        Argument(value.into())
+    }
 }
 
 impl Deref for Argument {
     type Target = ResourceOrString;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// The element type and dimensions for a particular tensor.
@@ -704,6 +736,7 @@ impl<'de> Deserialize<'de> for Input {
     Clone,
     Default,
     PartialEq,
+    Eq,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -718,19 +751,14 @@ pub struct ResourceDeclaration {
     pub ty: ResourceType,
 }
 
-impl ResourceDeclaration {
-    pub fn span(&self) -> Span {
-        // TODO: Get span from serde_yaml
-        Span::default()
-    }
-}
-
 /// How the resource should be treated inside the Rune.
 #[derive(
     Debug,
     Copy,
     Clone,
     PartialEq,
+    Eq,
+    Hash,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
@@ -744,7 +772,9 @@ pub enum ResourceType {
 }
 
 impl Default for ResourceType {
-    fn default() -> Self { ResourceType::String }
+    fn default() -> Self {
+        ResourceType::String
+    }
 }
 
 /// A reference to some [`ResourceDeclaration`]. It typically looks like
@@ -761,15 +791,10 @@ A reference to some [`ResourceDeclaration`]. It typically looks like
 "#
 );
 
-impl ResourceName {
-    pub fn span(&self) -> Span {
-        // TODO: Get span from serde_yaml
-        Span::default()
-    }
-}
-
 impl<S: Into<String>> From<S> for ResourceName {
-    fn from(s: S) -> Self { ResourceName(s.into()) }
+    fn from(s: S) -> Self {
+        ResourceName(s.into())
+    }
 }
 
 impl FromStr for ResourceName {
@@ -791,7 +816,9 @@ impl FromStr for ResourceName {
 impl Deref for ResourceName {
     type Target = String;
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl Serialize for ResourceName {
@@ -839,18 +866,32 @@ impl Display for ResourceName {
     Debug,
     Clone,
     PartialEq,
+    Eq,
+    Hash,
     serde::Serialize,
     serde::Deserialize,
     schemars::JsonSchema,
 )]
 #[schemars(transparent)]
-pub struct Image(pub Path);
+pub struct Image(String);
+
+impl Image {
+    pub fn runicos_base() -> Self {
+        Image(String::from("runicos/base"))
+    }
+}
 
 impl FromStr for Image {
-    type Err = PathParseError;
+    type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Path::from_str(s).map(Image)
+        Ok(Image(s.to_string()))
+    }
+}
+
+impl Display for Image {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -859,6 +900,38 @@ mod tests {
     use jsonschema::JSONSchema;
 
     use super::*;
+
+    #[cfg(test)]
+    macro_rules! map {
+        // map-like
+        ($($k:ident : $v:expr),* $(,)?) => {
+            std::iter::Iterator::collect(IntoIterator::into_iter([
+                $(
+                    (String::from(stringify!($k)), $v)
+                ),*
+            ]))
+        };
+        // set-like
+        ($($v:expr),* $(,)?) => {
+            std::iter::Iterator::collect(std::array::IntoIter::new([$($v,)*]))
+        };
+    }
+
+    #[cfg(test)]
+    macro_rules! ty {
+        ($type:ident [$($dim:expr),*]) => {
+            crate::parse::Type {
+                name: String::from(stringify!($type)),
+                dimensions: vec![ $($dim),*],
+            }
+        };
+        ($type:ident) => {
+            crate::parse::Type {
+                name: String::from(stringify!($type)),
+                dimensions: vec![],
+            }
+        }
+    }
 
     #[test]
     fn parse_normal_input_specifier() {
@@ -880,59 +953,6 @@ mod tests {
 
         assert_eq!(got, should_be);
         assert_eq!(got.to_string(), src);
-    }
-
-    #[test]
-    fn parse_paths() {
-        let inputs = vec![
-            ("asdf", Path::new("asdf", None, None)),
-            ("runicos/base", Path::new("runicos/base", None, None)),
-            (
-                "runicos/base@0.1.2",
-                Path::new("runicos/base", None, Some(String::from("0.1.2"))),
-            ),
-            (
-                "runicos/base@latest",
-                Path::new("runicos/base", None, Some(String::from("latest"))),
-            ),
-            (
-                "https://github.com/hotg-ai/rune",
-                Path::new("https://github.com/hotg-ai/rune", None, None),
-            ),
-            (
-                "https://github.com/hotg-ai/rune@2",
-                Path::new(
-                    "https://github.com/hotg-ai/rune",
-                    None,
-                    Some(String::from("2")),
-                ),
-            ),
-            (
-                "hotg-ai/rune@v1.2#proc_blocks/normalize",
-                Path::new(
-                    "hotg-ai/rune",
-                    "proc_blocks/normalize".to_string(),
-                    "v1.2".to_string(),
-                ),
-            ),
-            // Note: GitHub provides these refs that you can use as well as the
-            // normal tags and commits
-            (
-                "hotg-ai/proc-blocks@refs/heads/master#normalize",
-                Path::new(
-                    "hotg-ai/proc-blocks",
-                    "normalize".to_string(),
-                    "refs/heads/master".to_string(),
-                ),
-            ),
-        ];
-
-        for (src, should_be) in inputs {
-            let got: Path = src.parse().unwrap();
-            assert_eq!(got, should_be, "{}", src);
-            let round_tripped = got.to_string();
-            assert_eq!(round_tripped, src);
-        }
     }
 
     #[test]
@@ -1082,7 +1102,7 @@ pipeline:
       hz: 16000
 
   fft:
-    proc-block: "hotg-ai/rune#proc_blocks/fft"
+    proc-block: "git://github.com/hotg-ai/rune#proc_blocks/fft"
     inputs:
     - audio
     outputs:
@@ -1098,7 +1118,7 @@ pipeline:
       dimensions: [6]
 
   label:
-    proc-block: "hotg-ai/rune#proc_blocks/ohv_label"
+    proc-block: "git://github.com/hotg-ai/rune#proc_blocks/ohv_label?tag=v0.11.3"
     inputs:
     - model
     outputs:
@@ -1122,24 +1142,24 @@ pipeline:
             image: "runicos/base".parse().unwrap(),
             pipeline: map! {
                 audio: Stage::Capability(CapabilityStage {
-                    capability: String::from("SOUND"),
+                    capability: Path::WellKnown(WellKnownPath::Sound),
                     outputs: vec![ty!(i16[16000])],
                     args: map! { hz: "16000".into() },
                 }),
                 fft: Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
+                    proc_block: "git://github.com/hotg-ai/rune#proc_blocks/fft".parse().unwrap(),
                     inputs: vec!["audio".parse().unwrap()],
                     outputs: vec![ty!(i8[1960])],
                     args: IndexMap::new(),
                 }),
                 model: Stage::Model(ModelStage {
-                    model: "./model.tflite".into(),
+                    model: "./model.tflite".parse().unwrap(),
                     inputs: vec!["fft".parse().unwrap()],
                     outputs: vec![ty!(i8[6])],
                     args: IndexMap::new(),
                 }),
                 label: Stage::ProcBlock(ProcBlockStage {
-                    proc_block: "hotg-ai/rune#proc_blocks/ohv_label".parse().unwrap(),
+                    proc_block: "git://github.com/hotg-ai/rune#proc_blocks/ohv_label?tag=v0.11.3".parse().unwrap(),
                     inputs: vec!["model".parse().unwrap()],
                     outputs: vec![Type { name: String::from("utf8"), dimensions: Vec::new() }],
                     args: map! {
@@ -1171,7 +1191,7 @@ pipeline:
                 hz: 16000
         "#;
         let should_be = Stage::Capability(CapabilityStage {
-            capability: String::from("SOUND"),
+            capability: Path::WellKnown(WellKnownPath::Sound),
             outputs: vec![Type {
                 name: String::from("i16"),
                 dimensions: vec![16000],
@@ -1186,18 +1206,21 @@ pipeline:
 
     #[test]
     fn schema_is_in_sync_with_version_on_disk() {
-        let existing_schema = include_str!("../../runefile-schema.json");
-        let should_be: serde_json::Value =
-            serde_json::from_str(existing_schema).unwrap();
+        let filename = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("runefile-schema.json");
+        let existing_schema = std::fs::read_to_string(&filename).unwrap();
+        let existing_schema: serde_json::Value =
+            serde_json::from_str(&existing_schema).unwrap();
 
         let schema = schemars::schema_for!(Document);
+        let current_schema = serde_json::to_value(&schema).unwrap();
 
-        let schema = serde_json::to_value(&schema).unwrap();
-        assert_eq!(
-            should_be, schema,
-            "The schema is out of sync. You probably need to run \"cargo \
-             xtask update-schema\"",
-        );
+        if existing_schema != current_schema {
+            let serialized =
+                serde_json::to_string_pretty(&current_schema).unwrap();
+            std::fs::write(&filename, serialized.as_bytes()).unwrap();
+            panic!("The runefile-schema.json was out of date");
+        }
     }
 
     #[track_caller]
@@ -1232,5 +1255,14 @@ pipeline:
         compiled_schema
             .validate(&number)
             .unwrap_or_else(|e| handle_errors(e));
+    }
+
+    #[test]
+    fn parse_paths_containing_a_space() {
+        let path = "/path/to/folder/with a/space";
+
+        let got: Path = path.parse().unwrap();
+
+        assert_eq!(got, Path::FileSystem(path.to_string()));
     }
 }

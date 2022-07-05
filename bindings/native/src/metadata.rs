@@ -13,7 +13,9 @@ pub struct Metadata(Vec<Node>);
 impl std::ops::Deref for Metadata {
     type Target = [Node];
 
-    fn deref(&self) -> &Self::Target { &self.0 }
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl From<&'_ HashMap<u32, NodeMetadata>> for Metadata {

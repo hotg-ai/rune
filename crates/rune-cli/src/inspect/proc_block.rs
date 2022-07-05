@@ -12,11 +12,11 @@ use hotg_rune_proc_blocks::{
 use crate::{inspect::wasm_custom_sections, Format};
 
 pub fn inspect(format: Format, proc_block_dir: &Path) -> Result<(), Error> {
-    log::info!("Inspecting \"{}\"", proc_block_dir.display());
+    tracing::info!("Inspecting \"{}\"", proc_block_dir.display());
 
     let dest = cache_dir(proc_block_dir);
 
-    log::debug!("Writing probe to \"{}\"", dest.display());
+    tracing::debug!("Writing probe to \"{}\"", dest.display());
 
     generate_project(&dest, proc_block_dir)
         .context("Unable to generate the probe project")?;
@@ -27,7 +27,7 @@ pub fn inspect(format: Format, proc_block_dir: &Path) -> Result<(), Error> {
         .arg("wasm32-unknown-unknown")
         .current_dir(&dest);
 
-    log::debug!("Executing {:?}", cmd);
+    tracing::debug!("Executing {:?}", cmd);
 
     let status = cmd
         .status()
@@ -45,7 +45,7 @@ pub fn inspect(format: Format, proc_block_dir: &Path) -> Result<(), Error> {
     let wasm = std::fs::read(&binary)
         .with_context(|| format!("Unable to read \"{}\"", binary.display()))?;
 
-    log::debug!("Read {} bytes from \"{}\"", wasm.len(), binary.display());
+    tracing::debug!("Read {} bytes from \"{}\"", wasm.len(), binary.display());
 
     let sections = wasm_custom_sections(&wasm)
         .context("Unable to parse the WebAssembly module")?;
@@ -168,11 +168,6 @@ fn generate_project(dest: &PathBuf, filename: &Path) -> Result<(), Error> {
 
     let name = name.replace("-", "_");
     write(dest.join("lib.rs"), LIB_RS_TEMPLATE.replace("$NAME", &name))?;
-
-    write(
-        dest.join("rust-toolchain.toml"),
-        hotg_rune_compiler::rust_toolchain().to_string(),
-    )?;
 
     Ok(())
 }

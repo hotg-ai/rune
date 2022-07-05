@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use structopt::StructOpt;
 use strum::VariantNames;
+use std::ffi::OsStr;
 
 #[derive(Debug, Clone, PartialEq, StructOpt)]
 pub struct Run {
@@ -70,11 +71,15 @@ pub struct Run {
 
 impl Run {
     pub fn execute(self) -> Result<(), Error> {
-        log::info!("Running rune: {}", self.rune.display());
+        tracing::info!("Running rune: {}", self.rune.display());
 
         let rune = std::fs::read(&self.rune).with_context(|| {
             format!("Unable to read \"{}\"", self.rune.display())
         })?;
+
+        // if self.rune.extension().unwrap_or(OsStr::new("")).to_ascii_lowercase() == "zune" {
+        //     self.engine = Engine::Zune;
+        // }
 
         let mut runtime: Runtime = self
             .load_runtime(&rune)
@@ -83,7 +88,7 @@ impl Run {
         self.load_resources(runtime.resources())?;
 
         let caps = runtime.capabilities().clone();
-        log::debug!("Loading capabilities {:?}", caps);
+        tracing::debug!("Loading capabilities {:?}", caps);
         runtime.input_tensors().extend(self.load_inputs(caps)?);
 
         runtime.predict().context("Prediction failed")?;
@@ -104,7 +109,7 @@ impl Run {
         let mut inputs = HashMap::new();
 
         for (id, metadata) in caps {
-            log::debug!("Loading {:?}", metadata);
+            tracing::debug!("Loading {:?}", metadata);
             let NodeMetadata {
                 kind, arguments, ..
             } = metadata;
@@ -171,7 +176,7 @@ impl Run {
     ) -> Result<Runtime, LoadError> {
         match self.engine {
             Engine::Wasm3 => Runtime::wasm3(rune),
-            Engine::Wasmer => Runtime::wasmer(rune),
+            Engine::Wasmer => Runtime::wasmer(rune)
         }
     }
 
@@ -251,5 +256,5 @@ fn parse_key_value_pair(s: &str) -> Result<(&str, &str), Error> {
 #[strum(serialize_all = "kebab-case")]
 enum Engine {
     Wasm3,
-    Wasmer,
+    Wasmer
 }

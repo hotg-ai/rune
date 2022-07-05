@@ -25,7 +25,9 @@ pub fn project_root() -> PathBuf {
         .to_path_buf()
 }
 
-pub fn example_dir() -> PathBuf { project_root().join("examples") }
+pub fn example_dir() -> PathBuf {
+    project_root().join("examples")
+}
 
 fn load_rune(path: PathBuf) -> Vec<u8> {
     std::fs::read(&path)

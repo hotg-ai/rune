@@ -42,6 +42,8 @@ fn main() -> Result<(), Error> {
         .context("Unable to generate the project")?;
     run_build_script(&ctx).context("Unable to run the build script")?;
 
+    tracing::info!("Integration test passed ✅");
+
     Ok(())
 }
 
@@ -148,7 +150,7 @@ struct Context {
 }
 
 impl Context {
-    #[tracing::instrument("loading_context")]
+    #[tracing::instrument("loading_native_context")]
     fn from_env() -> Result<Self, Error> {
         let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let workspace_root = crate_dir
@@ -174,7 +176,9 @@ impl Context {
         })
     }
 
-    fn build_script(&self) -> PathBuf { self.build_dir.join("build.sh") }
+    fn build_script(&self) -> PathBuf {
+        self.build_dir.join("build.sh")
+    }
 }
 
 #[tracing::instrument(skip(ctx, parsed))]
