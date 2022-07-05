@@ -1471,6 +1471,7 @@ dependencies = [
  "insta",
  "jsonschema",
  "once_cell",
+ "percent-encoding 2.1.0",
  "pretty_assertions 1.2.1",
  "queryst",
  "regex 1.5.6",

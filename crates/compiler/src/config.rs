@@ -8,6 +8,16 @@ pub struct BuildConfig {
     pub features: FeatureFlags,
 }
 
+impl Default for BuildConfig {
+    fn default() -> Self {
+        Self {
+            current_directory: std::env::current_dir()
+                .expect("Unable to determine the current directory"),
+            features: FeatureFlags::stable(),
+        }
+    }
+}
+
 /// Flags used by the Rune compiler to enable features.
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
